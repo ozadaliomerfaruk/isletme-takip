@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import {
   View,
   StyleSheet,
@@ -12,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TrendingUp, TrendingDown, Package } from 'lucide-react-native';
-import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
@@ -24,6 +25,7 @@ import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriDuzenlePage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -100,23 +102,23 @@ export default function KategoriDuzenlePage() {
 
   if (!kategori) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -297,7 +299,7 @@ export default function KategoriDuzenlePage() {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

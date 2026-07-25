@@ -1,16 +1,19 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
 export default function GizlilikPolitikasiPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation('legal');
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <Screen>
+      <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text variant="h3" style={styles.title}>
             {t('privacy.title')}
@@ -179,7 +182,7 @@ export default function GizlilikPolitikasiPage() {
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack } from 'expo-router';
@@ -15,7 +16,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, Card } from '@/components/ui';
+import { Text, Button, Card, Screen } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
@@ -50,6 +51,7 @@ const SOURCE_META: Record<string, { icon: LucideIcon; color: string }> = {
  * tıklanınca açılır.
  */
 export default function HesapRaporDetayPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   const { t } = useTranslation(['reports', 'transactions', 'common']);
   const { formatDateMedium } = useDateFormat();
@@ -223,7 +225,7 @@ export default function HesapRaporDetayPage() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <Stack.Screen options={{ title: hesapName, headerBackVisible: true, gestureEnabled: true }} />
 
       {isLoading ? (
@@ -243,7 +245,7 @@ export default function HesapRaporDetayPage() {
           keyExtractor={(i) => i.id}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           refreshControl={
             <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} tintColor={colors.primary} />
           }
@@ -264,7 +266,7 @@ export default function HesapRaporDetayPage() {
         isScheduledTransaction={false}
         onSuccess={handleEditDismiss}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 

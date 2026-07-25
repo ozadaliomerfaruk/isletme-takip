@@ -1,10 +1,11 @@
 import { useState, useMemo, type ReactNode } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Trash2, Pencil, Calendar, Users, Wallet, Tag, User, FileText, Info } from 'lucide-react-native';
 import { Stack } from 'expo-router';
-import { Text, Card } from '@/components/ui';
+import { Text, Card, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDeletedIslemler, useEditedIslemler } from '@/hooks/useAuditLog';
@@ -28,6 +29,7 @@ const MODULE_FILTERS: { key: ModuleFilterKey; labelKey: string }[] = [
 ];
 
 export default function IslemGecmisiPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['multiUser', 'common', 'transactions']);
   const { formatDateNative } = useDateFormat();
   const { currency } = useSettings();
@@ -160,7 +162,7 @@ export default function IslemGecmisiPage() {
           headerShadowVisible: false,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
       {/* Bilgilendirme */}
       <View style={styles.infoBanner}>
         <Info size={15} color={colors.textMuted} />
@@ -202,7 +204,7 @@ export default function IslemGecmisiPage() {
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.chipScroll}
-        contentContainerStyle={styles.chipRow}
+        contentContainerStyle={[styles.chipRow, { paddingBottom: contentPaddingBottom }]}
       >
         {MODULE_FILTERS.map((f) => {
           const active = moduleFilter === f.key;
@@ -242,7 +244,7 @@ export default function IslemGecmisiPage() {
           )}
         </View>
       </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

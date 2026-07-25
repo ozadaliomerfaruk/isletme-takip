@@ -1,12 +1,13 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, CalendarDays, Copy, Plus, Share as ShareIcon } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 
-import { Text, EmptyState } from '@/components/ui';
+import { Text, EmptyState, Screen } from '@/components/ui';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -52,6 +53,7 @@ function getLeaveLabel(type: string): string {
 }
 
 export default function LeaveHistoryPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['staff', 'common', 'errors']);
   const { formatDateMedium, formatDateSmart } = useDateFormat();
@@ -429,7 +431,7 @@ export default function LeaveHistoryPage() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       {/* Header */}
       <View style={styles.header}>
         <BackButton icon={ArrowLeft} style={styles.backButton} />
@@ -461,7 +463,7 @@ export default function LeaveHistoryPage() {
               title={t('staff:leave.noLeaveHistory')}
             />
           }
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -558,7 +560,7 @@ export default function LeaveHistoryPage() {
         entityId={id!}
         existingPhotoPath={editingNote?.photo_path}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 

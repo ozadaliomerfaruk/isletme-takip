@@ -1,7 +1,8 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, Alert, TouchableOpacity, Modal, ScrollView, Dimensions, Linking } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -31,7 +32,7 @@ import {
   ChevronUp,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -452,6 +453,7 @@ const productDetailStyles = StyleSheet.create({
 // ============================================================================
 
 export default function CariHareketleriPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const { t } = useTranslation(['clients', 'common', 'errors', 'multiUser']);
@@ -1497,23 +1499,23 @@ export default function CariHareketleriPage() {
 
   if (cariLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!cari) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <EmptyState
           icon={<Building2 size={48} color={colors.textMuted} />}
           title={t('errors:cari.notFound')}
           description={t('clients:details.notFoundDescription')}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -1531,7 +1533,7 @@ export default function CariHareketleriPage() {
           headerLeft: () => <BackButton size={28} />,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <SwipeableProvider>
           <FlashList
             data={groupedData}
@@ -1542,7 +1544,7 @@ export default function CariHareketleriPage() {
             ListFooterComponent={ListFooter}
             ListEmptyComponent={ListEmpty}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }]}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }, { paddingBottom: contentPaddingBottom }]}
             refreshing={refreshing}
             onRefresh={handleRefresh}
           />
@@ -1731,7 +1733,7 @@ export default function CariHareketleriPage() {
           entityId={id!}
           existingPhotoPath={editingNote?.photo_path}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

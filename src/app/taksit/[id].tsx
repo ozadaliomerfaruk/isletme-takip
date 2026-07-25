@@ -1,6 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, CalendarClock, Share as ShareIcon } from 'lucide-react-native';

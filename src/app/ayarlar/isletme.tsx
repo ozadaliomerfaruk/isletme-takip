@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import {
   View,
   StyleSheet,
@@ -18,7 +19,7 @@ import {
   ShoppingBasket, Coffee, Scissors, Shirt, Car, Hammer, Truck, Pill, Camera, Laptop, Store,
   type LucideIcon,
 } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -46,6 +47,7 @@ import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 
 export default function IsletmeBilgileriPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['settings', 'common', 'errors', 'auth']);
@@ -197,23 +199,23 @@ export default function IsletmeBilgileriPage() {
 
   if (!isletme) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -448,7 +450,7 @@ export default function IsletmeBilgileriPage() {
             </Pressable>
           </Pressable>
         </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

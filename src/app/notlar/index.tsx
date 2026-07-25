@@ -1,7 +1,8 @@
 import { useState, useMemo, useCallback } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
   StickyNote,
@@ -22,6 +23,7 @@ import {
   SwipeableProvider,
   GlassFab,
   FAB_SIZE,
+  Screen,
 } from '@/components/ui';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
@@ -81,6 +83,7 @@ const ENTITY_TYPE_LABEL_KEYS: Record<NotEntityType, string> = {
 };
 
 export default function NotlarPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['common', 'navigation']);
   const { formatDateTime } = useDateFormat();
   const { showToast } = useToast();
@@ -333,7 +336,7 @@ export default function NotlarPage() {
   }, [formatDateTime, handleDelete, handleToggleComplete, handleMarkAsTask, t, entityNameMap, userNameMap, cariNameMap, personelNameMap, isOwner, user?.id]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <SwipeableProvider>
         {/* Filters */}
         <View style={styles.filtersContainer}>
@@ -342,7 +345,7 @@ export default function NotlarPage() {
             data={ENTITY_FILTERS}
             keyExtractor={(item) => item.key}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersList}
+            contentContainerStyle={[styles.filtersList, { paddingBottom: contentPaddingBottom }]}
             renderItem={({ item: f }) => (
               <TouchableOpacity
                 style={[styles.filterChip, filter === f.key && styles.filterChipActive]}
@@ -387,7 +390,7 @@ export default function NotlarPage() {
           data={filteredNotes}
           keyExtractor={(item) => item.id}
           renderItem={renderNote}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }, { paddingBottom: contentPaddingBottom }]}
           // Yüzen arama çubuğu klavye açıkken kaydırmada ekran dışına fırlamasın
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -478,7 +481,7 @@ export default function NotlarPage() {
           onDismiss={dismissDelete}
         />
       </SwipeableProvider>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

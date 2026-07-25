@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Linking } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,7 +20,7 @@ import {
   BarChart3,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -219,6 +220,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 // ============================================================================
 
 export default function PersonelHareketleriPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'errors', 'multiUser']);
@@ -797,23 +799,23 @@ export default function PersonelHareketleriPage() {
 
   if (personelLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!personel) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <EmptyState
           icon={<UserCircle size={48} color={colors.textMuted} />}
           title={t('errors:personel.notFound')}
           description={t('staff:details.notFoundDescription')}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -827,7 +829,7 @@ export default function PersonelHareketleriPage() {
           headerLeft: () => <BackButton size={28} />,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <SwipeableProvider>
           <FlatList
             data={groupedData}
@@ -841,7 +843,7 @@ export default function PersonelHareketleriPage() {
             maxToRenderPerBatch={10}
             windowSize={7}
             removeClippedSubviews={false}
-            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }]}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }, { paddingBottom: contentPaddingBottom }]}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
           />
@@ -974,7 +976,7 @@ export default function PersonelHareketleriPage() {
           photoPath={notePhotoPath}
           onClose={() => setNotePhotoPath(null)}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

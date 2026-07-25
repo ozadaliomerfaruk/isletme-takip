@@ -1,10 +1,11 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
+import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
@@ -23,6 +24,7 @@ import type { CariType } from '@/types/database';
 const TaksitSeparator = () => <View style={styles.separator} />;
 
 export default function TaksitTakipPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['transactions', 'common', 'clients']);
   const router = useRouter();
   const { data: planlar, isLoading, refetch, isRefetching } = useTaksitPlanListesi();
@@ -141,7 +143,7 @@ export default function TaksitTakipPage() {
   return (
     <>
       <Stack.Screen options={{ headerTitle: t('transactions:taksit.title') }} />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         {/* Üst özet — açık planların yön bazlı kalan toplamları */}
         {ozet && (
           <View style={styles.ozetRow}>
@@ -186,7 +188,7 @@ export default function TaksitTakipPage() {
           keyExtractor={(item) => item.plan_id}
           renderItem={renderItem}
           ItemSeparatorComponent={TaksitSeparator}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}
@@ -279,7 +281,7 @@ export default function TaksitTakipPage() {
           defaultType={qtbCari?.type === 'tedarikci' ? 'alis' : 'satis'}
           onSuccess={() => setQtbCari(null)}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

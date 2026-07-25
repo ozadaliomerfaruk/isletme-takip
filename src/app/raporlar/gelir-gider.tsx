@@ -1,4 +1,5 @@
 import { upperTr } from '@/lib/turkishTextUtils';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +7,7 @@ import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from '
 import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ChevronUp, ChevronDown } from 'lucide-react-native';
-import { Text, TabFilter, CategoryReportCard, IncomeSourceCard, Button } from '@/components/ui';
+import { Text, TabFilter, CategoryReportCard, IncomeSourceCard, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
@@ -25,6 +26,7 @@ import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
 type ReportType = 'gelir' | 'gider';
 
 export default function GelirGiderRaporPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'income_expense' }); }, []);
   const router = useRouter();
@@ -138,8 +140,9 @@ export default function GelirGiderRaporPage() {
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -371,7 +374,7 @@ export default function GelirGiderRaporPage() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

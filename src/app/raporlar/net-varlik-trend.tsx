@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, ScrollView, StyleSheet, RefreshControl, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LineChart } from 'react-native-gifted-charts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
-import { Text, Card, TabFilter } from '@/components/ui';
+import { Text, Card, TabFilter, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { logEvent } from '@/lib/appEvents';
 import { colors } from '@/constants/colors';
@@ -33,6 +34,7 @@ function zeroLabel(ccy: string): string {
 }
 
 export default function NetVarlikTrendPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'net_worth_trend' }); }, []);
   const { t } = useTranslation(['reports', 'common']);
@@ -136,11 +138,11 @@ export default function NetVarlikTrendPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <Stack.Screen options={{ headerTitle: t('reports:netWorthTrend.title') }} />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
       >
@@ -387,7 +389,7 @@ export default function NetVarlikTrendPage() {
           </View>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

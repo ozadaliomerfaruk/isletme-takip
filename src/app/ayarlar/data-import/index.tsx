@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import {
   View,
   ScrollView,
@@ -6,14 +7,14 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Crypto from 'expo-crypto';
 import * as XLSX from 'xlsx';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import {
   parseExcelFile,
   autoClassifyAccounts,
@@ -48,6 +49,7 @@ import { SkippedTab } from '@/components/dataImport/SkippedTab';
 import { Step1Select, Step2Preview, StepImporting, StepResult } from '@/components/dataImport/steps';
 
 export default function VeriIceAktarPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
@@ -564,7 +566,7 @@ export default function VeriIceAktarPage() {
 
   // Render
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -604,7 +606,8 @@ export default function VeriIceAktarPage() {
           t={t}
         />
       ) : (
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {step === 'select' && (
             <Step1Select
               onDownloadTemplate={handleDownloadTemplate}
@@ -694,6 +697,6 @@ export default function VeriIceAktarPage() {
         pendingIslem={selectedPendingItem}
         onSuccess={handlePendingFormSuccess}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, RefreshControl } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
@@ -11,6 +12,7 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function CariRaporPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'cari' }); }, []);
   const { cariId } = useLocalSearchParams<{ cariId?: string }>();
@@ -29,8 +31,9 @@ export default function CariRaporPage() {
 
   return (
     <>
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         >
@@ -44,7 +47,7 @@ export default function CariRaporPage() {
             initialCariId={cariId}
           />
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

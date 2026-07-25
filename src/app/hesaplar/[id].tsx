@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useMemo, useEffect, memo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, Alert, TouchableOpacity, Modal, ListRenderItemInfo } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
   Wallet,
@@ -14,7 +15,7 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
@@ -301,6 +302,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
 // ============================================================================
 
 export default function HesapHareketleriPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   if (__DEV__) {
     console.log('=== HESAP DETAY SAYFASI YUKLENDI ===');
   }
@@ -912,23 +914,23 @@ export default function HesapHareketleriPage() {
 
   if (hesapLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!hesap) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <EmptyState
           icon={<Wallet size={48} color={colors.textMuted} />}
           title={t('errors:account.notFound')}
           description={t('accounts:details.notFoundDescription')}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -942,7 +944,7 @@ export default function HesapHareketleriPage() {
           headerLeft: () => <BackButton size={28} />,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <SwipeableProvider>
           <FlashList
             data={groupedData}
@@ -953,12 +955,12 @@ export default function HesapHareketleriPage() {
             ListFooterComponent={ListFooter}
             ListEmptyComponent={ListEmpty}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }]}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }, { paddingBottom: contentPaddingBottom }]}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
           />
         </SwipeableProvider>
-      </SafeAreaView>
+      </Screen>
 
       <DetailActionMenu
         visible={showMenu}

@@ -1,4 +1,5 @@
 import { upperTr } from '@/lib/turkishTextUtils';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -6,7 +7,7 @@ import { View, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, Refres
 import { Stack, useRouter, Href } from 'expo-router';
 import { Package, ShoppingCart, Store, ChevronDown, ChevronUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, Card, Button } from '@/components/ui';
+import { Text, TabFilter, Card, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
@@ -34,6 +35,7 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 type ReportDirection = 'alis' | 'satis';
 
 export default function AlisSatisRaporPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'purchase_sales' }); }, []);
   const router = useRouter();
@@ -231,8 +233,9 @@ export default function AlisSatisRaporPage() {
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -430,7 +433,7 @@ export default function AlisSatisRaporPage() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

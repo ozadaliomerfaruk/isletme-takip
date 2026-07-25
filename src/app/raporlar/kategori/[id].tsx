@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
 import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,7 +26,7 @@ import {
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
   Share as ShareIcon,
 } from 'lucide-react-native';
-import { Text, Card } from '@/components/ui';
+import { Text, Card, Screen } from '@/components/ui';
 import { TransactionRow } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
@@ -79,6 +80,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 export default function KategoriDetayPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'category_detail' }); }, []);
   const router = useRouter();
@@ -498,17 +500,17 @@ export default function KategoriDetayPage() {
   if (isUncategorized) {
     if (uncategorizedLoading) {
       return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <Screen>
           <Stack.Screen options={{ title: t('reports:titles.uncategorized'), headerBackVisible: true, gestureEnabled: true }} />
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        </SafeAreaView>
+        </Screen>
       );
     }
 
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen
           options={{
             title: t('reports:titles.uncategorized'),
@@ -564,7 +566,7 @@ export default function KategoriDetayPage() {
               </Text>
             </Card>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
@@ -580,40 +582,40 @@ export default function KategoriDetayPage() {
           isScheduledTransaction={false}
           onSuccess={handleEditDismiss}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // Loading state (normal kategoriler için)
   if (subCategoryReport.isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // Error state
   if (subCategoryReport.error) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.errorContainer}>
           <Text variant="body" color="error">
             {t('reports:empty.dataLoadError')}
           </Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // Alt kategorisi yoksa doğrudan tüm işlemleri göster
   if (subCategoryReport.subCategories.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen
           options={{
             title: pageTitleDisplay,
@@ -669,7 +671,7 @@ export default function KategoriDetayPage() {
               </Text>
             </Card>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
@@ -685,12 +687,12 @@ export default function KategoriDetayPage() {
           isScheduledTransaction={false}
           onSuccess={handleEditDismiss}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <Stack.Screen
         options={{
           title: pageTitleDisplay,
@@ -718,7 +720,7 @@ export default function KategoriDetayPage() {
         // toggle'ında başlık (özet + tüm alt-kategori checkbox'ları) TÜMDEN remount ediyordu.
         ListHeaderComponent={renderHeader()}
         ListEmptyComponent={EmptyState()}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
@@ -738,7 +740,7 @@ export default function KategoriDetayPage() {
         isScheduledTransaction={false}
         onSuccess={handleEditDismiss}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 

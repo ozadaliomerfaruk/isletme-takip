@@ -1,4 +1,5 @@
 import { upperTr } from '@/lib/turkishTextUtils';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useCallback } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
@@ -6,7 +7,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight, Calendar, X, Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
+import { Text, TabFilter, CategoryReportCard, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCategory';
@@ -24,6 +25,7 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 type FlowType = 'inflow' | 'outflow';
 
 export default function NakitAkisiPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
@@ -134,8 +136,9 @@ export default function NakitAkisiPage() {
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+      <Screen>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} showsVerticalScrollIndicator={false}>
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter
@@ -276,7 +279,7 @@ export default function NakitAkisiPage() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
 
       {/* Custom Date Pickers - iOS */}
       {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (

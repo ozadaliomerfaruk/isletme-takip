@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, ScrollView, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -27,7 +28,7 @@ import {
   Monitor, Smartphone, Laptop, Printer, HardDrive, Camera, Tv, Headphones, Cog,
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction, Info,
 } from 'lucide-react-native';
-import { Text, Card, TabFilter, EmptyState, Button } from '@/components/ui';
+import { Text, Card, TabFilter, EmptyState, Button, Screen } from '@/components/ui';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -75,6 +76,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 export default function KategorilerPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['categories', 'common', 'errors']);
   const [selectedType, setSelectedType] = useState<KategoriType>('gelir');
@@ -152,8 +154,9 @@ export default function KategorilerPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -289,7 +292,7 @@ export default function KategorilerPage() {
         onUndo={undoDelete}
         onDismiss={dismissDelete}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 

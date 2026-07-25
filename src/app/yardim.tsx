@@ -1,7 +1,8 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
@@ -24,11 +25,13 @@ const SECTIONS = [
 ] as const;
 
 export default function YardimPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation('help');
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <Screen>
+      <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text variant="h2" bold style={styles.title}>
             {t('title')}
@@ -52,7 +55,7 @@ export default function YardimPage() {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

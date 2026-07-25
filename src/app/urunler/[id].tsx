@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import {
   View,
   StyleSheet,
@@ -32,7 +33,7 @@ import {
   RotateCcw,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Button, ExpandableCard, EmptyState } from '@/components/ui';
+import { Text, Card, Button, ExpandableCard, EmptyState, Screen } from '@/components/ui';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -68,6 +69,7 @@ const HareketSeparator = () => (
 );
 
 export default function UrunDetayPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['products', 'common', 'errors', 'navigation']);
@@ -425,23 +427,23 @@ export default function UrunDetayPage() {
 
   if (urunLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text color="secondary">{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!urun) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen>
         <EmptyState
           icon={<Package size={48} color={colors.textMuted} />}
           title={t('errors:product.notFound')}
           description={t('products:notFoundDescription')}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -470,8 +472,9 @@ export default function UrunDetayPage() {
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <FlatList
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           style={styles.scrollView}
           data={hareketlerLoading ? [] : (hareketler?.filter(h => !pendingDeleteIds.has(h.id)) ?? [])}
           keyExtractor={(h) => h.id}
@@ -789,7 +792,7 @@ export default function UrunDetayPage() {
           onUndo={undoDelete}
           onDismiss={dismissDelete}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

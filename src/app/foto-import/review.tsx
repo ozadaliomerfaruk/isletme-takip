@@ -9,7 +9,6 @@ import {
   Switch,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users, Plus, Wallet, Edit3, Info } from 'lucide-react-native';

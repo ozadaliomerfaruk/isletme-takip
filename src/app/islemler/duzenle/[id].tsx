@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import {
   View,
   StyleSheet,
@@ -17,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown, Wallet, X, Search, Check, Users, UserCheck, Bell } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker } from '@/components/ui';
+import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -36,6 +37,7 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePermissions } from '@/hooks/usePermissions';
 
 export default function IslemDuzenlePage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -227,25 +229,25 @@ export default function IslemDuzenlePage() {
 
   if (islemLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!islem) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text color="error">{t('transactions:messages.transactionNotFound')}</Text>
           <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
             {t('common:buttons.back')}
           </Button>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -256,14 +258,14 @@ export default function IslemDuzenlePage() {
           headerTitle: t('transactions:titles.editTransaction'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
@@ -516,7 +518,7 @@ export default function IslemDuzenlePage() {
             )}
           </ScrollView>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </Screen>
 
       {/* Hesap Seçici Modal */}
       <Modal
@@ -572,7 +574,7 @@ export default function IslemDuzenlePage() {
                 </View>
 
                 {/* List */}
-                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                <ScrollView style={styles.modalList} contentContainerStyle={[styles.modalListContent, { paddingBottom: contentPaddingBottom }]}>
                   {filteredHesaplar.map((hesap) => {
                     const isSelected = hesapPickerTarget === 'source'
                       ? hesap.id === hesapId
@@ -676,7 +678,7 @@ export default function IslemDuzenlePage() {
                 </View>
 
                 {/* List */}
-                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                <ScrollView style={styles.modalList} contentContainerStyle={[styles.modalListContent, { paddingBottom: contentPaddingBottom }]}>
                   {filteredCariler.map((cari) => {
                     const isSelected = cari.id === cariId;
                     return (
@@ -774,7 +776,7 @@ export default function IslemDuzenlePage() {
                 </View>
 
                 {/* List */}
-                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                <ScrollView style={styles.modalList} contentContainerStyle={[styles.modalListContent, { paddingBottom: contentPaddingBottom }]}>
                   {filteredPersonel.map((personel) => {
                     const isSelected = personel.id === personelId;
                     return (

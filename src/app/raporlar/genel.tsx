@@ -1,4 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
+import { Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
@@ -21,6 +23,7 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 export default function GenelRaporPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'general' }); }, []);
   const state = useReportRouteState();
@@ -132,8 +135,9 @@ export default function GenelRaporPage() {
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -151,7 +155,7 @@ export default function GenelRaporPage() {
             periodLabel={state.periodLabel}
           />
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
