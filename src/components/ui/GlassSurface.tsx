@@ -146,6 +146,11 @@ export interface GlassSurfaceProps {
    * HER İKİ yolda uygulanan stil: geometri (boyut, köşe yarıçapı, flex).
    * Görsel dolgu (arka plan, border, gölge) buraya DEĞİL fallbackStyle'a —
    * cam yolunda bunlar native rim lighting'i perdeler.
+   *
+   * AÇIK BOYUT VER (width/height ya da flex). Gözlem: boyutunu yalnız
+   * içeriğinden alan cam yüzey cihazda hiç çizilmedi (UndoSnackbar denemesi).
+   * Çalışan yüzeylerin hepsinde açık ölçü var: tab bar height, arama pill'i
+   * height+flex, FAB 56x56, PhotoViewer butonları 44x44 / flex:1.
    */
   style?: StyleProp<ViewStyle>;
   /** YALNIZ cam yokken uygulanır: bugünkü opak görünüm (bg + border + gölge). */

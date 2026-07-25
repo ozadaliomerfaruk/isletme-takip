@@ -2,19 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { Undo2, X } from 'lucide-react-native';
 import { Text } from './Text';
-import { GlassSurface } from './GlassSurface';
 import { colors } from '@/constants/colors';
-
-/**
- * Koyu cam tint'i — bu çubuk AÇIK içeriğin (listeler) üstünde yüzüyor.
- *
- * Varsayılan GLASS_TINT 'transparent'; tab bar ve arama çubuğu onunla çalışıyor
- * çünkü ikisi de BÜYÜK yüzey — kapsül şekli rim lighting ile zaten okunuyor.
- * Küçük/tekil yüzeyler açık zeminde tint'siz kaldığında GÖRÜNMEZ oluyor
- * (bu çubuk ilk denemede tam olarak öyle kayboldu). PhotoViewer'da sorun yoktu
- * çünkü orada zemin gerçekten siyah.
- */
-const SNACKBAR_TINT = 'rgba(40,40,42,0.62)';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 export interface UndoSnackbarProps {
@@ -76,36 +64,28 @@ export function UndoSnackbar({
       ]}
       pointerEvents="box-none"
     >
-      {/* colorScheme="dark": koyu yüzen bar — açık cam burada yabancı durur. */}
-      <GlassSurface
-        style={styles.snackbar}
-        fallbackStyle={styles.snackbarFallback}
-        tintColor={SNACKBAR_TINT}
-        colorScheme="dark"
-      >
-        <View style={styles.snackbarInner}>
-          <Text style={styles.message} numberOfLines={2}>
-            {message}
-          </Text>
-          <TouchableOpacity
-            onPress={onUndo}
-            style={styles.undoButton}
-            activeOpacity={0.7}
-            hitSlop={HIT_SLOP.sm}
-          >
-            <Undo2 size={16} color={colors.white} />
-            <Text style={styles.undoText}>{undoLabel}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={onDismiss}
-            style={styles.closeButton}
-            activeOpacity={0.7}
-            hitSlop={HIT_SLOP.sm}
-          >
-            <X size={16} color="rgba(255,255,255,0.6)" />
-          </TouchableOpacity>
-        </View>
-      </GlassSurface>
+      <View style={styles.snackbar}>
+        <Text style={styles.message} numberOfLines={2}>
+          {message}
+        </Text>
+        <TouchableOpacity
+          onPress={onUndo}
+          style={styles.undoButton}
+          activeOpacity={0.7}
+          hitSlop={HIT_SLOP.sm}
+        >
+          <Undo2 size={16} color={colors.white} />
+          <Text style={styles.undoText}>{undoLabel}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={onDismiss}
+          style={styles.closeButton}
+          activeOpacity={0.7}
+          hitSlop={HIT_SLOP.sm}
+        >
+          <X size={16} color="rgba(255,255,255,0.6)" />
+        </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 }
@@ -118,26 +98,19 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     zIndex: 999,
   },
-  // Geometri (iki yolda da): cam kendi köşesini native çizer, RN clip yok.
   snackbar: {
-    borderRadius: borderRadius.lg,
-  },
-  // Yalnız cam yokken: bugünkü koyu dolgu + gölge. Cam yolunda EKLENMEZ —
-  // düz katman ve gölge native rim lighting'i perdeler.
-  snackbarFallback: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#323232',
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
-  },
-  snackbarInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
   },
   message: {
     flex: 1,
