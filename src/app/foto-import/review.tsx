@@ -13,7 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users, Plus, Wallet, Edit3, Info } from 'lucide-react-native';
-import { Text, Button, Card, DateTimePicker, CategoryPicker } from '@/components/ui';
+import { Text, Button, Card, DateTimePicker, CategoryPicker, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   OcrReviewItem,
   OcrNewProductModal,
@@ -28,6 +29,7 @@ import { formatCurrency, formatQuantity, parseCurrency, formatAmountForInput } f
 
 export default function FotoImportReviewPage() {
   const { t } = useTranslation(['ocrImport', 'common', 'products', 'clients']);
+  const footerInset = useFooterBottomPadding();
   const router = useRouter();
   const ctx = useFotoImportContext();
 
@@ -168,7 +170,7 @@ export default function FotoImportReviewPage() {
 
   return (
     <>
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
           style={styles.reviewScroll}
           contentContainerStyle={styles.reviewContent}
@@ -588,7 +590,7 @@ export default function FotoImportReviewPage() {
         </ScrollView>
 
         {/* Footer with dynamic buttons */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
           <View style={styles.footerInfo}>
             <Text variant="caption" color="secondary">
               {t(`ocrImport:saveMode.${saveMode}`)}
@@ -688,7 +690,7 @@ export default function FotoImportReviewPage() {
             )}
           </View>
         </View>
-      </SafeAreaView>
+      </Screen>
 
       {/* New product modal */}
       <OcrNewProductModal

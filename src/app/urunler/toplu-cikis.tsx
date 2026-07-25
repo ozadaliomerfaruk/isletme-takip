@@ -18,7 +18,8 @@ import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Plus, Trash2, Calendar, ChevronDown, Package, Search, X, Check } from 'lucide-react-native';
-import { Text, Button } from '@/components/ui';
+import { Text, Button, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
@@ -53,6 +54,7 @@ export default function TopluCikisPage() {
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['products', 'common', 'transactions']);
+  const footerInset = useFooterBottomPadding();
   usePagePermission({ module: 'urunler', action: 'create' });
   const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
@@ -283,7 +285,7 @@ export default function TopluCikisPage() {
           headerTitle: t('products:bulk.stockOut'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex}
@@ -472,7 +474,7 @@ export default function TopluCikisPage() {
           </ScrollView>
 
           {/* Footer */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: 12 + footerInset }]}>
             <View style={styles.footerLeft}>
               <Text style={styles.footerCount}>
                 {validRows.length} {t('products:title').toLowerCase()}
@@ -622,7 +624,7 @@ export default function TopluCikisPage() {
             </View>
           </Modal>
         )}
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

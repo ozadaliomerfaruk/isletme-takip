@@ -12,12 +12,13 @@ import {
   Dimensions,
   TextInput,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Check, Wallet, ChevronDown, X, Calendar } from 'lucide-react-native';
-import { Text, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Button, Card, CategoryPicker, CurrencyInput, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -35,6 +36,7 @@ export default function TopluOdemePage() {
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['staff', 'common', 'transactions', 'accounts']);
+  const footerInset = useFooterBottomPadding();
   usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
   const insets = useSafeAreaInsets();
@@ -256,7 +258,7 @@ export default function TopluOdemePage() {
           headerTitle: t('staff:bulkPayment.title'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -408,7 +410,7 @@ export default function TopluOdemePage() {
           </ScrollView>
 
           {/* Footer - Özet ve Kaydet */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <View style={styles.summary}>
               <Text variant="caption" color="secondary">
                 {selectedCount} {t('staff:titles.personnel')}
@@ -556,7 +558,7 @@ export default function TopluOdemePage() {
             </TouchableWithoutFeedback>
           </Modal>
         )}
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

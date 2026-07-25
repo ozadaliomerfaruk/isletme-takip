@@ -17,7 +17,8 @@ import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Check, Calendar } from 'lucide-react-native';
-import { Text, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Button, Card, CategoryPicker, CurrencyInput, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -34,6 +35,7 @@ export default function TopluGiderPage() {
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['staff', 'common', 'transactions']);
+  const footerInset = useFooterBottomPadding();
   usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
   const { locale, formatDateMedium } = useDateFormat();
@@ -219,7 +221,7 @@ export default function TopluGiderPage() {
           headerTitle: t('staff:bulkSalary.title'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -345,7 +347,7 @@ export default function TopluGiderPage() {
           </ScrollView>
 
           {/* Footer - Özet ve Kaydet */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <View style={styles.summary}>
               <Text variant="caption" color="secondary">
                 {selectedCount} {t('staff:titles.personnel')}
@@ -449,7 +451,7 @@ export default function TopluGiderPage() {
             </TouchableWithoutFeedback>
           </Modal>
         )}
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

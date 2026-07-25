@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, memo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import {
@@ -15,7 +15,8 @@ import {
   EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, Card, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState, ActionSheet, type ActionSheetOption, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
@@ -223,6 +224,7 @@ export default function ArsivPage() {
   const router = useRouter();
   const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
   const { canUpdate, canDelete } = usePermissions();
+  const footerInset = useFooterBottomPadding();
   const [activeTab, setActiveTab] = useState<TabType>('hepsi');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -517,7 +519,7 @@ export default function ArsivPage() {
   const ListFooter = useMemo(
     () =>
       totalArchived > 0 ? (
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: spacing.xl + footerInset }]}>
           <Text variant="caption" color="secondary">
             {t('common:archive.messages.itemCount', { count: totalArchived })}
           </Text>
@@ -527,7 +529,7 @@ export default function ArsivPage() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <FlashList
         data={listData}
         keyExtractor={keyExtractor}
@@ -566,7 +568,7 @@ export default function ArsivPage() {
         options={actionSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 

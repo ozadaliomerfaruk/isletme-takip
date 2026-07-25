@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, CalendarClock, Share as ShareIcon } from 'lucide-react-native';
-import { Text, Button, EmptyState } from '@/components/ui';
+import { Text, Button, EmptyState, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -26,6 +27,7 @@ import type { EntityListExportOptions } from '@/lib/excelExport';
 export default function TaksitDetayPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common']);
+  const footerInset = useFooterBottomPadding();
   const { data: detay, isLoading, refetch, isRefetching } = useTaksitPlanDetay(id);
   const { isletme } = useAuthContext();
 
@@ -232,7 +234,7 @@ export default function TaksitDetayPage() {
             : undefined,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         {/* Özet başlık */}
         {detay && (
           <View style={styles.summary}>
@@ -266,7 +268,7 @@ export default function TaksitDetayPage() {
 
         {/* Tahsil Et / Öde — açık taksit varsa */}
         {detay?.type && ilkAcik && (
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.lg + footerInset }]}>
             <Button onPress={() => setTahsilVisible(true)} fullWidth>
               {`${detay.type === 'cari_satis' ? t('transactions:vade.tahsilEt') : t('transactions:vade.ode')} · ${formatCurrency(ilkAcik.kalan, currency)}`}
             </Button>
@@ -294,7 +296,7 @@ export default function TaksitDetayPage() {
           onDismiss={() => setPdfPreview(null)}
           onShare={handleSharePdf}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
