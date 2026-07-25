@@ -3,8 +3,9 @@ import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, To
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
-import { Plus, Trash2, Calendar, ChevronDown, Package, Search, X, Check } from 'lucide-react-native';
-import { Text, Button, Screen, Modal } from '@/components/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Plus, Trash2, Calendar, ChevronDown, Package, X, Check } from 'lucide-react-native';
+import { Text, Button, Screen, Modal, ModalSearchBar } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
@@ -41,6 +42,7 @@ export default function TopluGirisPage() {
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['products', 'common', 'transactions']);
   const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   usePagePermission({ module: 'urunler', action: 'create' });
   const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
@@ -537,26 +539,20 @@ export default function TopluGirisPage() {
                 </TouchableOpacity>
               </View>
 
-              {/* Search */}
-              <View style={styles.searchBar}>
-                <Search size={18} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  value={productSearch}
-                  onChangeText={setProductSearch}
-                  placeholder={t('common:search.searchPlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  autoFocus
-                />
-                {productSearch.length > 0 && (
-                  <TouchableOpacity onPress={() => setProductSearch('')}>
-                    <X size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
+              {/* Search — modal içi standart çubuk (QTB ürün seçici / UnitPicker ile aynı) */}
+              <ModalSearchBar
+                value={productSearch}
+                onChangeText={setProductSearch}
+                autoFocusDelay={300}
+              />
 
-              {/* Product list */}
-              <ScrollView style={styles.flex} keyboardShouldPersistTaps="handled">
+              {/* Product list — liste ekranın en altına kadar iniyor; son satır
+                  home indicator altında kalmasın diye alt boşluk İÇERİĞE ait */}
+              <ScrollView
+                style={styles.flex}
+                contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}
+                keyboardShouldPersistTaps="handled"
+              >
                 {filteredUrunler?.map(urun => {
                   const isSelected = selectedProductIds.has(urun.id);
                   return (
@@ -943,24 +939,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: spacing.lg,
-    marginVertical: 10,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
   },
   // Picker items
   pickerItem: {

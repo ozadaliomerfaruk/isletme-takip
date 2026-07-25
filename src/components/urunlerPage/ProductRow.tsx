@@ -275,7 +275,8 @@ const rowStyles = StyleSheet.create({
   },
   // giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı; ürün detayıyla tutarlı)
   pillIn: {
-    backgroundColor: '#FEF2F2',
+    // Ham hex yerine palet: ürün detayındaki aylık özet pill'leriyle aynı ton
+    backgroundColor: colors.errorLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,
@@ -286,7 +287,7 @@ const rowStyles = StyleSheet.create({
     color: colors.error,
   },
   pillOut: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,

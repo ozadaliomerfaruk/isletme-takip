@@ -17,13 +17,13 @@ import {
   ArchiveRestore,
   Building2,
   User,
-  FileSpreadsheet,
+  Share as ShareIcon,
   CreditCard,
   Wallet,
   RotateCcw,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Button, ExpandableCard, EmptyState, Screen, Modal } from '@/components/ui';
+import { Text, Card, Button, ExpandableCard, EmptyState, Screen } from '@/components/ui';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -42,10 +42,11 @@ import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { parseDateFromDB } from '@/lib/date';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
 import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, useUrunOzet, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
+import { DetailActionMenu } from '@/components/detail/DetailActionMenu';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { urunHareketYon, isAlisAilesi, isIadeYon } from '@/lib/urunHareket';
 import { BirimType } from '@/types/database';
@@ -449,12 +450,22 @@ export default function UrunDetayPage() {
           headerBackVisible: false,
           headerLeft: () => <BackButton size={28} />,
           headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity onPress={() => setExportSheetVisible(true)}>
-                <FileSpreadsheet size={22} color={colors.success} />
+            // Cari/hesap/personel detayıyla aynı header sağ grubu: dolgu + hitSlop
+            // olmadan dokunma hedefi ikon kutusu kadar (22/24px) kalıyordu.
+            <View style={styles.headerRightContainer}>
+              <TouchableOpacity
+                onPress={() => setExportSheetVisible(true)}
+                style={styles.headerBtn}
+                hitSlop={HIT_SLOP.md}
+              >
+                <ShareIcon size={22} color={colors.text} />
               </TouchableOpacity>
               {(canEdit || canRemove) && (
-                <TouchableOpacity onPress={() => setMenuVisible(true)}>
+                <TouchableOpacity
+                  onPress={() => setMenuVisible(true)}
+                  style={styles.headerBtn}
+                  hitSlop={HIT_SLOP.md}
+                >
                   <MoreVertical size={24} color={colors.text} />
                 </TouchableOpacity>
               )}
@@ -657,59 +668,44 @@ export default function UrunDetayPage() {
           }
         />
 
-        {/* Menu Modal */}
-        <Modal
+        {/* ⋮ menüsü — cari/hesap/personel detayıyla aynı sağ-üst dropdown */}
+        <DetailActionMenu
           visible={menuVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setMenuVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setMenuVisible(false)}
-          >
-            <View style={styles.menuContent}>
-              {canEdit && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setMenuVisible(false);
-                    router.push(`/urunler/duzenle/${id}` as Href);
-                  }}
-                >
-                  <Pencil size={20} color={colors.text} />
-                  <Text variant="body">{t('products:editProduct')}</Text>
-                </TouchableOpacity>
-              )}
-              {canEdit && <View style={styles.menuDivider} />}
-              {canEdit && (urun.is_archived ? (
-                <TouchableOpacity style={styles.menuItem} onPress={handleUnarchive}>
-                  <ArchiveRestore size={20} color={colors.success} />
-                  <Text variant="body" style={{ color: colors.success }}>
-                    {t('products:actions.unarchive')}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.menuItem} onPress={handleArchive}>
-                  <Archive size={20} color={colors.warning} />
-                  <Text variant="body" style={{ color: colors.warning }}>
-                    {t('products:actions.archive')}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              {canEdit && canRemove && <View style={styles.menuDivider} />}
-              {canRemove && (
-                <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
-                  <Trash2 size={20} color={colors.error} />
-                  <Text variant="body" style={{ color: colors.error }}>
-                    {t('common:buttons.delete')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </TouchableOpacity>
-        </Modal>
+          onClose={() => setMenuVisible(false)}
+          actions={[
+            {
+              icon: Pencil,
+              label: t('products:editProduct'),
+              visible: canEdit,
+              onPress: () => {
+                setMenuVisible(false);
+                router.push(`/urunler/duzenle/${id}` as Href);
+              },
+            },
+            urun.is_archived
+              ? {
+                  icon: ArchiveRestore,
+                  label: t('products:actions.unarchive'),
+                  visible: canEdit,
+                  iconColor: colors.success,
+                  onPress: handleUnarchive,
+                }
+              : {
+                  icon: Archive,
+                  label: t('products:actions.archive'),
+                  visible: canEdit,
+                  iconColor: colors.warning,
+                  onPress: handleArchive,
+                },
+            {
+              icon: Trash2,
+              label: t('common:buttons.delete'),
+              visible: canRemove,
+              danger: true,
+              onPress: handleDelete,
+            },
+          ]}
+        />
 
         {/* QuickUrunBar */}
         <QuickUrunBar
@@ -905,7 +901,7 @@ const styles = StyleSheet.create({
   },
   // Pill renkleri: giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı)
   aylikPillIn: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.errorLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -916,7 +912,7 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   aylikPillOut: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -927,7 +923,7 @@ const styles = StyleSheet.create({
     color: colors.success,
   },
   aylikPillDuzeltme: {
-    backgroundColor: '#FEF9C3',
+    backgroundColor: colors.warningLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -935,7 +931,7 @@ const styles = StyleSheet.create({
   aylikPillDuzeltmeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#A16207',
+    color: colors.warningDark,
   },
   hareketHeader: {
     flexDirection: 'row',
@@ -987,26 +983,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: spacing.lg,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  menuContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    padding: spacing.lg,
-    paddingBottom: spacing['3xl'],
-  },
-  menuItem: {
+  // Header sağ butonları — cari/hesap/personel detayıyla birebir aynı ölçüler
+  headerRightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
+    gap: spacing.xs,
+    marginRight: spacing.sm,
   },
-  menuDivider: {
-    height: 1,
-    backgroundColor: colors.border,
+  headerBtn: {
+    padding: spacing.xs,
   },
 });

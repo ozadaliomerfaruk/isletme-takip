@@ -9,6 +9,7 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, CategoryPicker, UnitPicker } from '@/components/ui';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
@@ -60,6 +61,7 @@ interface UrunFormProps {
 export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }: UrunFormProps) {
   const { t } = useTranslation(['products', 'common', 'transactions']);
   const contentPaddingBottom = useContentBottomPadding();
+  const insets = useSafeAreaInsets();
 
   const [ad, setAd] = useState(DEFAULT_VALUES.ad);
   const [kod, setKod] = useState(DEFAULT_VALUES.kod);
@@ -108,7 +110,9 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.keyboardView}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      // Ofset = pencere tepesi ile KAV tepesi arası (status bar + native header 44).
+      // Sabit 100 cihaza göre yanlış oluyordu; diğer altı form da insets'ten türetiyor.
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
