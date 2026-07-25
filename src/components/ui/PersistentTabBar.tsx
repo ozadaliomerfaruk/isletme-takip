@@ -399,41 +399,47 @@ export function PersistentTabBar() {
   return (
     <View style={styles.outer} pointerEvents="box-none" onLayout={onOuterLayout}>
       <View pointerEvents="box-none" style={{ paddingTop: TOP_PAD, paddingBottom: bottomInset }}>
-        {AnimatedGlassView ? (
-          /**
-           * Cam, bar'ın KENDİSİ — arka planda duran ayrı bir katman DEĞİL.
-           *
-           * Eskiden cam absoluteFill bir kardeş katmandı ve dokunuşları üstteki
-           * jest katmanı tüketiyordu; bu yüzden isInteractive hiçbir şey
-           * yapmıyordu (iOS 26'nın dokunma tepkisi camın dokunuşu GÖRMESİNİ
-           * gerektirir). İçerik artık camın ÇOCUĞU — arama çubuğundaki
-           * GlassSurface ile aynı yapı, oradaki his de bu yüzden vardı.
-           *
-           * Köşe yarıçapı camın kendi stilinde (native squircle + rim lighting);
-           * dış sarmalayıcıda RN clip maskesi YOK.
-           */
-          <AnimatedGlassView
-            glassEffectStyle="regular"
-            // tintColor = paketin native API'si (UIGlassEffect.tintColor);
-            // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
-            tintColor={GLASS_TINT}
-            isInteractive
-            style={[styles.glass, barAnim, radiusAnim]}
-          >
-            {barContent}
-          </AnimatedGlassView>
-        ) : (
-          // iOS<26 + Android: bugünkü görünüm (blur + frost overlay), clip'li.
-          <Animated.View style={[styles.fallbackClip, barAnim, radiusAnim]}>
-            <BlurView
-              intensity={FALLBACK_BLUR_INTENSITY}
-              tint="light"
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={styles.pillOverlay} />
-            {barContent}
-          </Animated.View>
-        )}
+        {/**
+          * İKİ KATMAN, ikisi de gerekli:
+          *
+          * DIŞ (düz Animated.View) → daralma animasyonunu taşır. Bu animasyon
+          * LAYOUT sürüyor (yükseklik + marginHorizontal); bir ara native cam
+          * view'e verilmişti ve daralma çalışmayı bıraktı — layout prop'ları
+          * düz RN view'de sürülmeli.
+          *
+          * İÇ (cam) → içeriğin EBEVEYNİ olmalı, arka planda duran bir kardeş
+          * katman değil: iOS 26'nın dokunma tepkisi (isInteractive) camın
+          * dokunuşu GÖRMESİNİ gerektiriyor. flex:1 ile dışı dolduruyor — cam
+          * yüzeye açık ölçü vermek de ayrı bir gereklilik (bkz. GlassSurface).
+          *
+          * Köşe yarıçapı camın kendi stilinde (native squircle + rim lighting);
+          * dış sarmalayıcıda RN clip maskesi YOK.
+          */}
+        <Animated.View style={barAnim}>
+          {AnimatedGlassView ? (
+            <AnimatedGlassView
+              glassEffectStyle="regular"
+              // tintColor = paketin native API'si (UIGlassEffect.tintColor);
+              // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
+              tintColor={GLASS_TINT}
+              isInteractive
+              style={[styles.glass, styles.fill, radiusAnim]}
+            >
+              {barContent}
+            </AnimatedGlassView>
+          ) : (
+            // iOS<26 + Android: bugünkü görünüm (blur + frost overlay), clip'li.
+            <Animated.View style={[styles.fallbackClip, styles.fill, radiusAnim]}>
+              <BlurView
+                intensity={FALLBACK_BLUR_INTENSITY}
+                tint="light"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.pillOverlay} />
+              {barContent}
+            </Animated.View>
+          )}
+        </Animated.View>
       </View>
     </View>
   );
@@ -452,6 +458,10 @@ const styles = StyleSheet.create({
   // prop'uyla (styles'ta backgroundColor ile DEĞİL) — bkz. GLASS_TINT.
   glass: {
     borderCurve: 'continuous',
+  },
+  /** Cam/fallback katmanı dış sarmalayıcıyı doldurur — açık ölçü, boyutsuz değil. */
+  fill: {
+    flex: 1,
   },
   // iOS<26 + Android fallback: bugüne kadarki görünüm.
   fallbackClip: {

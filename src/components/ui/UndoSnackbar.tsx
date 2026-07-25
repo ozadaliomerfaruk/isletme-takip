@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Undo2, X } from 'lucide-react-native';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
@@ -20,6 +21,9 @@ export function UndoSnackbar({
   onDismiss,
   undoLabel = 'Geri Al',
 }: UndoSnackbarProps) {
+  // insets.bottom, _layout'taki modifiedInsets sayesinde gerçek safe-area'ya
+  // EK OLARAK overlay tab bar'ın yüksekliğini de taşır → çubuk bar'ın üstünde kalır.
+  const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -60,7 +64,7 @@ export function UndoSnackbar({
     <Animated.View
       style={[
         styles.container,
-        { transform: [{ translateY }], opacity },
+        { bottom: insets.bottom + spacing.md, transform: [{ translateY }], opacity },
       ]}
       pointerEvents="box-none"
     >
@@ -93,7 +97,10 @@ export function UndoSnackbar({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 24,
+    // `bottom` çalışma zamanında veriliyor — sabit 24 iken çubuk OVERLAY tab
+    // bar'ın ARKASINDA kalıyordu (bar akıştan çıkıp içeriğin üstüne taşındığı
+    // için ekranın alt 24px'i artık bar'ın alanı). insets.bottom modifiedInsets
+    // ile bar yüksekliğini de taşıyor → çubuk bar'ın üstünde yüzer.
     left: spacing.lg,
     right: spacing.lg,
     zIndex: 999,
