@@ -12,12 +12,60 @@ doğrulayıcıdan geçirildi, sonra ana oturumda örneklem teyidi yapıldı.
 
 ---
 
-## 1. DENETLENEN SENARYO
+## 1. BU DENETİM NEDEN YAPILDI
 
-İşletme sahibinin gerçek ihtiyacı — bir **"satın almacı"** çalışan:
+Bu akademik bir güvenlik taraması değil. **İşletme sahibinin somut bir işi var ve
+uygulamanın buna izin verip vermediğini bilmiyordu.**
 
-**Yapabilmeli:** carileri ve ürünleri görmek/eklemek, fatura işlemek (cari alış/satış).
-**Görmemeli:** raporlar, personel maaşları, hesap bakiyeleri.
+### Sahibin kendi ifadesiyle ihtiyaç
+
+> "Benim bir satın almacım var. Buna carileri ve ürünleri görebilmesini ve fatura
+> işleyebilmesini isteyeceğim. Ancak raporları, personel maaşlarını, hesaptaki
+> paraları, izinleri görmemesini istiyorum."
+
+Yani işletmede fiilen çalışan, güvenilen ama **ticari sırlara erişmemesi gereken**
+bir çalışana hesap açılacak. Klasik bir "en az yetki" senaryosu:
+
+| Görebilmeli / yapabilmeli | Görmemeli |
+|---|---|
+| Carileri görmek ve eklemek | **Raporlar** (ciro, kâr/zarar, kategori dağılımı, trendler) |
+| Ürünleri görmek ve eklemek | **Personel maaşları** ve personel ödemeleri |
+| **Fatura işlemek** (cari alış/satış girmek) | **Hesap bakiyeleri** — kasada/bankada ne kadar para var |
+| | **Personel izinleri** (hak ediş / kullanım kayıtları) |
+| | Hesaplar arası **transferler** |
+
+### Sahibin koyduğu kısıtlar
+
+Denetim istenirken üç şey açıkça belirtildi ve bunlar rapordaki her öneriyi bağlıyor:
+
+1. **"Hâlihazırda aktif kullanıcıları etkilemek istemiyorum."** Uygulamanın canlı
+   kullanıcıları var; halihazırda çalışan ortaklıklar bozulmamalı. Her öneri
+   "mevcut ortaklar ne yaşar" sorusunu cevaplamak zorunda.
+2. **"Veritabanında hiçbir şey silme."** Migration'lar yalnız ekleme/kısıtlama
+   yapabilir; tablo/kolon/satır düşürülemez.
+3. **"RLS mevzusu olduğu için hassas bir konu, temkinli davranmalıyız."** Sahip
+   yetki sisteminin veritabanı katmanına dokunmanın riskini biliyor.
+
+### Sahibin sorduğu üç somut soru
+
+Denetim bu üç soruyu cevaplamak için kuruldu:
+
+1. **"Şu anki yetki mertebelerimizde bir problem var mı?"**
+2. **"Dashboard'dan, hızlı işlem çubuğundan (QTB) veya her sayfada bulunan bir
+   yerden, görmesini istemediğim bilgilere erişebilir mi?"**
+3. **"+EKLE butonundan sadece ürün ve cari ekleyebiliyor olması lazım, personel
+   veya hesap değil — öyle mi?"**
+
+### Kısa cevaplar
+
+1. **Evet, problem var** — ve tek tek yamalanacak 26 ayrı hata değil, altta iki
+   yapısal karar yatıyor (Bölüm 3). En önemlisi: **istenen yetki ayarı mevcut
+   kodda üretilemiyor**, çünkü bazı modüller kapatılamıyor.
+2. **Evet, erişebilir.** Ana Sayfa'da aylık kâr/zarar (içinde maaş gideri var),
+   Tüm İşlemler listesinde maaş ödemeleri tutarıyla, global aramada hiçbir şey
+   yazmadan, bildirim çanında ileri tarihli personel ödemeleri.
+3. **+EKLE doğru çalışıyor** — yalnız Cari ve Ürün görür. Ama FAB menüleri
+   (yuvarlak **+**) aynı özeni göstermiyor.
 
 ---
 
