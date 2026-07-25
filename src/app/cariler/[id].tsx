@@ -9,22 +9,18 @@ import {
   Building2,
   User,
   Phone,
-  CircleDollarSign,
   Pencil,
   Trash2,
   Zap,
   MoreVertical,
   Scale,
-  X,
   Share as ShareIcon,
   Unlink,
-  Package,
   BarChart3,
   Eye,
   ShieldCheck,
   Info,
   Link,
-  Plus,
   CalendarClock,
   HandCoins,
   MessageCircle,
@@ -32,20 +28,23 @@ import {
   ChevronUp,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen, Modal } from '@/components/ui';
+import { Text, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
+import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
+import { OpeningBalanceRow } from '@/components/detail/OpeningBalanceRow';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
 import { formatTime } from '@/lib/date';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
+import { ProductDetailModal } from '@/components/transaction/ProductDetailModal';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, formatQuantity, parseCurrency, toNumber, calculateTargetAmount, roundCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, toNumber, calculateTargetAmount, roundCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
@@ -59,7 +58,7 @@ import { useIslemlerByCari, useDeleteIslem } from '@/hooks/useIslemler';
 import { useCariTahsisOzeti, useCariVadeRozet, useCariVadeliBorclar, useCariVadeDetay, useCariIslemKalan } from '@/hooks/useIslemTahsis';
 import { useCariTaksitBirimleri } from '@/hooks/useTaksit';
 import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
-import { useUrunHareketlerByIslemId, useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
+import { useUrunKalemlerByIslemIds, type UrunKalemOzet } from '@/hooks/useUrunHareketler';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { useIleriTarihliIslemlerByCari } from '@/hooks/useIleriTarihliIslemler';
 import { IslemWithRelations, IslemType, Not } from '@/types/database';
@@ -282,170 +281,6 @@ const CariTransactionItem = memo(function CariTransactionItem({
     && prev.tahsilAmount === next.tahsilAmount
     && prev.runningBalanceText === next.runningBalanceText
     && prev.runningBalanceNegative === next.runningBalanceNegative;
-});
-
-// ============================================================================
-// PRODUCT DETAIL MODAL
-// ============================================================================
-
-function ProductDetailModal({
-  islemId,
-  onDismiss,
-  onEdit,
-  t,
-}: {
-  islemId: string | null;
-  onDismiss: () => void;
-  onEdit: (islemId: string) => void;
-  t: (key: string) => string;
-}) {
-  const { data: urunHareketler, isLoading } = useUrunHareketlerByIslemId(islemId || undefined);
-  const windowHeight = Dimensions.get('window').height;
-
-  if (!islemId) return null;
-
-  return (
-    <Modal
-      visible={!!islemId}
-      transparent
-      animationType="slide"
-      onRequestClose={onDismiss}
-    >
-      <View style={productDetailStyles.overlay}>
-        <TouchableOpacity
-          style={productDetailStyles.overlayBackdrop}
-          activeOpacity={1}
-          onPress={onDismiss}
-        />
-        <View
-          style={[productDetailStyles.content, { maxHeight: windowHeight * 0.75 }]}
-        >
-          <View style={productDetailStyles.header}>
-            <Text variant="h3">{t('clients:productDetail.title')}</Text>
-            <TouchableOpacity onPress={onDismiss}>
-              <X size={24} color={colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          {isLoading ? (
-            <View style={productDetailStyles.loading}>
-              <Text variant="body" color="secondary">{t('common:status.loading')}</Text>
-            </View>
-          ) : !urunHareketler || urunHareketler.length === 0 ? (
-            <View style={productDetailStyles.loading}>
-              <Text variant="body" color="secondary">{t('clients:productDetail.noProducts')}</Text>
-            </View>
-          ) : (
-            <ScrollView
-              style={productDetailStyles.list}
-              showsVerticalScrollIndicator={true}
-              nestedScrollEnabled={true}
-              bounces={true}
-            >
-              {urunHareketler.map((hareket) => {
-                const subtotal = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
-                const kdvAmount = subtotal * ((hareket.kdv_orani || 0) / 100);
-                const total = subtotal + kdvAmount;
-                return (
-                  <View key={hareket.id} style={productDetailStyles.item}>
-                    <View style={productDetailStyles.itemHeader}>
-                      <Package size={16} color={colors.primary} />
-                      <Text variant="body" style={productDetailStyles.itemName} numberOfLines={2}>
-                        {hareket.urunler?.ad || '-'}
-                      </Text>
-                    </View>
-                    <View style={productDetailStyles.itemDetails}>
-                      <Text variant="caption" color="secondary">
-                        {formatQuantity(Math.abs(hareket.miktar))} {hareket.urunler?.birim || 'adet'} x {formatCurrency(hareket.birim_fiyat || 0)}
-                      </Text>
-                      {(hareket.kdv_orani ?? 0) > 0 && (
-                        <Text variant="caption" color="secondary">
-                          {t('common:tax.vat')} %{hareket.kdv_orani}: {formatCurrency(kdvAmount)}
-                        </Text>
-                      )}
-                      <Text variant="body" color="primary" style={productDetailStyles.itemTotal}>
-                        {formatCurrency(total)}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          )}
-
-          <View style={productDetailStyles.footer}>
-            <Button
-              variant="secondary"
-              size="md"
-              onPress={() => onEdit(islemId)}
-              style={{ flex: 1 }}
-            >
-              {t('common:buttons.edit')}
-            </Button>
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-const productDetailStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  overlayBackdrop: {
-    flex: 1,
-  },
-  content: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  loading: {
-    paddingVertical: spacing.xl,
-    alignItems: 'center',
-  },
-  list: {
-    marginBottom: spacing.md,
-  },
-  item: {
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  itemHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  itemName: {
-    flex: 1,
-    fontWeight: fontWeight.medium as '500',
-  },
-  itemDetails: {
-    paddingLeft: spacing.lg + spacing.sm,
-  },
-  itemTotal: {
-    fontWeight: fontWeight.semibold as '600',
-    marginTop: spacing.xs,
-  },
-  footer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
 });
 
 // ============================================================================
@@ -1170,107 +1005,69 @@ export default function CariHareketleriPage() {
           onMomentumScrollEnd={(e) => setVadePage(Math.round(e.nativeEvent.contentOffset.x / vadeCardW))}
         >
         <View style={{ width: vadeCardW }}>
-        {/* Cari Özeti — koyu kompakt dashboard (kullanıcının örnek ekranıyla aynı düzen) */}
-        <View style={[styles.darkCard, linkedOwnerName && styles.summaryCardLinked]}>
-          {linkedOwnerName && (
-            <View style={styles.darkLinkedStrip}>
-              <Link size={13} color={colors.primary} />
-              <Text style={styles.darkLinkedText} numberOfLines={1}>
-                {t('clients:sharing.linkedBadge')}{'  ·  '}{linkedOwnerName}
-              </Text>
-            </View>
-          )}
-
-          {/* Üst satır: SOLDA isim + tip, SAĞDA kalan bakiye (aynı satır) */}
-          <View style={styles.darkTopRow}>
-            <View style={styles.darkTitleWrap}>
-              <Text style={styles.darkTitle} numberOfLines={2}>{upperTr(cari.name)}</Text>
-              <Text style={styles.darkType} numberOfLines={1}>
-                {isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}
-                {cari.phone ? `  ·  ${cari.phone}` : ''}
-              </Text>
-            </View>
-            <View style={styles.darkBalanceWrap}>
-              <Text style={styles.darkLabel} numberOfLines={1}>
-                {displayBalance < 0 ? t('clients:detayOzet.kalanBorc') : t('clients:detayOzet.kalanAlacak')}
-              </Text>
-              <Text
-                style={[styles.darkBalanceValue, { color: displayBalance < 0 ? colors.error : colors.success }]}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.6}
-              >
-                {formatCurrency(Math.abs(displayBalance), cari.currency)}
-              </Text>
-            </View>
-          </View>
-
-          {(() => {
-            // Alt 4 satır: toplam alış/satış, toplam ödeme/tahsilat, vadesi geçen,
-            // vadesi gelmemiş (= kalan − geçen). İadeler toplamdan netleştirilir.
-            const oz = (k: keyof CariOzet) => cariOzet?.[k]?.toplam ?? 0;
-            const toplam = isTedarikci
-              ? roundCurrency(oz('cari_alis') - oz('cari_alis_iade'))
-              : roundCurrency(oz('cari_satis') - oz('cari_satis_iade'));
-            const odemeTahsilat = isTedarikci ? oz('cari_odeme') : oz('cari_tahsilat');
-            // Bakiye BORÇ yönünde mi? (tedarikçi: biz borçlu <0 · müşteri: bize borçlu >0)
-            // Alacak/fazla-ödeme yönündeyse "vadesi ... borç/alacak" satırları ANLAMSIZ →
-            // gizle (ör. tedarikçiye fazla ödeme: bakiye alacak, borç satırı çelişki yaratır).
-            const isDebtDir = isTedarikci ? displayBalance < -0.01 : displayBalance > 0.01;
-            const kalanAbs = Math.abs(displayBalance);
-            const gecikmis = cariVadeOzeti?.toplam ?? 0;
-            const vadesiGelmemis = Math.max(0, roundCurrency(kalanAbs - gecikmis));
-            // Değerler tür rengine göre (işlem satırlarıyla aynı dil): alış=kırmızı,
-            // satış=yeşil, ödeme/tahsilat=mavi, vade geçen=kırmızı, gelmemiş=amber.
-            const rows: { label: string; value: string; color?: string }[] = [
-              {
-                label: isTedarikci ? t('clients:detayOzet.toplamAlis') : t('clients:detayOzet.toplamSatis'),
-                value: formatCurrency(toplam, cari.currency),
-                color: getEntityPerspectiveColor(isTedarikci ? 'cari_alis' : 'cari_satis'),
-              },
-              {
-                label: isTedarikci ? t('clients:detayOzet.toplamOdeme') : t('clients:detayOzet.toplamTahsilat'),
-                value: formatCurrency(odemeTahsilat, cari.currency),
-                color: getEntityPerspectiveColor(isTedarikci ? 'cari_odeme' : 'cari_tahsilat'),
-              },
-            ];
-            // Vade satırları yalnız vadeli işlemi olan VE bakiye borç yönündeyken
-            // (fazla-ödeme/alacak yönünde borç satırı gösterme — kullanıcı: kafa karıştırıcı).
-            if (hasVadeliIslem && isDebtDir) {
-              rows.push({
-                label: isTedarikci ? t('clients:detayOzet.vadesiGecenBorc') : t('clients:detayOzet.vadesiGecenAlacak'),
-                value: formatCurrency(gecikmis, cari.currency),
-                color: gecikmis > 0.009 ? colors.error : undefined,
-              });
-              rows.push({
-                label: isTedarikci ? t('clients:detayOzet.vadesiGelmemisBorc') : t('clients:detayOzet.vadesiGelmemisAlacak'),
-                value: formatCurrency(vadesiGelmemis, cari.currency),
-                color: vadesiGelmemis > 0.009 ? colors.orange : undefined,
-              });
-            }
-            return (
-              <View style={styles.darkRows}>
-                {rows.map((r, i) => (
-                  <View key={r.label}>
-                    {/* Satırlar arası ince ayraç (ilk satırın üstünde de — üst bloğu ayırır) */}
-                    <View style={[styles.darkRowDivider, i === 0 && styles.darkRowDividerTop]} />
-                    <View style={styles.darkRow}>
-                      <Text style={styles.darkLabel} numberOfLines={1}>{r.label}</Text>
-                      <Text
-                        style={[styles.darkValue, r.color ? { color: r.color } : null]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.7}
-                      >
-                        {r.value}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            );
-          })()}
-        </View>
+        {/* Cari Özeti — hesap/personel/ürün ile ORTAK kart (DetailSummaryCard); tek kaynak */}
+        {(() => {
+          // Alt 4 satır: toplam alış/satış, toplam ödeme/tahsilat, vadesi geçen,
+          // vadesi gelmemiş (= kalan − geçen). İadeler toplamdan netleştirilir.
+          const oz = (k: keyof CariOzet) => cariOzet?.[k]?.toplam ?? 0;
+          const toplam = isTedarikci
+            ? roundCurrency(oz('cari_alis') - oz('cari_alis_iade'))
+            : roundCurrency(oz('cari_satis') - oz('cari_satis_iade'));
+          const odemeTahsilat = isTedarikci ? oz('cari_odeme') : oz('cari_tahsilat');
+          // Bakiye BORÇ yönünde mi? (tedarikçi: biz borçlu <0 · müşteri: bize borçlu >0)
+          // Alacak/fazla-ödeme yönündeyse "vadesi ... borç/alacak" satırları ANLAMSIZ →
+          // gizle (ör. tedarikçiye fazla ödeme: bakiye alacak, borç satırı çelişki yaratır).
+          const isDebtDir = isTedarikci ? displayBalance < -0.01 : displayBalance > 0.01;
+          const kalanAbs = Math.abs(displayBalance);
+          const gecikmis = cariVadeOzeti?.toplam ?? 0;
+          const vadesiGelmemis = Math.max(0, roundCurrency(kalanAbs - gecikmis));
+          // Değerler tür rengine göre (işlem satırlarıyla aynı dil): alış=kırmızı,
+          // satış=yeşil, ödeme/tahsilat=mavi, vade geçen=kırmızı, gelmemiş=amber.
+          const rows: DetailSummaryRow[] = [
+            {
+              label: isTedarikci ? t('clients:detayOzet.toplamAlis') : t('clients:detayOzet.toplamSatis'),
+              value: formatCurrency(toplam, cari.currency),
+              color: getEntityPerspectiveColor(isTedarikci ? 'cari_alis' : 'cari_satis'),
+            },
+            {
+              label: isTedarikci ? t('clients:detayOzet.toplamOdeme') : t('clients:detayOzet.toplamTahsilat'),
+              value: formatCurrency(odemeTahsilat, cari.currency),
+              color: getEntityPerspectiveColor(isTedarikci ? 'cari_odeme' : 'cari_tahsilat'),
+            },
+          ];
+          // Vade satırları yalnız vadeli işlemi olan VE bakiye borç yönündeyken
+          // (fazla-ödeme/alacak yönünde borç satırı gösterme — kullanıcı: kafa karıştırıcı).
+          if (hasVadeliIslem && isDebtDir) {
+            rows.push({
+              label: isTedarikci ? t('clients:detayOzet.vadesiGecenBorc') : t('clients:detayOzet.vadesiGecenAlacak'),
+              value: formatCurrency(gecikmis, cari.currency),
+              color: gecikmis > 0.009 ? colors.error : undefined,
+            });
+            rows.push({
+              label: isTedarikci ? t('clients:detayOzet.vadesiGelmemisBorc') : t('clients:detayOzet.vadesiGelmemisAlacak'),
+              value: formatCurrency(vadesiGelmemis, cari.currency),
+              color: vadesiGelmemis > 0.009 ? colors.orange : undefined,
+            });
+          }
+          return (
+            <DetailSummaryCard
+              title={upperTr(cari.name)}
+              subtitle={`${isTedarikci ? t('clients:types.tedarikci') : t('clients:types.musteri')}${cari.phone ? `  ·  ${cari.phone}` : ''}`}
+              balanceLabel={displayBalance < 0 ? t('clients:detayOzet.kalanBorc') : t('clients:detayOzet.kalanAlacak')}
+              balanceValue={formatCurrency(Math.abs(displayBalance), cari.currency)}
+              balanceNegative={displayBalance < 0}
+              rows={rows}
+              topStrip={linkedOwnerName ? (
+                <View style={styles.darkLinkedStrip}>
+                  <Link size={13} color={colors.primary} />
+                  <Text style={styles.darkLinkedText} numberOfLines={1}>
+                    {t('clients:sharing.linkedBadge')}{'  ·  '}{linkedOwnerName}
+                  </Text>
+                </View>
+              ) : undefined}
+            />
+          );
+        })()}
         </View>{/* sf.1 (özet) kapanış */}
 
         {/* Sf.2 — Geciken Faturalar carousel'i (dikey kaydırılır; yalnız geciken varsa) */}
@@ -1441,48 +1238,17 @@ export default function CariHareketleriPage() {
             </TouchableOpacity>
           </View>
         )}
-        {/* Başlangıç bakiyesi: ayrı kart değil, işlem satırlarıyla bitişik düz satır */}
-        <TouchableOpacity
-          style={styles.initialBalanceFlatRow}
-          onPress={isBalanceEditable ? handleOpenEditBalance : undefined}
-          disabled={!isBalanceEditable}
-          activeOpacity={0.7}
-        >
-          <View style={styles.hareketHeader}>
-            <View style={[styles.hareketIcon, { backgroundColor: colors.primaryLight + '30' }]}>
-              <CircleDollarSign size={22} color={colors.primary} />
-            </View>
-            <View style={styles.hareketInfo}>
-              <Text variant="body">{t('clients:details.initialBalance')}</Text>
-              <Text variant="caption" color="secondary">
-                {t('clients:details.cariOpening')} • {formatDateShort(cari.created_at)}
-              </Text>
-            </View>
-            <View style={styles.initialBalanceRow}>
-              {/* #8: boş (0) + düzenlenebilirken belirgin "ekle" çağrısı; değer varsa ya da
-                  kilitliyken (işlem var) yalnız değer + (düzenlenebilirse) kalem ipucu. */}
-              {isBalanceEditable && initialBalance === 0 ? (
-                <View style={styles.addBalanceCta}>
-                  <Plus size={16} color={colors.primary} />
-                  <Text variant="label" style={{ color: colors.primary }}>
-                    {t('clients:details.addInitialBalance')}
-                  </Text>
-                </View>
-              ) : (
-                <>
-                  <Text variant="h3" color={initialBalance >= 0 ? 'success' : 'error'}>
-                    {formatCurrency(initialBalance, cari.currency)}
-                  </Text>
-                  {isBalanceEditable && (
-                    <View style={styles.editBalanceBtn}>
-                      <Pencil size={16} color={colors.primary} />
-                    </View>
-                  )}
-                </>
-              )}
-            </View>
-          </View>
-        </TouchableOpacity>
+        {/* Başlangıç Bakiyesi — hesap/personel ile ORTAK satır (standart işlem satırı dili);
+            işlem yokken tıklanınca düzenlenir, boşken "ekle" çağrısı gösterilir. */}
+        <OpeningBalanceRow
+          label={t('clients:details.initialBalance')}
+          subtitle={`${t('clients:details.cariOpening')} • ${formatDateShort(cari.created_at)}`}
+          amount={initialBalance}
+          currency={cari.currency}
+          editable={isBalanceEditable}
+          onEdit={handleOpenEditBalance}
+          emptyCta={t('clients:details.addInitialBalance')}
+        />
       </>
     );
   }, [cari, islemlerLoading, initialBalance, t, handleOpenEditBalance, isBalanceEditable, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
@@ -1544,7 +1310,7 @@ export default function CariHareketleriPage() {
             ListFooterComponent={ListFooter}
             ListEmptyComponent={ListEmpty}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }, { paddingBottom: contentPaddingBottom }]}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: contentPaddingBottom }]}
             refreshing={refreshing}
             onRefresh={handleRefresh}
           />
@@ -1671,7 +1437,6 @@ export default function CariHareketleriPage() {
             setEditTransactionId(islemId);
             setShowEditBar(true);
           }}
-          t={t}
         />
 
         {/* Fotoğraf Görüntüleyici Modal */}
@@ -1737,11 +1502,6 @@ export default function CariHareketleriPage() {
     </>
   );
 }
-
-// Özet kartı zemini — marka koyu yeşili (antrasit beğenilmedi; EKLE/primary tonu)
-// Özet kartı — primary'den (#0D5C4D) az daha açık yeşil (kullanıcı isteği); beyaz metin
-// kontrastı korunur.
-const DARK_CARD_BG = colors.surface;
 
 const styles = StyleSheet.create({
   container: {
@@ -1844,11 +1604,6 @@ const styles = StyleSheet.create({
     width: 5,
     backgroundColor: colors.border,
   },
-  // Bağlantılı (paylaşılan) cari: kart çerçevesi yeşil
-  summaryCardLinked: {
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
   // Kart üstündeki kompakt "Bağlantılı · {paylaşan}" şeridi
   linkedStrip: {
     flexDirection: 'row',
@@ -1884,17 +1639,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: colors.surface,
   },
-  // Koyu kompakt cari dashboard'u (kullanıcının örnek ekranı düzeni)
-  darkCard: {
-    backgroundColor: DARK_CARD_BG,
-    borderRadius: borderRadius.xl,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
+  // Özet kartının üstündeki "Bağlantılı · {paylaşan}" şeridi (DetailSummaryCard topStrip'i)
   darkLinkedStrip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2026,73 +1771,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.white,
   },
-  // Üst satır: isim solda, kalan bakiye sağda
-  darkTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  darkTitleWrap: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  darkTitle: {
-    color: colors.text,
-    fontSize: fontSize.xl,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  darkType: {
-    color: colors.textMuted,
-    fontSize: fontSize.sm,
-    fontWeight: '500',
-  },
-  darkBalanceWrap: {
-    alignItems: 'flex-end',
-    gap: 2,
-    flexShrink: 1,
-    maxWidth: '55%',
-  },
-  darkBalanceValue: {
-    color: colors.text,
-    fontSize: fontSize['2xl'],
-    fontWeight: '800',
-  },
-  darkRows: {},
-  darkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  // Yeşil zeminde ince, hafif saydam ayraç — satırları görsel olarak ayırır
-  darkRowDivider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: colors.borderLight,
-  },
-  darkRowDividerTop: {
-    backgroundColor: colors.border,
-  },
-  // Beyaz zemin (ana sayfa dili): koyu etiket/değer, kırmızı vurgu
-  darkLabel: {
-    color: colors.textMuted,
-    fontSize: fontSize.md,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  darkValue: {
-    color: colors.text,
-    fontSize: fontSize.lg,
-    fontWeight: '800',
-    flexShrink: 1,
-  },
-  darkValueDanger: {
-    color: colors.error,
-  },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2124,29 +1802,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.lg,
   },
-  hareketHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  hareketIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  hareketInfo: {
-    flex: 1,
-  },
-  // Başlangıç bakiyesi düz satırı — TransactionRow ile aynı dolgu/çizgi (bitişik görünüm)
-  initialBalanceFlatRow: {
-    backgroundColor: colors.surface,
-    paddingVertical: 14,
-    paddingHorizontal: spacing.lg,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.borderLight,
-  },
   // Header right buttons
   headerRightContainer: {
     flexDirection: 'row',
@@ -2156,24 +1811,6 @@ const styles = StyleSheet.create({
   },
   headerBtn: {
     padding: spacing.xs,
-  },
-  // Initial balance edit styles
-  initialBalanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  editBalanceBtn: {
-    padding: spacing.xs,
-  },
-  addBalanceCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.primaryLight + '20',
   },
   loadMoreBtn: {
     alignItems: 'center',

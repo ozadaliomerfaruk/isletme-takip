@@ -8,6 +8,7 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -29,7 +30,7 @@ export default function KategoriDuzenlePage() {
   const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
-  const { data: kategoriler } = useKategoriler();
+  const { data: kategoriler, isLoading } = useKategoriler();
   const updateKategori = useUpdateKategori();
 
   const kategori = kategoriler?.find((k) => k.id === id);
@@ -99,11 +100,27 @@ export default function KategoriDuzenlePage() {
     setMappedGiderKategoriId(null);
   };
 
+  if (isLoading) {
+    return (
+      <Screen>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  // Liste yüklendi ama kayıt yoksa (bayat deep-link / başka cihazda silinmiş) kalıcı
+  // "Yükleniyor" yerine net "bulunamadı" + geri çıkışı göster (kardeş düzenleme ekranları gibi).
   if (!kategori) {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
-          <Text>{t('common:status.loading')}</Text>
+          <Text color="error">{t('errors:category.notFound')}</Text>
+          <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
+            {t('common:buttons.back')}
+          </Button>
         </View>
       </Screen>
     );
@@ -319,7 +336,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: spacing.xl,
+    // Form ekranlarında ilk alanın header'a uzaklığı TEK değer (ekle/düzenle aynı).
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
   },
   section: {

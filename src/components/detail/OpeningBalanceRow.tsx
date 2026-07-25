@@ -1,9 +1,9 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Pencil } from 'lucide-react-native';
+import { Pencil, Plus } from 'lucide-react-native';
 
 import { Text } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { spacing, fontWeight } from '@/constants/spacing';
+import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 
 interface OpeningBalanceRowProps {
@@ -17,12 +17,17 @@ interface OpeningBalanceRowProps {
   /** İşlem yokken düzenlenebilir (ilk giriş); satır tıklanır + kalem görünür. */
   editable?: boolean;
   onEdit?: () => void;
+  /**
+   * Düzenlenebilir VE bakiye 0 iken tutar yerine gösterilecek "ekle" çağrısı
+   * (ör. "Başlangıç bakiyesi ekle"); verilmezse 0 tutar olarak basılır.
+   */
+  emptyCta?: string;
 }
 
 /**
  * Açılış/başlangıç bakiyesi satırı — standart işlem satırı diliyle (TransactionRow):
  * sol aksan bar (ikon kutusu yok), flat flush, ince çizgi ayrımı; değer işaretle
- * renklenir (pozitif=yeşil, negatif=kırmızı). Hesap/personel detay ORTAK.
+ * renklenir (pozitif=yeşil, negatif=kırmızı). Cari/hesap/personel detay ORTAK.
  */
 export function OpeningBalanceRow({
   label,
@@ -31,9 +36,12 @@ export function OpeningBalanceRow({
   currency,
   editable = false,
   onEdit,
+  emptyCta,
 }: OpeningBalanceRowProps) {
   const accent = amount >= 0 ? colors.success : colors.error;
   const canEdit = editable && !!onEdit;
+  // Boş + düzenlenebilir: "0,00" yerine belirgin ekleme çağrısı (ilk giriş yolu).
+  const showEmptyCta = canEdit && !!emptyCta && Math.abs(amount) < 0.005;
 
   const inner = (
     <>
@@ -43,10 +51,19 @@ export function OpeningBalanceRow({
         <Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
       </View>
       <View style={styles.right}>
-        <Text style={[styles.amount, { color: accent }]} numberOfLines={1}>
-          {formatCurrency(Math.abs(amount), currency)}
-        </Text>
-        {canEdit ? <Pencil size={15} color={colors.primary} /> : null}
+        {showEmptyCta ? (
+          <View style={styles.cta}>
+            <Plus size={16} color={colors.primary} />
+            <Text style={styles.ctaText} numberOfLines={1}>{emptyCta}</Text>
+          </View>
+        ) : (
+          <>
+            <Text style={[styles.amount, { color: accent }]} numberOfLines={1}>
+              {formatCurrency(Math.abs(amount), currency)}
+            </Text>
+            {canEdit ? <Pencil size={15} color={colors.primary} /> : null}
+          </>
+        )}
       </View>
     </>
   );
@@ -103,6 +120,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  cta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primaryLight + '20',
+  },
+  ctaText: {
+    fontSize: 13,
+    fontWeight: fontWeight.bold,
+    color: colors.primary,
   },
   amount: {
     fontSize: 18,

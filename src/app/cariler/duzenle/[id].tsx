@@ -7,6 +7,7 @@ import {
   Platform,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -93,7 +94,8 @@ export default function CariDuzenlePage() {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
-          <Text>{t('common:status.loading')}</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
         </View>
       </Screen>
     );
@@ -103,7 +105,10 @@ export default function CariDuzenlePage() {
     return (
       <Screen>
         <View style={styles.loadingContainer}>
-          <Text>{t('errors:cari.notFound')}</Text>
+          <Text color="error">{t('errors:cari.notFound')}</Text>
+          <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
+            {t('common:buttons.back')}
+          </Button>
         </View>
       </Screen>
     );
@@ -278,7 +283,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: spacing['3xl'],
+    // Form ekranlarında ilk alanın header'a uzaklığı TEK değer (ekle/düzenle aynı).
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
   },
   section: {

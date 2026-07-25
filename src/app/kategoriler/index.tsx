@@ -362,10 +362,13 @@ const styles = StyleSheet.create({
   },
   kategoriActions: {
     flexDirection: 'row',
-    gap: spacing.xs,
+    // Düzenle ile SİL bitişik; ıskanın bedeli yıkıcı → araları açılır.
+    gap: spacing.sm,
   },
   actionButton: {
-    padding: spacing.sm,
+    // 18px ikon + 2×12 = ~42px dokunma hedefi. hitSlop kullanılmıyor: komşu (yıkıcı)
+    // butonun alanıyla çakışır — hedef padding ile büyütülür.
+    padding: spacing.md,
   },
   divider: {
     height: 1,
