@@ -129,6 +129,18 @@ export const GLASS_TINT = 'transparent';
  */
 export const GLASS_TINT_CONTROL = 'rgba(255,255,255,0.22)';
 
+/**
+ * '#RRGGBB' → 'rgba(r,g,b,a)'. Hex değilse olduğu gibi döner.
+ * Semantik renkten cam tint'i türetmek için (ör. hata toast'ı kırmızıya çalar).
+ */
+export function withAlpha(color: string, alpha: number): string {
+  if (!color.startsWith('#') || color.length !== 7) return color;
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 /** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
 export const FALLBACK_FROST =
   Platform.OS === 'ios' ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.70)';

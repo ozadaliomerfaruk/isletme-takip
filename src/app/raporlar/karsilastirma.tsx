@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, StyleSheet, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FileSpreadsheet } from 'lucide-react-native';
@@ -9,6 +9,7 @@ import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { KarsilastirmaTabContent } from '@/components/reports/tabs';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useComparisonReport } from '@/hooks/useComparisonReport';
+import { GlassIconButton } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -36,12 +37,10 @@ export default function KarsilastirmaRaporPage() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <TouchableOpacity
+            <GlassIconButton
               style={styles.headerBtn}
               onPress={report.exportPdf}
               disabled={report.isExporting || report.isLoading}
-              activeOpacity={0.7}
-              accessibilityRole="button"
               accessibilityLabel={t('reports:export.exportPDF')}
             >
               {report.isExporting ? (
@@ -49,7 +48,7 @@ export default function KarsilastirmaRaporPage() {
               ) : (
                 <FileSpreadsheet size={18} color={colors.success} />
               )}
-            </TouchableOpacity>
+            </GlassIconButton>
           ),
         }}
       />
@@ -72,14 +71,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  /** Yalnız konum — boyut/görsel GlassIconButton'da. */
   headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: spacing.sm,
   },
 });
