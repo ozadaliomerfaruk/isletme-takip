@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Receipt,
@@ -16,7 +15,8 @@ import {
   CalendarMinus,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, FilterChips, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState } from '@/components/ui';
+import { Text, FilterChips, FloatingSearchBar, EmptyState, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import type { FilterChipItem } from '@/components/ui';
 import { TransactionRow, DateSectionHeader } from '@/components/ui/TransactionRow';
@@ -162,7 +162,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
 // ============================================================================
 
 export default function IslemlerPage() {
-  const insets = useSafeAreaInsets();
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
   const { formatDateMedium } = useDateFormat();
@@ -514,7 +514,7 @@ export default function IslemlerPage() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <SwipeableProvider>
         <FlashList
           data={groupedData}
@@ -532,7 +532,11 @@ export default function IslemlerPage() {
           // yüklüyordu → "Daha Fazla Göster" butonu atlanıyordu. Tek pagination tetikleyicisi artık ListFooter
           // butonu (cariler/[id] & hesaplar ile aynı buton-tabanlı standart).
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}
+          // Alt boşluk TEK KAYNAKTAN: eski ifade (insets.bottom +
+          // FLOATING_SEARCH_CLEARANCE) silindi — hook zaten ikisini de topluyor,
+          // bırakılsaydı arama boşluğu İKİ KEZ eklenirdi (kovaladığımız çift
+          // sayımın yeni kılığı).
+          contentContainerStyle={[styles.flatListContent, { paddingBottom: contentPaddingBottom }]}
         />
       </SwipeableProvider>
 
@@ -605,7 +609,7 @@ export default function IslemlerPage() {
         onDismiss={dismissDelete}
         undoLabel={t('common:buttons.undo')}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -630,7 +634,9 @@ const styles = StyleSheet.create({
   },
   flatListContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
+    // paddingBottom BURADA DEĞİL: useContentBottomPadding({ search: true })
+    // ile inline veriliyor. Burada da bırakılsaydı üstü örtülen ölü bir değer
+    // olurdu ve ileride "iki yerde iki farklı alt boşluk" karışıklığı doğardı.
   },
   filterContainer: {
     paddingTop: spacing.lg,

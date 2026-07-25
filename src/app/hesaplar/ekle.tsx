@@ -7,10 +7,10 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
-import { Text, Input, Button, Card, CurrencyPicker } from '@/components/ui';
+import { Text, Input, Button, Card, CurrencyPicker, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateHesap } from '@/hooks/useHesaplar';
@@ -91,7 +91,7 @@ export default function HesapEklePage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -195,8 +195,11 @@ export default function HesapEklePage() {
 
         </ScrollView>
 
-        {/* Sticky footer — kaydet butonu klavyenin altında kalmasın */}
-        <View style={styles.footer}>
+        {/* Sticky footer — kaydet butonu klavyenin altında kalmasın.
+            Alt boşluk FOOTER'IN KENDİSİNDE (Screen'in `footer` prop'u DEĞİL):
+            footer KeyboardAvoidingView'ün İÇİNDE kalmak zorunda, yoksa klavye
+            açılınca yükselmez. insets.bottom overlay tab bar'ı da temizler. */}
+        <View style={[styles.footer, { paddingBottom: spacing.md + insets.bottom }]}>
           <Button
             variant="outline"
             size="lg"
@@ -216,7 +219,7 @@ export default function HesapEklePage() {
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
