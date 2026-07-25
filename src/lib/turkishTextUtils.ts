@@ -64,6 +64,13 @@ export function upperTrData(text: string): string {
  * ("Optional" → "OPTİONAL"). Bu yüzden yalnız dil tr* iken Türkçe kural.
  * "Cari"→"CARİ", "Nakit"→"NAKİT" (tr) · "Daily"→"DAILY" (en).
  * (textTransform:'uppercase' Türkçe'de i/ı'yı I/İ olarak bozardı.)
+ *
+ * KULLANICI VERİSİNİ (kategori/ürün/cari adı) GÖSTERİRKEN DE BU KULLANILIR —
+ * upperTrData DEĞİL, bilinçli olarak. Verinin dili bilinemez; arayüz dili en iyi
+ * vekil: Türkçe arayüz kullanan Türkçe yazar ("içecek" → "İÇECEK"), İngilizce arayüz
+ * kullanan İngilizce yazar ("incoming" → "INCOMING"). upperTrData'yı gösterime
+ * uygulamak İngilizce veriyi bozardı ("İNCOMİNG"). upperTrData YALNIZ YAZMA yolunda
+ * (DB'ye kaydedilen kategori adı) — orada dile duyarlılık aynı kategoriyi iki kayda böler.
  */
 export function upperTr(text: string): string {
   const isTurkish = (i18n.language ?? '').toLowerCase().startsWith('tr');
