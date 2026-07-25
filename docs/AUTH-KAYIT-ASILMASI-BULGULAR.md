@@ -1,5 +1,12 @@
 # QTB "Kaydet Asılması" — Danışman Bulgu Raporu v2.2 (19 Tem 2026, Fable)
 
+> **⚠️ TARİHSEL DOKÜMAN — bu rapor İLK teşhistir, "nihai" ifadesi o günkü bilgiyle yazıldı.**
+> 26 Tem 2026 üretim incelemesi kök nedeni netleştirdi: Postgres/RPC süreleri normal;
+> gecikmenin ana kaynağı istemcideki yavaş ağ ön kontrolü, gereksiz ardışık RPC çağrıları,
+> mutation retry zinciri ve sunucu yazmayı tamamladığı halde yanıtın kaybolduğu durumların
+> belirsiz ele alınması. Güncel durum için `AGENTS.md` "Güncel durum fotoğrafı" bölümüne bak;
+> fix 26 Tem'de istemci tarafında uygulandı. Aşağısı tarihsel kayıt olarak korunuyor.
+
 > Amaç: Opus bu raporu **doğruladı** (19 Tem); Fable karşı-kontrolü tamam. v2.2, Opus'un
 > kabul edilen 4 düzeltmesini ve yeni P0'ı (birleşik RPC bağlama) içerir. Teşhis nihai.
 >

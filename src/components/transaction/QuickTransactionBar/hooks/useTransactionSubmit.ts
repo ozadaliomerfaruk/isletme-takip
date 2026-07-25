@@ -14,11 +14,11 @@ import { formatDateForDB, formatDateTimeForDB, addMonths } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
 import { resolveHedefIslemId } from '@/lib/hedefTahsis';
 import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode, UrunItem } from '../types';
-import type { Currency, UrunHareketTipi } from '@/types/database';
+import type { Currency, IslemInsert, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useReview } from '@/contexts/ReviewContext';
-import { supabase, checkNetworkConnectivity, msSinceForeground } from '@/lib/supabase';
-import { logEvent } from '@/lib/appEvents'; // [GEÇİCİ TEŞHİS — auth-hang ölçümü, 13 Tem] teşhis sonrası ÇIKAR
+import { supabase, msSinceForeground } from '@/lib/supabase';
+import { logEvent } from '@/lib/appEvents';
 import { useToast } from '@/contexts/ToastContext';
 import { recordLastUsed } from '@/lib/lastUsedSelections';
 import { getCategoryType } from '../utils/categoryTypeMapper';
@@ -100,6 +100,8 @@ interface UseTransactionSubmitOptions {
 
   // Urun items for alis/satis/iade transactions
   urunItems?: UrunItem[];
+  /** Edit açılışında işleme bağlı ürün hareketi vardı; tüm ürünler silinse bile reapply gerekir. */
+  hadOriginalUrunHareketler?: boolean;
 
   // State setters
   setIsSaving: (saving: boolean) => void;
@@ -188,6 +190,53 @@ function needsHesapInData(type: TransactionType): boolean {
   ].includes(type);
 }
 
+const UPDATE_PROBE_TIMEOUT_MS = 5000;
+
+/**
+ * Update RPC'si commit olduktan sonra HTTP cevabı kaybolabilir. Aynı alanlar DB'de gerçekten
+ * yazılmışsa kullanıcıya hata gösterip tekrar denetmek yerine başarı kabul et. Bu probe yalnız
+ * normal edit'in hata yolunda çalışır; hiçbir veri yazmaz.
+ */
+async function didRegularUpdateLand(
+  islemId: string,
+  isletmeId: string,
+  expected: Partial<Omit<IslemInsert, 'isletme_id'>>,
+): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), UPDATE_PROBE_TIMEOUT_MS);
+  try {
+    const { data, error } = await supabase
+      .from('islemler')
+      .select('*')
+      .eq('id', islemId)
+      .eq('isletme_id', isletmeId)
+      .abortSignal(controller.signal)
+      .maybeSingle();
+    if (error || !data) return false;
+
+    return Object.entries(expected).every(([key, expectedValue]) => {
+      const actualValue = (data as Record<string, unknown>)[key];
+      if (key === 'amount' || key === 'exchange_rate') {
+        const actualNumber =
+          typeof actualValue === 'number' || typeof actualValue === 'string' ? actualValue : null;
+        const expectedNumber =
+          typeof expectedValue === 'number' || typeof expectedValue === 'string' ? expectedValue : null;
+        return roundCurrency(toNumber(actualNumber)) === roundCurrency(toNumber(expectedNumber));
+      }
+      if (key === 'date') {
+        const actualMs = new Date(String(actualValue)).getTime();
+        const expectedMs = new Date(String(expectedValue)).getTime();
+        return Number.isFinite(actualMs) && Number.isFinite(expectedMs) && actualMs === expectedMs;
+      }
+      return (actualValue ?? null) === (expectedValue ?? null);
+    });
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 export function useTransactionSubmit({
   isCariMode,
   isPersonelMode,
@@ -218,6 +267,7 @@ export function useTransactionSubmit({
   cariler,
   personelList,
   urunItems = [],
+  hadOriginalUrunHareketler = false,
   setIsSaving,
   setHesapPickerTarget,
   setShowHesapPicker,
@@ -491,6 +541,7 @@ export function useTransactionSubmit({
     // P1b: fonksiyon kapsamında — catch/finally erişebilsin.
     let __slowTimer: ReturnType<typeof setTimeout> | null = null; // yavaş-kayıt bilgi zamanlayıcısı
     let createdClientIslemId: string | null = null; // create yolunda üretilen id (existence-check için)
+    let attemptedRegularUpdate: Partial<Omit<IslemInsert, 'isletme_id'>> | null = null;
     // Başarı UI'ı: normal başarı VE "hata verdi ama aslında düşmüştü" kurtarma yolunda ortak kullanılır.
     const completeSuccess = () => {
       if (Platform.OS !== 'web') {
@@ -523,22 +574,10 @@ export function useTransactionSubmit({
       return;
     }
 
-    // [GEÇİCİ TEŞHİS — auth-hang ölçümü, 13 Tem] token'SIZ ham soket gecikmesini ölç →
-    // mutation'daki insert_ms (token+soket) ile kıyaslanınca bayat-soket'i auth-refresh'ten
-    // AYIRIR. Davranış değişmez (mevcut çağrı, sadece süre + eşik-üstü ateşle-unut log).
-    const __ncStart = Date.now();
-    const isOnline = await checkNetworkConnectivity();
-    const __ncMs = Date.now() - __ncStart;
-    if (__DEV__ && __ncMs > 2000) {
-      logEvent('save_netcheck_debug', { netcheck_ms: __ncMs, online: isOnline });
-    }
-    if (!isOnline) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      Alert.alert(t('errors:network.noConnection'), t('transactions:messages.saveFailedRetry'));
-      return;
-    }
+    // Ayrı auth-health preflight'i burada BİLEREK yok: prod ölçümünde yavaş örnekler 3–5 sn
+    // ekliyordu, fakat REST/RPC yazılabilirliğini garanti etmiyordu. QTB açılışında fire-and-forget
+    // soket ısıtma zaten var; kaydın kendisi gerçek bağlantı kontrolüdür ve 15 sn fetch timeout +
+    // formu koruyan hata akışıyla sınırlıdır.
 
     // GUARD: İleri tarihli işleme ürün/stok EKLENEMEZ. Scheduled dalı urun_hareketler
     // oluşturmaz ve edge function tetiklendiğinde de ürün/stok işlenmez → ürünler
@@ -802,12 +841,14 @@ export function useTransactionSubmit({
           });
         } else if (!isScheduledTransaction && !isScheduled) {
           // Was regular, stays regular → update normal transaction
+          const regularUpdates: Partial<Omit<IslemInsert, 'isletme_id'>> = {
+            ...transactionData,
+            date: formatDateTimeForDB(safeDate),
+          };
+          attemptedRegularUpdate = regularUpdates;
           await updateIslem.mutateAsync({
             id: transactionId,
-            updates: {
-              ...transactionData,
-              date: formatDateTimeForDB(safeDate),
-            },
+            updates: regularUpdates,
           });
 
           // Upload photo if present (supports adding photo to existing transaction)
@@ -830,14 +871,15 @@ export function useTransactionSubmit({
               Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
             }
           }
-          // #6: Ürün-bağlı işlemde stoğu da yeniden uygula. updateIslem yalnızca
+          // #6: Yalnız ürün-bağlı işlemde stoğu da yeniden uygula. updateIslem yalnızca
           // bakiyeyi düzeltir; ürün hareketleri eski hâli geri alınıp güncel urunItems'tan
           // yeniden oluşturulmalı, yoksa stok ve ürün raporu islem.amount ile tutarsız
           // kalır. Aynı islem id korunur. ATOMİK: tek RPC içinde geri-al+sil+yeniden-oluştur;
           // hata olursa tümü geri sarılır -> stok asla yarım kalmaz. items boşsa (ürünler
-          // kaldırılmışsa) yalnızca geri alma yapılır.
-          {
-            // #1: Ürün hareketlerini HER ZAMAN yeniden uygula. Yeni tip ürün üretmiyorsa
+          // kaldırılmışsa) yalnızca geri alma yapılır. Eski ve yeni ürün yoksa RPC'yi hiç
+          // çağırma: no-op olsa da mobil ağda ayrı 15 sn timeout turu yaratıyordu.
+          if (hadOriginalUrunHareketler || urunItems.length > 0) {
+            // Ürün geçmişi olan editlerde yeniden uygula. Yeni tip ürün üretmiyorsa
             // (ör. tahsilat/transfer'e çevrildi) items BOŞ gider → reapply RPC eski
             // hareketleri geri alıp siler; böylece orphan stok/hayalet hareket kalmaz.
             // Ürünsüz işlemlerde (hiç hareketi yok) bu çağrı zararsız no-op'tur.
@@ -1002,7 +1044,9 @@ export function useTransactionSubmit({
       // kendisi asmasın diye kısa süre sınırı). Düştüyse → başarı akışı (kullanıcı elle tekrar
       // denemesin → MÜKERRER önlenir) + manuel invalidation (mutation onSuccess'i çalışmadı).
       let landed = false;
-      if (!isEditMode && createdClientIslemId && isletme?.id) {
+      if (isEditMode && transactionId && attemptedRegularUpdate && isletme?.id) {
+        landed = await didRegularUpdateLand(transactionId, isletme.id, attemptedRegularUpdate);
+      } else if (!isEditMode && createdClientIslemId && isletme?.id) {
         const probeId = createdClientIslemId;
         const probeIsletmeId = isletme.id;
         const probe = (async () => {
@@ -1041,12 +1085,16 @@ export function useTransactionSubmit({
       if (__slowTimer) clearTimeout(__slowTimer); // P1b: yavaş-kayıt bilgisini iptal et
       // Erken dönüşlerde (validation/picker/cross-currency) ve kayıt bitince kilidi bırak.
       submitInFlightRef.current = false;
-      // [GEÇİCİ TEŞHİS — 14 Tem] Yalnız yavaş submit'leri logla (eşik 2sn; ateşle-unut).
+      // Prod-safe performans ölçümü: tutar/açıklama/id yok; yalnız süre ve işlem sınıfı.
+      // Yeni zincirin sahada gerçekten hızlandığını build bazında doğrulamak için yavaş
+      // submit'lerde ateşle-unut kaydı bırak.
       const __submitMs = Date.now() - __submitT0;
-      if (__DEV__ && __submitMs > 2000) {
-        logEvent('save_submit_debug', {
+      if (__submitMs > 2000) {
+        logEvent('save_submit_perf', {
           submit_ms: __submitMs,
           type,
+          mode: isEditMode ? 'edit' : 'create',
+          has_products: urunItems.length > 0,
           ms_since_fg: msSinceForeground(),
         });
       }
@@ -1099,6 +1147,7 @@ export function useTransactionSubmit({
     onSuccess,
     handleDismiss,
     urunItems,
+    hadOriginalUrunHareketler,
     createUrunHareketler,
     reapplyUrunHareketler,
     getUrunHareketTipi,

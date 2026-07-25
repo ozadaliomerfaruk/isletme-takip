@@ -98,6 +98,8 @@ interface UseQuickTransactionFormReturn {
   // Photo state
   photoUri: string | null;
   setPhotoUri: (uri: string | null) => void;
+  /** Edit açılışında DB'den gelen storage path; yeni seçilen yerel fotoğraftan ayrılır. */
+  originalPhotoPath: string | null;
 
   // Entity IDs
   hedefHesapId: string | null;
@@ -128,6 +130,8 @@ interface UseQuickTransactionFormReturn {
 
   // Urun items (alış/satış/iade işlemlerinde urun hareketi)
   urunItems: UrunItem[];
+  /** Edit açılışında işleme bağlı en az bir ürün hareketi var mıydı? */
+  hadOriginalUrunHareketler: boolean;
   setUrunItems: React.Dispatch<React.SetStateAction<UrunItem[]>>;
   addUrunItem: (item: UrunItem) => void;
   removeUrunItem: (urunId: string) => void;
@@ -219,6 +223,7 @@ export function useQuickTransactionForm({
   const [isScheduled, setIsScheduled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [originalPhotoPath, setOriginalPhotoPath] = useState<string | null>(null);
 
   // Date end (for leave usage date range)
   const [dateEnd, setDateEnd] = useState<Date | null>(null);
@@ -251,6 +256,7 @@ export function useQuickTransactionForm({
 
   // Urun items state (alış/satış/iade işlemlerinde urun hareketi)
   const [urunItems, setUrunItems] = useState<UrunItem[]>([]);
+  const [hadOriginalUrunHareketler, setHadOriginalUrunHareketler] = useState(false);
 
   // Urun items helper functions
   const addUrunItem = useCallback((item: UrunItem) => {
@@ -305,6 +311,7 @@ export function useQuickTransactionForm({
     setIsScheduled(false);
     setIsSaving(false);
     setPhotoUri(null);
+    setOriginalPhotoPath(null);
     setHedefHesapId(null);
     setSourceHesapId(null);
     setCariId(null);
@@ -314,6 +321,7 @@ export function useQuickTransactionForm({
     setPendingExchangeData(null);
     setEditOriginal(null);
     setUrunItems([]); // Urun items'ı temizle
+    setHadOriginalUrunHareketler(false);
     setEditDataLoaded(false);
     setIsCariMode(!!defaultCariId);
     setIsPersonelMode(!!defaultPersonelId);
@@ -408,6 +416,7 @@ export function useQuickTransactionForm({
     const photoPath = (transaction as { photo_path?: string | null }).photo_path;
     if (photoPath) {
       setPhotoUri(photoPath);
+      setOriginalPhotoPath(photoPath);
     }
 
     // For scheduled transactions in edit mode, mark as scheduled
@@ -416,7 +425,9 @@ export function useQuickTransactionForm({
     }
 
     // Load urun items from urun hareketler (if available)
-    if (urunHareketler && urunHareketler.length > 0) {
+    const hasOriginalUrunHareketler = !!urunHareketler?.length;
+    setHadOriginalUrunHareketler(hasOriginalUrunHareketler);
+    if (hasOriginalUrunHareketler) {
       const loadedUrunItems: UrunItem[] = urunHareketler.map(hareket => ({
         urunId: hareket.urun_id,
         urunAd: hareket.urunler?.ad || '',
@@ -611,6 +622,7 @@ export function useQuickTransactionForm({
     // Photo state
     photoUri,
     setPhotoUri,
+    originalPhotoPath,
 
     // Entity IDs
     hedefHesapId,
@@ -635,6 +647,7 @@ export function useQuickTransactionForm({
 
     // Urun items
     urunItems,
+    hadOriginalUrunHareketler,
     setUrunItems,
     addUrunItem,
     removeUrunItem,

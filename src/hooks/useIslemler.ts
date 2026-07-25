@@ -140,6 +140,10 @@ export function useCreateIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // Finansal mutation zincirini baştan otomatik tekrarlama. QTB create yolu client UUID ile
+    // sessiz-başarı probe'u yapar; diğer çağıranlarda server UUID üretildiği için kör retry
+    // "sunucuda commit + cevap kaybı" durumunda mükerrer işlem/bakiye riski taşır.
+    retry: false,
     mutationFn: async (input: Omit<IslemInsert, 'isletme_id'>) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
@@ -230,6 +234,9 @@ export function useCreateIslemWithUrun() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // Atomik RPC olsa da HTTP cevabı kaybolduğunda mutation'ı körlemesine baştan koşturma;
+    // çağıran aynı client id ile kontrollü fallback/probe kararını verir.
+    retry: false,
     mutationFn: async ({ input, items }: { input: Omit<IslemInsert, 'isletme_id'>; items: CreateIslemWithUrunItem[] }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
@@ -279,6 +286,8 @@ export function useCreateIslemTaksitli() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // Taksit planı finansal write'tır; belirsiz ağ hatasında otomatik tam-zincir retry yapma.
+    retry: false,
     mutationFn: async ({ input, taksitler }: { input: Omit<IslemInsert, 'isletme_id'>; taksitler: TaksitSatiri[] }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
@@ -666,6 +675,9 @@ export function useUpdateIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // SELECT(old) + linked-cari kontrolleri + atomik RPC'nin tamamını ağ hatasında baştan
+    // koşturmak 15 sn timeout turlarını katlıyor. Retry kararı üst akışta doğrulanarak verilmeli.
+    retry: false,
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<IslemInsert, 'isletme_id'>> }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
@@ -728,6 +740,9 @@ export function useDeleteIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // Silme cevabı kaybolduktan sonra ikinci deneme "kayıt bulunamadı" üretir; kör retry yerine
+    // çağıranın güncel durumu doğrulaması gerekir.
+    retry: false,
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 

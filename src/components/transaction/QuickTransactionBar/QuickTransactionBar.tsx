@@ -341,7 +341,9 @@ export function QuickTransactionBar({
     isScheduled: form.isScheduled,
     odemeHedefType: form.odemeHedefType,
     categorySkipped: modals.categorySkipped,
-    photoUri: form.photoUri,
+    // DB'den yüklenen mevcut storage path yeni yerel fotoğraf değildir; editte tekrar
+    // sıkıştırılıp upload edilmesin. Yalnız kullanıcı gerçekten yeni fotoğraf seçtiyse gönder.
+    photoUri: form.photoUri && form.photoUri !== form.originalPhotoPath ? form.photoUri : null,
     hesapId: form.hesapId,
     hedefHesapId: form.hedefHesapId,
     sourceHesapId: form.sourceHesapId,
@@ -352,6 +354,7 @@ export function QuickTransactionBar({
     cariler: entities.carilerForType,
     personelList: entities.personelList,
     urunItems: form.urunItems,
+    hadOriginalUrunHareketler: form.hadOriginalUrunHareketler,
     setIsSaving: form.setIsSaving,
     setHesapPickerTarget: modals.setHesapPickerTarget,
     setShowHesapPicker: modals.setShowHesapPicker,

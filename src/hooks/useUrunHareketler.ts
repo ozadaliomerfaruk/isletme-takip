@@ -702,6 +702,9 @@ export function useUpdateUrunHareket() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // Ürün hareketi + stok etkisi finansal write'tır; HTTP cevabı kaybolursa mutation'ın
+    // tamamını körlemesine baştan koşturma.
+    retry: false,
     mutationFn: async (input: {
       id: string;
       miktar: number;
@@ -880,6 +883,9 @@ export function useReapplyUrunHareketlerForIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // Stok geri-al + yeniden-uygula tek atomik write'tır. HTTP cevabı kaybolursa tüm RPC'yi
+    // otomatik tekrarlamak yerine çağıran sonucu kontrollü biçimde ele alır.
+    retry: false,
     mutationFn: async (input: {
       islemId: string;
       items: Array<{
