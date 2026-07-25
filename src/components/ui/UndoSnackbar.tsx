@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Undo2, X } from 'lucide-react-native';
@@ -39,47 +39,53 @@ export function UndoSnackbar({
   // insets.bottom, _layout'taki modifiedInsets sayesinde gerçek safe-area'ya
   // EK OLARAK overlay tab bar'ın yüksekliğini de taşır → çubuk bar'ın üstünde kalır.
   const insets = useSafeAreaInsets();
-  const translateY = useRef(new Animated.Value(100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  /** Ekran dışına kayma mesafesi: çubuğun altı + kendi yüksekliği kadar. */
+  const offscreenY = insets.bottom + 80;
+  const translateY = useRef(new Animated.Value(offscreenY)).current;
+  /**
+   * Çıkış animasyonu oynayabilsin diye ayrı mount durumu: eskiden
+   * `if (!visible) return null` view'i anında söküyordu, yani çıkış animasyonu
+   * ölü koddu (çubuk kayarak gelip birden yok oluyordu).
+   */
+  const [mounted, setMounted] = useState(visible);
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 80,
-          friction: 12,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      setMounted(true);
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 12,
+      }).start();
     } else {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: 100,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(translateY, {
+        toValue: offscreenY,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
     }
-  }, [visible, translateY, opacity]);
+  }, [visible, translateY, offscreenY]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   return (
     <Animated.View
+      /**
+       * OPACITY YOK — bilinçli. Cam yüzeyin (GlassSurface → UIVisualEffectView)
+       * kendisinde ya da bir ATASINDA alpha < 1 olursa sistem view'i offscreen
+       * render'a alıyor; cam o anda arkasını ÖRNEKLEYEMİYOR ve malzeme çöküp
+       * düz/açık bir yüzeye dönüyor. "Çubuk bazen beyaz bazen siyah" bundandı:
+       * beyaz kareler giriş animasyonunun içine denk gelenlerdi. Kanıtı:
+       * yazılar görünüyordu ama çubuk yoktu — düz bir solmada ikisi birlikte
+       * solardı, metin RN katmanı olduğu için lineer solar, cam ise komple çöker.
+       * Görünürlük geçişi yalnız TRANSFORM ile (kayma) — offscreen tetiklemez.
+       */
       style={[
         styles.container,
-        { bottom: insets.bottom + spacing.md, transform: [{ translateY }], opacity },
+        { bottom: insets.bottom + spacing.md, transform: [{ translateY }] },
       ]}
       pointerEvents="box-none"
     >

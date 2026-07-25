@@ -4,6 +4,24 @@ import Animated from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 
 /**
+ * ⚠️ ALTIN KURAL — CAM YÜZEYE VE ATALARINA `opacity` UYGULAMA.
+ *
+ * Cam gerçek bir UIVisualEffectView. View'ün kendisinde ya da HERHANGİ bir
+ * atasında alpha < 1 olursa sistem onu offscreen render pass'e alır; cam o anda
+ * arkasındaki içeriği ÖRNEKLEYEMEZ ve malzeme çöküp düz/açık bir yüzeye döner.
+ * (Apple bunu UIVisualEffectView dokümantasyonunda ayrıca uyarı olarak yazıyor.)
+ *
+ * Belirtisi sinsi: yüzey "bazen beyaz bazen doğru renkte" görünür — beyaz olanlar
+ * fade animasyonunun içine denk gelen anlardır. Ayırt edici kanıt, İÇERİĞİN
+ * görünüp YÜZEYİN kaybolmasıdır: düz bir solmada ikisi birlikte solardı; metin
+ * RN katmanı olduğu için lineer solar, cam malzemesi ise komple çöker.
+ *
+ * DOĞRUSU: görünürlük geçişini TRANSFORM ile ver (kayma / ölçek) — offscreen
+ * tetiklemez. Fade şartsa camın kendisine değil İÇİNDEKİ katmana uygula, ya da
+ * malzeme geçişi için glassEffectStyle'ın { style, animate: true } config'ini kullan.
+ *
+ * ---
+ *
  * iOS 26 Liquid Glass (UIGlassEffect) için TEK erişim noktası.
  *
  * Neden tek dosya: cam native modül — iOS 26 altı, Android ve modülü içermeyen
