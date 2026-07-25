@@ -9,9 +9,16 @@ import { colors } from '@/constants/colors';
 /**
  * Siyah cam tint'i. Bu çubuk AÇIK içeriğin (listeler) üstünde yüzüyor —
  * varsayılan GLASS_TINT ('transparent') ile açık zeminde okunmaz.
- * Koyu tint hem çubuğun bilinen kimliğini korur hem yüzeyi var eder.
+ *
+ * ALFA NEDEN YÜKSEK: cam arkasındaki içeriği ÖRNEKLEYİP ona uyum sağlıyor.
+ * 0.55'te altındaki içerik hâlâ belirleyiciydi ve çubuk bazen beyaz bazen
+ * siyah çıkıyordu (beyaz kartların üstüne mi yoksa koyu bir alana mı denk
+ * geldiğine göre). colorScheme="dark" bunu çözmez — o camın GÖRÜNÜM MODUNU
+ * sabitler, arkadan örneklediği rengi değil. Tutarlı siyah için tint'in
+ * baskın olması gerekiyor. Saydamlık isteniyorsa buradan düşürülür, ama
+ * bedeli tonun yine zemine göre oynaması olur.
  */
-const SNACKBAR_TINT = 'rgba(0,0,0,0.55)';
+const SNACKBAR_TINT = 'rgba(0,0,0,0.78)';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 export interface UndoSnackbarProps {
