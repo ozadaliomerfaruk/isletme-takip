@@ -1,5 +1,35 @@
 -- =============================================================================
--- RAPOR RPC'LERINE ERISIM GUARD'I  (denetim ONCE-0)
+-- ⛔⛔⛔  BU MIGRATION UYGULANMAMALI — TEHLIKELI. ASAGIDAKI NOTU OKU.  ⛔⛔⛔
+-- =============================================================================
+--
+-- 26 Tem: CANLI veritabani dogrudan sorgulandi (pg_proc). Ortaya cikan gercek:
+--
+-- 1) BU MIGRATION'IN COZDUGUNU SANDIGI SORUN CANLIDA ZATEN COZULMUS.
+--    get_income_expense_summary, get_category_report ve get_product_report'un
+--    UCUNDE DE canli tanimda `user_has_isletme_access` guard'i VAR ve govdede
+--    "-- GUVENLIK: capraz-kiraci guard (backfill 20260707100000)" izi duruyor.
+--    Yani acik REPO'da, URETIMDE degil. Denetimin "3 rapor RPC'si guard'siz"
+--    bulgusu URETIM icin YANLIS; repo bayat.
+--
+-- 2) DAHA KOTUSU: bu dosya fonksiyon govdelerini 20260630000000'dan (REPO)
+--    kopyaladi. Canli govdeler ondan FARKLI (drift var, kanit yukarida).
+--    CREATE OR REPLACE ile uygulanirsa canli govde BAYAT REPO GOVDESIYLE
+--    EZILIR ve 20260707100000 backfill'i dahil, repoda olmayan her canli
+--    degisiklik GERI ALINIR. Bu bir guvenlik duzeltmesi degil, gerileme olur.
+--
+-- 3) Geriye kalan tek gercek katki: get_category_report ve get_product_report'a
+--    'raporlar' MODUL kapisi (canlida yok — dogrulandi). REVOKE kismi da
+--    gereksiz: bu uc fonksiyonda anon EXECUTE zaten kapali.
+--
+-- YAPILMASI GEREKEN: bu dosyayi uygulamak yerine, CANLI tanimdan snapshot alip
+-- yalnizca modul kapisi ekleyen YENI bir migration yazmak. Once repo-uretim
+-- drift'i uzlastirilmali (canli tanimlar repoya geri yazilmali).
+--
+-- Dosya SILINMEDI cunku (a) drift'in kaniti, (b) modul kapisi metni yeniden
+-- kullanilacak. Uygulanmak icin degil, referans icin duruyor.
+-- =============================================================================
+--
+-- RAPOR RPC'LERINE ERISIM GUARD'I  (denetim ONCE-0) — ESKI GEREKCE, ARTIK GECERSIZ
 --
 -- SORUN: Bu uc fonksiyon SECURITY DEFINER (yani RLS'i baypas ediyor) ama hicbir
 -- erisim kontrolu yapmiyordu; p_isletme_id TAMAMEN cagirandan geliyor. Yani
