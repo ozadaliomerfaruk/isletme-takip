@@ -13,7 +13,13 @@ import { makeMutable, withSpring } from 'react-native-reanimated';
  */
 export const tabBarCollapsed = makeMutable(0);
 
-let lastY = 0;
+/**
+ * -1 = "henüz ölçülmedi". 0 DEĞİL: sekmeler freezeOnBlur ile kaydırma konumunu
+ * koruyor; kaydırılmış bir sekmeye dönüp YUKARI kaydırınca ilk olayda dy = y − 0
+ * pozitif çıkıp bar'ı bir kare daraltıyordu (sonraki olayda geri açılıyor → titreme).
+ * Sentinel'de ilk olay yalnız referansı kurar, yön kararı vermez.
+ */
+let lastY = -1;
 let target = 0;
 /**
  * Yay, timing DEĞİL: kaydırma yönü sürekli değişiyor; yay hedef değişince hızı
@@ -33,6 +39,7 @@ export function useTabBarScroll() {
     // açıp kapatır (görünür titreme). Kırpınca taşma yönü hiç üretilmez.
     const maxY = Math.max(contentSize.height - layoutMeasurement.height, 0);
     const y = Math.min(Math.max(contentOffset.y, 0), maxY);
+    if (lastY < 0) { lastY = y; return; } // ilk ölçüm: yalnız referans kur
     const dy = y - lastY;
     lastY = y;
     let next = target;
@@ -55,7 +62,7 @@ export function useTabBarScroll() {
  * çalışıp kare düşürüyordu — ard arda sekme değiştirmede hissedilen takılma.
  */
 export function resetTabBarCollapse() {
-  lastY = 0;
+  lastY = -1;
   if (target === 0) return;
   target = 0;
   tabBarCollapsed.value = withSpring(0, COLLAPSE_SPRING);
