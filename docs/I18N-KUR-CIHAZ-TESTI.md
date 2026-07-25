@@ -201,3 +201,43 @@ metadata'yı yeniler.
   anında soruluyor — akış çalışıyor.
 - `docs/*-en.html` hukuki sayfalarındaki ad düzeltmesi **deploy edilmedi**.
 Ayrıntı: `docs/I18N-KUR-UYGULAMA-DURUMU.md`
+
+---
+
+## E. 25 Temmuz ikinci turu — denetim kapanışı sonrası eklenenler
+
+Bu maddeler i18n/kur denetiminden SONRA, aynı gün kapatılan üç iş listesinden geliyor
+(front-end ertelenenleri, muhasebe denetimi, taksit son parça).
+
+### E1. Miktar / Tutar geçişi — tek bileşen **[G]**
+Ürünler listesi ve ürün detayındaki Miktar/Tutar geçişi artık aynı bileşen:
+- İki ekranda **birebir aynı** görünmeli (punto, dolgu, BÜYÜK harf).
+- Dokunma hedefi büyüdü (hitSlop): butonun kenarına yakın dokunuş da çalışmalı.
+- Ekran okuyucu butonu "seçili/seçili değil" olarak duyurmalı.
+
+### E2. Personel listesi alt boşluğu **[G]**
+Personel sekmesinde sona kadar kaydır → son satırın ⋮ ve açılan aksiyonları cam tab
+bar'ın ve arama pill'inin altında kalmamalı (cariler/ürünler ile aynı davranış).
+
+### E3. PDF ekstre başlığı **[G]**
+Geçmiş bir dönem seçip ekstre PDF'i al → başlıkta **"Dönem Sonu Bakiye"** yazmalı
+("Son Bakiye" değil). Değer tablodaki kapanış satırıyla aynı olmalı.
+
+### E4. Net Varlık Trendi dipnotu **[G]**
+Trend sayfasının altındaki dipnot artık aylık **DEĞİŞİMİN** de arşivli/pasif kayıtları
+dışladığını ve Gelir-Gider raporundan farklı çıkabileceğini söylüyor. Metni bir oku —
+arşivli carisi olan bir işletmede iki rakamın farkı artık açıklanmış olmalı.
+
+### E5. "Bugünkü kurla çevrildi" notu **[G]**
+Yabancı para birimli kalem içeren bir kategoriyi drill-down'da aç → toplamın altında
+"Yabancı para tutarlar BUGÜNKÜ kurla çevrildi…" notu çıkmalı.
+**TRY-only kullanıcıda bu not HİÇ görünmemeli** (gürültü kontrolü).
+
+### E6. Fatura-hedefli ödeme/tahsilat **[P]**
+1. Cari detayında vadeli bir faturayı **swipe** → "Tahsil Et / Öde" → QTB açılır,
+   tutar ön-dolu. Kaydet → ödeme **o faturadan** kapanmalı (öndeki başka borca kaymamalı).
+2. Taksitli bir faturada aynı jest → ön-dolu tutar **sıradaki açık taksitin kalanı**
+   olmalı (işlemin tamamı değil).
+3. Kaydedilen bu ödemeyi **düzenle** (tutarı değiştir) → hedefleme kaybolmamalı,
+   ödeme yine aynı faturadan düşmeye devam etmeli.
+   *(3. madde jest ile kilitli ama cihazda da bir kez görülmeli.)*
