@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Switch, Linking } from 'react-native';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import {
   Receipt,
@@ -31,7 +31,7 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { Text, Card, Avatar } from '@/components/ui';
+import { Text, Card, Avatar, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { useQueryClient } from '@tanstack/react-query';
@@ -225,7 +225,7 @@ export default function DahaPage() {
   const handleTabScroll = useTabBarScroll();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Screen top>
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} onScroll={handleTabScroll} scrollEventThrottle={16}>
         <SharedIsletmeBanner />
         {/* Profile Card */}
@@ -554,7 +554,7 @@ export default function DahaPage() {
         </TouchableOpacity>
       </Modal>
 
-    </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -12,7 +12,6 @@ import {
   ScrollView,
 } from 'react-native';
 import type { StyleProp, TextStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
@@ -39,7 +38,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BackButton } from '@/components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -714,7 +713,7 @@ export default function AramaPage() {
   const hasActiveAdvancedFilters = hasAmountFilter || hasDateFilter || hasEntityFilter;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Screen top>
       {/* Search Bar */}
       <View style={styles.searchBar}>
         <BackButton icon={ArrowLeft} style={styles.backBtn} />
@@ -993,7 +992,7 @@ export default function AramaPage() {
           )}
         </View>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 

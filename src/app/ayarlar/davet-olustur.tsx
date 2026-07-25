@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, Check } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Input, Button } from '@/components/ui';
+import { Text, Card, Input, Button, Screen } from '@/components/ui';
 import { RoleSelector } from '@/components/multiUser/RoleSelector';
 import { PermissionEditor } from '@/components/multiUser/PermissionEditor';
 import { colors } from '@/constants/colors';
@@ -62,7 +62,7 @@ export default function DavetOlusturPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Screen top>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex1}
@@ -180,7 +180,7 @@ export default function DavetOlusturPage() {
         )}
       </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useRouter, type Href } from 'expo-router';
 import {
@@ -22,7 +22,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassIconButton } from '@/components/ui';
+import { Text, TabFilter, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, Button, EmptyState, ActionSheet, type ActionSheetOption, SkeletonAccountList, AnimatedListItem, ExpandableCard, AddEntityButton, TabHeader, GlassIconButton, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -910,7 +910,7 @@ export default function CarilerPage() {
   }, [isLoading, debouncedSearch, t, router]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Screen top>
       <TabHeader
         title={t('clients:titles.clients')}
         right={
@@ -1151,7 +1151,7 @@ export default function CarilerPage() {
           </View>
         </View>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 

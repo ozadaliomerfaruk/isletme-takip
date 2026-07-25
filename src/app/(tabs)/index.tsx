@@ -2,7 +2,6 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, Pressable, Animated, RefreshControl, ScrollView } from 'react-native';
 import { useTabBarScroll } from '@/lib/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Wallet,
@@ -24,7 +23,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -376,7 +375,7 @@ export default function HomePage() {
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Screen top>
       {/* Sabit (sticky) header — scroll dışında, üstte yapışık */}
       <TabHeader
         title={isletme?.name ?? t('navigation:tabs.home')}
@@ -774,7 +773,7 @@ export default function HomePage() {
         visible={financialModalVisible}
         onDismiss={() => setFinancialModalVisible(false)}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
