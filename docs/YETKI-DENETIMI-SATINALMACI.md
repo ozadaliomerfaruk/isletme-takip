@@ -8,7 +8,32 @@ Hesap bakiyeleri KAPALI olmalı.
 **Sonuç:** 9 yüzey tarandı → 63 ham bulgu → **39 onaylı** (13 yüksek / 14 orta /
 12 düşük), 15 çürütüldü, 9 yüzey temiz çıktı.
 
-> ### ⚠️ DOĞRULAMA EKSİK — 39'un 17'si şüpheci turdan GEÇMEDİ
+> ### ✅ DOĞRULAMA TAMAMLANDI (26 Tem, ikinci tur)
+>
+> Ölen iki doğrulayıcı yeniden koşturuldu. **17 doğrulanmamış bulgunun 13'ü ÇÜRÜDÜ,
+> 4'ü onaylandı.** Nihai tablo:
+>
+> | | Sayı |
+> |---|---|
+> | Ham bulgu (TEMİZ_NOT hariç) | 54 |
+> | **Onaylı** | **26** |
+> | Çürütülen | 28 |
+>
+> Yani ilk raporda verdiğim **39 sayısı şişkindi** — gerçek sayı 26.
+> Çürüyenlerin neredeyse tamamının sebebi aynı: **RLS gerçekten iş görüyor.**
+> "Sayfa koruması yok", "izin kontrolü yok" diye işaretlenen yerlerde veri
+> veritabanından zaten boş dönüyor; ekranda hiçbir şey görünmüyor.
+>
+> Çürüyen tipik örnekler: Arşiv menüsü · `hesaplar/[id]` ve `personel/[id]` sayfa
+> koruması · cari detayında hesap adı · ürün hareketlerinde personel/hesap rozeti ·
+> Excel'deki "Hesap" kolonu · "Personele ata" seçicisi · ürün kâr/zarar özeti.
+> Hepsinde join `null` dönüyor ya da liste boş geliyor.
+>
+> **Ders:** bu kod tabanında RLS, UI'dan daha güvenilir bir savunma katmanı.
+> Bulguları "izin kontrolü yok" diye değil, "veri fiilen ekrana geliyor mu" diye
+> değerlendirmek gerekiyor.
+
+> ### ⚠️ İLK TURDA DOĞRULAMA EKSİKTİ (tarihsel kayıt)
 >
 > Denetim sırasında oturum limiti doldu ve **3 ajan öldü**: `cari-urun-detay` ve
 > `navigasyon` yüzeylerinin **doğrulayıcıları**, bir de sentez ajanı (raporu bu yüzden
