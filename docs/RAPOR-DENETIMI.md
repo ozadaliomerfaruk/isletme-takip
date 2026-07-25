@@ -55,7 +55,20 @@ Bütün `dosya:satır` referansları bu commit'e göredir — sonraki değişikl
 
 ---
 
-## TAZELEME — 5 YÜKSEK tema + ORTA-6 mevcut koda karşı sınandı
+## TAZELEME-1 — 5 YÜKSEK tema + ORTA-6 mevcut koda karşı sınandı
+
+> ⚠️ **ÖNEMLİ ÇERÇEVE DÜZELTMESİ (TAZELEME-2 sonrası).**
+> `git diff 95d455c HEAD -- src/ supabase/` **BOŞ** — baz commit'ten bu yana hiçbir
+> kod dosyası değişmedi, yalnız `docs/` değişti. Dolayısıyla aşağıda "kapandı" denilen
+> hiçbir şey denetimden SONRA düzelmedi; **denetim anında da zaten öyleydi.**
+> Yani bunlar sonraki düzeltmeler değil, **denetimin YANLIŞ POZİTİFLERİ** — şüpheci
+> doğrulayıcıdan geçmelerine rağmen. Doğrulandı:
+> `useIslemler`'e `currency` **efb51ba** ile (baz'dan önce) eklenmiş;
+> `useCategoryReport`'un `fetchAllPages`'i ise çok daha eski (**456af71**).
+>
+> **Sonuç:** bu belgenin yanlış-pozitif oranı sıfır değil. Yakından bakılan 7 temanın
+> 4'ünde iddianın bir kısmı yazıldığı anda geçersizdi. Her bulguyu uygulamadan önce
+> kodda teyit et — "şüpheci doğrulamadan geçti" yeterli güvence değilmiş.
 
 Denetimden **önce** aynı gün 16:17–17:31 arasında ayrı bir i18n/kur denetimi uygulanmıştı
 (11 commit, 73 bulgu). Bu turun bulgularıyla kapsamı çakışıyor, bu yüzden en kritik altı
@@ -74,6 +87,99 @@ Kısmen kapananlar kritik: rapor gövdesi onları hâlâ "tamamen açık" göste
 
 **Sınanmayanlar:** kalan 33 ORTA/DÜŞÜK tema mevcut koda karşı kontrol edilmedi.
 Bir kısmının aynı şekilde kapanmış olması muhtemel — özellikle para/kur ile ilgili olanlar.
+
+---
+
+## TAZELEME-2 — kalan 33 tema (7-39)
+
+TAZELEME-1'de sınanmayan 33 temanın (7-39) her `dosya:satır` referansı mevcut kodda tek tek açıldı. Sonuç: **hiçbir tema düşmedi** (0 DOSYA_YOK, 0 DUZELTILMIS), **1 tema kısmen kapandı** (Tema 10), **32 tema aynen duruyor**, doğrulanamayan yok. Sebebi tek cümle: `git diff 95d455c HEAD -- src/ supabase/` **boş** — baz commit'ten bu yana yalnız `docs/` değişmiş; i18n/kur turu (efb51ba…95d455c) ise denetimden ÖNCE bitmişti ve bu 33 temanın yüzeylerine büyük ölçüde dokunmamıştı. Satır referansları da şaşırtıcı ölçüde taze: yaklaşık on temada 1-3 satırlık kayma var, iki temada **yanlış dosya yolu**, bir temada **yanlış başlık**, bir temada bir sayı (10 → 9) sapmış. Yani belgenin 7-39 arası gövdesi olduğu gibi iş listesi olarak kullanılabilir; TAZELEME-1'deki "bir kısmı da kapanmış olabilir" beklentisi **doğrulanmadı** — kapanma yalnız TAZELEME-1'in baktığı para/kur yüzeylerinde olmuş.
+
+> Aşağıdaki tüm yollar `src/` altındadır (SQL yolları `supabase/migrations/` altında).
+
+### Düşen temalar (artık geçersiz)
+
+| Tema | Başlık | Neyle kapandı |
+|---|---|---|
+| — | — | **Yok.** Silinen dosya yok (95d455c ölü kod temizliği bu 33 temanın hiçbir dosyasına dokunmamış), düzeltilmiş tema yok. |
+
+### Kısmen kapananlar
+
+| Tema | Kapanan | Açık kalan | Güncel referans |
+|---|---|---|---|
+| **10** `conversionIncomplete` bayrağı üretilip gösterilmiyor | İki ekran bayrağa **bağlanmış**: `app/raporlar/alis-satis.tsx:251` ve `app/raporlar/gelir-gider.tsx:157` `<ConversionIncompleteWarning …>` basıyor; `hooks/useAccountReport.ts:37` `AccountReportResult`'a `conversionIncomplete?: boolean` eklenmiş. ⚠️ Bu bağlamalar **efb51ba** ile geldi, yani baz commit'ten ÖNCE oradaydı — başlıktaki "hiçbirinde gösterilmiyor" ifadesi denetim anında da yanlıştı. Başlık **"6 yüzeyde tipten/dönüşten düşüyor, Excel'e hiç taşınmıyor"** olmalı. | **6 hook yüzeyi + her iki Excel yolu.** (1) `useAnalyticsSummary` üretiyor ama tip alanı yok; (2) `useAnalyticsTrend` hesaplayıp dönüşte düşürüyor; (3) `SubCategoryReportResult` arayüzünde alan yok; (4) `IncomeSourceResult` arayüzünde alan yok; (5) `useProductReport` erken-çıkış dalı bayraksız; (6) `useComparisonReport`'ta bayrak **hiç yok** (elle `convertCurrency`); (7) Genel Durum Excel'i `sum.conversionIncomplete`'i atıyor, `useReportExcelExport` payload'ında alan yok. `npx tsc --noEmit` temiz — bunlar derleme hatası değil, **sessiz sinyal kaybı**. | `hooks/useAnalyticsSummary.ts:213-214` (tip `types/analytics.ts:65-88`) · `hooks/useAnalyticsTrend.ts:147,191,221,296` vs `:303-308` · `hooks/useCategoryReport.ts:1258` (arayüz `:1027-1036`) · `hooks/useAccountReport.ts:225-233, :331` · `hooks/useProductReport.ts:149-158` (dolu dal `:190`) · `hooks/useComparisonReport.ts:158-163` · `app/raporlar/genel.tsx:45-49, 83-107` · `hooks/useReportExcelExport.ts:112-121` |
+
+### Hâlâ açık
+
+| Tema | Başlık | Güncel referans |
+|---|---|---|
+| **7** | "Özel" aralık detaylara/trende taşınmıyor; trend son 6 döneme düşüyor | `app/raporlar/index.tsx:64-87` · `hooks/useReportPeriod.ts:171` (+173-182) · `hooks/useReportRouteState.ts:25-63` (kritik dal 48-57) · `hooks/useAnalyticsTrend.ts:118-139` (eşleme 118-128, türetme 130-139) · karşı örnek `app/raporlar/kategori/[id].tsx:87-93` · ÖZEL sekmesi yok: `app/raporlar/karsilastirma.tsx:67` + `components/reports/ReportPeriodBar.tsx:38` |
+| **8** | Drill-down istemci motoru RPC'nin 5 kuralını uygulamıyor | `hooks/useCategoryReport.ts:934-939` + `945-949` (pasif ürün + pro-rata; ikizler 750-755, 760-765, 791-796, 798-802, 922-927) · `:700-702` + `758-768` + `790-803` (kategorisiz ürün payı) · `:840-857` (filtre yok) vs `:1011-1013` (var), yorum `:96-99` · `:967-994` ve `805-838` vs özet `:1057` → `:1118-1123` · `constants/islemTypes.ts:54` · RPC: `20260630000000…sql:123, 141, 277` |
+| **9** | Geçmiş dönem bugünkü kurla çevriliyor; kur yoksa sunucu 1:1 sayıyor | `20260630000000…sql:53-55, 59-66` · `hooks/useAnalyticsSummary.ts:87-98, 104-118` · `hooks/useNetWorthTrend.ts:21, 129-146` · **CANLI RPC tanımı** `20260716040000_rapor_rpc_modul_gate.sql:137 + 149/177/182/187` (opening) ve `:199 + 211/225-228` (pl_trend) · `app/raporlar/hesap/[id].tsx:106-109, 206-210` (kardeş not `kategori/[id].tsx:495-501`) · dipnot `i18n/locales/tr/reports.json:87` → `app/raporlar/net-varlik-trend.tsx:387` |
+| **11** | Hata yutulup YANLIŞ SAYI üretiliyor (iade + alt sorgular) | `hooks/useProductReport.ts:127-130` (ana sorgu `:91-93` `throw`) · `hooks/useCategoryReport.ts:211-215`, `:386` · `:750-757, 791-796, 886-893, 922-931, 934-941` · **doğru desen aynı dosyada:** `:1159` `if (error) throw error` |
+| **12** | Kategori detay Excel'i: toplam satırlardan büyük, üstelik "%100" | `app/raporlar/kategori/[id].tsx:246-286` (`:250-255` yalnız children, `:263` parent dahil toplam) · `lib/pageExports.ts:228-241` (`:238` tutar, `:239` `formatPercent(100)`, `:240-241` adet yalnız alt kategorilerden) · ekrandaki ayrı satır `kategori/[id].tsx:454-461` |
+| **13** | Excel'de para/tarih/adet hücreleri METİN | `lib/reportExcelExport.ts:239, 245, 246, 297, 302, 313, 517` · `lib/pageExports.ts:231` · doğru desen `lib/excelExport.ts:854-859, 1224-1228` · `grep "t: 'n'"` iki dosyada da **0** |
+| **14** | Arşivli/pasif cari ve personelin raporuna erişilemiyor | `components/reports/tabs/CariTabContent.tsx:29, 55, 81` · `hooks/useCariler.ts:11, 26-33` · `components/reports/tabs/PersonelTabContent.tsx:27, 34, 72` · `hooks/usePersonel.ts:11, 26, 31-32` · giriş yolları `app/cariler/[id].tsx:598-614`, `app/personel/[id].tsx:457-473`, `app/arsiv/index.tsx:325` |
+| **15** | Bağlantılı cari raporda 0 işlem, bakiye dolu | `components/reports/tabs/CariTabContent.tsx:53` (+35-51, 84-88) · `hooks/useIslemler.ts:636-660` (filtre `:652`) ↔ çözüm `:438, 442, 460-462` · `20260213000001_cari_sharing_v2.sql:168` |
+| **16** | Alış-Satış: başlık NET, kırılım BRÜT | `app/raporlar/alis-satis.tsx:311, 339` vs `:94, 407, 470, 479` · `hooks/useProductReport.ts:179, 187` (iade tek skaler `:120-134`) · `lib/urunHareket.ts:61` · kullanılmayan anahtar `tr/reports.json:325` |
+| **17** | `personel_satis` bakiye değişimine giriyor, kartta görünmüyor | `components/reports/EntitySummaryCard.tsx:99-113` (`:105` balanceChange, `:109` `secondary: null`) · render koşulu `:188` · kapsanmayan bloklar `:207-225, 274-284` |
+| **18** | Haftalık dönemde ay seçmek önceki aya götürüyor | `components/reports/PeriodNavigator.tsx:137-144` (`:141-142`) · `lib/date.ts:353-360` · **düzeltme şablonu aynı dosyada:** `PeriodNavigator.tsx:152-160` (Node ile yeniden üretildi: Oca 2026 → 22-28 Ara 2025) |
+| **19** | Pull-to-refresh tutarsız (eksik ↔ her şeyi tazeleyen) | `app/raporlar/genel.tsx:33-38` · `hooks/useCariler.ts:45` · `hooks/useCategoryReport.ts:388-394` · `app/raporlar/gelir-gider.tsx:77-85` · `hooks/useNetWorthTrend.ts:209-211` · `hooks/useFinancialSummary.ts:194-197` · filtresiz invalidate: `cari.tsx:26`, `personel.tsx:26`, `karsilastirma.tsx:31`, `kategori/[id].tsx:136` · `hooks/usePullToRefresh.ts:5-17` |
+| **20** | Tüm geçmiş indirilip istemcide filtreleniyor; liste sanallaştırılmamış | `hooks/useIslemler.ts:576-601` (+`636`; hafif alternatif `605-631`) · `tabs/PersonelTabContent.tsx:41-59, 93-97` · `components/reports/EntityTransactionList.tsx:78, 83, 134` · `hooks/useUrunHareketler.ts:521, 529-534` · `hooks/usePdfExport.ts:134-137` · `components/export/PdfExportSheet.tsx:112-116, 326` · `app/raporlar/personel.tsx:35` |
+| **21** | PDF karşılaştırma günlük modda ayı yazmıyor | `hooks/useComparisonReport.ts:104, 190-193, 197, 246` · `lib/comparisonPdf.ts:104` (arayüz `:18`) |
+| **22** | Türkçe büyük harf kuralı delinmiş (GELIR/GIDER/LIRAYLA) | `app/raporlar/gelir-gider.tsx:207, 235, 398-402` · `tabs/KarsilastirmaTabContent.tsx:206` (+249, 256) · `app/raporlar/net-varlik-trend.tsx:416` + `200-203` (`tr/reports.json:65`) · doğru: `ReportPeriodBar.tsx:34-38`, `PeriodNavigator.tsx:185` |
+| **23** | Paylaşılan bileşen varken elle kopya (6 kalem) | `gelir-gider.tsx:192-248+403-449` ↔ `alis-satis.tsx:286-342+497-543` ↔ `app/nakit-akisi/index.tsx:176-233+288-335` · `hesap/[id].tsx:136-179, 296-318` vs `kategori/[id].tsx:320-339` · `PeriodNavigator.tsx:344-349, 478-490` vs `CustomDateRangePicker.tsx:93-95` · `hesap/[id].tsx:37-45` ↔ `ui/IncomeSourceCard.tsx:12-20` · `GenelTabContent.tsx:268, 312` vs `ui/Card.tsx:31-37` · sheet yükseklikleri `PeriodNavigator:398-404` / `CustomDateRangePicker:163-169` / `TrendFilterModal:330-335` / `EntityPicker:250-255` |
+| **24** | Modallarda Android geri tuşu ölü, X'lerde hitSlop yok | `onRequestClose`: `PeriodNavigator.tsx:204, 246, 316` · `CustomDateRangePicker.tsx:59` — `hitSlop`: `PeriodNavigator.tsx:215-217, 257-259, 327-329` · `EntityPicker.tsx:161-163` · `TrendFilterModal.tsx:255-257` — sabit `constants/spacing.ts:87-91` |
+| **25** | Dönem hesabının 5 kenar durumu | `hooks/useReportPeriod.ts:29-30, 50-52, 178-182, 191-200` (kullanılmayan yardımcı `lib/date.ts:540-550`) · `PeriodNavigator.tsx:56-60, 147, 195-201, 220, 310, 340` · `CustomDateRangePicker.tsx:48, 53` |
+| **26** | Üst özet ile kırılım arasında 5 tanım farkı | `tabs/GenelTabContent.tsx:142` vs `197-199` + `hooks/useFinancialSummary.ts:106-112` · `hooks/useAnalyticsSummary.ts:179-183` + `widgets/finance/FinanceKPIGrid.tsx:151-154` · `GenelTabContent.tsx:237-238, 248-249, 252` (karşı örnek `app/(tabs)/index.tsx:573-575`) · `hooks/useCategoryReport.ts:330-343, 365-372` · `components/reports/QuickInsights.tsx:27-28, 41, 57, 64` |
+| **27** | Hata "veri yok" gibi gösteriliyor (8 yüzey) | `useAnalyticsSummary.ts:156-159, 230` · `useAnalyticsTrend.ts:303-308` · `useNetWorthLenses.ts:180-189` (kaynak `useNetWorthTrend.ts:217`, kırpma `:188-192`, tüketici `net-varlik-trend.tsx:54`) · `kategori/[id].tsx:105-112, 173-177` · `CariTabContent.tsx:29-30, 53` · `PersonelTabContent.tsx:27, 32` · `usePdfExport.ts:184-189` → `PdfExportSheet.tsx:375-379` · `karsilastirma.tsx:45` (+`useComparisonReport.ts:250, 187`) |
+| **28** | Yükleme sırasında özet kartı 0,00 gösteriyor | `CariTabContent.tsx:53, 83-90` (gate `:96-99`) · `PersonelTabContent.tsx:32, 74-82` (gate `:88-91`) |
+| **29** | İşlem sayacı mükerrer sayıyor (2 yüzey) | `hooks/useCategoryReport.ts:1203-1217` (+iade tekrarı `:1221-1235`) · `hooks/useProductReport.ts:175` · `20260630000000…sql:167, 266, 302` · gösterim `alis-satis.tsx:368`, `kategori/[id].tsx:436, 696` |
+| **30** | Toplu stok girişinde `kdv_orani` yazılmıyor (yazma yolu) | `app/urunler/toplu-giris.tsx:244-254` (cari'li dal `:219-228`) · `hooks/useUrunHareketler.ts:452` · `20260630000000…sql:251` (ve `:117`) |
+| **31** | Ölü kod ve ölü i18n anahtarları (12 kalem) | `ui/CategoryReportCard.tsx:404-618, :578` (+`ui/index.ts:20`) · `hooks/useAccountReport.ts:57-197` · `EntityPicker.tsx:21, 29` · `EntityTransactionList.tsx:60, 79, 156, 209` · `KarsilastirmaTabContent.tsx:25-33, 48, 61` · `kategori/[id].tsx:4, 5, 86, 798-801` · `alis-satis.tsx:83, 90, 95-96` · `genel.tsx:27, 143-148` + `GenelTabContent.tsx:27` + `useReportRouteState.ts:73-81` · `lib/pdfExport.ts:49` · `tr/reports.json:50, 52, 54` · `lib/comparisonPdf.ts:31` vs `useComparisonReport.ts:181-183` · `useCategoryReport.ts:879, 1114, 1148` |
+| **32** | Hardcoded punto/ölçü değerleri (12 dosya) | `ExploreGrid.tsx:80` · `GenelTabContent.tsx:403-427, 453-466` · `gelir-gider.tsx:427, 430, 439, 442` · `alis-satis.tsx:513-548` · `net-varlik-trend.tsx:265, 303, 417, 430, 445-447, 472-478` · `EntityPicker.tsx:227, 232-234, 252-254` · `EntitySummaryCard.tsx:361, 402` · `TrendFilterModal.tsx:20, 332, 366, 383` · `PeriodNavigator.tsx:400, 418, 461, 479-489` · `ReportExportButton.tsx:23` · `QuickInsights.tsx:150` |
+| **33** | Boş durum dili üç parçalı; veri yokken 50/50 bar | `gelir-gider.tsx:292-297, 346-353` · `alis-satis.tsx:389-396` · `hesap/[id].tsx:251-255` · `kategori/[id].tsx:506-514` (+`:760`) · `EntityTransactionList.tsx:121-129` · `CariTabContent.tsx:110-118` · `PersonelTabContent.tsx:102-110` · `GenelTabContent.tsx:61` (+`:120, 127`), `190-221` · `ui/EmptyState.tsx:53-58, 63-64` |
+| **34** | Yüzde ve bar görselleri sayıyı yalanlıyor | `ui/CategoryReportCard.tsx:394, 508, 605` · `ui/IncomeSourceCard.tsx:74` · `hooks/useCategoryReport.ts:340, 360` · `alis-satis.tsx:473, 479` · `hooks/useProductReport.ts:179` · `lib/currency.ts:383` |
+| **35** | Rengi olmayan kategorinin rengi liste sırasına bağlı | `ui/CategoryReportCard.tsx:343, 424, 557` (palet `:263`) · `hooks/useCategoryReport.ts:362` |
+| **36** | PDF/dosya paylaşımındaki ikincil eksikler (5 kalem) | `lib/pdfExport.ts:142-145, 193-196, 246, 271-272, 290` · `lib/comparisonPdf.ts:120-131` ↔ `KarsilastirmaTabContent.tsx:128, 151` · `PdfExportSheet.tsx:91-92` · `lib/pageExports.ts:62-77` (kardeş `lib/reportExcelExport.ts:395-397`) · `kategori/[id].tsx:281-283` · `app/personel/izin-gecmisi/[id].tsx:172-174` |
+| **37** | Eksik özellik olarak duran boşluklar (6 kalem) | `EntitySummaryCard.tsx:130, 274-305` · `EntityTransactionList.tsx:134-206` (karşılık `app/cariler/[id].tsx:96-99, 721`) · `EntityPicker.tsx:174-193` + `CariTabContent.tsx:81` · `kategori/[id].tsx:180-181, 313, 553-555` · `EntitySummaryCard.tsx:117-127, 251-260` vs `hooks/usePersonelLeaveQuotas.ts:26-53` · `tr/reports.json:270-288` |
+| **38** | Küçük performans/hijyen kalıntıları (12 kalem) | `gelir-gider.tsx:63-66` (+`useAccountReport.ts:273`) · `kategori/[id].tsx:517-524`, `379-405` · `alis-satis.tsx:109-113` · `useAnalyticsTrend.ts:142, 188, 269` · `useAnalyticsSummary.ts:61, 71-83` · `useAnalyticsSummary.ts:104-118` + `useAnalyticsTrend.ts:169-178` · `useNetWorthTrend.ts:189-193` (doğru bayrak `:179`) · `net-varlik-trend.tsx:52, 248` · `app/raporlar/index.tsx:131, 175, 204-206` · `hesap/[id].tsx` (logEvent yok), `:70, 73, 134, 166, 253` |
+| **39** | TrendFilterModal — klavye yönetimi ve safe-area yok | `TrendFilterModal.tsx:273-277, 301-317, 328, 389-395` · karşılaştırma `ui/BottomSheet.tsx:44-48, 142-186, 311` · `ui/ActionSheet.tsx:293` |
+
+**Bu turda çıkan belge düzeltmeleri** (bulguların özü değişmiyor, referanslar yanlıştı):
+
+- **Yol hatası ×2:** Tema 23 ve 36'da `raporlar/nakit-akisi/index.tsx` diye geçen dosya `src/app/nakit-akisi/index.tsx`; `raporlar/` altında nakit akışı diye bir şey yok. (Tema 36'daki "doğru desen" referansı da bu yüzden yanlış yolu gösteriyordu — `toErrorMessage` kullanımı `nakit-akisi/index.tsx:94`.)
+- **Ölü migration referansı:** Tema 9'daki `20260710140000…sql:179-184` artık **süperseded**. `get_networth_pl_trend` / `get_networth_opening_by_month`'un canlı tanımı `20260716040000_rapor_rpc_modul_gate.sql` (gövde birebir kopyalanmış, yalnız guard eklenmiş). Düzeltme oraya yapılmazsa yeni migration eskisini geri getirir.
+- **Başlık hatası:** Tema 10 — "7 yerde üretilip **hiçbirinde** gösterilmiyor" baz commit anında da yanlıştı (bkz. yukarıdaki kısmen tablosu).
+- **Sayı sapması:** Tema 31 — `reports:comparison` altında kullanılmayan anahtar 10 değil **9**.
+- **Kapsam genişlemesi (denetimde yazmayan ek yüzeyler):** Tema 8'de pasif-ürün filtresi eksikliği tek sorguda değil **dört** `urun_hareketler` sorgusunda (750-755, 760-765, 791-796, 922-927); Tema 20'nin ağır kalıbı cari tarafında da canlı (`CariTabContent.tsx:53`); Tema 22'nin `.toUpperCase()` hatası `app/nakit-akisi/index.tsx:191, 219`'da da var; Tema 29'un düz-toplama deseni ana kategori raporunda da (`useCategoryReport.ts:266-324, 507-526`).
+- **Küçük satır kaymaları:** T-16 `:471`→`:470` · T-14 `arsiv/index.tsx:320`→`:325` · T-25 Android `maximumDate` `:311`→`:310` · T-30 `244-253`→`244-254` · T-33 `EmptyState.tsx:51-56`→`:53-58`/`63-64` · T-37 `314`→`313`, `555`→`553-555`, `719-721`→`721` · T-38 `517-526`→`517-524`, `379-407`→`379-405`, `188-192`→`189-193` · T-39 `BottomSheet 44-46`→`44-48`.
+
+### Doğrulanamayanlar
+
+Yok. 33 temanın tamamı mevcut kodda açılıp doğrulandı; iki bulgu ayrıca çalıştırılarak yeniden üretildi (Tema 18 haftalık offset hatası Node ile, Tema 10'un tip kaybı `npx tsc --noEmit` ile — derleme **temiz**, yani sorun sessiz sinyal kaybı).
+
+### ÖNCE ŞUNU YAP — güncellenmiş
+
+> **TAZELEME-2'ye göre güncellendi.** Bu turda hiçbir madde düşmedi; sıralama değişti: drill-down istemci motoru (Tema 8) yukarı çıktı — TAZELEME-1'deki nakit akışı maddesini de içine alıyor ve rapor bölümünün **en çok yanlış sayı üreten tek paketi** o. Ayrıca "sıraya girmeyen tartışmalı" iki maddeden biri (`kdv_orani`) listeye girdi: yazma yolu hatası, her gün geriye dönük düzeltilemeyen NULL biriktiriyor.
+
+**0. GÜVENLİK — üç rapor RPC'sine guard + REVOKE (EK-B).**
+`get_income_expense_summary`, `get_category_report`, `get_product_report` `SECURITY DEFINER` ama `user_has_isletme_access` / `user_has_module_access` çağırmıyor ve hiçbir migration'da `REVOKE EXECUTE … FROM PUBLIC, anon` almamışlar; `p_isletme_id` tamamen çağırandan geliyor. Kalıp hazır (`20260716040000` guard + dosya sonu REVOKE'ları). Listedeki tek **veri sızıntısı** maddesi budur.
+
+1. **Drill-down istemci motorunu RPC'nin kurallarına hizala** (Tema 8 + YÜKSEK-5).
+   Beş kural birden açık: pasif ürün filtresi (dört sorguda birden), pro-rata dağıtım yerine ham kalem toplamı, kategorisiz dalda faturanın TAMAMININ kategorisize yazılması, `useCategoryTransactions`'ta `rowHasPassiveEntity` çağrısının hiç olmayışı, nakit akışı transferinin listede olup özette olmayışı — üstüne `source='cash-flow'` hesap tipi filtresinin yokluğu. Hepsi aynı dosyada (`hooks/useCategoryReport.ts`) ve hepsi **ekranda görünen sayıyı bozuyor**. Doğru desenler zaten kod tabanında (`:1011-1013`, `:1159`).
+
+2. **Excel yolunu ekranın motoruna bağla — paket büyüdü.**
+   TAZELEME-1'in üç kalemi (para birimi `getIslemCurrency`, çeviri `createConversionSum`, iade `isReturnType`) + **Tema 12** (kategori detay Excel'i: toplam parent'ı içeriyor, satırlar içermiyor, yüzde sabit `%100`, adet başka kümeden) + **Tema 13** (para/tarih/miktar/sayaç hücreleri METİN — `t: 'n'` iki dosyada da sıfır; doğru desen `lib/excelExport.ts:854-859`). Ekran tarafı düzeldikçe ekran ↔ dosya farkı büyüyor.
+
+3. **İki küçük ama sessiz veri kaybı — tek oturumda kapanır.**
+   (a) `hooks/useAccountReport.ts`'i `fetchAllPages` ile sar — `useCategoryReport` tarafı bitti, `fetchAllPages` burada import bile edilmemiş (YÜKSEK-4 kalan ayağı). (b) `app/urunler/toplu-giris.tsx:244-254` cari-siz dalına `kdv_orani` ekle — UI KDV'yi topluyor, DB'ye NULL gidiyor, RPC `COALESCE(...,0)` ile 0 sayıyor (Tema 30). Her gün düzeltilemeyen kayıt birikiyor, o yüzden bekletilmemeli.
+
+4. **İşaretli para biçimini kalan dört yüzeye uygula** — `gelir-gider.tsx`, `hesap/[id].tsx`, `CategoryReportCard.tsx`, `IncomeSourceCard.tsx`; `kategori/[id].tsx:313` satır render'ı da bu pakette (ORTA-6 kalan ayağı + YÜKSEK-1 kalan ayağı).
+
+5. **Dönem katmanını düzelt (Tema 7 + Tema 18, dördü de açık).**
+   Navigasyonda özel dönemde `period:'custom'` gönder (`raporlar/index.tsx:64-87`), `useReportPeriod.ts:171`'deki `'custom' → 'monthly'` zorlamasını kaldır, trend offset'ini string eşleme yerine doğrudan geçir (`useAnalyticsTrend.ts:118-128`), haftalık ay seçici offset'ini pazartesi referansına çevir (`PeriodNavigator.ts:141-142`; şablon aynı dosyada `:152-160`).
+
+**Sıraya girmeyen ama şiddeti tartışmalı kalan madde:** Tema 11 (hata yutulup **yanlış sayı** cache'e yazılıyor — `return 0` / `return []`, altı alt sorguda `error` hiç okunmuyor). Bu turda maliyeti düştü: doğru desen aynı dosyada zaten var (`useCategoryReport.ts:1159`), yani yeni bir politika icat etmeye gerek yok — muhasebe uygulaması olduğu için 1. maddenin yanına alınması savunulabilir.
 
 ---
 
