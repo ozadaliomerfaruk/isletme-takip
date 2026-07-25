@@ -15,7 +15,7 @@ import { useHesaplar } from './useHesaplar';
 import { useCariler } from './useCariler';
 import { usePersonelList } from './usePersonel';
 import { useSettings } from './useSettings';
-import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter } from './useExchangeRates';
 import { getDateRange } from '@/lib/date';
 import { isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { toNumber } from '@/lib/currency';
@@ -149,8 +149,10 @@ export function useAnalyticsSummary(
 
     // RPC income/expense/net değerleri TRY cinsindendir; ana para birimine çevir.
     // baseCurrency === 'TRY' iken tam no-op (TR kullanıcı için davranış değişmez).
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
     const rawCurrent = periodData?.current || { income: 0, expense: 0, net: 0 };
     const rawPrevious = periodData?.previous || { income: 0, expense: 0, net: 0 };
     const currentPeriod = { income: conv(rawCurrent.income), expense: conv(rawCurrent.expense), net: conv(rawCurrent.net) };
@@ -208,6 +210,8 @@ export function useAnalyticsSummary(
         creditCardDebt: financialSummary.payables.hesap,
       },
       isLoading,
+      // Kur bulunamadıysa RPC toplamları ham TRY kalıyor → ekran uyarıyı göstersin
+      conversionIncomplete: converter.conversionIncomplete || financialSummary.conversionIncomplete,
     };
   }, [
     periodsQuery.data,

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, TouchableOpacity, Animated, Alert, RefreshControl, Pressable } from 'react-native';
 import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTabBarScroll } from '@/lib/tabBarScroll';
+import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useRouter } from 'expo-router';
 import {
   UserCircle,
@@ -37,7 +37,7 @@ import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, formatConvertedHint } from '@/hooks/useExchangeRates';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
 import { useNotlar } from '@/hooks/useNotlar';
 import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
@@ -59,6 +59,8 @@ export default function PersonelPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const handleTabScroll = useTabBarScroll();
+  const listRef = useRef<FlatList>(null);
+  useRegisterScrollToTop('personel', () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
   const { t } = useTranslation(['staff', 'common', 'navigation']);
   const [searchQuery, setSearchQuery] = useState('');
   // Arama aktifken (odak veya metin) FAB çekilir — bkz. FloatingSearchBar.onActiveChange
@@ -593,11 +595,11 @@ export default function PersonelPage() {
                   >
                     {formatCurrency(Math.abs(toNumber(personel.balance)), personel.currency)}
                   </Text>
-                  {personel.currency !== baseCurrency && exchangeRates && toNumber(personel.balance) !== 0 && (
-                    <Text variant="caption" color="secondary">
-                      ~{formatCurrency(convertCurrency(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                    </Text>
-                  )}
+                  {/* Kuru yoksa satır HİÇ çizilmez (eski `?? 0` → "~₺0,00") */}
+                  {toNumber(personel.balance) !== 0 && (() => {
+                    const hint = formatConvertedHint(Math.abs(toNumber(personel.balance)), personel.currency, baseCurrency, exchangeRates);
+                    return hint ? <Text variant="caption" color="secondary">{hint}</Text> : null;
+                  })()}
                 </View>
                 <TouchableOpacity
                   onPress={(e) => {
@@ -723,6 +725,7 @@ export default function PersonelPage() {
           Bu yüzden header listeden SONRA render ediliyor (üstte boyansın) ve
           listenin üst boşluğu ölçülen header yüksekliğine eşitleniyor. */}
       <FlatList
+        ref={listRef}
         style={styles.scrollView}
         onScroll={handleTabScroll}
         scrollEventThrottle={16}

@@ -48,8 +48,8 @@ export function useIslemler(filters?: IslemFilters) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name),
+          cari:cariler(id,name,type,currency),
+          personel:personel(id,first_name,last_name,currency),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
@@ -502,8 +502,8 @@ export function useIslemlerByHesap(hesapId: string) {
           kategori:kategoriler(id,name),
           hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name),
+          cari:cariler(id,name,type,currency),
+          personel:personel(id,first_name,last_name,currency),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
@@ -906,8 +906,8 @@ export function useSearchIslemler(searchQuery: string) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name),
+          cari:cariler(id,name,type,currency),
+          personel:personel(id,first_name,last_name,currency),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id)
@@ -950,8 +950,8 @@ export function useFilteredIslemler(params: IslemFilterSearchParams) {
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name,type),
-          personel:personel(id,first_name,last_name),
+          cari:cariler(id,name,type,currency),
+          personel:personel(id,first_name,last_name,currency),
           creator:profiles!islemler_created_by_profiles_fk(display_name,email)
         `)
         .eq('isletme_id', isletme.id);

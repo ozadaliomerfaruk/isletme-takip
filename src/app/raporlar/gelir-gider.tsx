@@ -11,6 +11,7 @@ import { CollapsibleGroupHeader } from '@/components/reports/CollapsibleGroupHea
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
@@ -152,6 +153,9 @@ export default function GelirGiderRaporPage() {
             />
           }
         >
+          {/* Kur bulunamadıysa toplamlar eksik/çevrilmemiş — sessiz kalmıyor */}
+          <ConversionIncompleteWarning visible={catReport.conversionIncomplete} />
+
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter

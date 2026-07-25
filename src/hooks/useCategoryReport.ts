@@ -7,7 +7,7 @@ import { Kategori, KategoriType, HesapType } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
 
 const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger'];
 
@@ -53,6 +53,8 @@ export interface CategoryReportResult {
   returnTotal: number;        // Dönemdeki iade toplamı (ayrı "İadeler" satırı için)
   uncategorizedAmount: number;
   uncategorizedCount: number;
+  /** Kur bulunamadığı için bazı tutarlar ham TRY kaldı → uyarı gösterilmeli. */
+  conversionIncomplete?: boolean;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => Promise<unknown>;
@@ -219,8 +221,10 @@ export function useCategoryReport(
   // RPC zaten kategori bazlı aggregate döndürüyor, burada sadece parent gruplama yapıyoruz
   const result = useMemo(() => {
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
     // Persist cache güvenliği: eski sürümde bu sorgu NUMBER dönüyordu; diskteki eski
     // cache hydrate olursa returnRows number olabilir → array'e normalize et (crash fix).
     const safeReturnRows = Array.isArray(returnRows) ? returnRows : [];
@@ -236,6 +240,7 @@ export function useCategoryReport(
         returnTotal: convertedReturnTotal,
         uncategorizedAmount: 0,
         uncategorizedCount: 0,
+        conversionIncomplete: converter.conversionIncomplete,
       };
     }
 
@@ -372,6 +377,8 @@ export function useCategoryReport(
       returnTotal: convertedReturnTotal,
       uncategorizedAmount,
       uncategorizedCount,
+      // Kur bulunamadıysa ham TRY korunuyor → ekran uyarıyı göstersin
+      conversionIncomplete: converter.conversionIncomplete,
     };
   }, [islemler, allKategoriler, returnRows, options.percentageReferenceTotal, baseCurrency, rates]);
 
@@ -471,8 +478,10 @@ export function useHierarchicalCategoryReport(
   // Hiyerarşik gruplama (RPC aggregate verisi üzerinden)
   const result = useMemo(() => {
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
     const convertedReturnTotal = conv(returnTotal || 0);
 
     if (!islemler || islemler.length === 0) {
@@ -697,8 +706,8 @@ export function useCategoryTransactions(
           *,
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name,type,is_active),
-          personel:personel(id,first_name,last_name,is_active)
+          cari:cariler(id,name,type,is_active,currency),
+          personel:personel(id,first_name,last_name,is_active,currency)
         `;
 
       const noProductData = await fetchAllPages(() => {
@@ -804,8 +813,8 @@ export function useCategoryTransactions(
               hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
               hedef_hesap:hesaplar!hedef_hesap_id(id,type,is_active),
               kategori:kategoriler(id,name),
-              cari:cariler(id,name,type,is_active),
-              personel:personel(id,first_name,last_name,is_active)
+              cari:cariler(id,name,type,is_active,currency),
+              personel:personel(id,first_name,last_name,is_active,currency)
             `)
             .eq('isletme_id', isletme.id)
             .eq('type', 'transfer')
@@ -890,8 +899,8 @@ export function useMultiCategoryTransactions(
           *,
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
           kategori:kategoriler(id,name),
-          cari:cariler(id,name,type,is_active),
-          personel:personel(id,first_name,last_name,is_active)
+          cari:cariler(id,name,type,is_active,currency),
+          personel:personel(id,first_name,last_name,is_active,currency)
         `;
 
       const directData = await fetchAllPages(() =>
@@ -966,8 +975,8 @@ export function useMultiCategoryTransactions(
               hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
               hedef_hesap:hesaplar!hedef_hesap_id(id,type,is_active),
               kategori:kategoriler(id,name),
-              cari:cariler(id,name,type,is_active),
-              personel:personel(id,first_name,last_name,is_active)
+              cari:cariler(id,name,type,is_active,currency),
+              personel:personel(id,first_name,last_name,is_active,currency)
             `)
             .eq('isletme_id', isletme.id)
             .eq('type', 'transfer')
@@ -1185,8 +1194,10 @@ export function useSubCategoryReport(
     });
 
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
 
     // RPC aggregate verisini grupla
     rpcData.forEach((row) => {
@@ -1244,6 +1255,7 @@ export function useSubCategoryReport(
       parentCount,
       totalAmount,
       totalCount,
+      conversionIncomplete: converter.conversionIncomplete,
     };
   }, [kategoriler, rpcData, returnsData, parentKategoriId, baseCurrency, rates]);
 

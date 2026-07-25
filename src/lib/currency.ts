@@ -678,9 +678,32 @@ export interface CrossCurrencyDisplay {
  * Hedef taraf: transfer -> hedef_hesap, cari_* -> cari, personel_* -> personel.
  * 'amount' kaynak (hesap) para birimindedir; HEDEF tutar = calculateTargetAmount ile çevrilir.
  */
+/**
+ * İşlemin tutarının YAZILDIĞI para birimi — sunucudaki
+ * COALESCE(hesap.currency, cari.currency, personel.currency, 'TRY') zincirinin
+ * client karşılığı (bkz. migration 20260529010000_fix_report_currency_resolution.sql:142).
+ *
+ * NEDEN GEREKLİ — hesap bacağı OLMAYAN tipler (cari_alis, cari_satis, iadeler,
+ * personel_gider, personel_satis) için tutar karşı tarafın para biriminde okunuyor.
+ * Yalnız hesaptan çözen eski mantık bu tiplerde undefined döndürüyordu → formatCurrency
+ * ANA para birimi sembolünü basıyor, USD cariye kesilen 1.000 USD fatura İşlemler
+ * listesinde "₺1.000" görünüyordu (cari detayında doğru "$1.000").
+ *
+ * Fallback SIRASI önemli: source_currency açıkça yazılmışsa (çapraz-kur kaydı) o
+ * kazanır; sonra hesap; sonra tipe göre entity. Böylece cari_odeme gibi iki bacaklı
+ * tiplerde ana satır yine kaynak hesabın para biriminde kalıyor.
+ */
+export function getIslemCurrency(islem: CrossCurrencyIslemLike): string | undefined {
+  if (islem.source_currency) return islem.source_currency;
+  if (islem.hesap?.currency) return islem.hesap.currency;
+  if (islem.type?.startsWith('cari_') && islem.cari?.currency) return islem.cari.currency;
+  if (islem.type?.startsWith('personel_') && islem.personel?.currency) return islem.personel.currency;
+  return undefined;
+}
+
 export function getCrossCurrencyDisplay(islem: CrossCurrencyIslemLike): CrossCurrencyDisplay {
   const amount = toNumber(islem.amount);
-  const sourceCurrency = islem.source_currency || islem.hesap?.currency || undefined;
+  const sourceCurrency = getIslemCurrency(islem);
 
   // Hedef tarafın para birimini işlem tipine göre çöz
   let targetCurrency: string | undefined;

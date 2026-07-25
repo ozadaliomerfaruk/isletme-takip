@@ -21,7 +21,7 @@ import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createConversionSum, formatConvertedHint } from '@/hooks/useExchangeRates';
 import type { TabContentProps } from './types';
 
 export function GenelTabContent(_props: TabContentProps) {
@@ -63,15 +63,17 @@ export function GenelTabContent(_props: TabContentProps) {
   const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
   const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
 
-  const convertBalance = (h: typeof normalHesaplar[0]) => {
-    const balance = toNumber(h.balance);
-    const currency = h.currency || baseCurrency;
-    if (currency === baseCurrency) return balance;
-    return convertCurrency(balance, currency, baseCurrency, exchangeRates) ?? balance;
+  // Alt toplamlar üst karttaki politikayla AYNI olmalı: kur yoksa kalem hariç tutulur.
+  // Eski `?? balance` 1:1 ekliyordu → aynı ekranda üst kart bakiyeyi hariç tutup uyarı
+  // gösterirken alt toplam onu çevrilmemiş hâliyle içeriyordu (iki sayı çelişiyordu).
+  const sumBalances = (list: typeof normalHesaplar) => {
+    const sum = createConversionSum(baseCurrency, exchangeRates);
+    list.forEach((h) => sum.add(toNumber(h.balance), h.currency));
+    return sum.total;
   };
 
-  const normalHesaplarToplam = normalHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
-  const krediKartiToplam = krediKartiHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
+  const normalHesaplarToplam = sumBalances(normalHesaplar);
+  const krediKartiToplam = sumBalances(krediKartiHesaplar);
 
   return (
     <>
@@ -198,11 +200,12 @@ export function GenelTabContent(_props: TabContentProps) {
                   <Text variant="label" color={balance >= 0 ? 'primary' : 'error'} style={styles.accountAmount}>
                     {formatCurrency(balance, hesapCurrency)}
                   </Text>
-                  {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
-                    <Text variant="caption" color="secondary">
-                      ~{formatCurrency(convertBalance(hesap), baseCurrency)}
-                    </Text>
-                  )}
+                  {/* Kur yoksa satır HİÇ çizilmez — convertBalance 1:1'e düşüp ham
+                      tutarı baz para birimi etiketiyle yazıyordu */}
+                  {balance !== 0 && (() => {
+                    const hint = formatConvertedHint(balance, hesapCurrency, baseCurrency, exchangeRates);
+                    return hint ? <Text variant="caption" color="secondary">{hint}</Text> : null;
+                  })()}
                 </View>
               </View>
             );
@@ -237,11 +240,10 @@ export function GenelTabContent(_props: TabContentProps) {
                     <Text variant="label" color="error" style={styles.accountAmount}>
                       {formatCurrency(Math.abs(balance), hesapCurrency)}
                     </Text>
-                    {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
-                      <Text variant="caption" color="secondary">
-                        ~{formatCurrency(Math.abs(convertBalance(hesap)), baseCurrency)}
-                      </Text>
-                    )}
+                    {balance !== 0 && (() => {
+                      const hint = formatConvertedHint(Math.abs(balance), hesapCurrency, baseCurrency, exchangeRates);
+                      return hint ? <Text variant="caption" color="secondary">{hint}</Text> : null;
+                    })()}
                   </View>
                 </View>
               );

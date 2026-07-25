@@ -15,7 +15,7 @@ import { getDateRange } from '@/lib/date';
 import { calculateIncomeSummary, isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from './useSettings';
-import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter, convertCurrency } from './useExchangeRates';
 import type {
   AnalyticsTrend,
   AnalyticsPeriod,
@@ -142,6 +142,9 @@ export function useAnalyticsTrend(
       const todayStr = new Date().toISOString().split('T')[0];
 
       let trendData: TrendDataPoint[];
+      // Kuru bulunamayan kalem oldu mu — ham tutar korunuyor ama bu artık SÖYLENİYOR
+      // (eski hâlde `?? amt` sessizdi: ham TRY, baz para birimi etiketiyle basılıyordu).
+      let conversionIncomplete = false;
 
       if (!hasFilter) {
         // No filter: use RPC for each period (no 1000-row limit)
@@ -156,8 +159,9 @@ export function useAnalyticsTrend(
         );
 
         // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
-        const convToBase = (v: number) =>
-          baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+        // TEK politika (createRpcTotalConverter): çevrilemezse ham TRY korunur, bayrak kalkar.
+        const converter = createRpcTotalConverter(baseCurrency, rates);
+        const convToBase = converter.conv;
 
         trendData = periods.map((p, i) => {
           const result = rpcResults[i];
@@ -184,6 +188,7 @@ export function useAnalyticsTrend(
             isCurrentPeriod: todayStr >= p.startDate && todayStr <= p.endDate,
           };
         });
+        if (converter.conversionIncomplete) conversionIncomplete = true;
       } else {
         // With filter: use fetchAllPages to bypass 1000-row limit
         const oldestStart = periods[0].startDate;
@@ -212,7 +217,11 @@ export function useAnalyticsTrend(
           const ccy = firstCcy(row.hesap) || firstCcy(row.cari) || firstCcy(row.personel) || baseCurrency;
           if (ccy === baseCurrency) return amt;
           const conv = convertCurrency(amt, ccy, baseCurrency, rates);
-          return conv ?? amt;
+          if (conv === null) {
+            conversionIncomplete = true;
+            return amt;
+          }
+          return conv;
         };
 
         const data = await fetchAllPages<TrendRow>(() => {
@@ -284,6 +293,7 @@ export function useAnalyticsTrend(
         data: trendData,
         totals,
         averages,
+        conversionIncomplete,
       };
     },
     enabled: !!isletme,

@@ -4,9 +4,6 @@ import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber } from '@/lib/currency';
-import { useSettings } from './useSettings';
-import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import i18n from '@/i18n';
 
 export function useHesaplar(includePassive: boolean = false, includeArchived: boolean = false) {
@@ -195,23 +192,8 @@ export function useDeleteHesap() {
   });
 }
 
-// Toplam bakiye hesapla (döviz çevrimi ile ana para birimine dönüştür)
-export function useTotalBalance() {
-  const { data: hesaplar } = useHesaplar();
-  const { currency: baseCurrency } = useSettings();
-  const { data: exchangeRatesData } = useExchangeRates();
-  const exchangeRates = exchangeRatesData?.rates;
-
-  const total = hesaplar?.reduce((acc, h) => {
-    const accountCurrency = h.currency || baseCurrency;
-    const balance = toNumber(h.balance);
-    if (accountCurrency === baseCurrency) {
-      return acc + balance;
-    }
-    // Döviz kuru ile çevir, bulunamazsa orijinal bakiyeyi kullan
-    const converted = convertCurrency(balance, accountCurrency, baseCurrency, exchangeRates);
-    return acc + (converted ?? balance);
-  }, 0) ?? 0;
-
-  return total;
-}
+// useTotalBalance KALDIRILDI (25 Tem): hiçbir yerden çağrılmıyordu ve üç ayrı kusur
+// taşıyordu — (1) kur bulunamayınca `?? balance` ile 1:1 ekliyordu (repodaki tek
+// politika artık createConversionSum: hariç tut + bayrak), (2) useHesaplar() varsayılan
+// argümanlarıyla çağırdığı için PASİF ve ARŞİVLİ hesapları da topluyordu, (3) canlı
+// muadili useFinancialSummary.accounts. Toplam bakiye gerekirse o hook kullanılmalı.

@@ -12,7 +12,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createConversionSum } from '@/hooks/useExchangeRates';
 import { toNumber } from '@/lib/currency';
 import { exportGenelDurumToExcel, GenelDurumExcelTranslations } from '@/lib/reportExcelExport';
 import { toErrorMessage } from '@/lib/errors';
@@ -40,15 +40,16 @@ export default function GenelRaporPage() {
   const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
   const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
 
-  const convertBalance = (h: typeof normalHesaplar[0]) => {
-    const balance = toNumber(h.balance);
-    const currency = h.currency || baseCurrency;
-    if (currency === baseCurrency) return balance;
-    return convertCurrency(balance, currency, baseCurrency, exchangeRates) ?? balance;
+  // Excel'e giden toplamlar EKRANDAKİ ile aynı politikadan geçmeli (GenelTabContent):
+  // kur yoksa kalem hariç tutulur, `?? balance` ile 1:1 eklenmez.
+  const sumBalances = (list: typeof normalHesaplar) => {
+    const sum = createConversionSum(baseCurrency, exchangeRates);
+    list.forEach((h) => sum.add(toNumber(h.balance), h.currency));
+    return sum.total;
   };
 
-  const normalHesaplarToplam = normalHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
-  const krediKartiToplam = krediKartiHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
+  const normalHesaplarToplam = sumBalances(normalHesaplar);
+  const krediKartiToplam = sumBalances(krediKartiHesaplar);
 
   const handleExport = useCallback(async () => {
     if (!isletme) return;

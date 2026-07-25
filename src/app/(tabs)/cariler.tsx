@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTabBarScroll } from '@/lib/tabBarScroll';
+import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useRouter, type Href } from 'expo-router';
 import {
@@ -34,7 +34,7 @@ import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateMedium } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, formatConvertedHint } from '@/hooks/useExchangeRates';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
 import { useCariVadeRozet } from '@/hooks/useIslemTahsis';
 import { useArchiveCari } from '@/hooks/useArchive';
@@ -76,6 +76,8 @@ export default function CarilerPage() {
    *  hem cam tab bar'ı hem yüzen arama pill'ini tek kaynaktan temizler. */
   const contentPaddingBottom = useContentBottomPadding({ search: true });
   const handleTabScroll = useTabBarScroll();
+  const listRef = useRef<FlatList>(null);
+  useRegisterScrollToTop('cariler', () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
   const { t } = useTranslation(['clients', 'common', 'navigation']);
   const [filter, setFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -800,11 +802,11 @@ export default function CarilerPage() {
                   >
                     {formatCurrency(Math.abs(toNumber(cari.balance)), cari.currency)}
                   </Text>
-                  {cari.currency !== baseCurrency && exchangeRates && toNumber(cari.balance) !== 0 && (
-                    <Text style={styles.balanceConverted}>
-                      ~{formatCurrency(convertCurrency(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                    </Text>
-                  )}
+                  {/* Kuru yoksa satır HİÇ çizilmez (eski `?? 0` → "~₺0,00") */}
+                  {toNumber(cari.balance) !== 0 && (() => {
+                    const hint = formatConvertedHint(Math.abs(toNumber(cari.balance)), cari.currency, baseCurrency, exchangeRates);
+                    return hint ? <Text style={styles.balanceConverted}>{hint}</Text> : null;
+                  })()}
                   {/* Vade bilgisi: tutarın altında — gecikmiş kırmızı, en yakın vade nötr */}
                   {vadeInfo ? (
                     <>
@@ -924,6 +926,7 @@ export default function CarilerPage() {
           arkasından akıyor. Bu yüzden header listeden SONRA render ediliyor
           (üstte boyansın) ve listenin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
       <FlatList
+        ref={listRef}
         style={styles.scrollView}
         onScroll={handleTabScroll}
         scrollEventThrottle={16}

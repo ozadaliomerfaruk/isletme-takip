@@ -42,7 +42,7 @@ import { useIslemlerByHesap, useDeleteIslem, useUpdateIslem } from '@/hooks/useI
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, formatConvertedHint } from '@/hooks/useExchangeRates';
 import { useSettings } from '@/hooks/useSettings';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { IslemWithRelations, Currency, IslemType, Not } from '@/types/database';
@@ -834,9 +834,9 @@ export default function HesapHareketleriPage() {
               color: (paymentDueDayInfo.isToday || paymentDueDayInfo.isTomorrow) ? colors.orange : undefined,
             });
           }
-          const baseEq = (hesap.currency !== baseCurrency && exchangeRates)
-            ? `≈ ${formatCurrency(convertCurrency(Math.abs(bal), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}`
-            : undefined;
+          // Kur yoksa alt satır HİÇ yazılmaz (eski `?? 0` → "≈ ₺0,00")
+          const baseEq =
+            formatConvertedHint(Math.abs(bal), hesap.currency, baseCurrency, exchangeRates, '≈ ') ?? undefined;
           return (
             <DetailSummaryCard
               title={upperTr(hesap.name)}

@@ -31,7 +31,7 @@ import { TransactionRow } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, getIslemCurrency } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
@@ -43,7 +43,7 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { exportCategoryDetail } from '@/lib/pageExports';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createConversionSum } from '@/hooks/useExchangeRates';
 import { useQueryClient } from '@tanstack/react-query';
 
 // Lucide icon haritası
@@ -210,17 +210,25 @@ export default function KategoriDetayPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   // Filtrelenmiş toplam (kategori-spesifik tutarları kullan)
-  // Her kalem kendi hesap para birimindedir; ana para birimine çevirip topla.
-  // (convertCurrency aynı para biriminde no-op olduğundan tek-para-birimli kullanıcıda değişmez.)
-  const filteredTotal = filteredIslemler?.reduce((acc, islem) => {
-    const amount = (islem as { _categoryAmount?: number })._categoryAmount !== undefined
-      ? (islem as { _categoryAmount: number })._categoryAmount
-      : Number(islem.amount);
-    const cur = islem.hesap?.currency ?? baseCurrency;
-    const converted = convertCurrency(amount, cur, baseCurrency, rates) ?? amount;
-    // İade tutarı yönü AZALTIR → net'ten düş.
-    return acc + (isReturnType(islem.type) ? -converted : converted);
-  }, 0) ?? 0;
+  // Her kalem KENDİ para biriminde; ana para birimine çevirip topla.
+  //
+  // İki düzeltme: (1) para birimi artık getIslemCurrency ile çözülüyor — hesap bacağı
+  // OLMAYAN tiplerde (cari_alis/cari_satis) `hesap?.currency ?? baseCurrency` kalemi
+  // baz para birimi sanıyordu, yani 1.000 USD'lik alış 1.000 TL olarak toplanıyordu.
+  // (2) kur yoksa `?? amount` ile 1:1 eklenmiyor, kalem HARİÇ tutulup uyarı çıkıyor —
+  // üst karttaki RPC toplamı (doğru çevirili) ile bu toplamın tutmaması bu yüzdendi.
+  const filteredSum = useMemo(() => {
+    const sum = createConversionSum(baseCurrency, rates);
+    filteredIslemler?.forEach((islem) => {
+      const amount = (islem as { _categoryAmount?: number })._categoryAmount !== undefined
+        ? (islem as { _categoryAmount: number })._categoryAmount
+        : Number(islem.amount);
+      // İade tutarı yönü AZALTIR → net'ten düş.
+      sum.add(amount, getIslemCurrency(islem), isReturnType(islem.type) ? -1 : 1);
+    });
+    return { total: sum.total, conversionIncomplete: sum.conversionIncomplete };
+  }, [filteredIslemler, baseCurrency, rates]);
+  const filteredTotal = filteredSum.total;
   const filteredCount = filteredIslemler?.length ?? 0;
 
   // Sayfa başlığı
@@ -468,9 +476,15 @@ export default function KategoriDetayPage() {
             {t('reports:sections.selectedTransactions')} ({filteredCount})
           </Text>
           <Text variant="label" color={type === 'gelir' ? 'success' : 'error'}>
-            {formatCurrency(filteredTotal)}
+            {formatCurrency(filteredTotal, baseCurrency)}
           </Text>
         </View>
+      )}
+      {/* Kuru bulunamayan kalemler toplama katılmadı — sessizce 1:1 eklemek yerine söyle */}
+      {filteredSum.conversionIncomplete && (
+        <Text variant="caption" color="error" style={styles.conversionWarningText}>
+          {t('reports:summary.conversionIncomplete')}
+        </Text>
       )}
     </View>
   );
@@ -486,14 +500,16 @@ export default function KategoriDetayPage() {
     </Card>
   );
 
-  // Kategorisiz için özel hesaplamalar
-  const uncategorizedTotal = uncategorizedIslemler?.reduce((acc, islem) => {
-    const amount = Number(islem.amount);
-    const cur = islem.hesap?.currency ?? baseCurrency;
-    const converted = convertCurrency(amount, cur, baseCurrency, rates) ?? amount;
-    // İade tutarı yönü AZALTIR → net'ten düş.
-    return acc + (isReturnType(islem.type) ? -converted : converted);
-  }, 0) ?? 0;
+  // Kategorisiz için özel hesaplamalar (yukarıdaki filteredSum ile AYNI politika)
+  const uncategorizedSum = (() => {
+    const sum = createConversionSum(baseCurrency, rates);
+    uncategorizedIslemler?.forEach((islem) => {
+      // İade tutarı yönü AZALTIR → net'ten düş.
+      sum.add(Number(islem.amount), getIslemCurrency(islem), isReturnType(islem.type) ? -1 : 1);
+    });
+    return { total: sum.total, conversionIncomplete: sum.conversionIncomplete };
+  })();
+  const uncategorizedTotal = uncategorizedSum.total;
   const uncategorizedCount = uncategorizedIslemler?.length ?? 0;
 
   // Kategorisiz sayfası
@@ -546,7 +562,7 @@ export default function KategoriDetayPage() {
                       variant="h2"
                       color={type === 'gelir' ? 'success' : 'error'}
                     >
-                      {formatCurrency(uncategorizedTotal)}
+                      {formatCurrency(uncategorizedTotal, baseCurrency)}
                     </Text>
                   </View>
                   <View style={styles.statItem}>
@@ -554,6 +570,11 @@ export default function KategoriDetayPage() {
                     <Text variant="h2">{uncategorizedCount}</Text>
                   </View>
                 </View>
+                {uncategorizedSum.conversionIncomplete && (
+                  <Text variant="caption" color="error" style={styles.conversionWarningText}>
+                    {t('reports:summary.conversionIncomplete')}
+                  </Text>
+                )}
               </Card>
 
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
@@ -853,6 +874,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
+  },
+  conversionWarningText: {
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   sectionTitle: {
     marginBottom: spacing.sm,

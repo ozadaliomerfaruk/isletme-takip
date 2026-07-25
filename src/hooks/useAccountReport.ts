@@ -6,7 +6,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { KategoriType, HesapType, IslemWithRelations } from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
 
 /**
  * HESAP BAZLI gelir/gider raporu — "hangi hesap ne kadar gelir/gider gördü".
@@ -33,6 +33,8 @@ export interface AccountReportItem {
 export interface AccountReportResult {
   items: AccountReportItem[];
   totalAmount: number;
+  /** Kur bulunamadığı için bazı tutarlar ham TRY kaldı → uyarı gösterilmeli. */
+  conversionIncomplete?: boolean;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => Promise<unknown>;
@@ -104,8 +106,10 @@ export function useAccountReport(
 
   const result = useMemo(() => {
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
 
     if (!data || data.length === 0) {
       return { items: [] as AccountReportItem[], totalAmount: 0 };
@@ -137,7 +141,8 @@ export function useAccountReport(
       }))
       .sort((a, b) => b.total - a.total);
 
-    return { items, totalAmount };
+    // Kur bulunamadıysa ham TRY korunuyor → ekran uyarıyı göstersin (bkz. ConversionIncompleteWarning)
+    return { items, totalAmount, conversionIncomplete: converter.conversionIncomplete };
   }, [data, baseCurrency, rates]);
 
   return {
@@ -270,8 +275,10 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
   });
 
   const result = useMemo(() => {
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
 
     if (!data || data.length === 0) {
       return { groups: [] as IncomeSourceGroup[], totalAmount: 0, totalCount: 0 };
@@ -321,7 +328,7 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
       .map((g) => ({ ...g, items: g.items.slice().sort((a, b) => b.total - a.total) }))
       .sort((a, b) => b.total - a.total);
 
-    return { groups, totalAmount, totalCount };
+    return { groups, totalAmount, totalCount, conversionIncomplete: converter.conversionIncomplete };
   }, [data, baseCurrency, rates]);
 
   return { ...result, isLoading, isFetching, refetch, error: error as Error | null };

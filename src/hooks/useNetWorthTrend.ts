@@ -7,7 +7,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
 import { useFinancialSummary } from './useFinancialSummary';
 import { useSettings } from './useSettings';
-import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter } from './useExchangeRates';
 
 /**
  * AYLIK NET-VARLIK (GENEL DURUM) TREND
@@ -127,7 +127,9 @@ export function useNetWorthTrend(monthsBack: number) {
   const points = useMemo<NetWorthTrendPoint[]>(() => {
     const rows = query.data ?? [];
     // RPC tutarları TRY; ana para birimine çevir (TR için no-op).
-    const toBase = (v: number) => (baseCurrency === 'TRY' ? v : convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika (createRpcTotalConverter): çevrilemezse ham TRY korunur, bayrak kalkar.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const toBase = converter.conv;
 
     const byMonth = new Map<string, { income: number; expense: number; net: number }>();
     for (const r of rows) {

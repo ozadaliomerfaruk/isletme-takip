@@ -12,6 +12,7 @@ import { CollapsibleGroupHeader } from '@/components/reports/CollapsibleGroupHea
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useProductReport, ProductReportItem } from '@/hooks/useProductReport';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -246,6 +247,9 @@ export default function AlisSatisRaporPage() {
             />
           }
         >
+          {/* Kur bulunamadıysa toplamlar çevrilmemiş — sessiz kalmıyor */}
+          <ConversionIncompleteWarning visible={activeReport.conversionIncomplete} />
+
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter

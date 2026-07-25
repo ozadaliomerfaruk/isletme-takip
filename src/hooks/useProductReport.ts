@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
 
 // Alış işlem tipleri
 const PURCHASE_TYPES = ['cari_alis'];
@@ -36,6 +36,8 @@ export interface ProductReportResult {
   returnTotal: number;
   netAmount: number;
   totalTransactions: number;
+  /** Kur bulunamadığı için bazı tutarlar ham TRY kaldı → uyarı gösterilmeli. */
+  conversionIncomplete?: boolean;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => Promise<unknown>;
@@ -137,8 +139,10 @@ export function useProductReport(
     // RPC tutarları TRY cinsinden döner; ana para birimine çevir.
     // baseCurrency === 'TRY' iken tam no-op (TR kullanıcı için davranış değişmez).
     // Miktar (adet) ve işlem sayısı para DEĞİL — çevrilmez.
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
 
     const returnTotal = conv(returnData || 0);
 
@@ -182,6 +186,8 @@ export function useProductReport(
       returnTotal,
       netAmount: totalAmount - returnTotal,
       totalTransactions,
+      // Kur bulunamadıysa ham TRY korunuyor → ekran uyarıyı göstersin
+      conversionIncomplete: converter.conversionIncomplete,
     };
   }, [mainData, returnData, baseCurrency, rates]);
 

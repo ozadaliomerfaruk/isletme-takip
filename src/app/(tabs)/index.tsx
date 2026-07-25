@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, Pressable, Animated, RefreshControl, ScrollView } from 'react-native';
-import { useTabBarScroll } from '@/lib/tabBarScroll';
+import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -44,7 +44,7 @@ import { useMonthSummary } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, formatConvertedHint, createConversionSum } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSetupProgress, type SetupStepKey } from '@/hooks/useSetupProgress';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
@@ -59,6 +59,8 @@ export default function HomePage() {
   // boşluk olmadan sona kaydırınca son hesap satırının ⋮'ı FAB'ın altında kalıyor.
   const contentPaddingBottom = useContentBottomPadding({ extra: FAB_SIZE + spacing.lg });
   const handleTabScroll = useTabBarScroll();
+  const scrollRef = useRef<ScrollView>(null);
+  useRegisterScrollToTop('home', () => scrollRef.current?.scrollTo({ y: 0, animated: true }));
   const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff', 'multiUser']);
   const { getDateRangeLabel } = useDateFormat();
 
@@ -180,6 +182,11 @@ export default function HomePage() {
   }, [hesaplar]);
 
   // Kategori toplamlarını hesapla (aktif hesaplar, dövizler ana birime çevrilir)
+  // Grup toplamları — TEK politika (createConversionSum): kuru bulunamayan bakiye
+  // HARİÇ tutulur ve bayrak kalkar. Eski hâlde aynı reducer'ın içinde iki farklı yanlış
+  // davranış vardı: kurlar yüklüyken çevrilemeyen bakiye `?? 0` ile SIFIR sayılıyor,
+  // kurlar hiç yüklenmemişse aynı bakiye 1:1 ekleniyordu. Yani 1.000 EUR'luk hesap
+  // duruma göre ya 0 ya 1.000 katkı yapıyor, kullanıcı hangisi olduğunu bilmiyordu.
   const categoryTotals = useMemo(() => {
     const totals: Record<string, number> = {
       nakit: 0,
@@ -188,22 +195,16 @@ export default function HomePage() {
       birikim: 0,
       diger: 0,
     };
+    let incomplete = false;
 
     Object.entries(groupedHesaplar).forEach(([key, accounts]) => {
-      totals[key] = accounts
-        .filter(h => h.is_active)
-        .reduce((acc, h) => {
-          const balance = toNumber(h.balance);
-          const cur = h.currency || baseCurrency;
-          if (cur === baseCurrency) return acc + balance;
-          if (exchangeRates) {
-            return acc + (convertCurrency(balance, cur, baseCurrency, exchangeRates) ?? 0);
-          }
-          return acc + balance;
-        }, 0);
+      const sum = createConversionSum(baseCurrency, exchangeRates);
+      accounts.filter(h => h.is_active).forEach(h => sum.add(toNumber(h.balance), h.currency));
+      totals[key] = sum.total;
+      if (sum.conversionIncomplete) incomplete = true;
     });
 
-    return totals;
+    return { totals, conversionIncomplete: incomplete };
   }, [groupedHesaplar, baseCurrency, exchangeRates]);
 
   // Grup başlık ve ikon tanımları
@@ -215,7 +216,9 @@ export default function HomePage() {
     diger: { label: t('accounts:typeLabels.diger'), icon: <PiggyBank size={20} color={colors.warning} /> },
   };
 
-  const { accounts, payables, receivables, generalStatus } = useFinancialSummary();
+  // conversionIncomplete ana sayfada HİÇ okunmuyordu: Raporlar ve Net Varlık Trendi
+  // uyarıyı gösterirken ana sayfanın manşet sayısı eksik olduğunu söylemiyordu.
+  const { accounts, payables, receivables, generalStatus, conversionIncomplete } = useFinancialSummary();
 
   // Sabit olarak bulunduğumuz ay (monthly, offset=0)
   const { startDate: currentMonthStart, endDate: currentMonthEnd, label: currentMonthLabel } = getDateRangeLabel('monthly', 0);
@@ -390,6 +393,7 @@ export default function HomePage() {
           arkasından akıyor. Bu yüzden header ScrollView'dan SONRA render ediliyor
           (üstte boyansın) ve içeriğin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
         contentContainerStyle={{ paddingTop: headerH, paddingBottom: contentPaddingBottom }}
         showsVerticalScrollIndicator={false}
@@ -464,6 +468,16 @@ export default function HomePage() {
           periodBadge={currentMonthLabel}
         />
 
+        {/* Kur bulunamayan bakiyeler toplamlardan hariç tutuldu — manşet sayı eksik */}
+        {(conversionIncomplete || categoryTotals.conversionIncomplete) && (
+          <View style={styles.conversionWarning}>
+            <AlertTriangle size={14} color={colors.error} />
+            <Text variant="caption" color="error" style={styles.conversionWarningText}>
+              {t('reports:summary.conversionIncomplete')}
+            </Text>
+          </View>
+        )}
+
         {/* Kurulumu Bitir Kartı */}
         {setup.shouldShow && (
           <FinishSetupCard
@@ -511,12 +525,12 @@ export default function HomePage() {
                     <View style={{ flex: 1 }} />
                     <Text
                       variant="label"
-                      color={(categoryTotals[groupKey] || 0) >= 0 ? 'primary' : 'error'}
+                      color={(categoryTotals.totals[groupKey] || 0) >= 0 ? 'primary' : 'error'}
                       style={styles.groupTotal}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                     >
-                      {formatCurrency(categoryTotals[groupKey] || 0)}
+                      {formatCurrency(categoryTotals.totals[groupKey] || 0, baseCurrency)}
                     </Text>
                   </View>
 
@@ -560,11 +574,14 @@ export default function HomePage() {
                               >
                                 {formatCurrency(toNumber(hesap.balance), hesap.currency)}
                               </Text>
-                              {hesap.currency !== baseCurrency && exchangeRates && (
-                                <Text variant="caption" color="secondary">
-                                  ~{formatCurrency(convertCurrency(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                                </Text>
-                              )}
+                              {/* Kuru yoksa satır HİÇ çizilmez — eski `?? 0` sıfır olmayan
+                                  bakiyeyi "~₺0,00" gösteriyordu */}
+                              {(() => {
+                                const hint = formatConvertedHint(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates);
+                                return hint ? (
+                                  <Text variant="caption" color="secondary">{hint}</Text>
+                                ) : null;
+                              })()}
                             </View>
                             <TouchableOpacity
                               onPress={(e) => {
@@ -800,6 +817,18 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  // Raporlar > Genel'deki uyarı satırıyla aynı dil (GenelTabContent.conversionWarning)
+  conversionWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  conversionWarningText: {
+    flex: 1,
+    lineHeight: 16,
   },
   header: {
     flexDirection: 'row',
