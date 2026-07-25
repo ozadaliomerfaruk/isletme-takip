@@ -4,6 +4,17 @@ import { Undo2, X } from 'lucide-react-native';
 import { Text } from './Text';
 import { GlassSurface } from './GlassSurface';
 import { colors } from '@/constants/colors';
+
+/**
+ * Koyu cam tint'i — bu çubuk AÇIK içeriğin (listeler) üstünde yüzüyor.
+ *
+ * Varsayılan GLASS_TINT 'transparent'; tab bar ve arama çubuğu onunla çalışıyor
+ * çünkü ikisi de BÜYÜK yüzey — kapsül şekli rim lighting ile zaten okunuyor.
+ * Küçük/tekil yüzeyler açık zeminde tint'siz kaldığında GÖRÜNMEZ oluyor
+ * (bu çubuk ilk denemede tam olarak öyle kayboldu). PhotoViewer'da sorun yoktu
+ * çünkü orada zemin gerçekten siyah.
+ */
+const SNACKBAR_TINT = 'rgba(40,40,42,0.62)';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 export interface UndoSnackbarProps {
@@ -69,6 +80,7 @@ export function UndoSnackbar({
       <GlassSurface
         style={styles.snackbar}
         fallbackStyle={styles.snackbarFallback}
+        tintColor={SNACKBAR_TINT}
         colorScheme="dark"
       >
         <View style={styles.snackbarInner}>

@@ -155,7 +155,20 @@ export interface GlassSurfaceProps {
    * Odak/etkin durumu renkli çerçeveyle değil bu geçişle vermek native dildir.
    */
   glassStyle?: 'regular' | 'clear';
-  /** Camın üstündeki tint. Verilmezse GLASS_TINT. */
+  /**
+   * Camın üstündeki tint. Verilmezse GLASS_TINT ('transparent').
+   *
+   * KURAL — yeni bir cam yüzey eklerken buna bak:
+   *  • BÜYÜK yüzey (tab bar, arama çubuğu): tint'siz çalışır; kapsül şekli
+   *    native rim lighting ile zaten okunur.
+   *  • KOYU zemin üstündeki yüzey (PhotoViewer): tint'siz çalışır; cam koyu
+   *    içerikten ayrışır.
+   *  • KÜÇÜK/TEKİL yüzey + AÇIK zemin (yuvarlak ikon butonu, yüzen çubuk):
+   *    TINT ŞART. Tint'siz bırakılırsa yüzey GÖRÜNMEZ olur — arama pill'i,
+   *    FAB'lar ve UndoSnackbar sırasıyla bu tuzağa düştü. Açık temada
+   *    (arka plan #F5F5F5, kartlar beyaz) tint yalnız estetik değil, yüzeyin
+   *    VAR OLMASINI sağlayan şey.
+   */
   tintColor?: string;
   /**
    * Camın açık/koyu görünümü. Uygulama açık temaya sabitli (app.json
