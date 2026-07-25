@@ -8,10 +8,11 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesap, useUpdateHesap } from '@/hooks/useHesaplar';
@@ -48,6 +49,7 @@ export default function HesapDuzenlePage() {
   usePagePermission({ module: 'hesaplar', action: 'update', createdBy: hesap?.created_by });
   const updateHesap = useUpdateHesap();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   const [name, setName] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
@@ -103,26 +105,26 @@ export default function HesapDuzenlePage() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!hesap) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('errors:account.notFound')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -216,7 +218,7 @@ export default function HesapDuzenlePage() {
           </ScrollView>
 
           {/* Sticky footer — güncelle butonu klavyenin altında kalmasın */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <Button
               variant="outline"
               size="lg"
@@ -236,7 +238,7 @@ export default function HesapDuzenlePage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

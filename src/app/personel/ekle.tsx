@@ -11,11 +11,12 @@ import {
   Pressable,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
+import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { useCreatePersonel } from '@/hooks/usePersonel';
@@ -36,6 +37,7 @@ export default function PersonelEklePage() {
   const { locale, formatDateNative } = useDateFormat();
   const createPersonel = useCreatePersonel();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   // Dile göre varsayılan para birimi
   const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
@@ -101,7 +103,7 @@ export default function PersonelEklePage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -401,7 +403,7 @@ export default function PersonelEklePage() {
         </ScrollView>
 
         {/* Sticky footer — kaydet butonu klavyenin altında kalmasın */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
           <Button
             variant="outline"
             size="lg"
@@ -421,7 +423,7 @@ export default function PersonelEklePage() {
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

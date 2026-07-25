@@ -8,11 +8,12 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card, Collapsible } from '@/components/ui';
+import { Text, Input, Button, Card, Collapsible, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useCari, useUpdateCari } from '@/hooks/useCariler';
@@ -33,6 +34,7 @@ export default function CariDuzenlePage() {
   usePagePermission({ module: 'cariler', action: 'update', createdBy: cari?.created_by });
   const updateCari = useUpdateCari();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState<Currency>('TRY');
@@ -89,26 +91,26 @@ export default function CariDuzenlePage() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!cari) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('errors:cari.notFound')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -235,7 +237,7 @@ export default function CariDuzenlePage() {
           </ScrollView>
 
           {/* Sticky footer — kaydet butonu klavyenin altında kalmasın (Dilim 1 #5) */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <Button
               variant="outline"
               size="lg"
@@ -255,7 +257,7 @@ export default function CariDuzenlePage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

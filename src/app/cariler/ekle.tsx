@@ -7,11 +7,12 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card, Collapsible, CurrencyPicker } from '@/components/ui';
+import { Text, Input, Button, Card, Collapsible, CurrencyPicker, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
@@ -32,6 +33,7 @@ export default function CariEklePage() {
   usePagePermission({ module: 'cariler', action: 'create' });
   const createCari = useCreateCari();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   // Dile göre varsayılan para birimi
   const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
@@ -95,7 +97,7 @@ export default function CariEklePage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -195,7 +197,7 @@ export default function CariEklePage() {
         </ScrollView>
 
         {/* Sticky footer — kaydet butonu klavyenin altında kalmasın (Dilim 1 #5) */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
           <Button
             variant="outline"
             size="lg"
@@ -215,7 +217,7 @@ export default function CariEklePage() {
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

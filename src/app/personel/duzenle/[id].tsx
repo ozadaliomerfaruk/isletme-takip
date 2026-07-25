@@ -12,11 +12,12 @@ import {
   Switch,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
@@ -41,6 +42,7 @@ export default function PersonelDuzenlePage() {
   usePagePermission({ module: 'personel', action: 'update', createdBy: personel?.created_by });
   const updatePersonel = useUpdatePersonel();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   const [firstName, setFirstName] = useState('');
   const [currency, setCurrency] = useState<Currency>('TRY');
@@ -108,26 +110,26 @@ export default function PersonelDuzenlePage() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!personel) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('errors:personel.notFound')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -406,7 +408,7 @@ export default function PersonelDuzenlePage() {
           </ScrollView>
 
           {/* Sticky footer — güncelle butonu klavyenin altında kalmasın */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <Button
               variant="outline"
               size="lg"
@@ -426,7 +428,7 @@ export default function PersonelDuzenlePage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
