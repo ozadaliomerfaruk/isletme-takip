@@ -158,6 +158,13 @@ export interface GlassSurfaceProps {
   /** Camın üstündeki tint. Verilmezse GLASS_TINT. */
   tintColor?: string;
   /**
+   * Camın açık/koyu görünümü. Uygulama açık temaya sabitli (app.json
+   * userInterfaceStyle: light) olduğundan 'auto' her yerde açık cam demek —
+   * ama KOYU zeminlerde (fotoğraf görüntüleyici gibi) cam koyu olmalı, yoksa
+   * açık cam koyu içeriğin üstünde yabancı durur.
+   */
+  colorScheme?: 'auto' | 'light' | 'dark';
+  /**
    * iOS 26'nın kendi dokunma tepkisi: cam parmağın altında hafifçe kabarıp
    * parlar. VARSAYILAN AÇIK — bu his liquid glass'ın ayrılmaz parçası, her
    * yüzeyde standart olmalı; kapatmak bilinçli bir istisna olsun.
@@ -191,6 +198,7 @@ export function GlassSurface({
   fallbackStyle,
   glassStyle = 'regular',
   tintColor = GLASS_TINT,
+  colorScheme,
   interactive = true,
   fallbackBlur = false,
   fallbackIntensity = FALLBACK_BLUR_INTENSITY,
@@ -203,6 +211,7 @@ export function GlassSurface({
       <GV
         glassEffectStyle={glassStyle}
         tintColor={tintColor}
+        colorScheme={colorScheme}
         isInteractive={interactive}
         style={[styles.glass, style]}
       >
