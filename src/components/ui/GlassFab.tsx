@@ -7,26 +7,9 @@ import { GlassSurface, LIQUID_GLASS, FLOATING_CONTROL_SIZE } from './GlassSurfac
 /** Alt bölgedeki yüzen kontrollerle ORTAK — ayrı bir sayı yazma, bkz. sabit. */
 export const FAB_SIZE = FLOATING_CONTROL_SIZE;
 
-/** '#RRGGBB' → 'rgba(r,g,b,a)'. Hex değilse olduğu gibi döner. */
-function withAlpha(color: string, alpha: number): string {
-  if (!color.startsWith('#') || color.length !== 7) return color;
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 interface GlassFabProps {
   onPress: () => void;
-  /**
-   * Butonun rengi: camda TINT, cam yoksa DİSK rengi. Sembol her iki yolda beyaz.
-   *
-   * Apple'ın Landmarks örneğindeki yüzen köşe butonu tint'SİZ nötr camdı (renk
-   * içerikte yaşar). Biz bilinçli olarak ayrılıyoruz: nötr cam bizim AÇIK
-   * temamızda (arka plan #F5F5F5, kartlar beyaz) neredeyse beyaz bir daireye
-   * dönüşüyor ve birincil aksiyonun çıpası kayboluyor — GlassSurface'taki
-   * "küçük/tekil yüzey + açık zemin → tint şart" kuralının ta kendisi.
-   */
+  /** Butonun DOYGUN rengi (camın arkasındaki disk). Sembol her iki yolda beyaz. */
   color?: string;
   /** İkon, tint'i verilerek çağrılır. */
   renderIcon: (props: { color: string; size: number }) => ReactNode;
@@ -56,27 +39,47 @@ export function GlassFab({
   accessibilityLabel,
   disabled,
 }: GlassFabProps) {
+  const round = { width: size, height: size, borderRadius: size / 2 };
+
   return (
-    <GlassSurface
-      style={[{ width: size, height: size, borderRadius: size / 2 }, style]}
-      fallbackStyle={[styles.fabFallback, { backgroundColor: color }]}
-      // Marka renginde tint — bkz. `color` prop'unun gerekçesi.
-      tintColor={withAlpha(color, 0.45)}
-      // DİKKAT: dokunma TouchableOpacity'si cam yüzeyin İÇİNDE olmak zorunda.
-      // Dışına alınırsa activeOpacity basılıyken alpha<1 yapar ve cam çöker
-      // (GlassSurface'taki ALTIN KURAL).
-    >
-      <TouchableOpacity
-        style={styles.touchable}
-        onPress={onPress}
-        activeOpacity={0.8}
-        disabled={disabled}
-        accessibilityRole="button"
-        accessibilityLabel={accessibilityLabel}
-      >
-        {renderIcon({ color: colors.surface, size: iconSize })}
-      </TouchableOpacity>
-    </GlassSurface>
+    // RENK CAMIN ARKASINDA — "prominent glass" yaklaşımı.
+    //
+    // Neden tintColor değil: tintColor doğrudan UIGlassEffect.tintColor'a gidiyor
+    // ve o özellik tanımı gereği SAYDAM biniyor — camın arkadan örneklediği rengin
+    // üstüne ince bir katman koyuyor. Arkada açık gri sayfa varken sonuç kaçınılmaz
+    // olarak pastel çıkıyordu; alfayı yükseltmek de kurtarmıyor, cam olmaktan
+    // çıkıp renkli buzlu cama dönüyor.
+    //
+    // Apple'ın bu görünüm için resmî varyantı prominent glass (.glassProminent):
+    // doygun dolgu + üstünde camın parlaması. expo-glass-effect onu dışa vermiyor
+    // (GlassStyle yalnız clear/regular/none), o yüzden iki katmanla yaklaşıyoruz:
+    // altta opak doygun disk, üstünde 'clear' cam. Cam arkasındakini örnekliyor,
+    // arkasında artık açık gri sayfa değil doygun disk var → renk canlı kalıyor,
+    // parlama/kenar ışığı/basma tepkisi camdan geliyor.
+    //
+    // Mevcut kuralla çelişmiyor: "cam yolunda üstüne düz katman koyma" kuralı
+    // ÜSTÜNÜ kastediyordu; bu katman ALTTA, rim lighting'i perdelemiyor.
+    //
+    // SINIR: bu tarif yalnız FAB'lara. Opak disk GlassContainer erimesine
+    // katılmaz — birleşmesi gereken yüzeylerde (header daireleri) kullanılmaz,
+    // orada nötr cam + GLASS_TINT_CONTROL doğru olan.
+    <View style={[round, styles.fabFallback, { backgroundColor: color }, style]}>
+      <GlassSurface style={[styles.fill, { borderRadius: size / 2 }]} glassStyle="clear">
+        {/* Dokunma TouchableOpacity'si camın İÇİNDE olmak zorunda: dışına
+            alınırsa activeOpacity basılıyken alpha<1 yapar ve cam çöker
+            (GlassSurface'taki ALTIN KURAL). */}
+        <TouchableOpacity
+          style={styles.touchable}
+          onPress={onPress}
+          activeOpacity={0.8}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel={accessibilityLabel}
+        >
+          {renderIcon({ color: colors.surface, size: iconSize })}
+        </TouchableOpacity>
+      </GlassSurface>
+    </View>
   );
 }
 
@@ -117,7 +120,15 @@ export function GlassFabMenuItem({ icon, label, onPress }: GlassFabMenuItemProps
 }
 
 const styles = StyleSheet.create({
-  // Yalnız cam yokken: dolu disk + gölge (bugünkü görünüm birebir).
+  /**
+   * Cam katmanı doygun diskin üstünü kaplar. RN clip maskesi (overflow:hidden)
+   * YOK — cam kendi native köşesini çiziyor, maske rim lighting'i bozardı.
+   */
+  fill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  // Diskin gölgesi — cam katmanın ALTINDAKİ view'de, yani rim lighting'i
+  // perdelemiyor. Cam yoksa da aynı görünüm (bugünkü hali birebir).
   fabFallback: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
