@@ -87,7 +87,7 @@ export function SwipeableRow({
   }, [itemKey]);
 
   const resolvedDeleteLabel = deleteLabel ?? t('common:buttons.delete');
-  const resolvedActionLabel = actionLabel ?? t('common:buttons.action', { defaultValue: 'Action' });
+  const resolvedActionLabel = actionLabel ?? t('common:buttons.action');
   const resolvedCopyLabel = copyLabel ?? t('common:buttons.copy');
 
   const close = useCallback(() => {

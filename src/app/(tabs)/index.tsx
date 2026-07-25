@@ -625,7 +625,7 @@ export default function HomePage() {
         onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
         right={
           <>
-            <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.title')}>
+            <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.search')}>
               <Search size={20} color={colors.text} />
             </GlassIconButton>
             <NotificationBell />

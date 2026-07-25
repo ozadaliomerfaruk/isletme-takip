@@ -146,6 +146,19 @@ i18n
       useSuspense: false, // Disable suspense for React Native
     },
     compatibilityJSON: 'v4', // For Android compatibility
+    // Eksik anahtar sessizce ekrana ham key olarak basılıyordu (ekran okuyucu
+    // "search.title" diye okuyor). Geliştirmede uyar, üretimde davranış aynı kalsın.
+    // ⚠️ İkinci argümanı YOK SAYMA: i18next buraya çağrının defaultValue'sunu
+    // (yoksa key'in kendisini) geçiriyor. Koşulsuz key döndürmek, kod tabanındaki
+    // ~10 dinamik-anahtar çağrısını (PermissionEditor modül adları; arama ve işlem
+    // geçmişinde işlem tipi anahtarına defaultValue verilen çağrılar) geliştirmede
+    // ham anahtar basar hale getirir — yani hata ayıklarken yanlış yönlendirir.
+    parseMissingKeyHandler: __DEV__
+      ? (key: string, value?: string) => {
+          console.warn(`[i18n] Missing translation key: ${key}`);
+          return value ?? key;
+        }
+      : undefined,
   });
 
 // Language change helper - persists to AsyncStorage

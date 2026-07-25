@@ -148,11 +148,11 @@
   "currency": {
     "title": "Para Birimi",
     "selectCurrency": "Para birimi seçin",
-    "TRY": "Turk Lirasi",
-    "USD": "Amerikan Dolari",
+    "TRY": "Türk Lirası",
+    "USD": "Amerikan Doları",
     "EUR": "Euro",
-    "GBP": "Ingiliz Sterlini",
-    "XAU": "Altin (gram)",
-    "XAG": "Gumus (gram)"
+    "GBP": "İngiliz Sterlini",
+    "XAU": "Altın (gram)",
+    "XAG": "Gümüş (gram)"
   }
 }

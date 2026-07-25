@@ -136,7 +136,17 @@
     "creditCard": "{{count}} Kredi Kartı",
     "client": "{{count}} Cari",
     "personnel": "{{count}} Personel",
-    "transaction": "{{count}} işlem"
+    "transaction": "{{count}} işlem",
+    "transaction_one": "{{count}} işlem",
+    "transaction_other": "{{count}} işlem",
+    "account_one": "{{count}} Hesap",
+    "account_other": "{{count}} Hesap",
+    "creditCard_one": "{{count}} Kredi Kartı",
+    "creditCard_other": "{{count}} Kredi Kartı",
+    "client_one": "{{count}} Cari",
+    "client_other": "{{count}} Cari",
+    "personnel_one": "{{count}} Personel",
+    "personnel_other": "{{count}} Personel"
   },
   "period": {
     "daily": "Günlük",
@@ -155,7 +165,20 @@
     "startDateTitle": "Başlangıç Tarihi",
     "endDateTitle": "Bitiş Tarihi"
   },
-  "months": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
+  "months": [
+    "Ocak",
+    "Şubat",
+    "Mart",
+    "Nisan",
+    "Mayıs",
+    "Haziran",
+    "Temmuz",
+    "Ağustos",
+    "Eylül",
+    "Ekim",
+    "Kasım",
+    "Aralık"
+  ],
   "categoryDetail": {
     "direct": "(doğrudan)",
     "transactionWithSubcategories": "{{count}} işlem ({{subcategories}} alt kategori)",

@@ -220,7 +220,7 @@
     "transfer": "Transfer",
     "client": "Client",
     "personnel": "Staff",
-    "leaveEntitlement": "Leave Earned",
+    "leaveEntitlement": "Leave Entitlement",
     "leaveUsage": "Leave Used",
     "byDate": "By Date",
     "byAmount": "By Amount",
@@ -271,7 +271,7 @@
     "personel_satis": "Sale",
     "personel_izin_hakki": "Leave Ent.",
     "personel_izin_kullanimi": "Leave Used",
-    "kredi_karti_gider": "Spending",
+    "kredi_karti_gider": "Expense",
     "kredi_karti_odeme": "Payment",
     "kredi_karti_ekstre": "Pay Statement"
   },

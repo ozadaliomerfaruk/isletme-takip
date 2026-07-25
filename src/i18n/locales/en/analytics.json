@@ -36,7 +36,7 @@
     "staff": "{{count}} staff",
     "staff_one": "{{count}} staff",
     "staff_other": "{{count}} staff",
-    "instant": "Instant",
+    "instant": "Current",
     "vsLastPeriod": "vs last period",
     "total": "Total",
     "average": "Average",

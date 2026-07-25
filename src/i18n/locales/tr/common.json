@@ -76,7 +76,8 @@
     "seeAll": "Tümünü Gör",
     "goBack": "Geri Dön",
     "tryAgain": "Tekrar Dene",
-    "share": "Paylaş"
+    "share": "Paylaş",
+    "action": "İşlem"
   },
   "status": {
     "loading": "Yükleniyor...",
@@ -125,7 +126,8 @@
     "tryDifferent": "Farklı bir arama terimi deneyin",
     "searchIcons": "İkon arayın",
     "searchCategories": "Kategori arayın",
-    "resultCount": "{{count}} sonuç bulundu",
+    "resultCount_one": "{{count}} sonuç bulundu",
+    "resultCount_other": "{{count}} sonuç bulundu",
     "showAll": "Tümünü Gör ({{count}})",
     "searchHint": "İsim, not veya ürün kodu ile arayın",
     "recentSearches": "Son Aramalar",
@@ -137,7 +139,8 @@
     "endDate": "Bitiş",
     "clearFilters": "Filtreleri Temizle",
     "noResultsWithFilters": "Filtrelerinizi genişletin veya farklı bir terim deneyin",
-    "clearRecentSearches": "Temizle"
+    "clearRecentSearches": "Temizle",
+    "resultCount": "{{count}} sonuç bulundu"
   },
   "select": {
     "selectCategory": "Kategori seç",
@@ -565,6 +568,8 @@
       "unarchiveSuccess": "Arşivden çıkarıldı",
       "archivedBanner": "Bu öğe arşivlenmiş. Yeni işlem eklenemez.",
       "emptyArchive": "Arşivde öğe bulunmuyor",
+      "itemCount_one": "Arşivde {{count}} öğe bulunuyor",
+      "itemCount_other": "Arşivde {{count}} öğe bulunuyor",
       "itemCount": "Arşivde {{count}} öğe bulunuyor"
     },
     "search": {
@@ -603,7 +608,7 @@
   "errors": {
     "businessNotFound": "İşletme bulunamadı",
     "ocrDailyLimit": "Günlük fatura tarama limitine ulaştınız ({{limit}}/gün)",
-    "balanceUpdateFailed": "Bakiye güncellenemedi: {{detail}}",
+    "balanceUpdateFailed": "Bakiye güncellenemedi: {{message}}",
     "balanceRollbackCritical": "Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. Lütfen destek ile iletişime geçin. Detay: {{detail}}",
     "accountNotFound": "Hesap bulunamadı veya erişim yetkiniz yok",
     "clientNotFound": "Cari bulunamadı veya erişim yetkiniz yok",
@@ -623,7 +628,6 @@
     "transactionCreationFailed": "İşlem oluşturulamadı",
     "accountSelectionRequired": "Hesap seçimi zorunludur",
     "clientSelectionRequired": "Cari seçimi zorunludur",
-    "balanceUpdateFailed": "Bakiye güncellenemedi: {{message}}",
     "installmentCreationFailed": "Taksit işlemleri oluşturulamadı: {{message}}",
     "cashAdvanceTransactionFailed": "Nakit avans işlemi oluşturulamadı: {{message}}",
     "futureTransactionsDeletionFailed": "İleri tarihli işlemler silinemedi: {{message}}",

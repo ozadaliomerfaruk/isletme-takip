@@ -58,15 +58,15 @@
   "terms": {
     "title": "Terms of Service",
     "lastUpdated": "Last Updated: July 16, 2026",
-    "intro": "By using the Simple Business Finance application, you agree to the following terms.",
+    "intro": "By using the Small Business Finance application, you agree to the following terms.",
     "sections": {
       "serviceDescription": {
         "title": "1. Service Description",
-        "content": "Simple Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, notes and task management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
+        "content": "Small Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, notes and task management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
       },
       "usageTerms": {
         "title": "2. Usage Terms and Age Restriction",
-        "content": "You must be at least 13 years old to use this application. Use of the application by individuals under 13 is prohibited.\n\nUsers are responsible for the accuracy, currency, and legal compliance of all data entered into the application. Simple Business Finance cannot be held responsible for consequences arising from incorrect or incomplete data entry."
+        "content": "You must be at least 13 years old to use this application. Use of the application by individuals under 13 is prohibited.\n\nUsers are responsible for the accuracy, currency, and legal compliance of all data entered into the application. Small Business Finance cannot be held responsible for consequences arising from incorrect or incomplete data entry."
       },
       "accountSecurity": {
         "title": "3. Account Security",
@@ -94,15 +94,15 @@
       },
       "serviceChanges": {
         "title": "9. Service Changes",
-        "content": "Simple Business Finance reserves the right to change the application's service content, features, and pricing without prior notice."
+        "content": "Small Business Finance reserves the right to change the application's service content, features, and pricing without prior notice."
       },
       "intellectualProperty": {
         "title": "10. Intellectual Property",
-        "content": "The design, software, and brand elements of Simple Business Finance application belong to Simple Business Finance. Ownership of all data entered into the application by users belongs to the users."
+        "content": "The design, software, and brand elements of Small Business Finance application belong to Small Business Finance. Ownership of all data entered into the application by users belongs to the users."
       },
       "liability": {
         "title": "11. Limitation of Liability",
-        "content": "Simple Business Finance cannot be held liable for indirect damages arising from use of the application. The application is provided \"as is.\""
+        "content": "Small Business Finance cannot be held liable for indirect damages arising from use of the application. The application is provided \"as is.\""
       },
       "disputes": {
         "title": "12. Dispute Resolution",
@@ -117,7 +117,7 @@
   "privacy": {
     "title": "Privacy Policy",
     "lastUpdated": "Last Updated: July 16, 2026",
-    "intro": "At Simple Business Finance, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
+    "intro": "At Small Business Finance, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
     "sections": {
       "collectedData": {
         "title": "1. Data Collected",

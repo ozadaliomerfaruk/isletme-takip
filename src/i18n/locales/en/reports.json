@@ -136,7 +136,17 @@
     "creditCard": "{{count}} Credit Cards",
     "client": "{{count}} Contacts",
     "personnel": "{{count}} Staff",
-    "transaction": "{{count}} transactions"
+    "transaction": "{{count}} transactions",
+    "transaction_one": "{{count}} transaction",
+    "transaction_other": "{{count}} transactions",
+    "account_one": "{{count}} Account",
+    "account_other": "{{count}} Accounts",
+    "creditCard_one": "{{count}} Credit Card",
+    "creditCard_other": "{{count}} Credit Cards",
+    "client_one": "{{count}} Contact",
+    "client_other": "{{count}} Contacts",
+    "personnel_one": "{{count}} Staff Member",
+    "personnel_other": "{{count}} Staff"
   },
   "period": {
     "daily": "Daily",
@@ -144,7 +154,7 @@
     "monthly": "Monthly",
     "yearly": "Yearly",
     "custom": "Custom",
-    "instant": "Instant",
+    "instant": "Current",
     "total": "Total",
     "selectPeriod": "Select Period",
     "selectYear": "Select Year",
@@ -155,7 +165,20 @@
     "startDateTitle": "Start Date",
     "endDateTitle": "End Date"
   },
-  "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  "months": [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ],
   "categoryDetail": {
     "direct": "(direct)",
     "transactionWithSubcategories": "{{count}} transactions ({{subcategories}} subcategories)",
