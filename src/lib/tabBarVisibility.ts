@@ -10,7 +10,12 @@
  * verilirse tek yerde değişir, inset'ler kendiliğinden uyar.
  */
 export function getActiveTab(segments: readonly string[]): string | null {
-  const first = segments[0];
+  // `string | undefined`: segments kök rotada (yönlendirme öncesi ilk kare) BOŞ
+  // olabiliyor. tsconfig'de noUncheckedIndexedAccess kapalı olduğu için tsc bunu
+  // `string` sanıyor ve `.startsWith` çağrısı derlemeden geçiyordu → çalışma
+  // zamanında "Cannot read property 'startsWith' of undefined". Tip burada açıkça
+  // yazılı ki aşağıdaki metot çağrıları `?.` olmadan eklenemesin.
+  const first: string | undefined = segments[0];
   const second = segments[1];
 
   // Bar'ın HİÇ çizilmediği akışlar. Kurulum da buraya dahil: ilk kayıt öncesi,
@@ -24,7 +29,7 @@ export function getActiveTab(segments: readonly string[]): string | null {
     first === '(auth)' ||
     first === 'onboarding' ||
     first === 'verify' ||
-    first.startsWith('kurulum')
+    first?.startsWith('kurulum')
   ) {
     return null;
   }
