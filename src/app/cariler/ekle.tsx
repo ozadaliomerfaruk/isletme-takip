@@ -18,6 +18,7 @@ import { spacing } from '@/constants/spacing';
 import { useCreateCari } from '@/hooks/useCariler';
 import { CariType, Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { getNeedsSetupSync } from '@/lib/setupFlow';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
@@ -85,8 +86,12 @@ export default function CariEklePage() {
       // Kayıt sonrası oluşturulan cari detayına git (geri tuşu = liste). (Dilim 1 #6)
       // İSTİSNA: prefill'le gelindiyse (foto-import tedarikçi oluşturma akışı) çağıran
       // ekrana geri dön — o akış router.back() ile import'a devam etmeyi bekliyor.
+      // İSTİSNA 2: kurulum akışı sürüyorsa (rehberli oluşturma adımı) detaya GİTME.
+      // _layout'un kapısı kurulum bitmeden 'cariler/ekle' dışına çıkışa izin vermiyor;
+      // detaya replace edilince kapı devreye girip kullanıcıyı sektör ekranına
+      // (/kurulum) geri atıyordu. back() → rehberli oluşturma listesine döner.
       const cameFromPrefillFlow = !!(params.prefillName || params.prefillType || params.prefillTaxNumber);
-      if (cameFromPrefillFlow) {
+      if (cameFromPrefillFlow || getNeedsSetupSync()) {
         router.back();
       } else {
         router.replace({ pathname: '/cariler/[id]', params: { id: created.id } });

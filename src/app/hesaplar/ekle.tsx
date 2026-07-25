@@ -19,6 +19,7 @@ import { HesapType, Currency } from '@/types/database';
 import { DEFAULT_CURRENCY } from '@/constants/currencies';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { getNeedsSetupSync } from '@/lib/setupFlow';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -85,8 +86,15 @@ export default function HesapEklePage() {
       });
 
       notifySaved(t('accounts:messages.createSuccess'));
-      // Kayıt sonrası oluşturulan hesabın detayına git (geri = liste).
-      router.replace({ pathname: '/hesaplar/[id]', params: { id: created.id } });
+      if (getNeedsSetupSync()) {
+        // Kurulum akışı sürüyor: _layout'un kapısı kurulum bitmeden 'hesaplar/ekle'
+        // dışına çıkışa izin vermiyor; detaya replace edilince kapı kullanıcıyı
+        // sektör ekranına (/kurulum) geri atıyordu. back() → rehberli oluşturma listesi.
+        router.back();
+      } else {
+        // Kayıt sonrası oluşturulan hesabın detayına git (geri = liste).
+        router.replace({ pathname: '/hesaplar/[id]', params: { id: created.id } });
+      }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.createFailed'));
     }

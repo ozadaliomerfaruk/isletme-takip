@@ -5,7 +5,7 @@
  * adla ön-doldurulur, değiştirilebilir). Sonra → rehberli oluşturma (ilk kayıt).
  */
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Store } from 'lucide-react-native';
@@ -48,6 +48,16 @@ export default function KurulumTabela() {
 
   return (
     <Screen top>
+      {/* Klavye açılınca "Devam" butonu klavyenin ALTINDA kalıyordu: bu ekranda
+          KeyboardAvoidingView hiç yoktu ve footer ekranın dibinde sabitti.
+          (Kurulumda tab bar kaldırılınca buton 72px daha aşağı indi ve sorun
+          görünür hale geldi — sebebi o değil, o yalnız açığa çıkardı.)
+          footerInset klavye açıkken zaten 0 döner; KAV ile birlikte buton
+          klavyenin tam üstüne oturur. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text variant="caption" style={styles.stepLabel}>
@@ -79,14 +89,14 @@ export default function KurulumTabela() {
           {t('auth:setup.tabela.continue')}
         </Button>
       </View>
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  keyboardView: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scroll: {
     flexGrow: 1,
