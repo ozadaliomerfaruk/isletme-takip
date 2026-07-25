@@ -25,6 +25,28 @@ Mercek: muhasebe · senior developer · UI standartları.
 
 ---
 
+## TAZELEME — 5 YÜKSEK tema + ORTA-6 mevcut koda karşı sınandı
+
+Denetimden **önce** aynı gün 16:17–17:31 arasında ayrı bir i18n/kur denetimi uygulanmıştı
+(11 commit, 73 bulgu). Bu turun bulgularıyla kapsamı çakışıyor, bu yüzden en kritik altı
+tema mevcut kodda tek tek açıldı. Sonuç: **üçü hâlâ tamamen açık, üçü KISMEN kapanmış.**
+
+Kısmen kapananlar kritik: rapor gövdesi onları hâlâ "tamamen açık" gösteriyor.
+
+| Tema | Durum | Kapanan | Açık kalan |
+|---|---|---|---|
+| **1** Para birimi ana para birimine düşüyor | **KISMEN** | `useIslemler.ts` select'lerine `cari(currency)` / `personel(currency)` eklenmiş (51-52, 505-506, 909-910); `kategori/[id].tsx` **toplamları** `getIslemCurrency` kullanıyor (227, 521); `EntitySummaryCard` + `EntityTransactionList` `getCrossCurrencyDisplay`'e geçmiş | `kategori/[id].tsx:313` **satır** render'ı hâlâ `item.hesap?.currency`; `reportExcelExport.ts` içinde `getIslemCurrency` **hiç yok** |
+| **2** Excel yabancı parayı çevirmeden topluyor | **HÂLÂ VAR** | — | `reportExcelExport.ts:197` `grandTotal = sorted.reduce(... + toNumber(islem.amount), 0)` aynen duruyor; `createConversionSum` kullanılmıyor |
+| **3** Excel ekranın motorunu kullanmıyor (iade düşmüyor) | **HÂLÂ VAR** | — | Excel yolunda `isReturnType` / `RETURN_TYPES` **hiç geçmiyor** |
+| **4** Drill-down 1000 satırda kırpılıyor | **KISMEN** | `useCategoryReport.ts` altı sorguyu `fetchAllPages` ile sarmış (713, 772, 808, 906, 954, 970) | `useAccountReport.ts` `fetchAllPages`'i **import bile etmiyor** → hesap/kaynak drill-down'u hâlâ kırpılıyor |
+| **5** Nakit akışı drill-down'ı KK giderlerini özete katıyor | **HÂLÂ VAR** | — | `source='cash-flow'` yalnız **işlem tiplerini** değiştiriyor (`getIslemTypes`, satır 27-28); hesap tipi (kredi kartı) filtresi hâlâ yok |
+| **6** Negatif tutarlar pozitif görünüyor | **KISMEN** | `formatCurrencyWithSign` şu beş yüzeye uygulanmış: `net-varlik-trend.tsx`, `EntitySummaryCard`, `QuickInsights`, `GenelTabContent`, `KarsilastirmaTabContent`; `reportExcelExport.ts`'te de var | `gelir-gider.tsx`, `hesap/[id].tsx`, `CategoryReportCard.tsx`, `IncomeSourceCard.tsx` — dördünde de yok. `formatCurrency`'nin `Math.abs`'i (currency.ts:259) yerinde |
+
+**Sınanmayanlar:** kalan 33 ORTA/DÜŞÜK tema mevcut koda karşı kontrol edilmedi.
+Bir kısmının aynı şekilde kapanmış olması muhtemel — özellikle para/kur ile ilgili olanlar.
+
+---
+
 ## KULLANICI KARARI — arşiv/pasif kuralı
 
 Bu bir bulgu değil, **verilmiş bir karardır** ve aşağıdaki eksik-kalan bölümündeki
