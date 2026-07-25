@@ -1,4 +1,66 @@
-# Rapor Ekranları Denetimi — Bulgu Raporu
+# Rapor Ekranları Denetimi — 25 Temmuz 2026
+
+**Kapsam:** 12 yüzey — 10 rapor ekranı (`src/app/raporlar/`), 16 rapor bileşeni
+(`src/components/reports/`), 12 rapor hook'u, 8 dışa-aktarma kütüphanesi.
+26 ajanla paralel tarandı; her bulgu kümesi ayrı bir şüpheci doğrulayıcıdan geçirildi.
+
+**Sonuç:** 184 ham bulgu → **160 onaylı**, 24 çürütüldü.
+Şiddet: 5 yüksek başlık · 19 orta · 15 düşük tema.
+Mercek: muhasebe · senior developer · UI standartları.
+
+**Kod DEĞİŞTİRİLMEDİ.** Bu belge yalnız bulgu listesidir.
+
+---
+
+## ⚠️ Bu belgeyi kullanmadan önce
+
+1. **Satır numaraları kaymış olabilir.** Denetim çalışırken paralel bir oturum aynı
+   ağaçta düzenleme yapıyordu. Bir bulguyu ele almadan önce `dosya:satır` referansını teyit et.
+2. **15 bulgu doğrulayıcıdan karar almadan onaylı sayıldı.** 184 bulguya karşılık 169
+   karar üretildi; kalanlar çıkarma sırasında onaylı kabul edildi. Bu gruptakiler kesin değil,
+   uygulamadan önce teker teker kontrol edilmeli.
+3. **Ham bulgu verisi** (her bulgunun tam metni; id / kanıt / öneri alanlarıyla, 184 kayıt)
+   git geçmişinde duruyor:
+   `git show 5abe195:docs/RAPOR-DENETIMI-HAM-BULGULAR.json`
+
+---
+
+## KULLANICI KARARI — arşiv/pasif kuralı
+
+Bu bir bulgu değil, **verilmiş bir karardır** ve aşağıdaki eksik-kalan bölümündeki
+bir maddeyi geçersiz kılar.
+
+| Durum | Gelir/Gider raporları | Genel Durum |
+|---|---|---|
+| **Arşivlenmiş** hesap / cari / personel / ürün | **GİRER** | **GİRMEZ** |
+| **Pasif** (`is_active = false`) hesap / cari / personel / ürün | **GİRMEZ** | **GİRMEZ** |
+
+Gerekçe: arşiv geçmişi saklamak içindir — geçmiş dönem raporu, arşivlenmiş bir kaydın
+işlemlerini göstermeye devam etmeli. Genel Durum ise BUGÜNKÜ pozisyondur; arşivdeki
+bakiye bugüne yazılmaz. Pasif ise "bu kaydı hiç sayma" demektir.
+
+**Kod bunu zaten doğru uyguluyor — değişiklik gerekmez.** Doğrulandı:
+
+- `useFinancialSummary` (Genel Durum) üçünü de dışlayarak çağırıyor:
+  `useHesaplar(false, false)`, `useCariler(undefined, false, false)`,
+  `usePersonelList(false, false)` → includePassive:false, includeArchived:false.
+  Gerekçe yorumu dosyanın 63-68. satırlarında zaten yazılı.
+- Rapor RPC'leri (migration `20260630000000`) yalnız `is_active`'e bakar,
+  `is_archived`'a **hiç bakmaz** → arşivli kayıt raporlarda görünmeye devam eder.
+- `useArchive` yalnız `is_archived` yazar, `is_active`'e dokunmaz → arşivli kayıt aktif kalır.
+
+Dolayısıyla EK bölümündeki **"Arşiv rapora sızıyor"** maddesi **GEÇERSİZDİR** —
+o davranış tasarımın kendisidir.
+
+**Açık kalan ince ayrım:** rapor RPC'lerinde hesap filtresi `h.is_active = true`,
+cari/personel/ürün ise `is_active IS NOT FALSE`. `hesaplar.is_active` NULL olabiliyorsa
+o hesap raporlardan sessizce düşer. Kolonun NOT NULL olduğu teyit edilmedi.
+
+Ürünler Genel Durum'a zaten hiç girmiyor (`useFinancialSummary` yalnız hesap/cari/personel
+okur) — ürün için kural pratikte yalnız raporları ilgilendirir.
+
+---
+
 
 ## Yönetici Özeti
 
@@ -515,3 +577,43 @@ NEDEN ÖNEMLİ · Klavye açıkken footer kapanabiliyor (kullanıcı `returnKeyT
 3. **Excel'i ekranın RPC'lerinden besle**: çeviri (`createConversionSum`), iade netleme ve ürün-kategori dağıtımı — dosya bugün ekrandan farklı rakam veriyor (YÜKSEK-2, YÜKSEK-3).
 4. **İşaretli para biçimini yedi yüzeye uygula** (`formatCurrencyWithSign` / `signedCurrencyText`) — negatif tutarlar pozitif ve yeşil görünüyor (ORTA-6). Aynı pakette nakit akışı drill-down özetini üst ekranla aynı motora bağla (YÜKSEK-5).
 5. **Dönem katmanını düzelt**: navigasyonda özel dönemde `period:'custom'` gönder, trend offset'ini string eşleme yerine doğrudan geçir, haftalık ay seçici offset'ini pazartesi referansına çevir (ORTA-7, ORTA-18).
+---
+
+# EK — Denetimin Dışında Kalanlar
+
+Ayrı bir ajan "bu denetim neyi kaçırdı?" sorusuyla kendi turunu attı. Bulduğu boşluklar
+raporun kendisi kadar önemli — özellikle B bölümündeki **güvenlik** maddesi.
+
+> ⚠️ D bölümündeki "Arşiv rapora sızıyor" maddesi, belgenin başındaki KULLANICI KARARI
+> gereği **geçersizdir**. Arşivli kayıtların gelir-gider raporlarında görünmesi istenen
+> davranıştır; Genel Durum'un onları dışlaması da öyle.
+
+
+## A. Hiç taranmamış rapor dosyaları
+
+- **Nakit Akışı raporu tamamen listede yok**: `src/app/nakit-akisi/index.tsx` (351 satır). ExploreGrid'deki 8 rapor kartından biri (`src/components/reports/ExploreGrid.tsx:25` → `/nakit-akisi`) ama `raporlar/` klasöründe olmadığı için gezilmemiş. İçinde standart sapmaları var: `t(...).toUpperCase()` (satır 191, 219 — dosyanın 1. satırında `upperTr` zaten import edilmiş, PERIOD_OPTIONS'ta kullanılmış), hardcoded `fontSize: 11/14` (satır 312, 324).
+- **Raporlar ana sayfasının TÜM içeriği `src/widgets/finance/` altında**: `FinanceKPIGrid.tsx` (213), `TrendChartWidget.tsx` (417), `CategoryDonutWidget.tsx` (307). `src/app/raporlar/index.tsx:136,154,164` bunları basıyor; "Raporlar ana sayfası" taranmış olsa da bu 937 satır `src/components/reports` dışında. Somut sapmalar: `textTransform:'uppercase'` (`CategoryDonutWidget.tsx:218`, `TrendChartWidget.tsx:293`) — upperTr kuralı ihlali; ayrıca üçünde de `conversionIncomplete` hiç gösterilmiyor (hook veriyor: `useAnalyticsSummary.ts:214`), oysa diğer rapor ekranları `ConversionIncompleteWarning` basıyor (`alis-satis.tsx:251`, `gelir-gider.tsx:157`).
+- **Denetlenmemiş hook'lar** (rapor ekranlarından çağrılıyor, başlıklarda yok): `useAnalyticsSummary.ts` (231), `useAnalyticsTrend.ts` (309), `useCashFlowByCategory.ts` (441), `useNetWorthLenses.ts` (190), `useEconomicIndicators.ts` (61), `useFinancialSummary.ts` (198), `useReportPeriod.ts` (218), `useReportRouteState.ts` (97). Rapor satır bileşenleri de `components/ui` altında: `CategoryReportCard.tsx`, `IncomeSourceCard.tsx`.
+
+## B. Supabase RPC katmanı (client'a bakılmış, gövdelere bakılmamış görünüyor)
+
+- **Guard'sız SECURITY DEFINER rapor RPC'leri**: `supabase/migrations/20260630000000_exclude_passive_entities_from_reports.sql:41` (`get_income_expense_summary`), `:87` (`get_category_report`), `:227` (`get_product_report`) — üçünde de `user_has_isletme_access` / `user_has_module_access` çağrısı YOK ve hiçbir migration'da bunlar için `REVOKE EXECUTE ... FROM PUBLIC, anon` yok. `p_isletme_id` tamamen çağırandan geliyor. Karşılaştır: aynı dosyada `get_balance_activity_report` guard'lı (`:309-319`), kardeş 4 RPC hem guard hem revoke almış (`20260716040000_rapor_rpc_modul_gate.sql:34-35` + dosya sonu REVOKE'ları, `20260707110000`). Yani o migration'ın kapattığı sızıntı sınıfı bu üçünde açık kalmış.
+- **Server tarafı sessiz 1:1 kur**: `20260630000000...sql:62-65` — kur bulunamazsa `COALESCE(..., 1)`, yani yabancı para işlem TRY 1:1 sayılıyor. Aynı desen `get_income_by_source` (`20260716040000...sql:41,54,63`) ve `get_product_report`'ta. Client politikası ise "çeviremezsen ham bırak + bayrak kaldır" (`useAnalyticsSummary.ts:150-155`) → client bayrağı bu server-side hatayı GÖREMEZ. Ayrıca `rates` tek satır/güncel kur → geçmiş dönem raporları güncel kurla çevriliyor.
+- RPC isim/parametre eşleşmesi kontrol edildi, **uyumsuzluk yok** (`get_category_report/get_account_report/get_income_by_source/get_product_report/get_networth_*` — client `p_` adları SQL imzalarıyla birebir).
+
+## C. Ekranlar arası çapraz tutarsızlık
+
+- **Özel (custom) tarih aralığı alt raporlara AKTARILMIYOR**: `useReportPeriod.ts:171` custom'ı `widgetPeriod='monthly'`e çeviriyor; `raporlar/index.tsx:64-87` alt rapora `period: widgetPeriod` + startDate/endDate yolluyor; `useReportRouteState.ts:48-57` ise startDate/endDate'i YALNIZ `period === 'custom'` iken kullanıyor. Sonuç: ana sayfada özel aralık seçip Gelir-Gider / Nakit Akışı / Alış-Satış kartına basınca alt rapor içinde bulunulan AYI gösteriyor. Aynı yol `FinancialDetailModal.tsx:79-95`'ten de geçiyor.
+- **Aynı ekranın iki sekmesi farklı dönem**: `useAnalyticsTrend.ts:119-128` verilen `dateRange.startDate`'i `getDateRange('monthly', off)` ile −50..50 tarayarak eşleştirmeye çalışıyor; özel aralık ay başına denk gelmezse eşleşme olmaz, `currentOffset=0` kalır → Grafikler sekmesi "son 6 ay"ı çizer. KPI sekmesi (`useAnalyticsSummary.ts:71-83`) dateRange'i doğrudan kullanır → doğru. Aynı başlık altında iki farklı sayı.
+- **Nakit Akışı ile Gelir-Gider kur eksikliğinde TERS davranıyor**: `useCashFlowByCategory.ts:226-233` kur yoksa işlemi tamamen atlıyor (sessiz eksik toplam; `CashFlowByCategoryResult`'ta `conversionIncomplete` alanı bile yok — `:68-83`), RPC ise 1:1 sayıyor. İkisini AYNI modalda yan yana basan yer: `FinancialDetailModal.tsx:55-56`.
+- **`useAnalyticsTrend.ts:296` conversionIncomplete hesaplanıp `:303-308` return'ünde düşürülüyor** — ekran asla uyaramaz; `error`/`refetch` de dönmüyor (TrendChartWidget'ta hata durumu yok).
+- **KPI kartı kendi içinde tutarsız**: `useAnalyticsSummary.ts:179-183` — `cashBalance.total` tüm hesapların çevrilmiş toplamı, `accountCount` ise yalnız para birimi baz olan hesapları sayıyor → `FinanceKPIGrid.tsx:149-155`'teki "N hesap" alt yazısı toplamla uyuşmuyor.
+- **Dönem üreticisi iki kopya**: `useDateFormat.ts:170-249` (`getDateRangeLabel`), `lib/date.ts:326-403` (`getDateRange`) birebir aynı gövde. Rapor ekranları birinciyi, `useMonthSummary`/`useComparisonReport` (`useIslemler.ts:788-794`) ikinciyi kullanıyor. Ayrıca `useReportPeriod.ts:178-182` custom'da `getDateRangeLabel('monthly', 0, customRange)` çağırıyor — 'monthly' dalı customRange'i yok sayar, `periodLabel` içinde bulunulan ayın adı olur.
+- **Sıralamasız sayfalama**: `lib/supabaseHelpers.ts:23-45` range tabanlı; `useCashFlowByCategory.ts:142-162` ve `useAnalyticsTrend.ts:227-251` sorgularında hiç `.order()` yok → 500+ satırlı dönemlerde sayfa sınırında satır tekrarı/kaybı. Karşılaştır: `useExcelExport.ts:142-143` (date+id, stabil). Ara durum: `useReportExcelExport.ts:95` ve `alis-satis.tsx:176` yalnız `date` (tekil olmayan anahtar).
+
+## D. Silme/düzenleme sonrası tazeleme (cache invalidation)
+
+- **Rapor ana sayfası bayat kalıyor**: `lib/queryKeys.ts:388-392` — `analytics-periods` ve `analytics-trend` işlem mutasyonunda **deferred** (`refetchType:'none'`). `raporlar/index.tsx` stack'te mounted kalır ve `useFocusEffect`/refetch-on-focus kullanmaz → kategori/hesap detayında gömülü QTB ile işlem girip geri dönünce KPI + trend + donut eski değerde kalır. Aynı sayıyı basan `month-summary` ise immediate (`:356`). Dosyanın kendi yorumu (`:358-362`) bunu açıkça yasaklıyor.
+- **Cari/personel bloklarında eksik rapor key'leri**: `queryKeys.ts:450-462` (cari) ve `:475-487` (personel) deferred listelerinde `category-report` var ama `hierarchical-category-report`, `category-report-returns`, `hierarchical-category-report-returns`, `multi-category-transactions`, `sub-category-report-rpc`, `sub-category-report-returns`, `product-report`, `product-report-returns`, `networth-trend/opening` YOK (islem/kategori/urun bloklarında var). Gelir-Gider ekranı bu sorguları fiilen çalıştırıyor (`useCategoryReport.ts:398`, `:1038`). Arşivleme/pasifleştirme tam bu yolu kullanıyor (`useArchive.ts:203`, `:255`).
+- **Arşiv rapora sızıyor**: `useArchive.ts:196` yalnız `is_archived=true` yazıyor, `is_active`'e dokunmuyor; rapor RPC'leri ise yalnız `is_active`'e bakıyor (`20260630000000...sql:74-79`) → arşivlenmiş cari/personel işlemleri Gelir-Gider/Kategori/Alış-Satış toplamlarında kalıyor, `useFinancialSummary.ts:67-69` (Genel Durum) ise arşivliyi dışlıyor. Koddaki gerekçe yorumu bu ayrımı yalnız HESAP için yazıyor; cari/personel arşivi için yazılı gerekçe yok.
+- Kategori/hesap detayında QTB ile düzenle-sil akışı **kapsanıyor** (`raporlar/kategori/[id].tsx:143-151`, `raporlar/hesap/[id].tsx:87-94` → 'islem' immediate listesi) — burada sorun yok.
