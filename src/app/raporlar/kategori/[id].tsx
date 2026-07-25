@@ -310,7 +310,13 @@ export default function KategoriDetayPage() {
     // _categoryAmount varsa ana tutar = kategori payı, alt tutar = tam fatura.
     const hasCategoryAmount = item._categoryAmount !== undefined && item._categoryAmount !== Number(item.amount);
     const displayAmount = hasCategoryAmount ? item._categoryAmount! : Number(item.amount);
-    const currency = item.hesap?.currency;
+    // Para birimi MERKEZÎ zincirle çözülür (source_currency → hesap → cari → personel).
+    // Eskiden yalnız item.hesap?.currency okunuyordu; cari_alis/cari_satis/personel_*
+    // tiplerinin hesap bacağı OLMADIĞI için undefined dönüyor ve formatCurrency ANA
+    // para birimi sembolünü basıyordu → USD cariye kesilen 1.000 USD fatura bu listede
+    // "₺1.000" görünüyordu. Aynı ekranın toplamı (:227) zaten getIslemCurrency kullanıyordu,
+    // yani satır ile toplam birbirini tutmuyordu.
+    const currency = getIslemCurrency(item);
     const urunItems = getUrunItems(item.id);
     const entityText = item.cari?.name
       || (item.personel ? `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim() : null)

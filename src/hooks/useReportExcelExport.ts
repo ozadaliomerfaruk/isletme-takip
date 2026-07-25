@@ -14,7 +14,8 @@ import { supabase } from '@/lib/supabase';
 import { IslemWithRelations } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
-import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
+import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES } from '@/constants/islemTypes';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { toErrorMessage } from '@/lib/errors';
 
 interface UseReportExcelExportReturn {
@@ -25,6 +26,9 @@ interface UseReportExcelExportReturn {
 export function useReportExcelExport(reportType: ReportType): UseReportExcelExportReturn {
   const { isletme } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
+  // Karışık para birimli dönemde Excel toplamlarını ana para birimine çevirmek için.
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
 
@@ -75,7 +79,13 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
         endDateTime.setDate(endDateTime.getDate() + 1);
         const endDateNextDay = formatDateForDB(endDateTime);
 
-        const islemTypes = reportType === 'gelir' ? INCOME_TYPES : EXPENSE_TYPES;
+        // İADE TİPLERİ DE ÇEKİLİR. Ekranın kaynağı (get_category_report + iade sorgusu)
+        // toplamı NET veriyor; export ise yalnız INCOME/EXPENSE çekip BRÜT veriyordu →
+        // iadesi olan her dönemde Excel'in "TOPLAM"ı ekrandan iade tutarı kadar YÜKSEK
+        // çıkıyordu. Netleme reportExcelExport içinde isReturnType ile yapılır.
+        const islemTypes = reportType === 'gelir'
+          ? [...INCOME_TYPES, ...INCOME_RETURN_TYPES]
+          : [...EXPENSE_TYPES, ...EXPENSE_RETURN_TYPES];
 
         const buildQuery = () => {
           return supabase
@@ -85,8 +95,8 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
               hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
               hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
               kategori:kategoriler(id,name),
-              cari:cariler(id,name,type,is_active),
-              personel:personel(id,first_name,last_name,is_active)
+              cari:cariler(id,name,type,is_active,currency),
+              personel:personel(id,first_name,last_name,is_active,currency)
             `)
             .eq('isletme_id', isletme.id)
             .in('type', islemTypes)
@@ -117,6 +127,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
           periodLabel,
           transactions: visibleTransactions,
           baseCurrency,
+          exchangeRates,
           translations,
         });
         logEvent('export_completed', { format: 'excel', export_type: 'report', report_type: reportType });
@@ -130,7 +141,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
         setIsExporting(false);
       }
     },
-    [reportType, isletme, baseCurrency, t]
+    [reportType, isletme, baseCurrency, exchangeRates, t]
   );
 
   return {

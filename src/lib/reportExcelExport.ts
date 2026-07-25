@@ -7,7 +7,9 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, formatCurrencyWithSign, toNumber, formatPercent } from './currency';
+import { formatCurrency, formatCurrencyWithSign, toNumber, formatPercent, getIslemCurrency } from './currency';
+import { createConversionSum } from '@/hooks/useExchangeRates';
+import { isReturnType } from '@/constants/islemTypes';
 import { IslemWithRelations } from '@/types/database';
 import type { ProductReportItem } from '@/hooks/useProductReport';
 import type { CashFlowItem } from '@/hooks/useCashFlowByCategory';
@@ -136,22 +138,84 @@ export interface ReportExportOptions {
   transactions: IslemWithRelations[];
   /** Ana/gösterim para birimi - karışık para birimli toplamlar için fallback (varsayılan TRY) */
   baseCurrency?: string;
+  /**
+   * Güncel kur tablosu. Karışık para birimli dönemde toplamların ana para birimine
+   * ÇEVRİLEREK hesaplanabilmesi için şart. Verilmezse çeviri yapılamaz ve karışık
+   * para birimi durumunda dosyaya uyarı satırı yazılır.
+   */
+  exchangeRates?: Record<string, number> | null;
   translations: ReportExcelTranslations;
 }
 
 /**
  * İşlem listesinden tekil rapor para birimini belirler.
- * Tüm işlemler aynı hesap para birimindeyse onu, değilse baseCurrency'yi döndürür.
- * (Çoğu işletme tek para birimi kullanır; bu durumda doğru sembol elde edilir.)
+ * Tüm işlemler aynı para birimindeyse onu, değilse baseCurrency'yi döndürür.
+ *
+ * PARA BİRİMİ MERKEZÎ ZİNCİRDEN: getIslemCurrency (source_currency → hesap → cari →
+ * personel). Eskiden yalnız `hesap?.currency` okunuyordu; cari_alis/cari_satis/
+ * personel_* tiplerinin hesap bacağı OLMADIĞI için hepsi baseCurrency sayılıyor,
+ * dolayısıyla USD carili bir dönem bile "tek para birimi" görünüp ₺ sembolüyle
+ * basılıyordu.
  */
 function resolveReportCurrency(
-  transactions: Array<{ hesap?: { currency?: string | null } | null }>,
+  transactions: IslemWithRelations[],
   baseCurrency: string
 ): string {
   const currencies = new Set(
-    transactions.map((i) => i.hesap?.currency || baseCurrency)
+    transactions.map((i) => getIslemCurrency(i) || baseCurrency)
   );
   return currencies.size === 1 ? Array.from(currencies)[0] : baseCurrency;
+}
+
+/**
+ * Kategori kırılımı ve genel toplam — ekranın motoruyla AYNI iki kuralı uygular:
+ *   1. ÇEVİRİ: her kalem kendi para biriminden rapor para birimine çevrilir
+ *      (createConversionSum; kuru bulunamayan kalem toplama KATILMAZ ve sayılır).
+ *   2. İADE NETLEME: iade tipleri toplamdan DÜŞÜLÜR (işaret -1).
+ *
+ * Eskiden ikisi de yoktu: ham `amount` değerleri para birimine bakılmadan toplanıp
+ * tek sembolle yazılıyordu (1.000 USD + 1.000 TL → "₺2.000") ve iade tipleri hiç
+ * sorguya girmediği için genel toplam BRÜT çıkıyordu. Ekran ise ikisini de yapıyordu
+ * → aynı dönemin Excel'i ile ekranı farklı rakam veriyordu.
+ */
+export function hesaplaKategoriVeToplam(
+  transactions: IslemWithRelations[],
+  reportCurrency: string,
+  rates: Record<string, number> | null | undefined
+) {
+  const categoryMap = new Map<string, { name: string; total: number; count: number }>();
+  const genel = createConversionSum(reportCurrency, rates);
+
+  for (const islem of transactions) {
+    const isRet = isReturnType(islem.type);
+    const sign = isRet ? -1 : 1;
+    const ccy = getIslemCurrency(islem) || reportCurrency;
+    const amount = toNumber(islem.amount);
+
+    genel.add(amount, ccy, sign);
+
+    const catId = islem.kategori?.id || 'none';
+    const catName = islem.kategori?.name || '-';
+    let entry = categoryMap.get(catId);
+    if (!entry) {
+      entry = { name: catName, total: 0, count: 0 };
+      categoryMap.set(catId, entry);
+    }
+    // Kategori satırı da aynı iki kuralla: tek kalemlik dönüştürücü ile çevir.
+    const tek = createConversionSum(reportCurrency, rates);
+    tek.add(amount, ccy, sign);
+    entry.total += tek.total;
+    entry.count += 1;
+  }
+
+  return {
+    categories: Array.from(categoryMap.values()).sort((a, b) => b.total - a.total),
+    grandTotal: genel.total,
+    /** Kuru bulunamadığı için toplama katılmayan kalem sayısı (>0 ise dosyaya uyarı). */
+    excludedCount: genel.excludedCount,
+    /** Gerçekten çevrilen kalem sayısı (>0 ise "bugünkü kurla çevrildi" notu anlamlı). */
+    convertedCount: genel.convertedCount,
+  };
 }
 
 // ============================================================================
@@ -166,6 +230,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
     periodLabel,
     transactions,
     baseCurrency = 'TRY',
+    exchangeRates,
     translations: t,
   } = options;
 
@@ -178,23 +243,12 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   // Sort transactions by date
   const sorted = [...transactions].sort((a, b) => a.date.localeCompare(b.date));
 
-  // Build category summary
-  const categoryMap = new Map<string, { name: string; total: number; count: number }>();
-  sorted.forEach((islem) => {
-    const catName = islem.kategori?.name || '-';
-    const catId = islem.kategori?.id || 'none';
-    const existing = categoryMap.get(catId);
-    const amount = toNumber(islem.amount);
-    if (existing) {
-      existing.total += amount;
-      existing.count += 1;
-    } else {
-      categoryMap.set(catId, { name: catName, total: amount, count: 1 });
-    }
-  });
-
-  const categories = Array.from(categoryMap.values()).sort((a, b) => b.total - a.total);
-  const grandTotal = sorted.reduce((sum, islem) => sum + toNumber(islem.amount), 0);
+  // Kategori kırılımı + genel toplam: çeviri ve iade netleme ekranla aynı kuralda.
+  const { categories, grandTotal, excludedCount, convertedCount } = hesaplaKategoriVeToplam(
+    sorted,
+    reportCurrency,
+    exchangeRates
+  );
 
   // Create workbook
   const wb = XLSX.utils.book_new();
@@ -221,6 +275,15 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   // Row 6: Business
   ws['A6'] = { v: `${t.business}:`, s: metaLabelStyle };
   ws['B6'] = { v: isletmeName, s: businessNameStyle };
+
+  // Row 7: Çeviri notu — SESSİZ KALMA. Kuru bulunamayan kalem toplama katılmadıysa
+  // ya da yabancı para bugünkü kurla çevrildiyse dosyada YAZILI olsun; muhasebeciye
+  // giden dosyanın neden ekrandan farklı olabileceği görünür olmalı.
+  if (excludedCount > 0) {
+    ws['A7'] = { v: `⚠ ${excludedCount} kalem kuru bulunamadığı için toplama DAHİL EDİLMEDİ`, s: metaLabelStyle };
+  } else if (convertedCount > 0) {
+    ws['A7'] = { v: `ⓘ ${convertedCount} yabancı para kalemi bugünkü kurla ${reportCurrency} cinsine çevrildi`, s: metaLabelStyle };
+  }
 
   // ============ CATEGORY BREAKDOWN ============
   // Row 8: Section title
