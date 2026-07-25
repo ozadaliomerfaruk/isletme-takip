@@ -168,8 +168,13 @@ export const FLOATING_CONTROL_SIZE = 56;
  * BİRLEŞMESİNİ istediğin boşluktan büyük, AYRI kalmasını istediğinden küçük.
  *
  * Bizim boşluklarımız: grup içi spacing.sm = 8 (arama pill'i↔X, FAB menü
- * satırları), gruplar arası spacing.md = 12 (menü↔FAB). 8 < 10 < 12 → grup içi
- * erir, gruplar ayrı kalır. Bu sabiti değiştirmeden önce iki boşluğu da kontrol et.
+ * satırları, header buton grubu), gruplar arası spacing.md = 12 (menü↔FAB).
+ * 8 < 10 < 12 → grup içi erir, gruplar ayrı kalır.
+ *
+ * ⚠️ TAVAN 13. İki FAB arası tam 14px (ana FAB 56 @ bottom+16, not FAB'ı 44 @
+ * bottom+86 → 86−72=14). Bu sabit 14'e yaklaşırsa o ikisi erimeye başlar ve
+ * prominent FAB'ların OPAK DİSKİ erimeye katılamadığı için sonuç "yamuk damla"
+ * olur. Yükseltmeden önce hem bu 14'ü hem grup-içi boşlukları kontrol et.
  */
 export const GLASS_MERGE_SPACING = 10;
 

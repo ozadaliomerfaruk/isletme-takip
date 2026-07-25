@@ -98,6 +98,18 @@ const styles = StyleSheet.create({
   right: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    /**
+     * GRUP-İÇİ BOŞLUK — erimeyi de nefes payını da bu belirliyor.
+     *
+     * spacing.sm = 8: butonlar 36px olduğundan ikon merkezleri 44px arayla
+     * düşer (Apple'ın native toolbar grubunda ~44-48). Eskiden spacing.xs = 4
+     * idi, merkezler 40px'e iniyordu ve grup sıkışık okunuyordu.
+     *
+     * 8 < GLASS_MERGE_SPACING (10) → cam butonlar hâlâ tek kapsüle erir.
+     * Bu değer 9'u GEÇEMEZ; daha fazla nefes gerekiyorsa doğru kaldıraç gap
+     * değil buton çapıdır (36 → 40, minHeight 44'e sığar) — o zaman erime
+     * matematiğine hiç dokunulmaz.
+     */
+    gap: spacing.sm,
   },
 });
