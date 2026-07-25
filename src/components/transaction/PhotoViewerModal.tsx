@@ -34,6 +34,9 @@ import { useGetPhotoUrl } from '@/hooks/useIslemPhoto';
 
 const DISMISS_THRESHOLD = 150;
 
+/** Sürüklemede header'ın yukarı, alt çubuğun aşağı kayacağı mesafe (kendi yüksekliklerinden fazla). */
+const UI_HIDE_OFFSET = 160;
+
 interface PhotoViewerModalProps {
   /** Whether modal is visible */
   visible: boolean;
@@ -331,8 +334,41 @@ export function PhotoViewerModal({
     backgroundColor: `rgba(0, 0, 0, ${backdropOpacity.value * 0.95})`,
   }));
 
-  // Header/footer opacity (fade out during dismiss)
-  const uiAnimatedStyle = useAnimatedStyle(() => ({
+  /**
+   * OPACITY YOK — bilinçli. Header ve alt aksiyon çubuğunun ÇOCUKLARI
+   * GlassSurface; bir ATADA alpha < 1 olursa sistem view'i offscreen render'a
+   * alıyor, cam o anda arkasını ÖRNEKLEYEMİYOR ve malzeme çöküyor (ikon/yazı
+   * havada asılı kalır, yüzey kaybolur). Sürüklemede gizlenme bu yüzden yalnız
+   * TRANSFORM ile: header yukarı, alt çubuk aşağı kayar (UndoSnackbar deseni).
+   */
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          backdropOpacity.value,
+          [0.3, 1],
+          [-UI_HIDE_OFFSET, 0],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  const bottomAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          backdropOpacity.value,
+          [0.3, 1],
+          [UI_HIDE_OFFSET, 0],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  // İpucu yazısı cam DEĞİL (düz Text) — burada opacity güvenli.
+  const hintAnimatedStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
   }));
 
@@ -352,7 +388,7 @@ export function PhotoViewerModal({
       <GestureHandlerRootView style={styles.flex}>
         <Animated.View style={[styles.container, backdropAnimatedStyle]}>
           {/* Header with proper safe area */}
-          <Animated.View style={[styles.header, { paddingTop: insets.top + 8 }, uiAnimatedStyle]}>
+          <Animated.View style={[styles.header, { paddingTop: insets.top + 8 }, headerAnimatedStyle]}>
             {/* colorScheme="dark": fotoğrafın koyu zemininde açık cam yabancı durur. */}
             <GlassSurface style={styles.roundButton} colorScheme="dark">
               <TouchableOpacity
@@ -408,7 +444,7 @@ export function PhotoViewerModal({
 
           {/* Bottom actions */}
           {hasActions && !isImageLoading && (
-            <Animated.View style={[styles.bottomActions, { paddingBottom: insets.bottom + 16 }, uiAnimatedStyle]}>
+            <Animated.View style={[styles.bottomActions, { paddingBottom: insets.bottom + 16 }, bottomAnimatedStyle]}>
               {onChange && (
                 <GlassSurface
                   style={styles.actionButton}
@@ -459,7 +495,7 @@ export function PhotoViewerModal({
               style={[
                 styles.hintContainer,
                 { bottom: hasActions ? insets.bottom + 80 : insets.bottom + 16 },
-                uiAnimatedStyle
+                hintAnimatedStyle
               ]}
             >
               <Text style={styles.hintText}>{t('photo.zoomHint')}</Text>

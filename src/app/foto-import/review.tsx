@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { CheckCircle, AlertTriangle, Search, Package, Building2, Truck, Users, Plus, Wallet, Edit3, Info } from 'lucide-react-native';
-import { Text, Button, Card, DateTimePicker, CategoryPicker, Screen, Modal } from '@/components/ui';
+import { CheckCircle, AlertTriangle, Package, Building2, Truck, Users, Plus, Wallet, Edit3, Info } from 'lucide-react-native';
+import { Text, Button, Card, DateTimePicker, CategoryPicker, Screen, Modal, ModalSearchBar } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   OcrReviewItem,
@@ -16,6 +17,49 @@ import { usePendingIrsaliyeByCari } from '@/hooks/useIrsaliyeRecords';
 import { Kategori } from '@/types/database';
 import { DOCUMENT_TYPE_DEFAULTS, OcrDocumentType, OcrSaveMode } from '@/types/ocrImport';
 import { formatCurrency, formatQuantity, parseCurrency, formatAmountForInput } from '@/lib/currency';
+
+/**
+ * Picker sheet gövdesi — AYRI BİLEŞEN, çünkü insets Modal'ın İÇİNDE okunmalı.
+ * Sayfa gövdesindeki useSafeAreaInsets() _layout'un override'lı (tab bar dahil)
+ * değerini döndürüyor; bu rotada tab bar görünür sayıldığı için bottom'a
+ * TAB_BAR_CONTENT_HEIGHT ekleniyor. Modal ayrı native pencerede açıldığından bar
+ * orada çizilmiyor ve sayfadan taşınan değer listenin sonunda ~72px hayalet
+ * boşluk bırakıyordu. ModalInsets yalnız modal ağacının İÇİNDEKİ okumaları
+ * gerçek değere düzeltir; dışarıda okunup içeri taşınan sayıyı düzeltemez.
+ */
+function PickerSheet({
+  title,
+  onClose,
+  header,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  header?: ReactNode;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation('common');
+  const insets = useSafeAreaInsets();
+
+  return (
+    <View style={[styles.pickerContainer, { marginTop: insets.top }]}>
+      <View style={styles.pickerHeader}>
+        <Text variant="h3">{title}</Text>
+        <TouchableOpacity onPress={onClose}>
+          <Text variant="body" color="primary">{t('buttons.close')}</Text>
+        </TouchableOpacity>
+      </View>
+      {header}
+      <ScrollView
+        style={styles.pickerList}
+        contentContainerStyle={{ paddingBottom: insets.bottom }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {children}
+      </ScrollView>
+    </View>
+  );
+}
 
 export default function FotoImportReviewPage() {
   const { t } = useTranslation(['ocrImport', 'common', 'products', 'clients']);
@@ -694,35 +738,32 @@ export default function FotoImportReviewPage() {
       {/* Product picker modal */}
       {productPickerVisible && (
         <Modal visible transparent animationType="slide">
-          <View style={styles.pickerContainer}>
-            <View style={styles.pickerHeader}>
-              <Text variant="h3">{t('ocrImport:review.changeProduct')}</Text>
-              <TouchableOpacity onPress={() => setProductPickerVisible(false)}>
-                <Text variant="body" color="primary">{t('common:buttons.close')}</Text>
-              </TouchableOpacity>
-            </View>
-            {/* "Remember" toggle */}
-            <View style={styles.rememberRow}>
-              <Switch
-                value={rememberProduct}
-                onValueChange={setRememberProduct}
-                trackColor={{ false: colors.border, true: colors.primary + '60' }}
-                thumbColor={rememberProduct ? colors.primary : colors.textMuted}
-              />
-              <Text variant="caption" color="secondary">{t('ocrImport:review.rememberAlias')}</Text>
-            </View>
-            <View style={styles.pickerSearchContainer}>
-              <Search size={20} color={colors.textMuted} />
-              <TextInput
-                style={styles.pickerSearchInput}
-                value={productSearch}
-                onChangeText={setProductSearch}
-                placeholder={t('common:search.searchPlaceholder')}
-                placeholderTextColor={colors.textMuted}
-                autoFocus
-              />
-            </View>
-            <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
+          <PickerSheet
+            title={t('ocrImport:review.changeProduct')}
+            onClose={() => setProductPickerVisible(false)}
+            header={
+              <>
+                {/* "Remember" toggle */}
+                <View style={styles.rememberRow}>
+                  <Switch
+                    value={rememberProduct}
+                    onValueChange={setRememberProduct}
+                    trackColor={{ false: colors.border, true: colors.primary + '60' }}
+                    thumbColor={rememberProduct ? colors.primary : colors.textMuted}
+                  />
+                  <Text variant="caption" color="secondary">{t('ocrImport:review.rememberAlias')}</Text>
+                </View>
+                {/* autoFocusDelay: sheet kayma animasyonu bitmeden odaklanınca klavye
+                    animasyonla çakışıyor (diğer picker'larla aynı desen). */}
+                <ModalSearchBar
+                  value={productSearch}
+                  onChangeText={setProductSearch}
+                  placeholder={t('common:search.searchPlaceholder')}
+                  autoFocusDelay={300}
+                />
+              </>
+            }
+          >
               {filteredUrunler?.map(urun => (
                 <TouchableOpacity
                   key={urun.id}
@@ -744,43 +785,37 @@ export default function FotoImportReviewPage() {
                   </View>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-          </View>
+          </PickerSheet>
         </Modal>
       )}
 
       {/* Cari picker modal */}
       {cariPickerVisible && (
         <Modal visible transparent animationType="slide">
-          <View style={styles.pickerContainer}>
-            <View style={styles.pickerHeader}>
-              <Text variant="h3">{t('ocrImport:review.selectCari')}</Text>
-              <TouchableOpacity onPress={() => setCariPickerVisible(false)}>
-                <Text variant="body" color="primary">{t('common:buttons.close')}</Text>
-              </TouchableOpacity>
-            </View>
-            {/* "Remember" toggle */}
-            <View style={styles.rememberRow}>
-              <Switch
-                value={rememberCari}
-                onValueChange={setRememberCari}
-                trackColor={{ false: colors.border, true: colors.primary + '60' }}
-                thumbColor={rememberCari ? colors.primary : colors.textMuted}
-              />
-              <Text variant="caption" color="secondary">{t('ocrImport:review.rememberAlias')}</Text>
-            </View>
-            <View style={styles.pickerSearchContainer}>
-              <Search size={20} color={colors.textMuted} />
-              <TextInput
-                style={styles.pickerSearchInput}
-                value={cariSearch}
-                onChangeText={setCariSearch}
-                placeholder={t('common:search.searchPlaceholder')}
-                placeholderTextColor={colors.textMuted}
-                autoFocus
-              />
-            </View>
-            <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
+          <PickerSheet
+            title={t('ocrImport:review.selectCari')}
+            onClose={() => setCariPickerVisible(false)}
+            header={
+              <>
+                {/* "Remember" toggle */}
+                <View style={styles.rememberRow}>
+                  <Switch
+                    value={rememberCari}
+                    onValueChange={setRememberCari}
+                    trackColor={{ false: colors.border, true: colors.primary + '60' }}
+                    thumbColor={rememberCari ? colors.primary : colors.textMuted}
+                  />
+                  <Text variant="caption" color="secondary">{t('ocrImport:review.rememberAlias')}</Text>
+                </View>
+                <ModalSearchBar
+                  value={cariSearch}
+                  onChangeText={setCariSearch}
+                  placeholder={t('common:search.searchPlaceholder')}
+                  autoFocusDelay={300}
+                />
+              </>
+            }
+          >
               {/* Add new cari button */}
               <TouchableOpacity
                 style={styles.addNewCariButton}
@@ -828,32 +863,24 @@ export default function FotoImportReviewPage() {
                   )}
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-          </View>
+          </PickerSheet>
         </Modal>
       )}
       {/* Hesap picker modal */}
       {hesapPickerVisible && (
         <Modal visible transparent animationType="slide">
-          <View style={styles.pickerContainer}>
-            <View style={styles.pickerHeader}>
-              <Text variant="h3">{t('ocrImport:review.selectHesap')}</Text>
-              <TouchableOpacity onPress={() => setHesapPickerVisible(false)}>
-                <Text variant="body" color="primary">{t('common:buttons.close')}</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.pickerSearchContainer}>
-              <Search size={20} color={colors.textMuted} />
-              <TextInput
-                style={styles.pickerSearchInput}
+          <PickerSheet
+            title={t('ocrImport:review.selectHesap')}
+            onClose={() => setHesapPickerVisible(false)}
+            header={
+              <ModalSearchBar
                 value={hesapSearch}
                 onChangeText={setHesapSearch}
                 placeholder={t('common:search.searchPlaceholder')}
-                placeholderTextColor={colors.textMuted}
-                autoFocus
+                autoFocusDelay={300}
               />
-            </View>
-            <ScrollView style={styles.pickerList} keyboardShouldPersistTaps="handled">
+            }
+          >
               {filteredHesaplar?.map(hesap => (
                 <TouchableOpacity
                   key={hesap.id}
@@ -874,8 +901,7 @@ export default function FotoImportReviewPage() {
                   )}
                 </TouchableOpacity>
               ))}
-            </ScrollView>
-          </View>
+          </PickerSheet>
         </Modal>
       )}
     </>
@@ -1021,10 +1047,11 @@ const styles = StyleSheet.create({
   sellButton: {
     minWidth: 80,
   },
+  // marginTop çalışma zamanında (insets.top) veriliyor — sabit 50 çentikli
+  // cihazlarda başlığı status bar'a yapıştırıyordu.
   pickerContainer: {
     flex: 1,
     backgroundColor: colors.background,
-    marginTop: 50,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
@@ -1035,25 +1062,6 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  pickerSearchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  pickerSearchInput: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.text,
-    paddingVertical: spacing.sm,
   },
   pickerList: {
     flex: 1,
@@ -1116,9 +1124,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.warning,
   },
+  // Metin koyu ton: parlak warning, warningLight zeminde okunmuyor (sarı-üstü-sarı).
+  // Çerçeve/ikon parlak tonda kalır.
   notWarningText: {
     flex: 1,
-    color: colors.warning,
+    color: colors.warningDark,
   },
   hesapCard: {
     padding: spacing.md,
@@ -1191,9 +1201,10 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
   },
+  // Aynı gerekçe: açık sarı zemin üzerinde koyu ton (bkz. notWarningText).
   irsaliyeBannerText: {
     fontWeight: '600',
-    color: colors.warning,
+    color: colors.warningDark,
   },
   irsaliyeBannerButtons: {
     flexDirection: 'row',
