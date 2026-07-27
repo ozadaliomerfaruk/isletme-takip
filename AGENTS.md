@@ -18,7 +18,9 @@
    - Yalnız **ADDITIVE** migration (yeni kolon DEFAULT'lu / yeni tablo). Kolon silme, yeniden adlandırma, tip değiştirme **YASAK**.
    - Backfill'den kaçın; anlam client'ta hesaplanabiliyorsa kolonu ilk kullanımda doldur.
    - RPC/view değişikliğinde imza korunur (parametre ekleme yalnız DEFAULT'lu); önce mevcut çıktıyı SQL snapshot'la, sonra diff'le.
-   - Migration öncesi tam yedek: `node scripts/backup.js`.
+   - Migration öncesi kullanıcının yönettiği **güncel ve doğrulanmış tam yedek**
+     bulunduğu açıkça teyit edilmelidir. Ajanlar kullanıcı ayrıca istemedikçe
+     yedek/restore altyapısı tasarlamaz, çalıştırmaz veya otomatikleştirmez.
    - "1.5.x kullanan eski client bu migration'dan sonra ne yaşar?" sorusuna **yazılı** cevap ver.
 2. **Ajan/otomasyon işi bitince doğrulama ana oturumda:** `tsc` + `eslint` + `jest` + Metro bundle bizzat koşulmadan iş "bitti" ilan edilmez. Ajanın "derledim/test ettim" beyanına güvenilmez.
 3. **Denetim/audit bulgusu uygulanmadan önce bulgu-başı KOD teyidi:** bulgular yazıldığı anda bayat olabiliyor. Dosyanın güncel halini açıp iddiayı doğrula. Yeni denetim başlatırken prompt'a baz commit SHA + "güncel koddan birebir alıntı" zorunluluğu koy.
@@ -52,8 +54,7 @@
 
 - `docs/DENETIM-UYGULAMA-DURUMU.md` — front-end/liquid-glass denetiminin uygulama durumu ve devam noktası.
 - `docs/RAPOR-DENETIMI.md` — rapor ekranları denetimi (160 bulgu); güncel satırlar TAZELEME-2 tablosunda, gövde "NEREDE"leri eski olabilir.
-- `docs/I18N-KUR-UYGULAMA-DURUMU.md` + `docs/I18N-KUR-CIHAZ-TESTI.md` — i18n+kur işi (tamamlandı, cihaz turu yapılmadı).
-- `docs/TAKSIT-ODEME-HEDEFLEME-TARTISMA.md` — taksit tek-motor / pointer kararının gerekçesi.
+- `docs/security/YETKI-SOZLESMESI.md` — ortak kullanıcı modül/seviye sözleşmesi, RLS/RPC/Storage sınırları ve doğrulama matrisi.
 - `docs/UI-UX-PRATIKLIK-ANALIZI.md` — UI/UX iş listesi.
 - `docs/AUTH-KAYIT-ASILMASI-BULGULAR.md` — QTB kayıt-asılması İLK teşhisi (TARİHSEL; güncel kök neden ve fix durumu için bu dosyanın "Güncel durum fotoğrafı" bölümüne bak).
 - `supabase/migrations/` — şema gerçeği; migration adlandırması `YYYYMMDDHHMMSS_ad`.
