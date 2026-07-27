@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, Cari, Personel, CariType, Urun } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
 // ARŞİVLENMİŞ ÖĞELERİ GETİREN HOOKS
@@ -12,25 +13,29 @@ import i18n from '@/i18n';
 /**
  * Arşivlenmiş hesapları getir
  */
-export function useArchivedHesaplar() {
+export function useArchivedHesaplar(enabled: boolean = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
 
   return useQuery({
     queryKey: queryKeys.hesaplar.archived(isletme?.id ?? ''),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeHesaplar || !isletme) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('hesaplar')
         .select('*')
         .eq('isletme_id', isletme.id)
         .eq('is_archived', true)
         .order('name', { ascending: true });
+      if (!canSeePassiveRecords) query = query.eq('is_active', true);
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Hesap[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeeHesaplar && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -40,13 +45,15 @@ export function useArchivedHesaplar() {
  * Arşivlenmiş carileri getir
  * @param type - Opsiyonel: 'musteri' veya 'tedarikci' filtresi
  */
-export function useArchivedCariler(type?: CariType) {
+export function useArchivedCariler(type?: CariType, enabled: boolean = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
     queryKey: queryKeys.cariler.archived(isletme?.id ?? '', type),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeCariler || !isletme) return [];
 
       let queryBuilder = supabase
         .from('cariler')
@@ -58,13 +65,14 @@ export function useArchivedCariler(type?: CariType) {
       if (type) {
         queryBuilder = queryBuilder.eq('type', type);
       }
+      if (!canSeePassiveRecords) queryBuilder = queryBuilder.eq('is_active', true);
 
       const { data, error } = await queryBuilder;
 
       if (error) throw error;
       return data as Cari[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeeCariler && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -73,25 +81,29 @@ export function useArchivedCariler(type?: CariType) {
 /**
  * Arşivlenmiş personeli getir
  */
-export function useArchivedPersonel() {
+export function useArchivedPersonel(enabled: boolean = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
 
   return useQuery({
     queryKey: queryKeys.personel.archived(isletme?.id ?? ''),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeePersonel || !isletme) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('personel')
         .select('*')
         .eq('isletme_id', isletme.id)
         .eq('is_archived', true)
         .order('first_name', { ascending: true });
+      if (!canSeePassiveRecords) query = query.eq('is_active', true);
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Personel[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeePersonel && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -100,25 +112,29 @@ export function useArchivedPersonel() {
 /**
  * Arşivlenmiş ürünleri getir
  */
-export function useArchivedUrunler() {
+export function useArchivedUrunler(enabled: boolean = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
     queryKey: queryKeys.urunler.archived(isletme?.id ?? ''),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeUrunler || !isletme) return [];
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('urunler')
         .select('*')
         .eq('isletme_id', isletme.id)
         .eq('is_archived', true)
         .order('ad', { ascending: true });
+      if (!canSeePassiveRecords) query = query.eq('is_active', true);
+      const { data, error } = await query;
 
       if (error) throw error;
       return data as Urun[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeeUrunler && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -319,40 +335,56 @@ export function useUnarchiveUrun() {
  */
 export function useArchiveCounts() {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeUrunler = canAccessModule('urunler');
+  const canSeeArchive = canAccessModule('arsiv');
 
   return useQuery({
     queryKey: queryKeys.archive.counts(isletme?.id ?? ''),
     queryFn: async () => {
-      if (!isletme) return { hesaplar: 0, tedarikci: 0, musteri: 0, personel: 0, urunler: 0 };
+      if (!canSeeArchive || !isletme) {
+        return { hesaplar: 0, tedarikci: 0, musteri: 0, personel: 0, urunler: 0 };
+      }
 
       const [hesaplarResult, tedarikciResult, musteriResult, personelResult, urunlerResult] = await Promise.all([
-        supabase
+        canSeeHesaplar ? supabase
           .from('hesaplar')
           .select('id', { count: 'exact', head: true })
           .eq('isletme_id', isletme.id)
-          .eq('is_archived', true),
-        supabase
+          .eq('is_archived', true)
+          .in('is_active', canSeePassiveRecords ? [true, false] : [true])
+          : Promise.resolve({ count: 0 }),
+        canSeeCariler ? supabase
           .from('cariler')
           .select('id', { count: 'exact', head: true })
           .eq('isletme_id', isletme.id)
           .eq('is_archived', true)
-          .eq('type', 'tedarikci'),
-        supabase
+          .in('is_active', canSeePassiveRecords ? [true, false] : [true])
+          .eq('type', 'tedarikci') : Promise.resolve({ count: 0 }),
+        canSeeCariler ? supabase
           .from('cariler')
           .select('id', { count: 'exact', head: true })
           .eq('isletme_id', isletme.id)
           .eq('is_archived', true)
-          .eq('type', 'musteri'),
-        supabase
+          .in('is_active', canSeePassiveRecords ? [true, false] : [true])
+          .eq('type', 'musteri') : Promise.resolve({ count: 0 }),
+        canSeePersonel ? supabase
           .from('personel')
           .select('id', { count: 'exact', head: true })
           .eq('isletme_id', isletme.id)
-          .eq('is_archived', true),
-        supabase
+          .eq('is_archived', true)
+          .in('is_active', canSeePassiveRecords ? [true, false] : [true])
+          : Promise.resolve({ count: 0 }),
+        canSeeUrunler ? supabase
           .from('urunler')
           .select('id', { count: 'exact', head: true })
           .eq('isletme_id', isletme.id)
-          .eq('is_archived', true),
+          .eq('is_archived', true)
+          .in('is_active', canSeePassiveRecords ? [true, false] : [true])
+          : Promise.resolve({ count: 0 }),
       ]);
 
       return {
@@ -363,6 +395,6 @@ export function useArchiveCounts() {
         urunler: urunlerResult.count || 0,
       };
     },
-    enabled: !!isletme,
+    enabled: canSeeArchive && !!isletme,
   });
 }

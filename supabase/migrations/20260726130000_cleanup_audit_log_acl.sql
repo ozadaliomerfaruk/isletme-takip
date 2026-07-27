@@ -1,0 +1,45 @@
+-- =============================================================================
+-- P-A : public.cleanup_old_islem_audit_log() ACL DARALTMASI
+-- =============================================================================
+-- ⚠️ BU ADDITIVE BİR DEĞİŞİKLİK DEĞİLDİR.
+--    Projenin "additive-only" varsayılanının AÇIKÇA ONAYLANMIŞ istisnasıdır:
+--    mevcut bir yetki (PUBLIC/anon/authenticated EXECUTE) GERİ ALINMAKTADIR.
+--
+-- SORUN
+--   Fonksiyon SECURITY DEFINER; gövdesi islem_audit_log tablosundan KAYIT SİLİYOR.
+--   auth.uid() kullanmıyor, parametre almıyor. ACL'i PUBLIC + anon + authenticated
+--   olduğu için ANONİM bir çağrı denetim kaydı silebiliyor.
+--
+-- ÇÖZÜM
+--   Yalnız ACL daraltılır. GÖVDEYE DOKUNULMAZ (CREATE OR REPLACE YOK).
+--
+-- NEDEN CRON BOZULMAZ — deneysel kanıt, teorik çıkarım değil
+--   cron.job jobid 8 : username=postgres, command " SELECT public.cleanup_old_islem_audit_log(); "
+--   -> veritabanı içinden doğrudan çağrı; postgres fonksiyon SAHİBİ,
+--      grant'lardan bağımsız çalışır.
+--   -> Aynı mekanizmayı kullanan İKİ KARDEŞ fonksiyon zaten hedef ACL'de ve
+--      üretimde sorunsuz çalışıyor:
+--        app_events_rollup_and_trim (jobid 15) -> {postgres=X, service_role=X}
+--        usage_snapshot_al          (jobid 16) -> {postgres=X, service_role=X}
+--
+-- ESKİ CLIENT NE YAŞAR?
+--   Hiçbir şey. src/ ve supabase/functions/ içinde çağrı YOK (26 Tem taraması,
+--   uygulama öncesi tekrarlanacak). Çağırmadığı bir fonksiyonun yetkisi değişiyor.
+--
+-- CANLI GÖVDE md5 (uygulama öncesi doğrulanacak)
+--   638fc810853a0acbea7b106407ac1a1b
+--   Farklıysa DURULACAK — gövde ayrışmış demektir.
+--
+-- GERİ ALMA
+--   docs/security/taslak/cleanup_audit_log_acl-FALLBACK.sql
+--   (savunmasız hâle DÖNMEZ — PUBLIC/anon iade edilmez)
+-- =============================================================================
+
+-- Tam imza kullanılıyor: parametresiz fonksiyon -> public.cleanup_old_islem_audit_log()
+-- Çıplak ad KULLANILMIYOR (aşırı yükleme belirsizliğine karşı).
+REVOKE EXECUTE ON FUNCTION public.cleanup_old_islem_audit_log()
+  FROM PUBLIC, anon, authenticated;
+
+-- postgres (sahip) ve service_role dokunulmadan kalır.
+-- GRANT satırı BİLİNÇLİ OLARAK YOK: hiçbir API rolünün bu fonksiyonu
+-- çağırması gerekmiyor.

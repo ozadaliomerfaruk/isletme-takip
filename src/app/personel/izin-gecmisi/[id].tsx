@@ -18,7 +18,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { usePersonel } from '@/hooks/usePersonel';
 import { useAllLeaveByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
-import { useNotlarByEntity, useDeleteNot, useUpdateNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
+import { useNotlarByEntity, useDeleteNot, useUpdateNot, useToggleNotCompletion, useMarkAsTask } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -77,7 +77,6 @@ export default function LeaveHistoryPage() {
   const toggleNotCompletion = useToggleNotCompletion();
   const markAsTask = useMarkAsTask();
   const uploadNotePhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
 
   // New leave transaction state
   const [showNewLeaveBar, setShowNewLeaveBar] = useState(false);
@@ -255,24 +254,29 @@ export default function LeaveHistoryPage() {
 
       if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
         try {
-          if (editingNote.photo_path) {
-            const { supabase } = await import('@/lib/supabase');
-            await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-          }
           const photoPath = await uploadNotePhoto.mutateAsync({
             uri: data.photo_uri,
             isletmeId: isletme.id,
             noteId: editingNoteId,
           });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
-          invalidateNotlar();
+          await updateNot.mutateAsync({
+            id: editingNoteId,
+            photo_path: photoPath,
+          });
+          if (editingNote.photo_path) {
+            const { supabase } = await import('@/lib/supabase');
+            await supabase.storage
+              .from('islem-photos')
+              .remove([editingNote.photo_path]);
+          }
         } catch { /* ignore */ }
       } else if (!data.photo_uri && editingNote.photo_path) {
+        await updateNot.mutateAsync({
+          id: editingNoteId,
+          photo_path: null,
+        });
         const { supabase } = await import('@/lib/supabase');
         await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
-        invalidateNotlar();
       }
 
       if (data.reminder_date) {
@@ -291,7 +295,7 @@ export default function LeaveHistoryPage() {
     } catch {
       Alert.alert(t('common:status.error'), t('common:errors.genericError'));
     }
-  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t, invalidateNotlar]);
+  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t]);
 
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');

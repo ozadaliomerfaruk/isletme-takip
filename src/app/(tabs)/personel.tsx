@@ -37,13 +37,16 @@ import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, formatConvertedHint } from '@/hooks/useExchangeRates';
+import {
+  useExchangeRates,
+  formatConvertedHint,
+  createConversionSum,
+} from '@/hooks/useExchangeRates';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
 import { useNotlar } from '@/hooks/useNotlar';
 import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
-import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
@@ -102,8 +105,8 @@ export default function PersonelPage() {
 
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading, refetch } = usePersonelList(true);
+  const { data: summaryPersonel } = usePersonelList();
   const { data: leaveQuotas } = usePersonelLeaveQuotas();
-  const { payables, receivables } = useFinancialSummary();
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -126,12 +129,34 @@ export default function PersonelPage() {
   const deletePersonel = useDeletePersonel();
 
   // Permissions
-  const { canUpdate, canDelete } = usePermissions();
+  const { canUpdate, canDelete, isOwner } = usePermissions();
+  // Personel ödeme/tahsilat satırları bugün geniş QTB ve temel işlem yollarını
+  // kullanıyor. Tip-bazlı server kapısı tamamlanana kadar shared kullanıcıda
+  // bu geçici fail-closed sınır korunur.
+  const canUseUnprojectedTransactions = isOwner;
 
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
+  const personelSummary = useMemo(() => {
+    const payableSum = createConversionSum(baseCurrency, exchangeRates);
+    const receivableSum = createConversionSum(baseCurrency, exchangeRates);
+
+    for (const personel of summaryPersonel ?? []) {
+      const balance = toNumber(personel.balance);
+      if (balance > 0) {
+        receivableSum.add(balance, personel.currency || baseCurrency);
+      } else if (balance < 0) {
+        payableSum.add(Math.abs(balance), personel.currency || baseCurrency);
+      }
+    }
+
+    return {
+      payables: payableSum.total,
+      receivables: receivableSum.total,
+    };
+  }, [summaryPersonel, baseCurrency, exchangeRates]);
 
   // Sort ActionSheet
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
@@ -651,6 +676,7 @@ export default function PersonelPage() {
             }
           >
             <View style={styles.actionButtons}>
+              {canUseUnprojectedTransactions && (
               <Button
                 variant="primary"
                 size="sm"
@@ -663,6 +689,7 @@ export default function PersonelPage() {
               >
                 {t('common:archive.actions.makeTransaction')}
               </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -678,7 +705,7 @@ export default function PersonelPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas]);
+  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas, canUseUnprojectedTransactions]);
 
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (
@@ -689,18 +716,18 @@ export default function PersonelPage() {
       <View style={styles.summaryContainer}>
         <Card style={styles.summaryCard}>
           <Text variant="caption" color="secondary">{t('staff:balance.weOwe')}</Text>
-          <Text variant="h3" color="error">{formatCurrency(payables.personel, baseCurrency)}</Text>
+          <Text variant="h3" color="error">{formatCurrency(personelSummary.payables, baseCurrency)}</Text>
         </Card>
         <Card style={styles.summaryCard}>
           <Text variant="caption" color="secondary">{t('staff:balance.theyOwe')}</Text>
-          <Text variant="h3" color="success">{formatCurrency(receivables.personel, baseCurrency)}</Text>
+          <Text variant="h3" color="success">{formatCurrency(personelSummary.receivables, baseCurrency)}</Text>
         </Card>
       </View>
 
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.personel, receivables.personel, baseCurrency, isLoading, personelList]);
+  ), [t, router, personelSummary.payables, personelSummary.receivables, baseCurrency, isLoading, personelList]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
@@ -793,7 +820,7 @@ export default function PersonelPage() {
       />
 
       {/* FAB Backdrop */}
-      {fabMenuVisible && (
+      {canUseUnprojectedTransactions && fabMenuVisible && (
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setFabMenuVisible(false)}>
           <Animated.View
             style={[
@@ -805,7 +832,7 @@ export default function PersonelPage() {
       )}
 
       {/* FAB Menu Items */}
-      {!isSelectMode && fabMenuVisible && (
+      {canUseUnprojectedTransactions && !isSelectMode && fabMenuVisible && (
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
           style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
@@ -859,7 +886,7 @@ export default function PersonelPage() {
 
       {/* FAB Button — arama aktifken de çekilir: pill tam genişliğe açılıp FAB'ın
           altına girer ve kapatma X'ini (44px) tamamen örterdi. Süre X'lerle aynı (150ms). */}
-      {!isSelectMode && !searchActive && (
+      {canUseUnprojectedTransactions && !isSelectMode && !searchActive && (
         <ReAnimated.View
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
           entering={ZoomIn.duration(150)}
@@ -887,6 +914,7 @@ export default function PersonelPage() {
       )}
 
       {/* Quick Transaction Bar */}
+      {canUseUnprojectedTransactions && (
       <QuickTransactionBar
         visible={quickBarVisible}
         onDismiss={() => {
@@ -899,6 +927,7 @@ export default function PersonelPage() {
           setSelectedPersonelId(null);
         }}
       />
+      )}
 
       {/* Liste dışa aktar: PDF (önizleme) / Excel */}
       <ShareOptionsSheet

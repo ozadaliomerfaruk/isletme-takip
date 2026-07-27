@@ -6,17 +6,20 @@ import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import { LinkedRecordsError } from '@/lib/errors';
 import { logEvent } from '@/lib/appEvents';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
 /**
  * Tüm ürünleri getir
  */
-export function useUrunler(includeArchived: boolean = false) {
+export function useUrunler(includeArchived: boolean = false, enabled: boolean = true) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   const result = useQuery({
     queryKey: queryKeys.urunler.list(isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeUrunler || !isletme) return [];
 
       let query = supabase
         .from('urunler')
@@ -34,14 +37,14 @@ export function useUrunler(includeArchived: boolean = false) {
       if (error) throw error;
       return data as Urun[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeeUrunler && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 
   return {
     ...result,
-    isLoading: result.isLoading || isletmeLoading,
+    isLoading: enabled && canSeeUrunler && (result.isLoading || isletmeLoading),
   };
 }
 
@@ -50,22 +53,25 @@ export function useUrunler(includeArchived: boolean = false) {
  */
 export function useUrun(id: string | undefined) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
     queryKey: [...queryKeys.urunler.detail(id || ''), isletme?.id],
     queryFn: async () => {
-      if (!id) return null;
+      if (!canSeeUrunler || !id || !isletme) return null;
 
       const { data, error } = await supabase
         .from('urunler')
         .select('*')
         .eq('id', id)
+        .eq('isletme_id', isletme.id)
         .single();
 
       if (error) throw error;
       return data as Urun;
     },
-    enabled: !!id,
+    enabled: canSeeUrunler && !!id,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

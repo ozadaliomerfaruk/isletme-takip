@@ -92,6 +92,14 @@ export default function DahaPage() {
   const { signOut, user, isletme, isOwner } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser', 'help', 'transactions']);
   const { canAccessModule } = usePermissions();
+  const canSeeReports = canAccessModule('raporlar');
+  const canSeeNotes = canAccessModule('notlar');
+  const canSeeArchive = canAccessModule('arsiv');
+  // İşlem listesi ve taksit ekranı henüz tip-bazlı güvenli server projeksiyonuna
+  // geçmedi. Shared kullanıcıya göstermek kapalı hesap/personel satırlarını sızdırabilir.
+  const canUseUnprojectedTransactions = isOwner;
+  const showTransactionSection =
+    canUseUnprojectedTransactions || canSeeReports || canSeeNotes;
   const { openWriteReview } = useReview();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
@@ -249,11 +257,14 @@ export default function DahaPage() {
         </View>
 
         {/* İşlemler & Raporlar */}
+        {showTransactionSection && (
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
             {t('settings:sections.transactionsReports')}
           </Text>
           <Card padding="none">
+            {canUseUnprojectedTransactions && (
+              <>
             <MenuItem
               icon={<Receipt size={22} color={colors.primary} />}
               label={t('navigation:menu.allTransactions')}
@@ -266,9 +277,11 @@ export default function DahaPage() {
               label={t('transactions:taksit.title')}
               onPress={() => router.push('/taksit' as Href)}
             />
-            {canAccessModule('raporlar') && (
+              </>
+            )}
+            {canSeeReports && (
               <>
-                <View style={styles.divider} />
+                {canUseUnprojectedTransactions && <View style={styles.divider} />}
                 <MenuItem
                   icon={<BarChart3 size={22} color={colors.info} />}
                   label={t('navigation:menu.reports')}
@@ -276,9 +289,9 @@ export default function DahaPage() {
                 />
               </>
             )}
-            {canAccessModule('notlar') && (
+            {canSeeNotes && (
               <>
-                <View style={styles.divider} />
+                {(canUseUnprojectedTransactions || canSeeReports) && <View style={styles.divider} />}
                 <MenuItem
                   icon={<StickyNote size={22} color={colors.warning} />}
                   label={t('navigation:menu.notes')}
@@ -288,6 +301,7 @@ export default function DahaPage() {
             )}
           </Card>
         </View>
+        )}
 
         {/* Ayarlar */}
         <View style={styles.section}>
@@ -295,13 +309,13 @@ export default function DahaPage() {
             {t('settings:titles.settings').toUpperCase()}
           </Text>
           <Card padding="none">
+            {isOwner && (
+              <>
             <MenuItem
               icon={<Tag size={22} color={colors.success} />}
               label={t('navigation:menu.categories')}
               onPress={() => router.push('/kategoriler')}
             />
-            {isOwner && (
-              <>
                 <View style={styles.divider} />
                 <MenuItem
                   icon={<Upload size={22} color={colors.primary} />}
@@ -310,12 +324,16 @@ export default function DahaPage() {
                 />
               </>
             )}
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<Archive size={22} color={colors.textSecondary} />}
-              label={t('common:archive.title')}
-              onPress={() => router.push('/arsiv' as Href)}
-            />
+            {canSeeArchive && (
+              <>
+                {isOwner && <View style={styles.divider} />}
+                <MenuItem
+                  icon={<Archive size={22} color={colors.textSecondary} />}
+                  label={t('common:archive.title')}
+                  onPress={() => router.push('/arsiv' as Href)}
+                />
+              </>
+            )}
           </Card>
         </View>
 

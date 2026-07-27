@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
+import { useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import type { NoteFormData } from '@/components/notes/NoteInputModal';
@@ -29,7 +29,6 @@ export function useDetailNoteHandlers({
   const toggleNotCompletion = useToggleNotCompletion();
   const markAsTask = useMarkAsTask();
   const uploadNotePhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
 
   const editingNote = useMemo(() => {
     if (!editingNoteId || !entityNotes) return null;
@@ -51,24 +50,29 @@ export function useDetailNoteHandlers({
 
       if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletmeId) {
         try {
-          if (editingNote.photo_path) {
-            const { supabase: sb } = await import('@/lib/supabase');
-            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
-          }
           const photoPath = await uploadNotePhoto.mutateAsync({
             uri: data.photo_uri,
             isletmeId,
             noteId: editingNoteId,
           });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNoteId);
-          invalidateNotlar();
+          await updateNot.mutateAsync({
+            id: editingNoteId,
+            photo_path: photoPath,
+          });
+          if (editingNote.photo_path) {
+            const { supabase } = await import('@/lib/supabase');
+            await supabase.storage
+              .from('islem-photos')
+              .remove([editingNote.photo_path]);
+          }
         } catch { /* ignore photo error */ }
       } else if (!data.photo_uri && editingNote.photo_path) {
+        await updateNot.mutateAsync({
+          id: editingNoteId,
+          photo_path: null,
+        });
         const { supabase } = await import('@/lib/supabase');
         await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNoteId);
-        invalidateNotlar();
       }
 
       if (data.reminder_date) {
@@ -87,7 +91,7 @@ export function useDetailNoteHandlers({
     } catch {
       Alert.alert(t('common:status.error'), t('common:errors.genericError'));
     }
-  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletmeId, entityId, entityType, t, invalidateNotlar]);
+  }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletmeId, entityId, entityType, t]);
 
   const handleNoteDelete = useCallback((noteId: string) => {
     const note = entityNotes?.find(n => n.id === noteId);

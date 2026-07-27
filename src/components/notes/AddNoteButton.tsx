@@ -4,7 +4,7 @@ import { StickyNote } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { GlassFab } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { useCreateNot, useInvalidateNotlar } from '@/hooks/useNotlar';
+import { useCreateNot, useUpdateNot } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useToast } from '@/contexts/ToastContext';
@@ -24,11 +24,11 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
   const { t } = useTranslation(['common']);
   const [modalVisible, setModalVisible] = useState(false);
   const createNot = useCreateNot();
+  const updateNot = useUpdateNot();
   const uploadPhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
   const { isletme } = useAuthContext();
   const { showToast } = useToast();
-  const { canAccessModule } = usePermissions();
+  const { canCreate } = usePermissions();
 
   const handleSave = async (data: NoteFormData) => {
     try {
@@ -52,12 +52,10 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
             isletmeId: isletme.id,
             noteId: result.id,
           });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase
-            .from('notlar')
-            .update({ photo_path: photoPath })
-            .eq('id', result.id);
-          invalidateNotlar();
+          await updateNot.mutateAsync({
+            id: result.id,
+            photo_path: photoPath,
+          });
         } catch {
           // photo upload failed but note was created
         }
@@ -81,7 +79,7 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
   };
 
   // notlar modülü kapalıysa not ekleme butonu hiç gösterilmez (RLS ile uyumlu).
-  if (!canAccessModule('notlar')) return null;
+  if (!canCreate('notlar')) return null;
 
   return (
     <>
@@ -103,7 +101,11 @@ export function AddNoteButton({ entityType, entityId, style }: AddNoteButtonProp
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
         onSave={handleSave}
-        loading={createNot.isPending || uploadPhoto.isPending}
+        loading={
+          createNot.isPending
+          || updateNot.isPending
+          || uploadPhoto.isPending
+        }
         entityType={entityType}
         entityId={entityId}
       />

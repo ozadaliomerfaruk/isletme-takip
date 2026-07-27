@@ -25,6 +25,7 @@ import { useNotePhotoField } from '@/hooks/useNotePhoto';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
+import { usePermissions } from '@/hooks/usePermissions';
 import { EntityPickerModal, EntityPickerItem } from '@/components/import/EntityPickerModal';
 import type { NotEntityType } from '@/types/database';
 
@@ -83,9 +84,22 @@ export function NoteInputModal({
   const { localPhotoUri, setLocalPhotoUri, handlePickImage, handleTakePhoto, clearPhoto } =
     useNotePhotoField();
 
-  const { data: isletmeUsers } = useIsletmeUsers();
-  const { data: cariler } = useCariler();
-  const { data: personelList } = usePersonelList();
+  const { canAccessModule } = usePermissions();
+  const canAssignCari = canAccessModule('cariler');
+  const canAssignPersonel = canAccessModule('personel');
+  // Görünmeyen modal arka planda kişi/cari/personel envanteri çekmez.
+  const { data: isletmeUsers } = useIsletmeUsers(visible);
+  const { data: cariler } = useCariler(
+    undefined,
+    false,
+    false,
+    visible && canAssignCari,
+  );
+  const { data: personelList } = usePersonelList(
+    false,
+    false,
+    visible && canAssignPersonel,
+  );
 
   useEffect(() => {
     if (visible) {
@@ -381,21 +395,25 @@ export function NoteInputModal({
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={[styles.toolbarBtn, assignedCari && styles.toolbarBtnActive]}
-              onPress={() => { setAssignPickerType('cari'); setAssignSearch(''); }}
-              activeOpacity={0.7}
-            >
-              <Users size={20} color={assignedCari ? colors.info : colors.textMuted} />
-            </TouchableOpacity>
+            {canAssignCari && (
+              <TouchableOpacity
+                style={[styles.toolbarBtn, assignedCari && styles.toolbarBtnActive]}
+                onPress={() => { setAssignPickerType('cari'); setAssignSearch(''); }}
+                activeOpacity={0.7}
+              >
+                <Users size={20} color={assignedCari ? colors.info : colors.textMuted} />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={[styles.toolbarBtn, assignedPersonel && styles.toolbarBtnActive]}
-              onPress={() => { setAssignPickerType('personel'); setAssignSearch(''); }}
-              activeOpacity={0.7}
-            >
-              <UserCircle size={20} color={assignedPersonel ? colors.success : colors.textMuted} />
-            </TouchableOpacity>
+            {canAssignPersonel && (
+              <TouchableOpacity
+                style={[styles.toolbarBtn, assignedPersonel && styles.toolbarBtnActive]}
+                onPress={() => { setAssignPickerType('personel'); setAssignSearch(''); }}
+                activeOpacity={0.7}
+              >
+                <UserCircle size={20} color={assignedPersonel ? colors.success : colors.textMuted} />
+              </TouchableOpacity>
+            )}
 
             <View style={styles.toolbarSpacer} />
 

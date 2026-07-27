@@ -1,0 +1,68 @@
+-- =============================================================================
+-- P-B GERİ ALMA
+-- =============================================================================
+--
+--  ⚠️⚠️  GEÇERLİLİK PENCERESİ — OKUMADAN ÇALIŞTIRMAYIN  ⚠️⚠️
+--
+--  BU DOSYA YALNIZ, HİÇBİR P-C / P-F BAĞIMLILIĞI KURULMADAN ÖNCE,
+--  TEK BAŞINA KULLANILABİLİR.
+--
+--  Bağımlılık kurulduktan sonra (P-C1 restrictive RLS politikaları, P-F Storage
+--  politikaları veya internal.etkin_yetki çağıran herhangi bir guard'lı RPC),
+--  P-B yetkileri TEK BAŞINA GERİ ALINAMAZ.
+--
+--  NEDEN: authenticated'dan EXECUTE/USAGE çekilirse, resolver'ı çağıran her RLS
+--  politikası ve RPC "permission denied for function" ile patlar. Kullanıcıların
+--  MEŞRU okuma/yazma işlemleri TOPTAN DURUR — geri alma, düzeltmekten daha büyük
+--  bir kesinti yaratır.
+--
+--  BAĞIMLILIK KURULDUYSA GERİ ALMA SIRASI TERSİNE İŞLER:
+--    1) Önce bağımlı katman geri alınır
+--       (P-C1 restrictive politikalar / P-F Storage politikaları kaldırılır —
+--        her paket KENDİ fallback'ini taşır)
+--    2) Bağımlılık kalmadığı DOĞRULANIR (salt-okunur):
+--         SELECT c.relname, pol.polname
+--         FROM pg_policy pol
+--         JOIN pg_class c ON c.oid = pol.polrelid
+--         WHERE COALESCE(pg_get_expr(pol.polqual, pol.polrelid), '') LIKE '%etkin_yetki%'
+--            OR COALESCE(pg_get_expr(pol.polwithcheck, pol.polrelid), '') LIKE '%etkin_yetki%';
+--
+--         SELECT p.proname FROM pg_proc p
+--         JOIN pg_namespace n ON n.oid = p.pronamespace
+--         WHERE n.nspname <> 'internal'
+--           AND pg_get_functiondef(p.oid) LIKE '%etkin_yetki%';
+--
+--       -> İKİSİ DE BOŞ dönmeli. Değilse BU DOSYAYI ÇALIŞTIRMAYIN.
+--    3) Ancak o zaman aşağısı uygulanabilir.
+--
+-- =============================================================================
+-- MODEL: YETKİYİ KALDIR, NESNEYİ BIRAK
+-- =============================================================================
+--   Nesneler yerinde kalır; erişilemez oldukları için ETKİSİZDİR.
+--   Bu, geri almayı tersine çevrilebilir ve dar tutar.
+--
+--   ⛔ DROP SCHEMA internal CASCADE  — KESİNLİKLE KULLANILMAZ.
+--      CASCADE bağımlı nesneleri sessizce siler; etki alanı önceden görülemez.
+-- =============================================================================
+
+REVOKE EXECUTE ON FUNCTION internal.etkin_yetki(uuid, text) FROM authenticated;
+REVOKE USAGE   ON SCHEMA   internal                          FROM authenticated;
+
+
+-- =============================================================================
+-- SİLME GEREKİRSE — KOŞULLU, AYRI ONAYDA
+-- =============================================================================
+-- Aşağısı BİLİNÇLİ OLARAK YORUMDA. Üç şart BİRLİKTE sağlanmadan açılmaz:
+--
+--   1) TAM İSİMLİ yeni nesneler silinir — şema DROP'u DEĞİL, nesne DROP'u
+--   2) BAĞIMLILIK KONTROLÜ yapılmış olmalı (yukarıdaki iki sorgu + pg_depend)
+--   3) AYRI AÇIK ONAY alınmış olmalı — bu dosyanın varlığı onay DEĞİLDİR
+--
+-- CASCADE hiçbir satırda yoktur ve eklenmeyecektir. Bağımlılık çıkarsa DROP
+-- durur ve raporlanır — sessizce zincir silmez.
+--
+-- DROP FUNCTION internal.bakiye_ops(jsonb);
+-- DROP FUNCTION internal.cevrilen_tutar(numeric, numeric, text, text);
+-- DROP FUNCTION internal.etkin_yetki(uuid, text);
+-- DROP FUNCTION internal.islem_tipi_modulu(text);
+-- DROP SCHEMA internal;        -- CASCADE YOK: içi boşalmadıysa hata verir, bu İSTENEN davranıştır

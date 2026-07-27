@@ -7,6 +7,7 @@ import type * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase, checkNetworkConnectivity } from '@/lib/supabase';
 import { wipePersistedCache } from '@/lib/queryClient';
+import { isPermissionNarrowing } from '@/lib/permissionCacheGuard';
 import { clearLastUsedSelections } from '@/lib/lastUsedSelections';
 import { logEvent, setEventContext } from '@/lib/appEvents';
 import { markNeedsSetup } from '@/lib/setupFlow';
@@ -55,6 +56,9 @@ export function useAuth() {
   // AppState için ref - arka plan/ön plan takibi
   const appState = useRef(AppState.currentState);
   const lastRefreshTime = useRef<number>(Date.now());
+  // Aynı anda foreground + manuel izin yenilemesi gelirse eski ağ yanıtı yeni
+  // (özellikle daha dar) izni geri genişletmesin.
+  const permissionRefreshEpoch = useRef(0);
 
   // Race condition önleme - eşzamanlı fetchIsletme çağrılarını engelle
   // Map kullanarak her userId için ayrı promise takibi yapıyoruz
@@ -539,6 +543,57 @@ export function useAuth() {
     };
   }, [fetchOrCreateIsletme]);
 
+  const applyRefreshedSharedPermissions = useCallback(async (
+    permissions: Permissions,
+    role: UserRole,
+  ) => {
+    // Aynı işletmede yetki daralırsa eski geniş veriyi render etmeden önce
+    // bekleyen istekleri durdur ve şifresiz bellek/disk cache'ini süpür.
+    // Yalnız genişlemede gereksiz cache kaybı yoktur.
+    if (isPermissionNarrowing(state.currentPermissions, permissions)) {
+      try {
+        await queryClient.cancelQueries();
+        await wipePersistedCache();
+      } finally {
+        // Disk temizliği beklenmedik biçimde hata verse bile eski geniş yetkiyi
+        // kullanmaya devam etmek daha tehlikelidir. Dar izin UI'da atomik olarak
+        // devreye girer; hata üst çağrıya taşınır ve temizlik tekrar denenebilir.
+        setState((prev) => ({
+          ...prev,
+          currentPermissions: permissions,
+          currentUserRole: role,
+        }));
+      }
+      return;
+    }
+
+    setState((prev) => ({
+      ...prev,
+      currentPermissions: permissions,
+      currentUserRole: role,
+    }));
+  }, [queryClient, state.currentPermissions]);
+
+  const handleSharedAccessRevoked = useCallback(async () => {
+    // Üyelik kaldırılması tam daralmadır: paylaşılan işletmenin hiçbir
+    // belleği yeni owner ekranına/soğuk açılışa taşınmamalı.
+    permissionRefreshEpoch.current += 1;
+    try {
+      await queryClient.cancelQueries();
+      await wipePersistedCache();
+    } finally {
+      // Üyelik gerçekten kaldırıldıysa cache temizliği hatası eski shared
+      // yetkiyle uygulamada kalmaya gerekçe olamaz; erişimi yine kapat.
+      setState((prev) => ({
+        ...prev,
+        isletme: prev.ownIsletme,
+        isOwner: true,
+        currentPermissions: null,
+        currentUserRole: prev.ownIsletme ? 'owner' : null,
+      }));
+    }
+  }, [queryClient]);
+
   // AppState değişikliklerini dinle - arka plandan dönüşte session yenile
   useEffect(() => {
     const handleAppStateChange = async (nextAppState: AppStateStatus) => {
@@ -559,6 +614,7 @@ export function useAuth() {
         // Paylaşılan moddayken yetkileri de yenile
         if (!state.isOwner && state.isletme && state.user) {
           try {
+            const refreshEpoch = ++permissionRefreshEpoch.current;
             const { data, error } = await supabase
               .from('isletme_users')
               .select('permissions, role, status')
@@ -567,18 +623,15 @@ export function useAuth() {
               .eq('status', 'active')
               .single();
 
-            if (error || !data) {
-              // Kullanıcı artık bu işletmede aktif değil
-              setState((prev) => {
-                if (!prev.ownIsletme) return prev;
-                return { ...prev, isletme: prev.ownIsletme, isOwner: true, currentPermissions: null, currentUserRole: 'owner' };
-              });
+            if (refreshEpoch !== permissionRefreshEpoch.current) {
+              // Daha yeni bir yenileme/geçiş bu yanıtı hükümsüz kıldı.
+            } else if (error || !data) {
+              await handleSharedAccessRevoked();
             } else {
-              setState((prev) => ({
-                ...prev,
-                currentPermissions: data.permissions as Permissions,
-                currentUserRole: data.role as UserRole,
-              }));
+              await applyRefreshedSharedPermissions(
+                data.permissions as Permissions,
+                data.role as UserRole,
+              );
             }
           } catch {
             // Sessizce hata yut
@@ -594,7 +647,15 @@ export function useAuth() {
     return () => {
       subscription.remove();
     };
-  }, [state.session, state.isOwner, state.isletme, state.user, refreshSession]);
+  }, [
+    state.session,
+    state.isOwner,
+    state.isletme,
+    state.user,
+    refreshSession,
+    applyRefreshedSharedPermissions,
+    handleSharedAccessRevoked,
+  ]);
 
   // Periyodik token kontrolü - her 2 dakikada bir token süresini kontrol et
   useEffect(() => {
@@ -932,6 +993,7 @@ export function useAuth() {
     permissions: Permissions,
     role: UserRole,
   ) => {
+    permissionRefreshEpoch.current += 1;
     // Önce bekleyen sorguları iptal et
     await queryClient.cancelQueries();
     // Gizlilik: önceki işletmenin (kendi ya da başka paylaşılan) finansal verisi
@@ -950,6 +1012,7 @@ export function useAuth() {
 
   // Kendi işletmesine geri dön
   const switchToOwnIsletme = useCallback(async () => {
+    permissionRefreshEpoch.current += 1;
     // Bekleyen sorguları iptal et + gizlilik gereği önceki işletme cache'ini diskten sil
     await queryClient.cancelQueries();
     await wipePersistedCache();
@@ -973,6 +1036,7 @@ export function useAuth() {
   const refreshPermissions = useCallback(async () => {
     if (state.isOwner || !state.user || !state.isletme) return;
     try {
+      const refreshEpoch = ++permissionRefreshEpoch.current;
       const { data, error } = await supabase
         .from('isletme_users')
         .select('permissions, role, status')
@@ -981,21 +1045,28 @@ export function useAuth() {
         .eq('status', 'active')
         .single();
 
+      if (refreshEpoch !== permissionRefreshEpoch.current) return;
+
       if (error || !data) {
         // Kullanıcı artık bu işletmede aktif değil, kendi işletmesine dön
-        switchToOwnIsletme();
+        await handleSharedAccessRevoked();
         return;
       }
 
-      setState((prev) => ({
-        ...prev,
-        currentPermissions: data.permissions as Permissions,
-        currentUserRole: data.role as UserRole,
-      }));
+      await applyRefreshedSharedPermissions(
+        data.permissions as Permissions,
+        data.role as UserRole,
+      );
     } catch {
       // Sessizce hata yut - bir sonraki refresh'te tekrar dener
     }
-  }, [state.isOwner, state.user, state.isletme, switchToOwnIsletme]);
+  }, [
+    state.isOwner,
+    state.user,
+    state.isletme,
+    applyRefreshedSharedPermissions,
+    handleSharedAccessRevoked,
+  ]);
 
   return {
     ...state,

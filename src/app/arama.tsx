@@ -45,6 +45,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useFilteredIslemler } from '@/hooks/useIslemler';
 import { useNotlar } from '@/hooks/useNotlar';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import type { Hesap, Cari, Personel, Urun, IslemWithRelations, Not } from '@/types/database';
 
@@ -108,6 +109,32 @@ export default function AramaPage() {
     const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products', 'transactions']);
   const { formatDateNative, locale } = useDateFormat();
   const haptics = useHaptics();
+  const { canAccessModule, isOwner } = usePermissions();
+  const canSearchAccounts = canAccessModule('hesaplar');
+  const canSearchCariler = canAccessModule('cariler');
+  const canSearchPersonel = canAccessModule('personel');
+  const canSearchProducts = canAccessModule('urunler');
+  const canSearchNotes = canAccessModule('notlar');
+  // İşlem araması geniş `select *` + hesap/personel join'leri kullanıyor. Tip-bazlı
+  // server projeksiyonu gelene kadar shared kullanıcıda fail-closed kalır.
+  const canSearchTransactions = isOwner && canAccessModule('islemler');
+  const allowedTypeKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (canSearchAccounts) keys.push('hesap');
+    if (canSearchCariler) keys.push('cari');
+    if (canSearchPersonel) keys.push('personel');
+    if (canSearchProducts) keys.push('urun');
+    if (canSearchNotes) keys.push('not');
+    if (canSearchTransactions) keys.push('islem');
+    return keys;
+  }, [
+    canSearchAccounts,
+    canSearchCariler,
+    canSearchPersonel,
+    canSearchProducts,
+    canSearchNotes,
+    canSearchTransactions,
+  ]);
   const searchInputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -120,20 +147,29 @@ export default function AramaPage() {
   const [dateTo, setDateTo] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
   const [tempDate, setTempDate] = useState(new Date());
-  const [enabledTypes, setEnabledTypes] = useState<Set<string>>(new Set(['hesap', 'cari', 'personel', 'urun', 'not', 'islem']));
+  const [enabledTypes, setEnabledTypes] = useState<Set<string>>(
+    () => new Set(allowedTypeKeys),
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryRef = useRef(query);
   queryRef.current = query;
 
   useEffect(() => {
     const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
-    AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((val) => {
-      if (val) setRecentSearches(JSON.parse(val));
-    });
+    if (isOwner) {
+      AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((val) => {
+        if (val) setRecentSearches(JSON.parse(val));
+      });
+    } else {
+      // Geçmiş arama terimi kapatılmış bir modülün adını taşıyabilir. Shared
+      // kullanıcıda kalıcı arama geçmişi göstermeyerek permission daralmasını kapat.
+      setRecentSearches([]);
+      AsyncStorage.removeItem(RECENT_SEARCHES_KEY).catch(() => {});
+    }
     return () => {
       clearTimeout(timer);
       const q = queryRef.current.trim();
-      if (q.length >= 2) {
+      if (isOwner && q.length >= 2) {
         AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
           const prev: string[] = raw ? JSON.parse(raw) : [];
           const next = [q, ...prev.filter(s => s !== q)].slice(0, MAX_RECENT_SEARCHES);
@@ -141,9 +177,15 @@ export default function AramaPage() {
         });
       }
     };
-  }, []);
+  }, [isOwner]);
+
+  useEffect(() => {
+    // Permission yüklenince veya daralınca yasak chip'leri state'ten de çıkar.
+    setEnabledTypes(new Set(allowedTypeKeys));
+  }, [allowedTypeKeys]);
 
   const saveRecentSearch = useCallback(async (term: string) => {
+    if (!isOwner) return;
     const trimmed = term.trim();
     if (trimmed.length < 2) return;
     const raw = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
@@ -151,7 +193,7 @@ export default function AramaPage() {
     const next = [trimmed, ...prev.filter(s => s !== trimmed)].slice(0, MAX_RECENT_SEARCHES);
     await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
     setRecentSearches(next);
-  }, []);
+  }, [isOwner]);
 
   const clearRecentSearches = useCallback(() => {
     setRecentSearches([]);
@@ -173,12 +215,15 @@ export default function AramaPage() {
     setExpandedSections(new Set());
   }, [query]);
 
-  const { data: hesaplar = [] } = useHesaplar(true, true);
-  const { data: musteriCariler = [] } = useCariler('musteri', true, true);
-  const { data: tedarikciCariler = [] } = useCariler('tedarikci', true, true);
-  const { data: personelList = [] } = usePersonelList(true, true);
-  const { data: notlar = [] } = useNotlar();
-  const { data: urunler = [] } = useUrunler(true);
+  const { data: hesaplar = [] } = useHesaplar(true, true, canSearchAccounts);
+  const { data: musteriCariler = [] } =
+    useCariler('musteri', true, true, canSearchCariler);
+  const { data: tedarikciCariler = [] } =
+    useCariler('tedarikci', true, true, canSearchCariler);
+  const { data: personelList = [] } =
+    usePersonelList(true, true, canSearchPersonel);
+  const { data: notlar = [] } = useNotlar(undefined, undefined, canSearchNotes);
+  const { data: urunler = [] } = useUrunler(true, canSearchProducts);
 
   const parsedMin = useMemo(() => {
     const v = parseCurrency(minAmount);
@@ -201,6 +246,7 @@ export default function AramaPage() {
     // kaydırıyordu (16 Tem seçince "15" gidiyor → bitiş günü işlemleri filtreden düşüyordu).
     dateFrom: dateFrom ? formatDateForDB(dateFrom) : null,
     dateTo: dateTo ? formatDateForDB(dateTo) : null,
+    enabled: canSearchTransactions,
   });
 
   const amountInRange = useCallback((amount: number): boolean => {
@@ -248,16 +294,21 @@ export default function AramaPage() {
     setShowDatePicker(null);
   }, []);
 
-  const isSearching = query !== debouncedQuery || islemFetching;
+  const isSearching =
+    query !== debouncedQuery || (canSearchTransactions && islemFetching);
 
-  const allEntityTypes = useMemo(() => [
-    { key: 'hesap', label: t('common:labels.account') },
-    { key: 'cari', label: t('clients:titles.clients') },
-    { key: 'personel', label: t('common:labels.staff') },
-    { key: 'urun', label: t('products:title') },
-    { key: 'not', label: t('common:notes.title') },
-    { key: 'islem', label: t('common:labels.transactions') },
-  ] as const, [t]);
+  const allEntityTypes = useMemo(() => {
+    const types = [
+      { key: 'hesap', label: t('common:labels.account') },
+      { key: 'cari', label: t('clients:titles.clients') },
+      { key: 'personel', label: t('common:labels.staff') },
+      { key: 'urun', label: t('products:title') },
+      { key: 'not', label: t('common:notes.title') },
+      { key: 'islem', label: t('common:labels.transactions') },
+    ] as const;
+    const allowed = new Set(allowedTypeKeys);
+    return types.filter(({ key }) => allowed.has(key));
+  }, [allowedTypeKeys, t]);
 
   const toggleEntityType = useCallback((key: string) => {
     setEnabledTypes(prev => {
@@ -353,6 +404,14 @@ export default function AramaPage() {
 
   const handleItemPress = useCallback(
     async (item: SearchResultItem) => {
+      const allowed =
+        (item.type === 'hesap' && canSearchAccounts) ||
+        ((item.type === 'musteri' || item.type === 'tedarikci') && canSearchCariler) ||
+        (item.type === 'personel' && canSearchPersonel) ||
+        (item.type === 'urun' && canSearchProducts) ||
+        (item.type === 'not' && canSearchNotes) ||
+        (item.type === 'islem' && canSearchTransactions);
+      if (!allowed) return;
       haptics.selection();
       Keyboard.dismiss();
       if (query.trim().length >= 2) await saveRecentSearch(query);
@@ -386,7 +445,18 @@ export default function AramaPage() {
           break;
       }
     },
-    [router, haptics, query, saveRecentSearch]
+    [
+      router,
+      haptics,
+      query,
+      saveRecentSearch,
+      canSearchAccounts,
+      canSearchCariler,
+      canSearchPersonel,
+      canSearchProducts,
+      canSearchNotes,
+      canSearchTransactions,
+    ]
   );
 
   const toggleSection = useCallback((sectionType: string) => {

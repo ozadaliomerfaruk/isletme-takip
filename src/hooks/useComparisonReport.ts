@@ -17,6 +17,7 @@ import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType } 
 import type { IslemType } from '@/types/database';
 import { logEvent } from '@/lib/appEvents';
 import { buildComparisonPdfHtml } from '@/lib/comparisonPdf';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export interface ComparisonRow {
   periodLabel: string;
@@ -72,6 +73,13 @@ function normalizeRange(start: string, end: string) {
 export function useComparisonReport(period: PeriodType, periodOffset: number): ComparisonReport {
   const { t } = useTranslation(['reports', 'common']);
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled =
+    canAccessModule('raporlar')
+    && canAccessModule('hesaplar')
+    && canAccessModule('cariler')
+    && canAccessModule('urunler')
+    && canAccessModule('personel');
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const rates = exchangeRatesData?.rates;
@@ -119,7 +127,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
       return {
         queryKey: queryKeys.reports.monthSummary(isletme?.id ?? '', activePeriod, b.offset, startDate, endDate),
         queryFn: async () => {
-          if (!isletme) return { income: 0, expense: 0 };
+          if (!reportsEnabled || !isletme) return { income: 0, expense: 0 };
           const { data, error } = await supabase.rpc('get_income_expense_summary', {
             p_isletme_id: isletme.id,
             p_start_date: startDateTime,
@@ -140,7 +148,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
             expense: Math.round(result.expense * 100) / 100,
           };
         },
-        enabled: !!isletme,
+        enabled: reportsEnabled && !!isletme,
         staleTime: 5 * 60 * 1000,
         gcTime: 15 * 60 * 1000,
       };
@@ -184,7 +192,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
 
   const exportPdf = async () => {
     // Veriler yüklenmeden export, tüm dönemleri ₺0,00 gösteren "geçerli görünümlü" PDF üretir
-    if (isLoading) return;
+    if (!reportsEnabled || isLoading) return;
     try {
       setIsExporting(true);
       const rangeLabel =

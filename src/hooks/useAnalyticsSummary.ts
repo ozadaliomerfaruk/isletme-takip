@@ -26,6 +26,7 @@ import type {
   MetricWithDelta,
 } from '@/types/analytics';
 import type { IslemType } from '@/types/database';
+import { usePermissions } from './usePermissions';
 
 /**
  * Calculates delta and percentage change between two values
@@ -46,12 +47,19 @@ export function useAnalyticsSummary(
   previousDateRange?: DateRange,
 ): AnalyticsSummary {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled =
+    canAccessModule('raporlar')
+    && canAccessModule('hesaplar')
+    && canAccessModule('cariler')
+    && canAccessModule('urunler')
+    && canAccessModule('personel');
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
 
   // Get instant metrics from existing hooks
-  const financialSummary = useFinancialSummary();
+  const financialSummary = useFinancialSummary(reportsEnabled);
   const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
   const { data: cariler, isLoading: carilerLoading } = useCariler();
   const { data: personelList, isLoading: personelLoading } = usePersonelList();
@@ -60,7 +68,7 @@ export function useAnalyticsSummary(
   const periodsQuery = useQuery({
     queryKey: queryKeys.analytics.periods(isletme?.id ?? '', period, baseCurrency, dateRange?.startDate, dateRange?.endDate),
     queryFn: async () => {
-      if (!isletme) return null;
+      if (!reportsEnabled || !isletme) return null;
 
       // Determine current and previous date ranges
       let currentStart: string;
@@ -133,7 +141,7 @@ export function useAnalyticsSummary(
         },
       };
     },
-    enabled: !!isletme,
+    enabled: reportsEnabled && !!isletme,
     staleTime: 5 * 60 * 1000,
   });
 

@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import { toNumber, roundCurrency, formatQuantity } from '@/lib/currency';
@@ -50,11 +51,13 @@ export type UrunHareketWithCari = UrunHareketWithSource;
  */
 export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'satis') {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
     queryKey: [...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''), 'son-fiyat', yon],
     queryFn: async (): Promise<{ fiyat: number; tarih: string } | null> => {
-      if (!isletme || !urunId) return null;
+      if (!canSeeUrunler || !isletme || !urunId) return null;
       const { data, error } = await supabase
         .from('urun_hareketler')
         .select('birim_fiyat, created_at, islem:islemler(date, type)')
@@ -88,7 +91,7 @@ export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'sati
       adaylar.sort((a, b) => (a.tarih < b.tarih ? 1 : -1));
       return { fiyat: adaylar[0].fiyat, tarih: adaylar[0].tarih };
     },
-    enabled: !!isletme && !!urunId,
+    enabled: canSeeUrunler && !!isletme && !!urunId,
     staleTime: 30_000,
   });
 }
@@ -98,11 +101,20 @@ export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'sati
  */
 export function useUrunHareketler(urunId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const canSeePersonel = canAccessModule('personel');
 
   const result = useQuery({
-    queryKey: queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''),
+    queryKey: [
+      ...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''),
+      'source-visibility',
+      canSeeHesaplar,
+      canSeePersonel,
+    ],
     queryFn: async () => {
-      if (!isletme || !urunId) return [];
+      if (!canSeeUrunler || !isletme || !urunId) return [];
 
       // İlk olarak urun hareketlerini al
       const { data: hareketler, error } = await supabase
@@ -127,9 +139,20 @@ export function useUrunHareketler(urunId: string | undefined) {
 
       // İşlemleri ve kaynaklarını al (cari + hesap/kart + personel + tip).
       // İki FK (hesap_id, hedef_hesap_id) olduğundan PostgREST alias zorunlu (useIslemler ile aynı desen).
+      // Urun baglaminda minimal cari adi sozlesme geregi gorulebilir. Hesap ve
+      // personel kaynaklari ise yalniz ilgili modul aciksa ag yanitina/cach'e girer.
+      const sourceSelect = [
+        'id',
+        'type',
+        'date',
+        'cariler(id, name, type)',
+        canSeeHesaplar ? 'hesap:hesaplar!hesap_id(id, name, type)' : null,
+        canSeePersonel ? 'personel:personel(id, first_name, last_name)' : null,
+      ].filter(Boolean).join(', ');
+
       const { data: islemler, error: islemError } = await supabase
         .from('islemler')
-        .select('id, type, date, cari_id, hesap_id, personel_id, cariler(id, name, type), hesap:hesaplar!hesap_id(id, name, type), personel:personel(id, first_name, last_name)')
+        .select(sourceSelect)
         .in('id', islemIds);
 
       if (islemError) {
@@ -146,8 +169,15 @@ export function useUrunHareketler(urunId: string | undefined) {
       // islem_id -> kaynak (cari/hesap/personel + tip) mapping oluştur
       type SourceInfo = Pick<UrunHareketWithSource, 'cari' | 'hesap' | 'personel' | 'islemType' | 'islemDate'>;
       const islemSourceMap = new Map<string, SourceInfo>();
-      islemler?.forEach(islemRaw => {
-        const islem = islemRaw as { id: string; type: string | null; date: string | null; cariler: unknown; hesap: unknown; personel: unknown };
+      const sourceRows = islemler as unknown as Array<{
+        id: string;
+        type: string | null;
+        date: string | null;
+        cariler?: unknown;
+        hesap?: unknown;
+        personel?: unknown;
+      }> | null;
+      sourceRows?.forEach(islem => {
         const cariData = normalizeRel(islem.cariler);
         const hesapData = normalizeRel(islem.hesap);
         const personelData = normalizeRel(islem.personel);
@@ -201,7 +231,7 @@ export function useUrunHareketler(urunId: string | undefined) {
 
       return withSource;
     },
-    enabled: !!isletme && !!urunId,
+    enabled: !!isletme && !!urunId && canSeeUrunler,
   });
 
   return {
@@ -224,11 +254,13 @@ export interface AylikUrunOzet {
 
 export function useAylikUrunOzet(urunId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.aylikOzet(urunId || '', isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme || !urunId) return [];
+      if (!canSeeUrunler || !isletme || !urunId) return [];
 
       // Son 12 ay. created_at yalnız çekme sınırı; gruplama İŞ TARİHİNE (islem.date)
       // göre yapılır — created_at düzenleme/yeniden-uygulamada NOW()'a kayıyor.
@@ -290,7 +322,7 @@ export function useAylikUrunOzet(urunId: string | undefined) {
 
       return sonuc;
     },
-    enabled: !!isletme && !!urunId,
+    enabled: canSeeUrunler && !!isletme && !!urunId,
   });
 
   return {
@@ -317,12 +349,14 @@ export function useDonemUrunOzet(options: {
   endDate: string;
 }) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
   const { startDate, endDate } = options;
 
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.donemOzet(isletme?.id || '', startDate, endDate),
     queryFn: async () => {
-      if (!isletme) return {} as DonemUrunOzet;
+      if (!canSeeUrunler || !isletme) return {} as DonemUrunOzet;
 
       // İŞ TARİHİNE göre filtrele (created_at değil — düzenlemede NOW()'a kayıyor):
       //  - İşleme bağlı hareketler: islemler.date dönem içinde mi? (inner join → DB'de filtre)
@@ -384,7 +418,7 @@ export function useDonemUrunOzet(options: {
 
       return ozet;
     },
-    enabled: !!isletme && !!startDate && !!endDate,
+    enabled: canSeeUrunler && !!isletme && !!startDate && !!endDate,
   });
 
   return {
@@ -517,6 +551,8 @@ export function useSetUrunMiktarHedef() {
  */
 export function useIslemlerWithUrun(islemIds: string[]) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   // Batch islemIds in chunks of 100 to avoid too-large queries, but use a stable key
   const stableKey = islemIds.length > 0 ? islemIds.slice().sort().join(',') : '';
@@ -524,7 +560,7 @@ export function useIslemlerWithUrun(islemIds: string[]) {
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.islemlerWithUrun(stableKey, isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme || islemIds.length === 0) return new Map<string, number>();
+      if (!canSeeUrunler || !isletme || islemIds.length === 0) return new Map<string, number>();
 
       const { data, error } = await supabase
         .from('urun_hareketler')
@@ -545,7 +581,7 @@ export function useIslemlerWithUrun(islemIds: string[]) {
 
       return islemUrunCountMap;
     },
-    enabled: !!isletme && islemIds.length > 0,
+    enabled: canSeeUrunler && !!isletme && islemIds.length > 0,
     // Keep previous data while refetching with new islemIds to prevent icon flicker
     placeholderData: (previousData) => previousData,
   });
@@ -582,13 +618,15 @@ const EMPTY_KALEMLER: UrunKalemOzet[] = [];
  */
 export function useUrunKalemlerByIslemIds(islemIds: string[]) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   const stableKey = islemIds.length > 0 ? islemIds.slice().sort().join(',') : '';
 
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.kalemlerByIslemler(stableKey, isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme || islemIds.length === 0) return new Map<string, UrunKalemOzet[]>();
+      if (!canSeeUrunler || !isletme || islemIds.length === 0) return new Map<string, UrunKalemOzet[]>();
 
       const { data, error } = await supabase
         .from('urun_hareketler')
@@ -622,7 +660,7 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
 
       return map;
     },
-    enabled: !!isletme && islemIds.length > 0,
+    enabled: canSeeUrunler && !!isletme && islemIds.length > 0,
     // Yeni islemIds'e geçerken eski veriyi koru — kalem önizlemesi flicker etmesin
     placeholderData: (previousData) => previousData,
   });
@@ -668,11 +706,13 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
  */
 export function useUrunHareketlerByIslemId(islemId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.byIslem(islemId || '', isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme || !islemId) return [];
+      if (!canSeeUrunler || !isletme || !islemId) return [];
 
       const { data, error } = await supabase
         .from('urun_hareketler')
@@ -684,7 +724,7 @@ export function useUrunHareketlerByIslemId(islemId: string | undefined) {
       if (error) throw error;
       return data as (UrunHareket & { urunler: { ad: string; birim: string } })[];
     },
-    enabled: !!isletme && !!islemId,
+    enabled: canSeeUrunler && !!isletme && !!islemId,
   });
 
   return {
@@ -1181,13 +1221,15 @@ export interface UrunOzet {
  */
 export function useUrunOzet(urunId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
     queryKey: queryKeys.urunHareketler.urunOzet(urunId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!urunId && !!isletme?.id,
+    enabled: enabled && canSeeUrunler && !!urunId && !!isletme?.id,
     queryFn: async (): Promise<UrunOzet> => {
       const bos: UrunOzet = { alisTutar: 0, satisTutar: 0, alisMiktar: 0, satisMiktar: 0 };
-      if (!urunId || !isletme?.id) return bos;
+      if (!canSeeUrunler || !urunId || !isletme?.id) return bos;
       const { data, error } = await supabase.rpc('get_urun_ozet', {
         p_isletme_id: isletme.id,
         p_urun_id: urunId,

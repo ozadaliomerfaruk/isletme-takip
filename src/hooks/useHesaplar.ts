@@ -5,14 +5,34 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
-export function useHesaplar(includePassive: boolean = false, includeArchived: boolean = false) {
+export function useHesaplar(
+  includePassive: boolean = false,
+  includeArchived: boolean = false,
+  enabled: boolean = true,
+) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const {
+    canAccessModule,
+    canSeePassiveRecords,
+    canUseBirikim,
+  } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const effectiveIncludePassive = includePassive && canSeePassiveRecords;
 
   const query = useQuery({
-    queryKey: queryKeys.hesaplar.list(isletme?.id ?? '', includePassive, includeArchived),
+    queryKey: [
+      ...queryKeys.hesaplar.list(
+        isletme?.id ?? '',
+        effectiveIncludePassive,
+        includeArchived,
+      ),
+      'birikim',
+      canUseBirikim,
+    ],
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeHesaplar || !isletme) return [];
 
       let queryBuilder = supabase
         .from('hesaplar')
@@ -26,8 +46,11 @@ export function useHesaplar(includePassive: boolean = false, includeArchived: bo
       }
 
       // Sadece aktif hesapları getir (varsayılan davranış)
-      if (!includePassive) {
+      if (!effectiveIncludePassive) {
         queryBuilder = queryBuilder.eq('is_active', true);
+      }
+      if (!canUseBirikim) {
+        queryBuilder = queryBuilder.neq('type', 'birikim');
       }
 
       const { data, error } = await queryBuilder;
@@ -35,7 +58,7 @@ export function useHesaplar(includePassive: boolean = false, includeArchived: bo
       if (error) throw error;
       return data as Hesap[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeeHesaplar && !!isletme,
     staleTime: 10 * 60 * 1000, // 10 dk - mutation'lar zaten invalidate eder
     gcTime: 30 * 60 * 1000,    // 30 dk cache
     meta: { query_purpose: 'hesaplar:list' },
@@ -44,29 +67,37 @@ export function useHesaplar(includePassive: boolean = false, includeArchived: bo
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...query,
-    isLoading: query.isLoading || isletmeLoading,
+    isLoading: enabled && canSeeHesaplar && (query.isLoading || isletmeLoading),
   };
 }
 
 export function useHesap(id: string | undefined) {
   const { isletme } = useAuthContext();
+  const {
+    canAccessModule,
+    canSeePassiveRecords,
+    canUseBirikim,
+  } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
 
   return useQuery({
     queryKey: queryKeys.hesaplar.detail(id ?? '', isletme?.id ?? ''),
     queryFn: async () => {
-      if (!id) return null;
+      if (!canSeeHesaplar || !id || !isletme) return null;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('hesaplar')
         .select('*')
         .eq('id', id)
-        .eq('isletme_id', isletme!.id)
-        .single();
+        .eq('isletme_id', isletme.id);
+      if (!canSeePassiveRecords) query = query.eq('is_active', true);
+      if (!canUseBirikim) query = query.neq('type', 'birikim');
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data as Hesap;
     },
-    enabled: !!id && !!isletme,
+    enabled: canSeeHesaplar && !!id && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

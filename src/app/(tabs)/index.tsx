@@ -96,7 +96,20 @@ export default function HomePage() {
   const deleteHesap = useDeleteHesap();
 
   // Permissions
-  const { canUpdate, canDelete, canAccessModule } = usePermissions();
+  const { canUpdate, canDelete, canAccessModule, isOwner } = usePermissions();
+  const canSeeAccounts = canAccessModule('hesaplar');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeeReports = canAccessModule('raporlar');
+  const canSearch =
+    canSeeAccounts ||
+    canSeeCariler ||
+    canAccessModule('personel') ||
+    canAccessModule('urunler') ||
+    canAccessModule('notlar');
+  // İşlem satırları bugün temel `islemler` tablosundan ve geniş join'lerden geliyor.
+  // Tip-bazlı server projeksiyonu devreye girene kadar shared kullanıcıya QTB/bildirim
+  // açmak kapalı hesap/personel verisini sızdırabilir; owner akışı korunur.
+  const canUseUnprojectedTransactions = isOwner;
 
   const { isletme, cancelAccountDeletion } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
@@ -104,7 +117,8 @@ export default function HomePage() {
   const haptics = useHaptics();
 
   // Gerçek veriler - pasif hesapları da dahil et
-  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } = useHesaplar(true);
+  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } =
+    useHesaplar(true, false, canSeeAccounts);
 
   // Cariler (FAB cari işlem için) — TEK sorgu (aktif tüm cariler) çekilip tipe göre
   // bellekte ayrılır. Önceden musteri + tedarikci ayrı çekiliyordu; useFinancialSummary
@@ -112,7 +126,7 @@ export default function HomePage() {
   // useFinancialSummary ile AYNI query-key'i (undefined,false,false) paylaştığından
   // React Query otomatik dedup eder → 3 sorgu 1'e iner. (Sonuç birebir aynı: client
   // tip filtresi = sunucu .eq('type',...) aktif set üzerinde.)
-  const { data: tumCariler } = useCariler();
+  const { data: tumCariler } = useCariler(undefined, false, false, canSeeCariler);
   const musteriCariler = useMemo(
     () => (tumCariler ?? []).filter((c) => c.type === 'musteri'),
     [tumCariler],
@@ -218,11 +232,13 @@ export default function HomePage() {
 
   // conversionIncomplete ana sayfada HİÇ okunmuyordu: Raporlar ve Net Varlık Trendi
   // uyarıyı gösterirken ana sayfanın manşet sayısı eksik olduğunu söylemiyordu.
-  const { accounts, payables, receivables, generalStatus, conversionIncomplete } = useFinancialSummary();
+  const { accounts, payables, receivables, generalStatus, conversionIncomplete } =
+    useFinancialSummary(canSeeReports);
 
   // Sabit olarak bulunduğumuz ay (monthly, offset=0)
   const { startDate: currentMonthStart, endDate: currentMonthEnd, label: currentMonthLabel } = getDateRangeLabel('monthly', 0);
-  const { data: monthSummary, refetch: refetchSummary } = useMonthSummary('monthly', 0);
+  const { data: monthSummary, refetch: refetchSummary } =
+    useMonthSummary('monthly', 0, undefined, canSeeReports);
 
   // Nakit akışı hook'u
   const {
@@ -233,6 +249,7 @@ export default function HomePage() {
   } = useCashFlowByCategory({
     startDate: currentMonthStart,
     endDate: currentMonthEnd,
+    enabled: canSeeReports,
   });
 
   // Pull-to-refresh (manuel state — arka plan refetch'te spinner gösterme)
@@ -240,12 +257,24 @@ export default function HomePage() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refetchHesaplar(), refetchSummary(), refetchCashFlow()]);
+      const refreshes: Promise<unknown>[] = [];
+      if (canSeeAccounts) refreshes.push(refetchHesaplar());
+      if (canSeeReports) {
+        refreshes.push(refetchSummary(), refetchCashFlow());
+      }
+      await Promise.all(refreshes);
       haptics.success();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetchHesaplar, refetchSummary, refetchCashFlow, haptics]);
+  }, [
+    canSeeAccounts,
+    canSeeReports,
+    refetchHesaplar,
+    refetchSummary,
+    refetchCashFlow,
+    haptics,
+  ]);
 
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;
@@ -434,42 +463,27 @@ export default function HomePage() {
         )}
 
         {/* Dashboard Carousel: Genel Durum → Gelir/Gider → Nakit Akışı */}
-        <DashboardCarousel
-          generalStatus={generalStatus}
-          assets={accounts}
-          receivables={receivables.total}
-          payables={payables.total}
-          onHeroPress={() => {
-            if (!canAccessModule('raporlar')) {
-              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
-              return;
-            }
-            router.push('/raporlar');
-          }}
-          income={totalIncome}
-          expense={totalExpense}
-          onIncomeExpensePress={() => {
-            if (!canAccessModule('raporlar')) {
-              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
-              return;
-            }
-            setFinancialModalVisible(true);
-          }}
-          totalInflow={totalInflow}
-          totalOutflow={totalOutflow}
-          netCashFlow={netCashFlow}
-          onCashFlowPress={() => {
-            if (!canAccessModule('raporlar')) {
-              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
-              return;
-            }
-            setFinancialModalVisible(true);
-          }}
-          periodBadge={currentMonthLabel}
-        />
+        {canSeeReports && (
+          <DashboardCarousel
+            generalStatus={generalStatus}
+            assets={accounts}
+            receivables={receivables.total}
+            payables={payables.total}
+            onHeroPress={() => router.push('/raporlar')}
+            income={totalIncome}
+            expense={totalExpense}
+            onIncomeExpensePress={() => setFinancialModalVisible(true)}
+            totalInflow={totalInflow}
+            totalOutflow={totalOutflow}
+            netCashFlow={netCashFlow}
+            onCashFlowPress={() => setFinancialModalVisible(true)}
+            periodBadge={currentMonthLabel}
+          />
+        )}
 
         {/* Kur bulunamayan bakiyeler toplamlardan hariç tutuldu — manşet sayı eksik */}
-        {(conversionIncomplete || categoryTotals.conversionIncomplete) && (
+        {((canSeeReports && conversionIncomplete) ||
+          (canSeeAccounts && categoryTotals.conversionIncomplete)) && (
           <View style={styles.conversionWarning}>
             <AlertTriangle size={14} color={colors.error} />
             <Text variant="caption" color="error" style={styles.conversionWarningText}>
@@ -490,6 +504,7 @@ export default function HomePage() {
         )}
 
         {/* Hesaplar Bölümü */}
+        {canSeeAccounts && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="h3" style={styles.sectionTitle}>{t('accounts:titles.accounts')}</Text>
@@ -633,6 +648,7 @@ export default function HomePage() {
             </View>
           )}
         </View>
+        )}
       </ScrollView>
 
       <TabHeader
@@ -642,17 +658,19 @@ export default function HomePage() {
         onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
         right={
           <>
-            <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.search')}>
-              <Search size={20} color={colors.text} />
-            </GlassIconButton>
-            <NotificationBell />
+            {canSearch && (
+              <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.search')}>
+                <Search size={20} color={colors.text} />
+              </GlassIconButton>
+            )}
+            {canUseUnprojectedTransactions && <NotificationBell />}
             <AddEntityButton />
           </>
         }
       />
 
       {/* FAB Menü - Backdrop */}
-      {showFabMenu && (
+      {canUseUnprojectedTransactions && showFabMenu && (
         <Pressable style={StyleSheet.absoluteFill} onPress={closeFabMenu}>
           <Animated.View
             style={[
@@ -664,7 +682,7 @@ export default function HomePage() {
       )}
 
       {/* FAB Menü - Seçenekler (yukarı doğru açılır) */}
-      {showFabMenu && (
+      {canUseUnprojectedTransactions && showFabMenu && (
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
           style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
@@ -721,6 +739,7 @@ export default function HomePage() {
       )}
 
       {/* FAB Button */}
+      {canUseUnprojectedTransactions && (
       <GlassFab
         style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
         onPress={() => {
@@ -740,15 +759,18 @@ export default function HomePage() {
           </Animated.View>
         )}
       />
+      )}
 
       {/* DailyCashModal */}
+      {canUseUnprojectedTransactions && (
       <DailyCashModal
         visible={dailyCashModalVisible}
         onDismiss={() => setDailyCashModalVisible(false)}
       />
+      )}
 
       {/* CreditCardTransactionBar */}
-      {creditCardForTransaction && (
+      {canUseUnprojectedTransactions && creditCardForTransaction && (
         <CreditCardTransactionBar
           visible={!!creditCardForTransaction}
           onDismiss={() => setCreditCardForTransaction(null)}
@@ -757,6 +779,7 @@ export default function HomePage() {
       )}
 
       {/* Hesap QuickTransactionBar */}
+      {canUseUnprojectedTransactions && canSeeAccounts && (
       <QuickTransactionBar
         visible={hesapQuickBarVisible}
         onDismiss={() => {
@@ -769,8 +792,10 @@ export default function HomePage() {
           setSelectedHesapId(null);
         }}
       />
+      )}
 
       {/* Hesap Action Sheet */}
+      {canSeeAccounts && (
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => {
@@ -781,8 +806,10 @@ export default function HomePage() {
         options={hesapActionSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
+      )}
 
       {/* Cari Picker (FAB'dan açılır) */}
+      {canUseUnprojectedTransactions && canSeeCariler && (
       <CariPickerSheet
         visible={showCariPicker}
         onDismiss={() => setShowCariPicker(false)}
@@ -791,8 +818,10 @@ export default function HomePage() {
         selectedId={null}
         mode={cariPickerMode}
       />
+      )}
 
       {/* Cari QuickTransactionBar (cari seçildikten sonra açılır) */}
+      {canUseUnprojectedTransactions && canSeeCariler && (
       <QuickTransactionBar
         visible={!!selectedCariForQuickBar}
         onDismiss={() => setSelectedCariForQuickBar(null)}
@@ -800,12 +829,15 @@ export default function HomePage() {
         defaultCariType={selectedCariForQuickBar?.type}
         onSuccess={() => setSelectedCariForQuickBar(null)}
       />
+      )}
 
       {/* Financial Detail Modal */}
+      {canSeeReports && (
       <FinancialDetailModal
         visible={financialModalVisible}
         onDismiss={() => setFinancialModalVisible(false)}
       />
+      )}
     </Screen>
   );
 }

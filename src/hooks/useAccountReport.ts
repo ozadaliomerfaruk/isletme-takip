@@ -8,6 +8,17 @@ import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
+import { usePermissions } from '@/hooks/usePermissions';
+
+type ReportSourceModule = 'hesaplar' | 'cariler' | 'urunler' | 'personel';
+
+function useReportsEnabled(
+  requiredModules: readonly ReportSourceModule[] = [],
+): boolean {
+  const { canAccessModule } = usePermissions();
+  return canAccessModule('raporlar')
+    && requiredModules.every((module) => canAccessModule(module));
+}
 
 /**
  * HESAP BAZLI gelir/gider raporu — "hangi hesap ne kadar gelir/gider gördü".
@@ -60,6 +71,7 @@ export function useAccountReport(
   options: UseAccountReportOptions
 ): AccountReportResult {
   const { isletme } = useAuthContext();
+  const reportsEnabled = useReportsEnabled(['hesaplar']);
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -77,7 +89,7 @@ export function useAccountReport(
   } = useQuery({
     queryKey: queryKeys.reports.accountReport(isletme?.id ?? '', type, startDateTime, endDateTime),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!reportsEnabled || !isletme) return [];
 
       const { data, error } = await supabase.rpc('get_account_report', {
         p_isletme_id: isletme.id,
@@ -101,7 +113,7 @@ export function useAccountReport(
         total_native: number;
       }>;
     },
-    enabled: !!isletme && !!startDate && !!endDate,
+    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
     meta: { query_purpose: 'reports:account' },
   });
 
@@ -166,6 +178,7 @@ export function useAccountTransactions(
   options: UseAccountReportOptions
 ) {
   const { isletme } = useAuthContext();
+  const reportsEnabled = useReportsEnabled(['hesaplar']);
   const { startDate, endDate } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
   const islemTypes = type === 'gider' ? EXPENSE_TYPES : INCOME_TYPES;
@@ -173,7 +186,7 @@ export function useAccountTransactions(
   return useQuery({
     queryKey: queryKeys.reports.accountTransactions(isletme?.id ?? '', hesapId, type, startDateTime, endDateTime),
     queryFn: async () => {
-      if (!isletme || !hesapId) return [] as IslemWithRelations[];
+      if (!reportsEnabled || !isletme || !hesapId) return [] as IslemWithRelations[];
       // NOT: bu hook şu an hiçbir ekrandan çağrılmıyor (ölü). Yine de kardeşiyle aynı
       // sayfalama düzeltmesi uygulandı ki ileride bağlanırsa tuzak hazır olmasın.
       return (await fetchAllPages<IslemWithRelations>(() =>
@@ -197,7 +210,7 @@ export function useAccountTransactions(
           .order('id', { ascending: false })
       )) as unknown as IslemWithRelations[];
     },
-    enabled: !!isletme && !!hesapId && !!startDate && !!endDate,
+    enabled: reportsEnabled && !!isletme && !!hesapId && !!startDate && !!endDate,
     meta: { query_purpose: 'reports:account-transactions' },
   });
 }
@@ -246,6 +259,7 @@ export interface IncomeSourceResult {
  */
 export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeSourceResult {
   const { isletme } = useAuthContext();
+  const reportsEnabled = useReportsEnabled(['hesaplar', 'cariler', 'personel']);
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -255,7 +269,7 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: queryKeys.reports.incomeBySource(isletme?.id ?? '', startDateTime, endDateTime),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!reportsEnabled || !isletme) return [];
       const { data, error } = await supabase.rpc('get_income_by_source', {
         p_isletme_id: isletme.id,
         p_start_date: startDateTime,
@@ -276,7 +290,7 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
         total_native: number;
       }>;
     },
-    enabled: !!isletme && !!startDate && !!endDate,
+    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
     meta: { query_purpose: 'reports:income-source' },
   });
 
@@ -350,6 +364,9 @@ export function useIncomeSourceTransactions(
   options: UseAccountReportOptions
 ) {
   const { isletme } = useAuthContext();
+  const reportsEnabled = useReportsEnabled([
+    kind === 'hesap' ? 'hesaplar' : kind === 'cari' ? 'cariler' : 'personel',
+  ]);
   const { startDate, endDate } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
@@ -364,7 +381,7 @@ export function useIncomeSourceTransactions(
   return useQuery({
     queryKey: queryKeys.reports.incomeSourceTransactions(isletme?.id ?? '', kind, sourceId, startDateTime, endDateTime),
     queryFn: async () => {
-      if (!isletme || !sourceId) return [] as IslemWithRelations[];
+      if (!reportsEnabled || !isletme || !sourceId) return [] as IslemWithRelations[];
       // SAYFALAMA ŞART: PostgREST varsayılan tavanı 1000. Sayfalanmadığı için
       // 1000. satırdan sonrası SESSİZCE kırpılıyordu; üstelik bu ekranda toplam
       // ekrandan değil İNEN SATIRLARDAN hesaplandığı için kullanıcının az önce
@@ -391,7 +408,7 @@ export function useIncomeSourceTransactions(
           .order('id', { ascending: false })
       )) as unknown as IslemWithRelations[];
     },
-    enabled: !!isletme && !!sourceId && !!startDate && !!endDate,
+    enabled: reportsEnabled && !!isletme && !!sourceId && !!startDate && !!endDate,
     meta: { query_purpose: 'reports:income-source-transactions' },
   });
 }

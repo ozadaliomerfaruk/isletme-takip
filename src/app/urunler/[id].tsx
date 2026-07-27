@@ -93,10 +93,19 @@ export default function UrunDetayPage() {
   const insets = useSafeAreaInsets();
 
   // Yetki gizleme (diğer detay/liste sayfalarıyla aynı desen; owner'da hepsi true)
-  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    isOwner,
+  } = usePermissions();
   const canEdit = canUpdate('urunler', urun?.created_by ?? null);
   const canRemove = canDelete('urunler', urun?.created_by ?? null);
   const canAddStock = canCreate('urunler');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeHesaplar = canAccessModule('hesaplar');
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [quickUrunVisible, setQuickUrunVisible] = useState(false);
@@ -276,8 +285,12 @@ export default function UrunDetayPage() {
                     month: 'short',
                   })}
                 </Text>
-                {hareket.cari ? (
-                  <View style={styles.cariBadge}>
+                {hareket.cari && canSeeCariler ? (
+                  <TouchableOpacity
+                    style={styles.cariBadge}
+                    onPress={() => router.push(`/cariler/${hareket.cari!.id}`)}
+                    accessibilityRole="button"
+                  >
                     {hareket.cari.type === 'tedarikci' ? (
                       <Building2 size={12} color={colors.warning} />
                     ) : (
@@ -286,15 +299,15 @@ export default function UrunDetayPage() {
                     <Text style={styles.cariName} numberOfLines={1}>
                       {hareket.cari.name}
                     </Text>
-                  </View>
-                ) : hareket.personel ? (
+                  </TouchableOpacity>
+                ) : hareket.personel && canSeePersonel ? (
                   <View style={styles.cariBadge}>
                     <User size={12} color={colors.info} />
                     <Text style={styles.cariName} numberOfLines={1}>
                       {hareket.personel.name}
                     </Text>
                   </View>
-                ) : hareket.hesap ? (
+                ) : hareket.hesap && canSeeHesaplar ? (
                   <View style={styles.cariBadge}>
                     {hareket.hesap.type === 'kredi_karti' ? (
                       <CreditCard size={12} color={colors.primary} />
@@ -370,7 +383,7 @@ export default function UrunDetayPage() {
         <View style={styles.hareketActions}>
           {hareket.islem_id ? (
             // İşleme bağlı (cari/hesap/kart/personel) - sadece düzenle → QuickTransactionBar edit
-            canEdit && (
+            canEdit && isOwner && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -417,7 +430,19 @@ export default function UrunDetayPage() {
     // handler'lar (handleDelete/Edit*) ve getBirimLabel stabil setter + hareket arg + t üzerinden çalışır;
     // eksik dep'ler fonksiyonel olarak güvenli (renderHareket her render yeniden üretilse de FlatList sanallaştırması korunur).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandedHareketId, urun, canEdit, canRemove, t, i18n, ozetMode]);
+  }, [
+    expandedHareketId,
+    urun,
+    canEdit,
+    canRemove,
+    canSeeCariler,
+    canSeePersonel,
+    canSeeHesaplar,
+    router,
+    t,
+    i18n,
+    ozetMode,
+  ]);
 
   if (urunLoading) {
     return (
@@ -709,6 +734,7 @@ export default function UrunDetayPage() {
         />
 
         {/* İşleme bağlı (cari/hesap/kart/personel) ürünlü hareket düzenleme — cari sayfasıyla aynı standart */}
+        {isOwner && (
         <QuickTransactionBar
           visible={showEditBar}
           onDismiss={() => { setShowEditBar(false); setEditTransactionId(null); }}
@@ -717,6 +743,7 @@ export default function UrunDetayPage() {
           isScheduledTransaction={false}
           onSuccess={() => { setShowEditBar(false); setEditTransactionId(null); }}
         />
+        )}
 
         {/* Not Ekle FAB */}
         {!urun.is_archived && (

@@ -30,7 +30,7 @@ interface IslemFilters {
 
 const ISLEMLER_PAGE_SIZE = 50;
 
-export function useIslemler(filters?: IslemFilters) {
+export function useIslemler(filters?: IslemFilters, enabled: boolean = true) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useInfiniteQuery({
@@ -98,7 +98,7 @@ export function useIslemler(filters?: IslemFilters) {
       if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
       return lastPageParam + 1;
     },
-    enabled: !!isletme,
+    enabled: enabled && !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     meta: { query_purpose: 'islemler:list' },
@@ -108,7 +108,7 @@ export function useIslemler(filters?: IslemFilters) {
   return {
     ...result,
     data: result.data?.pages.flat() ?? [],
-    isLoading: result.isLoading || isletmeLoading,
+    isLoading: enabled && (result.isLoading || isletmeLoading),
   };
 }
 
@@ -823,7 +823,8 @@ function normalizeDateRange(start: string, end: string): { startDateTime: string
 export function useMonthSummary(
   period: PeriodType = 'monthly',
   offset: number = 0,
-  customRange?: { startDate: string; endDate: string }
+  customRange?: { startDate: string; endDate: string },
+  enabled: boolean = true,
 ) {
   const { isletme } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
@@ -875,7 +876,7 @@ export function useMonthSummary(
         expense: Math.round(result.expense * 100) / 100,
       };
     },
-    enabled: !!isletme,
+    enabled: enabled && !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });
@@ -943,6 +944,7 @@ interface IslemFilterSearchParams {
   maxAmount?: number | null;
   dateFrom?: string | null;
   dateTo?: string | null;
+  enabled?: boolean;
 }
 
 export function useFilteredIslemler(params: IslemFilterSearchParams) {
@@ -997,6 +999,6 @@ export function useFilteredIslemler(params: IslemFilterSearchParams) {
       if (error) throw error;
       return data as IslemWithRelations[];
     },
-    enabled: !!isletme && hasAnyFilter,
+    enabled: (params.enabled ?? true) && !!isletme && hasAnyFilter,
   });
 }

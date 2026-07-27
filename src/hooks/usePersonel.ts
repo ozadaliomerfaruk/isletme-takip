@@ -7,14 +7,26 @@ import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { toNumber } from '@/lib/currency';
 import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
-export function usePersonelList(includePassive: boolean = false, includeArchived: boolean = false) {
+export function usePersonelList(
+  includePassive: boolean = false,
+  includeArchived: boolean = false,
+  enabled: boolean = true,
+) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
+  const effectiveIncludePassive = includePassive && canSeePassiveRecords;
 
   const result = useQuery({
-    queryKey: queryKeys.personel.list(isletme?.id ?? '', includePassive, includeArchived),
+    queryKey: queryKeys.personel.list(
+      isletme?.id ?? '',
+      effectiveIncludePassive,
+      includeArchived,
+    ),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeePersonel || !isletme) return [];
 
       let query = supabase
         .from('personel')
@@ -28,7 +40,7 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
       }
 
       // Sadece aktif personeli getir (varsayılan davranış)
-      if (!includePassive) {
+      if (!effectiveIncludePassive) {
         query = query.eq('is_active', true);
       }
 
@@ -37,7 +49,7 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
       if (error) throw error;
       return data as Personel[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeePersonel && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     meta: { query_purpose: 'personel:list' },
@@ -46,7 +58,7 @@ export function usePersonelList(includePassive: boolean = false, includeArchived
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...result,
-    isLoading: result.isLoading || isletmeLoading,
+    isLoading: enabled && canSeePersonel && (result.isLoading || isletmeLoading),
   };
 }
 
@@ -67,12 +79,14 @@ export type PersonelOzet = Partial<Record<
  */
 export function usePersonelOzet(personelId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
 
   return useQuery({
     queryKey: queryKeys.personel.ozet(personelId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!personelId && !!isletme?.id,
+    enabled: enabled && canSeePersonel && !!personelId && !!isletme?.id,
     queryFn: async (): Promise<PersonelOzet> => {
-      if (!personelId || !isletme?.id) return {};
+      if (!canSeePersonel || !personelId || !isletme?.id) return {};
       const { data, error } = await supabase.rpc('get_personel_ozet', {
         p_isletme_id: isletme.id,
         p_personel_id: personelId,
@@ -93,22 +107,26 @@ export function usePersonelOzet(personelId: string | undefined, enabled = true) 
 
 export function usePersonel(id: string | undefined) {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
 
   return useQuery({
     queryKey: queryKeys.personel.detail(id ?? '', isletme?.id ?? ''),
     queryFn: async () => {
-      if (!id) return null;
+      if (!canSeePersonel || !id || !isletme) return null;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('personel')
         .select('*')
         .eq('id', id)
-        .single();
+        .eq('isletme_id', isletme.id);
+      if (!canSeePassiveRecords) query = query.eq('is_active', true);
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data as Personel;
     },
-    enabled: !!id,
+    enabled: canSeePersonel && !!id,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });

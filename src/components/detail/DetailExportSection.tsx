@@ -8,6 +8,7 @@ import { colors } from '@/constants/colors';
 import { useEkstreLinkOlustur } from '@/hooks/useEkstreLink';
 import type { EntityType } from '@/lib/excelExport';
 import type { Currency } from '@/types/database';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface DetailExportSectionProps {
   visible: boolean;
@@ -44,6 +45,7 @@ export function DetailExportSection({
   // Ekstre linki süre seçimi (kullanıcı isteği: paylaşan belirler)
   const [showSureSheet, setShowSureSheet] = useState(false);
   const ekstreLink = useEkstreLinkOlustur();
+  const { canShareCariStatement, isOwner } = usePermissions();
 
   const handlePdfPress = useCallback(() => setShowPdfExport(true), []);
   const handleExcelPress = useCallback(() => setShowExportSheet(true), []);
@@ -67,8 +69,12 @@ export function DetailExportSection({
     { label: t('export.ekstreSure.gun1'), gun: 1 as number | null },
     { label: t('export.ekstreSure.hafta1'), gun: 7 as number | null },
     { label: t('export.ekstreSure.ay1'), gun: 30 as number | null },
-    { label: t('export.ekstreSure.yil1'), gun: 365 as number | null },
-    { label: t('export.ekstreSure.suresiz'), gun: null as number | null },
+    ...(isOwner
+      ? [
+          { label: t('export.ekstreSure.yil1'), gun: 365 as number | null },
+          { label: t('export.ekstreSure.suresiz'), gun: null as number | null },
+        ]
+      : []),
   ].map((o) => ({
     label: o.label,
     icon: <Clock size={20} color={colors.primary} />,
@@ -84,7 +90,11 @@ export function DetailExportSection({
         onPdfPress={handlePdfPress}
         onExcelPress={handleExcelPress}
         onSharePress={onSharePress}
-        onEkstreLinkPress={entityType === 'cari' ? () => setShowSureSheet(true) : undefined}
+        onEkstreLinkPress={
+          entityType === 'cari' && canShareCariStatement()
+            ? () => setShowSureSheet(true)
+            : undefined
+        }
       />
 
       {/* Ekstre linki geçerlilik süresi seçimi */}

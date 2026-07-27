@@ -5,6 +5,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Alış işlem tipleri
 const PURCHASE_TYPES = ['cari_alis'];
@@ -60,6 +61,9 @@ export function useProductReport(
   options: UseProductReportOptions
 ): ProductReportResult {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled =
+    canAccessModule('raporlar') && canAccessModule('urunler');
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -79,7 +83,7 @@ export function useProductReport(
   } = useQuery({
     queryKey: queryKeys.reports.productReport(isletme?.id ?? '', direction, startDateTime, endDateTime),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!reportsEnabled || !isletme) return [];
 
       const { data, error } = await supabase.rpc('get_product_report', {
         p_isletme_id: isletme.id,
@@ -105,7 +109,7 @@ export function useProductReport(
         islem_sayisi: number;
       }>;
     },
-    enabled: !!isletme && !!startDate && !!endDate,
+    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
   });
 
   // İade sorgusu: toplam iade tutarı (net hesaplama için)
@@ -115,7 +119,7 @@ export function useProductReport(
   } = useQuery({
     queryKey: queryKeys.reports.productReportReturns(isletme?.id ?? '', direction, startDateTime, endDateTime),
     queryFn: async () => {
-      if (!isletme) return 0;
+      if (!reportsEnabled || !isletme) return 0;
 
       const { data, error } = await supabase.rpc('get_product_report', {
         p_isletme_id: isletme.id,
@@ -132,7 +136,7 @@ export function useProductReport(
       return (data || []).reduce((sum: number, row: { toplam_tutar?: number | string }) =>
         sum + (Number(row.toplam_tutar) || 0), 0);
     },
-    enabled: !!isletme && !!startDate && !!endDate,
+    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
   });
 
   const result = useMemo(() => {

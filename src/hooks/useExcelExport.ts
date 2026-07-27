@@ -15,6 +15,7 @@ import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { LEAVE_TYPES, CARI_ISLEM_TYPES, PERSONEL_ISLEM_TYPES } from '@/constants/islemTypes';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Büyük veri uyarısı için eşik değer
 const LARGE_DATA_THRESHOLD = 2000;
@@ -38,11 +39,21 @@ interface UseExcelExportReturn {
 export function useExcelExport(options: UseExcelExportOptions): UseExcelExportReturn {
   const { entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch } = options;
   const { isletme } = useAuthContext();
+  const { canExportModule } = usePermissions();
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
 
   const exportExcel = useCallback(
     async (startDate: string, endDate: string) => {
+      const requiredModule = entityType === 'hesap'
+        ? 'hesaplar'
+        : entityType === 'cari'
+          ? 'cariler'
+          : 'personel';
+      if (!canExportModule(requiredModule)) {
+        Alert.alert(t('common:status.error'), t('common:errors.permissionDenied'));
+        return;
+      }
       if (!isletme) {
         Alert.alert(t('common:status.error'), t('common:empty.noData'));
         return;
@@ -280,7 +291,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         await performExport();
       }
     },
-    [entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch, isletme, t]
+    [entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch, isletme, t, canExportModule]
   );
 
   return {

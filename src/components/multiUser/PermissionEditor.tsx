@@ -59,8 +59,9 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
 
   const modules = value.modules ?? ({} as Record<ModuleName, boolean>);
   const level = deriveLevel(value);
-  // İş modüllerinden hiçbiri açık değil mi? (çekirdek modüller editörde gösterilmez,
-  // hep açıktır; burada yalnızca kullanıcının seçtiği görünür modüllere bakılır.)
+  // Kullanıcının doğrudan seçebildiği iş modüllerinden hiçbiri açık değil mi?
+  // Gizli/bağlamsal yüzeyler (işlemler, arşiv vb.) bu seçimlerden türetilir;
+  // kendiliğinden açık kabul edilmez.
   const businessModuleKeys = MODULE_GROUPS.flatMap((g) => g.modules.map((m) => m.name));
   const noModuleOn = businessModuleKeys.every((k) => !modules[k]);
 
@@ -140,7 +141,7 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
         </Text>
         <Text variant="caption" color="muted" style={styles.levelHelp}>
           {t('multiUser:permissions.levelHelp', {
-            defaultValue: 'Açık modüllerde tüm kayıtlar görünür; ekleme/düzenleme/silme aşağıdaki seçime göredir.',
+            defaultValue: 'Açık modüllerde kayıtlar görünür ve Excel/PDF dışa aktarılabilir; Cariler açıksa public ekstre bağlantısı paylaşılabilir. Ekleme/düzenleme/silme aşağıdaki seçime göredir.',
           })}
         </Text>
         <View style={styles.card}>

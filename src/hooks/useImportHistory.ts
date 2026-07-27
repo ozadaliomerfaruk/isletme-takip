@@ -363,6 +363,22 @@ export function useImportHistory() {
         });
 
         if (rpcError) {
+          // Sunucu guard'ları kullanıcıya ANLAŞILIR dönsün — ham Postgres metni değil.
+          // (RPC guard'ları: 20260726120000_undo_import_batch_owner_guard.sql)
+          //   42501 = yetki reddi (owner değil / karışık işletme)
+          //   22023 = geçersiz girdi (boş, yinelenen, eksik kimlik, tavan aşımı)
+          // Hiçbirinde veri DEĞİŞMEZ; guard'lar ilk yazmadan önce çalışır.
+          const kod = (rpcError as { code?: string }).code;
+          if (kod === '42501') {
+            throw new Error(
+              'Bu içe aktarmayı geri alma yetkiniz yok. Geri alma işlemini yalnızca işletme sahibi yapabilir.'
+            );
+          }
+          if (kod === '22023') {
+            throw new Error(
+              'İçe aktarma geri alınamadı: kayıt listesi geçersiz. Kayıtların bir kısmı silinmiş ya da değiştirilmiş olabilir. Hiçbir değişiklik yapılmadı.'
+            );
+          }
           throw new Error(`undo_import_batch failed: ${rpcError.message || rpcError.code || JSON.stringify(rpcError)}`);
         }
 

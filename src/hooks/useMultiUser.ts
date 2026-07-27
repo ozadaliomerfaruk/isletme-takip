@@ -16,7 +16,7 @@ import type { Isletme } from '@/types/database';
 import i18n from '@/i18n';
 
 // İşletme kullanıcıları (owner ve yetkili paylaşılan kullanıcılar görebilir)
-export function useIsletmeUsers() {
+export function useIsletmeUsers(enabled: boolean = true) {
   const { isletme } = useAuthContext();
 
   return useQuery({
@@ -30,7 +30,7 @@ export function useIsletmeUsers() {
       if (error) throw error;
       return data as IsletmeUser[];
     },
-    enabled: !!isletme,
+    enabled: enabled && !!isletme,
   });
 }
 

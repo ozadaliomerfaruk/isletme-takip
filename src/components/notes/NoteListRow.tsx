@@ -1,5 +1,6 @@
 import React, { memo, useCallback } from 'react';
 import { SwipeableRow } from '@/components/ui/SwipeableRow';
+import { usePermissions } from '@/hooks/usePermissions';
 import { NoteRow } from './NoteRow';
 import type { Not } from '@/types/database';
 
@@ -32,11 +33,18 @@ function NoteListRowInner({
   deleteLabel,
   flush,
 }: NoteListRowProps) {
+  const { canDelete } = usePermissions();
+  const canDeleteNote = canDelete('notlar', note.created_by);
   const handleEdit = useCallback(() => onEditId(note.id), [onEditId, note.id]);
   const handleDelete = useCallback(() => onDeleteId(note.id), [onDeleteId, note.id]);
 
   return (
-    <SwipeableRow itemKey={note.id} onDelete={handleDelete} deleteLabel={deleteLabel} flush={flush}>
+    <SwipeableRow
+      itemKey={note.id}
+      onDelete={canDeleteNote ? handleDelete : undefined}
+      deleteLabel={deleteLabel}
+      flush={flush}
+    >
       <NoteRow
         note={note}
         onEdit={handleEdit}

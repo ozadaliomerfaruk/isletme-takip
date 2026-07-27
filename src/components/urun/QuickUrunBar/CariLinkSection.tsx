@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { Building2 } from 'lucide-react-native';
 import { colors } from '@/constants/colors';
 import { useCariler } from '@/hooks/useCariler';
+import { usePermissions } from '@/hooks/usePermissions';
 import { CariPickerSheet } from '@/components/transaction/QuickTransactionBar/components/CariPickerSheet';
 
 interface CariLinkSectionProps {
@@ -42,7 +43,14 @@ export function CariLinkSection({
 
   // Fetch cariler based on hareket type
   const cariType = hareketTipi === 'giris' ? 'tedarikci' : 'musteri';
-  const { data: cariler } = useCariler(cariType);
+  const { canAccessModule } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
+  const { data: cariler } = useCariler(
+    cariType,
+    false,
+    false,
+    canSeeCariler,
+  );
 
   const selectedCari = useMemo(
     () => cariler?.find((c) => c.id === selectedCariId) || null,
@@ -50,6 +58,8 @@ export function CariLinkSection({
   );
 
   const accentColor = hareketTipi === 'giris' ? colors.primary : colors.error;
+
+  if (!canSeeCariler) return null;
 
   return (
     <View style={sectionStyles.container}>

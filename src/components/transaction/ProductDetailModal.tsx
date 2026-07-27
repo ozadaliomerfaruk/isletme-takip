@@ -21,7 +21,7 @@ export function ProductDetailModal({
 }: {
   islemId: string | null;
   onDismiss: () => void;
-  onEdit: (islemId: string) => void;
+  onEdit?: (islemId: string) => void;
   /** İşlemin para birimi. Verilmezse ana para biriminin sembolü basılır (çağıran
    *  sayfaların hepsi TransactionRow'a geçirdiği currency'yi buraya da geçmeli). */
   currency?: Currency | string | null;
@@ -102,6 +102,7 @@ export function ProductDetailModal({
             </ScrollView>
           )}
 
+          {onEdit && (
           <View style={styles.footer}>
             <Button
               variant="secondary"
@@ -112,6 +113,7 @@ export function ProductDetailModal({
               {t('common:buttons.edit')}
             </Button>
           </View>
+          )}
         </View>
       </View>
     </Modal>

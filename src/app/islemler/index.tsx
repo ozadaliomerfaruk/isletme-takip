@@ -185,8 +185,12 @@ export default function IslemlerPage() {
   const [viewPhotoIslemId, setViewPhotoIslemId] = useState<string | null>(null);
   const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
 
-  const { isletme, user } = useAuthContext();
-  const { data: islemler, isLoading, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage } = useIslemler();
+  const { isletme, user, isOwner } = useAuthContext();
+  // Bu ekran henüz tip-bazlı güvenli server projeksiyonunu kullanmıyor. Shared
+  // kullanıcıda sorguyu tamamen kapat; menü gizleme/deep-link yönlendirmesi tek
+  // başına veri hook'unun çalışmasını engellemez.
+  const { data: islemler, isLoading, isFetching, hasNextPage, fetchNextPage, isFetchingNextPage } =
+    useIslemler(undefined, isOwner);
 
   // Ürün detay modalının para birimi: satırın TransactionRow'a verdiği AYNI değer.
   const productDetailCurrency = productDetailIslemId

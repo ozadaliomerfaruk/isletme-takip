@@ -3,6 +3,7 @@ import i18n from '@/i18n';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { logEvent } from '@/lib/appEvents';
+import { usePermissions } from '@/hooks/usePermissions';
 
 /**
  * Web-ekstre linki (Faz 4): opak token'lı public web ekstresi.
@@ -20,6 +21,7 @@ export function ekstreLinkUrl(token: string): string {
 
 export function useEkstreLinkOlustur() {
   const { isletme } = useAuthContext();
+  const { canShareCariStatement, isOwner } = usePermissions();
 
   return useMutation({
     /** gecerlilikGun: gün sayısı; null = SÜRESİZ (sunucu 100 yıl damgalar). */
@@ -27,6 +29,15 @@ export function useEkstreLinkOlustur() {
       { cariId, gecerlilikGun }: { cariId: string; gecerlilikGun: number | null },
     ): Promise<{ url: string; expiresAt: string }> => {
       if (!isletme?.id) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!canShareCariStatement()) {
+        throw new Error(i18n.t('multiUser:permissions.noModuleAccess'));
+      }
+      const allowedDurations = isOwner
+        ? [1, 7, 30, 365, null]
+        : [1, 7, 30];
+      if (!allowedDurations.includes(gecerlilikGun)) {
+        throw new Error(i18n.t('multiUser:permissions.noActionAccess'));
+      }
       const { data, error } = await supabase.rpc('ekstre_link_olustur', {
         p_isletme_id: isletme.id,
         p_cari_id: cariId,
@@ -44,10 +55,14 @@ export function useEkstreLinkOlustur() {
 
 export function useEkstreLinkIptal() {
   const { isletme } = useAuthContext();
+  const { canShareCariStatement } = usePermissions();
 
   return useMutation({
     mutationFn: async (cariId: string): Promise<number> => {
       if (!isletme?.id) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!canShareCariStatement()) {
+        throw new Error(i18n.t('multiUser:permissions.noModuleAccess'));
+      }
       const { data, error } = await supabase.rpc('ekstre_link_iptal', {
         p_isletme_id: isletme.id,
         p_cari_id: cariId,

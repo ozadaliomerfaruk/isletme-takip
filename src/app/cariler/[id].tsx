@@ -309,7 +309,12 @@ export default function CariHareketleriPage() {
 
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByCari(id!);
   const { data: entityNotes } = useNotlarByEntity('cari', id!);
-  const { canUpdate, canDelete, canAccessModule } = usePermissions();
+  const {
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    isOwner,
+  } = usePermissions();
   const { user, isletme } = useAuthContext();
   const haptics = useHaptics();
   const {
@@ -320,7 +325,10 @@ export default function CariHareketleriPage() {
 
   // Viewer izin seviyesi (isViewer yukarıda, işlemler sorgusundan önce tanımlandı)
   const isViewerViewOnly = isViewer && linkStatus?.permission === 'view';
-  const canEditTransactions = !isViewer || linkStatus?.permission === 'full';
+  // Cari işlem projeksiyonu + minimal hesap seçicisi sunucuda tamamlanana kadar
+  // geniş QuickTransactionBar shared kullanıcıya açılamaz.
+  const canEditTransactions =
+    isOwner && (!isViewer || linkStatus?.permission === 'full');
 
   // BUG 4: Viewer perspektifinden cari tipi (viewer_type kullan)
   const effectiveType = isViewer && linkStatus?.link?.viewer_type
@@ -597,6 +605,7 @@ export default function CariHareketleriPage() {
   // Header right buttons - viewer'lar icin share ve menu gizle
   const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
+      {canAccessModule('raporlar') && (
       <TouchableOpacity
         onPress={() => {
           // Rapor sayfası 'raporlar' modülüne bağlı. İzinsiz üye için sayfaya HİÇ gitme
@@ -612,6 +621,7 @@ export default function CariHareketleriPage() {
       >
         <BarChart3 size={22} color={colors.text} />
       </TouchableOpacity>
+      )}
       <TouchableOpacity
         onPress={() => setShowShareOptions(true)}
         style={styles.headerBtn}
@@ -1337,6 +1347,7 @@ export default function CariHareketleriPage() {
         />
 
         {/* Quick Transaction Bar - Create Mode */}
+        {isOwner && (
         <QuickTransactionBar
           visible={quickBarVisible}
           onDismiss={() => setQuickBarVisible(false)}
@@ -1345,9 +1356,11 @@ export default function CariHareketleriPage() {
           isViewer={isViewer}
           onSuccess={() => setQuickBarVisible(false)}
         />
+        )}
 
         {/* swipe "Tahsil Et/Öde" — dokunulan faturanın kalanı ön-dolu; hedefIslemId set ise
             ödeme O FATURAYA hedeflenir (Faz 2 pointer), yoksa SAF FIFO (en eski önce). */}
+        {isOwner && (
         <QuickTransactionBar
           visible={!!tahsilPrefill}
           onDismiss={() => setTahsilPrefill(null)}
@@ -1359,8 +1372,10 @@ export default function CariHareketleriPage() {
           isViewer={isViewer}
           onSuccess={() => setTahsilPrefill(null)}
         />
+        )}
 
         {/* Quick Transaction Bar - Edit Mode */}
+        {isOwner && (
         <QuickTransactionBar
           visible={showEditBar}
           onDismiss={() => {
@@ -1377,8 +1392,10 @@ export default function CariHareketleriPage() {
             setEditTransactionId(null);
           }}
         />
+        )}
 
         {/* Copy Transaction Bar */}
+        {isOwner && (
         <QuickTransactionBar
           visible={showCopyBar}
           onDismiss={() => {
@@ -1394,6 +1411,7 @@ export default function CariHareketleriPage() {
             setCopySourceId(null);
           }}
         />
+        )}
 
         <DetailExportSection
           visible={showShareOptions}
@@ -1442,11 +1460,11 @@ export default function CariHareketleriPage() {
           // kalem "× ₺5,00" değil satırdaki gibi "× €5,00" görünsün.
           currency={productDetailCurrency}
           onDismiss={() => setProductDetailIslemId(null)}
-          onEdit={(islemId) => {
+          onEdit={isOwner ? (islemId) => {
             setProductDetailIslemId(null);
             setEditTransactionId(islemId);
             setShowEditBar(true);
-          }}
+          } : undefined}
         />
 
         {/* Fotoğraf Görüntüleyici Modal */}
@@ -1473,11 +1491,13 @@ export default function CariHareketleriPage() {
               entityId={id!}
               style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
             />
+            {isOwner && (
             <GlassFab
               style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
               onPress={() => setQuickBarVisible(true)}
               renderIcon={({ color, size }) => <Zap size={size} color={color} />}
             />
+            )}
           </>
         )}
 

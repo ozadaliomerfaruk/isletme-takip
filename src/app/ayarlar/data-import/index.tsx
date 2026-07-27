@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useRequireOwner } from '@/hooks/usePagePermission';
 import {
   View,
   ScrollView,
@@ -49,6 +50,13 @@ import { SkippedTab } from '@/components/dataImport/SkippedTab';
 import { Step1Select, Step2Preview, StepImporting, StepResult } from '@/components/dataImport/steps';
 
 export default function VeriIceAktarPage() {
+  // SAYFA KAPISI: içe aktarma owner-only bir akış — "Daha" menüsündeki giriş
+  // zaten {isOwner && ...} ile gizli (daha.tsx). Ama deep-link ya da geri/ileri
+  // navigasyonla bu ekran doğrudan açılabiliyordu; guard yoktu.
+  // Asıl koruma sunucuda (undo_import_batch owner guard'ı); bu istemci katmanı
+  // savunma derinliği ve kullanıcıya anlaşılır geri bildirim içindir.
+  useRequireOwner();
+
   const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const insets = useSafeAreaInsets();

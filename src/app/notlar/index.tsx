@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
 import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
@@ -28,7 +28,7 @@ import {
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
+import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask } from '@/hooks/useNotlar';
 import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -37,6 +37,7 @@ import { useUrunler } from '@/hooks/useUrunler';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/ToastContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -88,11 +89,44 @@ export default function NotlarPage() {
   const { t } = useTranslation(['common', 'navigation']);
   const { formatDateTime } = useDateFormat();
   const { showToast } = useToast();
-  const { isletme, user, isOwner } = useAuthContext();
+  const { isletme } = useAuthContext();
   const insets = useSafeAreaInsets();
   usePagePermission({ module: 'notlar' }); // notlar kapalı kullanıcıyı geri yollar (yok→true geriye-uyum)
 
   const [filter, setFilter] = useState<FilterKey>('all');
+  const {
+    canAccessModule,
+    canCreate,
+    canUpdate,
+    canDelete,
+  } = usePermissions();
+  const canCreateNote = canCreate('notlar');
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeUrunler = canAccessModule('urunler');
+  const visibleEntityTypes = useMemo<NotEntityType[]>(() => {
+    const types: NotEntityType[] = ['genel'];
+    if (canSeeHesaplar) types.push('hesap');
+    if (canSeeCariler) types.push('cari');
+    if (canSeePersonel) types.push('personel', 'personel_izin');
+    if (canSeeUrunler) types.push('urun');
+    return types;
+  }, [canSeeHesaplar, canSeeCariler, canSeePersonel, canSeeUrunler]);
+  const visibleFilters = useMemo(
+    () => ENTITY_FILTERS.filter(({ key }) => {
+      if (key === 'all' || key === 'tasks' || key === 'genel') return true;
+      if (key === 'hesap') return canSeeHesaplar;
+      if (key === 'cari') return canSeeCariler;
+      if (key === 'personel') return canSeePersonel;
+      return canSeeUrunler;
+    }),
+    [canSeeHesaplar, canSeeCariler, canSeePersonel, canSeeUrunler],
+  );
+
+  useEffect(() => {
+    if (!visibleFilters.some(({ key }) => key === filter)) setFilter('all');
+  }, [filter, visibleFilters]);
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'done'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   // Arama aktifken (odak veya metin) FAB çekilir — bkz. FloatingSearchBar.onActiveChange
@@ -104,7 +138,12 @@ export default function NotlarPage() {
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
 
   const entityType = (filter === 'all' || filter === 'tasks') ? undefined : filter;
-  const { data: notlar, isLoading, refetch } = useNotlar(entityType);
+  const { data: notlar, isLoading, refetch } = useNotlar(
+    entityType,
+    undefined,
+    true,
+    visibleEntityTypes,
+  );
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const createNot = useCreateNot();
   const updateNot = useUpdateNot();
@@ -126,13 +165,21 @@ export default function NotlarPage() {
   });
   const toggleCompletion = useToggleNotCompletion();
   const uploadNotePhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
 
   // Entity data for resolving names
-  const { data: hesaplar } = useHesaplar(true, true);
-  const { data: cariler } = useCariler(undefined, true, true);
-  const { data: personeller } = usePersonelList(true, true);
-  const { data: urunler } = useUrunler(true);
+  const { data: hesaplar } = useHesaplar(true, true, canSeeHesaplar);
+  const { data: cariler } = useCariler(
+    undefined,
+    true,
+    true,
+    canSeeCariler,
+  );
+  const { data: personeller } = usePersonelList(
+    true,
+    true,
+    canSeePersonel,
+  );
+  const { data: urunler } = useUrunler(true, canSeeUrunler);
   const { data: isletmeUsers } = useIsletmeUsers();
 
   // Build entity_id → name maps
@@ -203,9 +250,10 @@ export default function NotlarPage() {
             isletmeId: isletme.id,
             noteId: result.id,
           });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', result.id);
-          invalidateNotlar();
+          await updateNot.mutateAsync({
+            id: result.id,
+            photo_path: photoPath,
+          });
         } catch { /* photo upload failed but note was created */ }
       }
 
@@ -241,24 +289,29 @@ export default function NotlarPage() {
 
       if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
         try {
-          if (editingNote.photo_path) {
-            const { supabase: sb } = await import('@/lib/supabase');
-            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
-          }
           const photoPath = await uploadNotePhoto.mutateAsync({
             uri: data.photo_uri,
             isletmeId: isletme.id,
             noteId: editingNote.id,
           });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNote.id);
-          invalidateNotlar();
+          await updateNot.mutateAsync({
+            id: editingNote.id,
+            photo_path: photoPath,
+          });
+          if (editingNote.photo_path) {
+            const { supabase } = await import('@/lib/supabase');
+            await supabase.storage
+              .from('islem-photos')
+              .remove([editingNote.photo_path]);
+          }
         } catch { /* ignore */ }
       } else if (!data.photo_uri && editingNote.photo_path) {
+        await updateNot.mutateAsync({
+          id: editingNote.id,
+          photo_path: null,
+        });
         const { supabase } = await import('@/lib/supabase');
         await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNote.id);
-        invalidateNotlar();
       }
 
       if (data.reminder_date) {
@@ -301,11 +354,12 @@ export default function NotlarPage() {
     const entityLabel = t(ENTITY_TYPE_LABEL_KEYS[item.entity_type]);
     const entityName = item.entity_id ? entityNameMap[item.entity_id] : null;
     // RLS yalnızca kendi notuna düzenleme/silme izni verir (owner hepsine). UI'da da hizala.
-    const canModify = isOwner || item.created_by === user?.id;
+    const canEditNote = canUpdate('notlar', item.created_by);
+    const canDeleteNote = canDelete('notlar', item.created_by);
 
     return (
       <SwipeableRow
-        onDelete={canModify ? () => handleDelete(item) : undefined}
+        onDelete={canDeleteNote ? () => handleDelete(item) : undefined}
         deleteLabel={t('common:buttons.delete')}
       >
         <View style={styles.noteWrapper}>
@@ -323,9 +377,9 @@ export default function NotlarPage() {
           {/* Note card */}
           <NoteRow
             note={item}
-            onEdit={canModify ? () => setEditingNote(item) : undefined}
-            onToggleComplete={handleToggleComplete}
-            onMarkAsTask={handleMarkAsTask}
+            onEdit={canEditNote ? () => setEditingNote(item) : undefined}
+            onToggleComplete={canEditNote ? handleToggleComplete : undefined}
+            onMarkAsTask={canEditNote ? handleMarkAsTask : undefined}
             onPhotoPress={setViewPhotoPath}
             assignedUserName={item.assigned_to_user ? userNameMap[item.assigned_to_user] : null}
             assignedCariName={item.assigned_to_cari ? cariNameMap[item.assigned_to_cari] : null}
@@ -334,7 +388,19 @@ export default function NotlarPage() {
         </View>
       </SwipeableRow>
     );
-  }, [formatDateTime, handleDelete, handleToggleComplete, handleMarkAsTask, t, entityNameMap, userNameMap, cariNameMap, personelNameMap, isOwner, user?.id]);
+  }, [
+    canDelete,
+    canUpdate,
+    formatDateTime,
+    handleDelete,
+    handleToggleComplete,
+    handleMarkAsTask,
+    t,
+    entityNameMap,
+    userNameMap,
+    cariNameMap,
+    personelNameMap,
+  ]);
 
   return (
     <Screen>
@@ -345,7 +411,7 @@ export default function NotlarPage() {
               içerik yüksekliğini büyütür, chip'lerin altına hayalet şerit koyar */}
           <FlatList
             horizontal
-            data={ENTITY_FILTERS}
+            data={visibleFilters}
             keyExtractor={(item) => item.key}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filtersList}
@@ -424,7 +490,7 @@ export default function NotlarPage() {
 
         {/* FAB — arama aktifken çekilir: pill tam genişliğe açılıp FAB'ın altına
             girer ve kapatma X'ini tamamen örterdi. Süre X'lerle aynı (150ms). */}
-        {!searchActive && (
+        {!searchActive && canCreateNote && (
           <ReAnimated.View
             style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
             entering={ZoomIn.duration(150)}

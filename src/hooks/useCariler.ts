@@ -7,14 +7,28 @@ import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { calculateBalanceSummary } from '@/lib/currency';
 import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
-export function useCariler(type?: CariType, includePassive: boolean = false, includeArchived: boolean = false) {
+export function useCariler(
+  type?: CariType,
+  includePassive: boolean = false,
+  includeArchived: boolean = false,
+  enabled: boolean = true,
+) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
+  const effectiveIncludePassive = includePassive && canSeePassiveRecords;
 
   const result = useQuery({
-    queryKey: queryKeys.cariler.list(isletme?.id ?? '', type, includePassive, includeArchived),
+    queryKey: queryKeys.cariler.list(
+      isletme?.id ?? '',
+      type,
+      effectiveIncludePassive,
+      includeArchived,
+    ),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeCariler || !isletme) return [];
 
       let query = supabase
         .from('cariler')
@@ -28,7 +42,7 @@ export function useCariler(type?: CariType, includePassive: boolean = false, inc
       }
 
       // Sadece aktif carileri getir (varsayılan davranış)
-      if (!includePassive) {
+      if (!effectiveIncludePassive) {
         query = query.eq('is_active', true);
       }
 
@@ -41,7 +55,7 @@ export function useCariler(type?: CariType, includePassive: boolean = false, inc
       if (error) throw error;
       return data as Cari[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeeCariler && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     meta: { query_purpose: 'cariler:list' },
@@ -50,28 +64,32 @@ export function useCariler(type?: CariType, includePassive: boolean = false, inc
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...result,
-    isLoading: result.isLoading || isletmeLoading,
+    isLoading: enabled && canSeeCariler && (result.isLoading || isletmeLoading),
   };
 }
 
 export function useCari(id: string | undefined) {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
     queryKey: queryKeys.cariler.detail(id ?? '', isletme?.id ?? ''),
     queryFn: async () => {
-      if (!id) return null;
+      if (!canSeeCariler || !id || !isletme) return null;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('cariler')
         .select('*')
         .eq('id', id)
-        .single();
+        .eq('isletme_id', isletme.id);
+      if (!canSeePassiveRecords) query = query.eq('is_active', true);
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data as Cari;
     },
-    enabled: !!id,
+    enabled: canSeeCariler && !!id,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     meta: { query_purpose: 'cariler:detail' },
@@ -229,12 +247,14 @@ export type CariOzet = Partial<Record<
  */
 export function useCariOzet(cariId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
     queryKey: queryKeys.cariler.ozet(cariId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!cariId && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!cariId && !!isletme?.id,
     queryFn: async (): Promise<CariOzet> => {
-      if (!cariId || !isletme?.id) return {};
+      if (!canSeeCariler || !cariId || !isletme?.id) return {};
       const { data, error } = await supabase.rpc('get_cari_ozet', {
         p_isletme_id: isletme.id,
         p_cari_id: cariId,

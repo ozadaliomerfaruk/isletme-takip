@@ -16,6 +16,7 @@ import { calculateIncomeSummary, isIncomeType, isIncomeReturnType, isExpenseType
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from './useSettings';
 import { useExchangeRates, createRpcTotalConverter, convertCurrency } from './useExchangeRates';
+import { usePermissions } from './usePermissions';
 import type {
   AnalyticsTrend,
   AnalyticsPeriod,
@@ -81,6 +82,13 @@ export function useAnalyticsTrend(
   dateRange?: DateRange,
 ): AnalyticsTrend {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled =
+    canAccessModule('raporlar')
+    && canAccessModule('hesaplar')
+    && canAccessModule('cariler')
+    && canAccessModule('urunler')
+    && canAccessModule('personel');
   const { t } = useTranslation('common');
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
@@ -105,7 +113,7 @@ export function useAnalyticsTrend(
       ratesVersion,
     ],
     queryFn: async () => {
-      if (!isletme) return null;
+      if (!reportsEnabled || !isletme) return null;
 
       // Calculate date ranges for 6 periods
       const periods: Array<{
@@ -296,7 +304,7 @@ export function useAnalyticsTrend(
         conversionIncomplete,
       };
     },
-    enabled: !!isletme,
+    enabled: reportsEnabled && !!isletme,
     staleTime: 5 * 60 * 1000, // 5 dk
   });
 

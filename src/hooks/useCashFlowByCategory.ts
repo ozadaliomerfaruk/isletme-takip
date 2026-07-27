@@ -8,6 +8,7 @@ import { queryKeys } from '@/lib/queryKeys';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { usePermissions } from './usePermissions';
 
 /**
  * Supabase query sonucu için tip tanımı
@@ -86,6 +87,7 @@ interface UseCashFlowByCategoryOptions {
   startDate: string;
   endDate: string;
   limit?: number;  // Varsayılan 10
+  enabled?: boolean;
 }
 
 /**
@@ -116,7 +118,10 @@ export function useCashFlowByCategory(
   options: UseCashFlowByCategoryOptions
 ): CashFlowByCategoryResult {
   const { isletme } = useAuthContext();
-  const { startDate, endDate, limit = 10 } = options;
+  const { canAccessModule } = usePermissions();
+  const canSeeCashFlow =
+    canAccessModule('raporlar') && canAccessModule('hesaplar');
+  const { startDate, endDate, limit = 10, enabled = true } = options;
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const rates = exchangeRatesData?.rates;
@@ -134,7 +139,7 @@ export function useCashFlowByCategory(
   } = useQuery({
     queryKey: queryKeys.reports.cashFlowByCategory(isletme?.id || '', startDate, endDate),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeCashFlow || !isletme) return [];
 
       // Transfer işlemlerini de dahil et (kredi kartına ödeme için)
       const allTypes = [...CASH_INFLOW_TYPES, ...CASH_OUTFLOW_TYPES, 'transfer'];
@@ -182,7 +187,7 @@ export function useCashFlowByCategory(
           return true;
         });
     },
-    enabled: !!isletme && !!startDate && !!endDate,
+    enabled: enabled && canSeeCashFlow && !!isletme && !!startDate && !!endDate,
     meta: { query_purpose: 'islemler:cashflow' },
   });
 

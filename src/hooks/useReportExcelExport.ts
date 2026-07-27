@@ -17,6 +17,7 @@ import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES } from '@/constants/islemTypes';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface UseReportExcelExportReturn {
   isExporting: boolean;
@@ -25,6 +26,7 @@ interface UseReportExcelExportReturn {
 
 export function useReportExcelExport(reportType: ReportType): UseReportExcelExportReturn {
   const { isletme } = useAuthContext();
+  const { canExportModule } = usePermissions();
   const { currency: baseCurrency } = useSettings();
   // Karışık para birimli dönemde Excel toplamlarını ana para birimine çevirmek için.
   const { data: exchangeRatesData } = useExchangeRates();
@@ -34,6 +36,10 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
 
   const exportReport = useCallback(
     async (startDate: string, endDate: string, periodLabel: string) => {
+      if (!canExportModule('raporlar')) {
+        Alert.alert(t('common:status.error'), t('common:errors.permissionDenied'));
+        return;
+      }
       if (!isletme) {
         Alert.alert(t('common:status.error'), t('common:empty.noData'));
         return;
@@ -141,7 +147,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
         setIsExporting(false);
       }
     },
-    [reportType, isletme, baseCurrency, exchangeRates, t]
+    [reportType, isletme, baseCurrency, exchangeRates, t, canExportModule]
   );
 
   return {

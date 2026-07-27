@@ -34,11 +34,14 @@ import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateMedium } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, formatConvertedHint } from '@/hooks/useExchangeRates';
+import {
+  useExchangeRates,
+  formatConvertedHint,
+  createConversionSum,
+} from '@/hooks/useExchangeRates';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
 import { useCariVadeRozet } from '@/hooks/useIslemTahsis';
 import { useArchiveCari } from '@/hooks/useArchive';
-import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { Cari, CariType } from '@/types/database';
 import { AcceptCodeSheet } from '@/components/cariSharing/AcceptCodeSheet';
 import { ShareCodeModal } from '@/components/cariSharing/ShareCodeModal';
@@ -153,7 +156,17 @@ export default function CarilerPage() {
   const { isletme } = useAuthContext();
 
   // Permissions
-  const { canUpdate, canDelete } = usePermissions();
+  const {
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    isOwner,
+  } = usePermissions();
+  const canSeeReports = canAccessModule('raporlar');
+  // Cari ödeme/tahsilatta hesap bakiyesini döndürmeyen minimal hesap
+  // projeksiyonu henüz server tarafında devrede değil. O kapı gelene kadar
+  // shared kullanıcıda mevcut geniş QTB'yi açmak fail-open olur.
+  const canUseUnprojectedTransactions = isOwner;
 
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
@@ -167,7 +180,28 @@ export default function CarilerPage() {
     filter === 'all' ? undefined : (filter as CariType),
     true // includePassive
   );
-  const { payables, receivables } = useFinancialSummary();
+  // Mini-dashboard Cariler modülünün kendi bağlamsal özetidir. Genel finans
+  // özetini çağırmak hesap ve personel sorgularını da başlatıyordu; burada
+  // yalnız aktif/arşivlenmemiş carilerden aynı iki toplamı üretiyoruz.
+  const { data: summaryCariler } = useCariler();
+  const cariSummary = useMemo(() => {
+    const payableSum = createConversionSum(baseCurrency, exchangeRates);
+    const receivableSum = createConversionSum(baseCurrency, exchangeRates);
+
+    for (const cari of summaryCariler ?? []) {
+      const balance = toNumber(cari.balance);
+      if (balance > 0) {
+        receivableSum.add(balance, cari.currency || baseCurrency);
+      } else if (balance < 0) {
+        payableSum.add(Math.abs(balance), cari.currency || baseCurrency);
+      }
+    }
+
+    return {
+      payables: payableSum.total,
+      receivables: receivableSum.total,
+    };
+  }, [summaryCariler, baseCurrency, exchangeRates]);
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -841,7 +875,8 @@ export default function CarilerPage() {
           >
             <View style={styles.actionButtons}>
               {/* BUG 7: View-only linkli carilerde İşlem Yap butonu gizle */}
-              {!(cari.isLinked && cari.linkPermission === 'view') && (
+              {canUseUnprojectedTransactions
+                && !(cari.isLinked && cari.linkPermission === 'view') && (
                 <Button
                   variant="primary"
                   size="sm"
@@ -870,7 +905,7 @@ export default function CarilerPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap]);
+  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap, canUseUnprojectedTransactions]);
 
   // FlatList ListHeaderComponent - header, mini-dashboard, filtre
   const ListHeader = useMemo(() => (
@@ -879,10 +914,12 @@ export default function CarilerPage() {
       {/* Mini-dashboard (kullanıcı isteği): eski iki özet kutusu + vade şeridinin
           yerine kaydırmalı kompakt kartlar — Genel Durum / Vade Takibi / Bu Ay Taksit */}
       <CariMiniDashboard
-        borcumuz={payables.cari}
-        alacagimiz={receivables.cari}
+        borcumuz={cariSummary.payables}
+        alacagimiz={cariSummary.receivables}
         baseCurrency={baseCurrency}
-        onGenelPress={() => router.push('/raporlar/cari')}
+        // K3: cari özeti Cariler'e aittir; rapor giriş noktası ise Raporlar
+        // kapalıyken hiç çizilmemelidir. onPress verilmezse kart yalnız özettir.
+        onGenelPress={canSeeReports ? () => router.push('/raporlar/cari') : undefined}
         // Vade kartı artık listeye chip filtresi değil, Vade Takibi SAYFASINA gider
         onVadePress={() => router.push('/vade' as Href)}
         onTaksitPress={() => router.push('/taksit')}
@@ -896,7 +933,7 @@ export default function CarilerPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, payables.cari, receivables.cari, filterOptions, filter, isLoading, baseCurrency]);
+  ), [t, router, cariSummary.payables, cariSummary.receivables, canSeeReports, filterOptions, filter, isLoading, baseCurrency]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
@@ -1009,7 +1046,9 @@ export default function CarilerPage() {
         })()}
         gecikmisCurrency={previewCari ? vadeRozetMap?.[previewCari.id]?.currency : undefined}
         onIslemYap={
-          previewCari && !(previewCari.isLinked && previewCari.linkPermission === 'view')
+          canUseUnprojectedTransactions
+            && previewCari
+            && !(previewCari.isLinked && previewCari.linkPermission === 'view')
             ? (c) => {
                 setSelectedCari(c);
                 setQuickBarVisible(true);
@@ -1025,6 +1064,7 @@ export default function CarilerPage() {
       />
 
       {/* Quick Transaction Bar */}
+      {canUseUnprojectedTransactions && (
       <QuickTransactionBar
         visible={quickBarVisible}
         onDismiss={() => {
@@ -1038,6 +1078,7 @@ export default function CarilerPage() {
           setSelectedCari(null);
         }}
       />
+      )}
 
       {/* Liste dışa aktar: PDF (önizleme) / Excel */}
       <ShareOptionsSheet

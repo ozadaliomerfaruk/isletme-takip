@@ -29,6 +29,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="cariler"
+        redirect={!canAccessModule('cariler')}
         options={{
           href: canAccessModule('cariler') ? undefined : null,
           title: t('tabs.clients'),
@@ -36,6 +37,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="personel"
+        redirect={!canAccessModule('personel')}
         options={{
           href: canAccessModule('personel') ? undefined : null,
           title: t('tabs.personnel'),
@@ -43,6 +45,7 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="urunler"
+        redirect={!canAccessModule('urunler')}
         options={{
           href: canAccessModule('urunler') ? undefined : null,
           title: t('tabs.stock'),

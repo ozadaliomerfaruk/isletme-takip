@@ -43,9 +43,11 @@ export interface SetupProgress {
 
 export function useSetupProgress(): SetupProgress {
   const { isletme, isletmeLoading, isOwner } = useAuthContext();
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true);
-  const { data: musteri, isLoading: musteriLoading } = useCariler('musteri');
-  const { data: tedarikci, isLoading: tedarikciLoading } = useCariler('tedarikci');
+  // Kurulum kartı owner-only olduğu için shared kullanıcıda bu yardımcı sorguların
+  // hiçbiri başlamamalı. Kartı yalnız UI'da gizlemek veri sorgusunu durdurmaz.
+  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(true, false, isOwner);
+  const { data: musteri, isLoading: musteriLoading } = useCariler('musteri', false, false, isOwner);
+  const { data: tedarikci, isLoading: tedarikciLoading } = useCariler('tedarikci', false, false, isOwner);
 
   // İlk işlem var mı? (en fazla 1 satır — sayım maliyeti yok)
   const { data: hasIslem, isLoading: islemLoading } = useQuery({
@@ -60,7 +62,7 @@ export function useSetupProgress(): SetupProgress {
       if (error) throw error;
       return (data?.length ?? 0) > 0;
     },
-    enabled: !!isletme,
+    enabled: isOwner && !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     meta: { query_purpose: 'setup:hasIslem' },

@@ -14,6 +14,7 @@ import { LEAVE_TYPES, CARI_ISLEM_TYPES, PERSONEL_ISLEM_TYPES } from '@/constants
 import { toErrorMessage } from '@/lib/errors';
 import { EntityType } from '@/lib/excelExport';
 import { generatePdfHtml, prepareStatementData, PdfExportOptions, PdfStatementData } from '@/lib/pdfExport';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface UsePdfExportOptions {
   entityType: EntityType;
@@ -38,6 +39,7 @@ interface UsePdfExportReturn {
 export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
   const { entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch, phone } = options;
   const { isletme } = useAuthContext();
+  const { canExportModule } = usePermissions();
   const { t } = useTranslation(['common', 'transactions']);
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -91,6 +93,14 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
 
   const fetchData = useCallback(async (startDate: string, endDate: string) => {
     if (!isletme) throw new Error('No business');
+    const requiredModule = entityType === 'hesap'
+      ? 'hesaplar'
+      : entityType === 'cari'
+        ? 'cariler'
+        : 'personel';
+    if (!canExportModule(requiredModule)) {
+      throw new Error('Permission denied');
+    }
 
     const endDateTime = new Date(endDate + 'T00:00:00');
     endDateTime.setDate(endDateTime.getDate() + 1);
@@ -154,7 +164,7 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
       transactions: rawTransactions.filter(keepInStatement),
       allTransactions: rawAllTransactions.filter(keepInStatement),
     };
-  }, [entityType, entityId, isletme]);
+  }, [entityType, entityId, isletme, canExportModule]);
 
   const buildOptions = useCallback((startDate: string, endDate: string, transactions: IslemWithRelations[], allTransactions: IslemWithRelations[]): PdfExportOptions => ({
     entityType,
