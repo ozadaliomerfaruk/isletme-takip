@@ -9,6 +9,10 @@ import { toNumber, roundCurrency, formatQuantity } from '@/lib/currency';
 import { urunHareketYon, aileNetIsaret, isAlisAilesi, isSatisAilesi } from '@/lib/urunHareket';
 import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
 import {
+  normalizeProductMutationItem,
+  normalizeProductMutationItems,
+} from '@/lib/productMutation';
+import {
   ProductMovementPermissionError,
   getProductCreateDenialReason,
   getProductMovementDenialReason,
@@ -1306,7 +1310,7 @@ export function useReapplyUrunHareketlerForIslem() {
       const { error } = await supabase.rpc('reapply_urun_hareketler_for_islem', {
         p_isletme_id: isletme.id,
         p_islem_id: input.islemId,
-        p_items: input.items,
+        p_items: normalizeProductMutationItems(input.items),
       });
 
       if (error) throw error;
@@ -1400,9 +1404,13 @@ export function useCreateUrunHareketWithCari() {
       const islemType: IslemType = input.hareket_tipi === 'giris' ? 'cari_alis' : 'cari_satis';
 
       // KDV dahil toplam tutarı hesapla
-      const subtotal = input.miktar * input.birim_fiyat;
+      const normalizedItem = normalizeProductMutationItem({
+        miktar: input.miktar,
+        birim_fiyat: input.birim_fiyat,
+      });
+      const subtotal = normalizedItem.miktar * normalizedItem.birim_fiyat;
       const kdvAmount = subtotal * (input.kdv_orani / 100);
-      const totalAmount = subtotal + kdvAmount;
+      const totalAmount = roundCurrency(subtotal + kdvAmount);
 
       // ATOMİK: islem + cari bakiye + ürün hareketi TEK transaction (create_islem_with_urun_atomik).
       // Önceden 4 ayrı adım + yutulan best-effort rollback vardı → ortada patlarsa kısmi stok/bakiye.
@@ -1423,7 +1431,7 @@ export function useCreateUrunHareketWithCari() {
             input.aciklama ||
             i18n.t('products:stock.autoDescription', {
               name: input.urun_ad,
-              qty: formatQuantity(input.miktar),
+              qty: formatQuantity(normalizedItem.miktar),
               unit: i18n.t(`products:units.${input.birim || 'adet'}`),
             }),
           date: input.date || new Date().toISOString(),
@@ -1436,11 +1444,10 @@ export function useCreateUrunHareketWithCari() {
         p_items: [{
           urun_id: input.urun_id,
           hareket_tipi: input.hareket_tipi,
-          miktar: input.miktar,
-          birim_fiyat: input.birim_fiyat,
+          miktar: normalizedItem.miktar,
+          birim_fiyat: normalizedItem.birim_fiyat,
           kdv_orani: input.kdv_orani,
           aciklama: input.aciklama ?? null,
-          created_at: input.date ?? null,
         }],
       });
 
@@ -1494,11 +1501,12 @@ export function useCreateBulkUrunHareketWithCari() {
       const islemType: IslemType = input.hareket_tipi === 'giris' ? 'cari_alis' : 'cari_satis';
 
       // Toplam tutarı hesapla (tüm ürünlerin KDV dahil toplamı)
-      const grandTotal = input.items.reduce((acc, item) => {
+      const normalizedItems = normalizeProductMutationItems(input.items);
+      const grandTotal = roundCurrency(normalizedItems.reduce((acc, item) => {
         const subtotal = item.miktar * item.birim_fiyat;
         const kdv = subtotal * (item.kdv_orani / 100);
         return acc + subtotal + kdv;
-      }, 0);
+      }, 0));
 
       // Ürün adları listesi (açıklama için). Miktar formatQuantity'den geçer: ham
       // interpolasyon her zaman NOKTA basıyordu (TR'de 5.977 kg → "5977" okunabiliyor).
@@ -1522,14 +1530,13 @@ export function useCreateBulkUrunHareketWithCari() {
           id: input.cari_id,
           d: islemType === 'cari_alis' ? -grandTotal : grandTotal,
         }],
-        p_items: input.items.map((item) => ({
+        p_items: normalizedItems.map((item) => ({
           urun_id: item.urun_id,
           hareket_tipi: input.hareket_tipi,
           miktar: item.miktar,
           birim_fiyat: item.birim_fiyat,
           kdv_orani: item.kdv_orani,
           aciklama: input.aciklama ?? null,
-          created_at: input.date ?? null,
         })),
       });
 

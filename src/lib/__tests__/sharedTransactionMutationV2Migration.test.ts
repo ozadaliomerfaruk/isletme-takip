@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '../../..');
-const MIGRATION = '20260729212713_shared_transaction_mutation_v2.sql';
+const MIGRATION = '20260729220314_shared_transaction_mutation_v2.sql';
 const migrationPath = path.join(ROOT, 'supabase/migrations', MIGRATION);
 const sql = fs.readFileSync(migrationPath, 'utf8');
 const executableSql = sql

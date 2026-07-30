@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const ROOT = path.resolve(__dirname, '../../..');
-const MIGRATION = '20260730030523_add_atomic_product_movement_v2.sql';
+const MIGRATION = '20260730001201_add_atomic_product_movement_v2.sql';
 const migrationPath = path.join(ROOT, 'supabase/migrations', MIGRATION);
 const sql = fs.readFileSync(migrationPath, 'utf8');
 const hookSource = fs.readFileSync(

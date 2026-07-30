@@ -85,6 +85,72 @@ describe('mutation identity guards', () => {
     ).toBe(false);
   });
 
+  it('accepts server-derived currencies only when the client omitted assertions', () => {
+    const derivedCurrencyRow = {
+      ...regular,
+      source_currency: 'TRY',
+      target_currency: 'TRY',
+    } as Islem;
+    const inputWithoutCurrencyAssertions = {
+      id: regularId,
+      type: regular.type,
+      amount: regular.amount,
+      description: regular.description,
+      date: regular.date,
+      hesap_id: regular.hesap_id,
+      hedef_hesap_id: null,
+      kategori_id: null,
+      cari_id: null,
+      personel_id: null,
+      exchange_rate: null,
+      photo_path: null,
+      date_end: null,
+      source_ileri_id: null,
+      vade_tarihi: null,
+    };
+
+    expect(
+      isSameRegularCreate(
+        derivedCurrencyRow,
+        inputWithoutCurrencyAssertions,
+        isletmeId,
+      ),
+    ).toBe(true);
+    expect(
+      isSameRegularCreate(
+        derivedCurrencyRow,
+        {
+          ...inputWithoutCurrencyAssertions,
+          source_currency: null,
+          target_currency: null,
+        },
+        isletmeId,
+      ),
+    ).toBe(false);
+    expect(
+      isSameRegularCreate(
+        derivedCurrencyRow,
+        {
+          ...inputWithoutCurrencyAssertions,
+          source_currency: 'TRY',
+          target_currency: 'TRY',
+        },
+        isletmeId,
+      ),
+    ).toBe(true);
+    expect(
+      isSameRegularCreate(
+        derivedCurrencyRow,
+        {
+          ...inputWithoutCurrencyAssertions,
+          source_currency: 'USD',
+          target_currency: 'USD',
+        },
+        isletmeId,
+      ),
+    ).toBe(false);
+  });
+
   it('recovers a scheduled 23505 only for the exact pending/notified row', () => {
     const input = {
       id: scheduledId,

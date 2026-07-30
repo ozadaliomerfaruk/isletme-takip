@@ -62,6 +62,7 @@ import {
   type CreateIslemV2Input,
 } from '@/lib/createIslemV2Client';
 import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
+import { normalizeProductMutationItems } from '@/lib/productMutation';
 import {
   buildSharedTransactionMutationPatch,
   parseTransactionMutationContext,
@@ -827,7 +828,7 @@ export function useCreateIslemWithUrun() {
         p_isletme_id: isletme.id,
         p_new_row: input,
         p_balance_ops: ops,
-        p_items: items,
+        p_items: normalizeProductMutationItems(items),
       });
 
       // 42883 (fonksiyon yok) dahil TÜM hatalar yükseltilir. Çağıran fail-closed davranır;
@@ -1658,8 +1659,10 @@ export function useUpdateIslem() {
     }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      const useSharedMutation = !latestUpdatePermissionRef.current.isOwner;
-      if (useSharedMutation) {
+      const useServerDerivedMutation =
+        !latestUpdatePermissionRef.current.isOwner
+        || productItems !== undefined;
+      if (useServerDerivedMutation) {
         const context = await fetchTransactionMutationContext(
           isletme.id,
           id,
@@ -1667,11 +1670,23 @@ export function useUpdateIslem() {
         );
         const permissionSnapshot = latestUpdatePermissionRef.current;
         const updatedType = updates.type ?? context.type;
+        const oldTypeSupportsProductV3 =
+          supportsSharedProductMutationV3(context.type);
+        const updatedTypeSupportsProductV3 =
+          supportsSharedProductMutationV3(updatedType);
+        const removesAllProductItems =
+          productItems !== undefined && productItems.length === 0;
         if (
           productItems !== undefined
           && (
-            !supportsSharedProductMutationV3(context.type)
-            || !supportsSharedProductMutationV3(updatedType)
+            (
+              !oldTypeSupportsProductV3
+              && !updatedTypeSupportsProductV3
+            )
+            || (
+              !updatedTypeSupportsProductV3
+              && !removesAllProductItems
+            )
           )
         ) {
           throw new SharedTransactionMutationUnsupportedError();
@@ -1694,7 +1709,7 @@ export function useUpdateIslem() {
                 p_isletme_id: isletme.id,
                 p_islem_id: id,
                 p_patch: patch,
-                p_items: productItems,
+                p_items: normalizeProductMutationItems(productItems),
               },
             )
           : await supabase.rpc(
@@ -1786,8 +1801,11 @@ export function useUpdateIslem() {
 
       return data as Islem;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       invalidateRelatedQueries(queryClient, 'islem');
+      if (variables.productItems !== undefined) {
+        invalidateRelatedQueries(queryClient, 'urunHareket');
+      }
     },
   });
 }

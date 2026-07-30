@@ -29,6 +29,24 @@ export function roundCurrency(value: number): number {
   return sign * Number(Math.round(parseFloat(Math.abs(value) + 'e2')) + 'e-2');
 }
 
+function roundToScale(value: number, scale: number): number {
+  if (isNaN(value) || !isFinite(value)) return 0;
+  const sign = value < 0 ? -1 : 1;
+  return sign * Number(
+    Math.round(parseFloat(`${Math.abs(value)}e${scale}`)) + `e-${scale}`,
+  );
+}
+
+/** Ürün miktarı DB sözleşmesi: numeric(..., 3). */
+export function roundQuantity(value: number): number {
+  return roundToScale(value, 3);
+}
+
+/** Ürün birim fiyatı DB sözleşmesi: numeric(15, 4). */
+export function roundUnitPrice(value: number): number {
+  return roundToScale(value, 4);
+}
+
 // ============================================================================
 // PARSE FONKSİYONLARI (String → Number)
 // ============================================================================

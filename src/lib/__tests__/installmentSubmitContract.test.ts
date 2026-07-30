@@ -32,9 +32,27 @@ describe('S-07 taksit önizleme → RPC sözleşmesi', () => {
     expect(source).toContain(
       'formatDateForDB(effectiveTaksitPreviewPlan.ilkVade)'
     );
+    expect(source).toContain('installmentEditWarningShownRef');
+    expect(source).toContain("t('transactions:taksit.editEngel')");
+    expect(source).toContain('installmentEditQuery.isFetching');
+    expect(source).toContain('handleInstallmentGuardedSave');
+    expect(source).toContain('await installmentEditQuery.refetch()');
+    expect(source).toContain('onSave={handleInstallmentGuardedSave}');
     expect(source).not.toContain('<Modal visible={showTaksitConfig');
     expect(header).toContain('taksitStale?: boolean;');
     expect(header).toContain("t('transactions:taksit.planGuncelle'");
+  });
+
+  it('standalone owner edit route uses the same fail-closed installment gate', () => {
+    const source = read('src/app/islemler/duzenle/[id].tsx');
+
+    expect(source).toContain('useIslemTaksitliMi(');
+    expect(source).toContain('getInstallmentEditGuardReason({');
+    expect(source).toContain('await installmentEditQuery.refetch()');
+    expect(source).toContain("t('transactions:taksit.editEngel')");
+    expect(source).toContain(
+      "installmentEditGuardReason !== 'allowed'",
+    );
   });
 
   it('submit güncel toplamı yazmadan önce doğrular ve önizleme satırlarını yeniden bölmez', () => {
@@ -77,6 +95,7 @@ describe('S-07 taksit önizleme → RPC sözleşmesi', () => {
       'taksitToplami',
       'islemToplami',
       'fark',
+      'editEngel',
     ];
 
     for (const key of keys) {

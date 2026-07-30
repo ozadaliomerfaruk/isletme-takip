@@ -241,6 +241,19 @@ describe('classifyMutationError', () => {
     ).toBe('transactions:permissions.sharedMutationUnsupported');
   });
 
+  it('taksitli işlem düzenleme korumasını açıklayıcı kullanıcı mesajına eşler', () => {
+    expect(
+      getTransactionMutationMessageKey(
+        {
+          code: 'P0001',
+          message:
+            'Taksitli islemin tutari/tipi/carisi degistirilemez; plani silip yeniden olusturun',
+        },
+        'update',
+      ),
+    ).toBe('transactions:taksit.editEngel');
+  });
+
   it('yerel preflight yalnız kesin edit_own/başka creator durumunda sahiplik der', () => {
     expect(
       getTransactionActionDeniedMessageKey('update', {

@@ -197,7 +197,7 @@
     "gecikenPlanNot": "Overdue in installment plans · view in Installment Tracking",
     "bos": "No installment plans yet",
     "bosAciklama": "When entering a sale or purchase, choose \"Installments\" from the due-date menu to create a plan.",
-    "editEngel": "Amount/type/contact of an installment transaction cannot be changed. Delete the plan and recreate it.",
+    "editEngel": "Installment transactions cannot be edited. To make changes, delete this transaction and create it again.",
     "vadeEditEngel": "This transaction has an installment plan — due dates come from the plan and cannot be changed here. View installments in Installment Tracking, or delete and recreate the transaction to change them.",
     "satis": "Sales",
     "alis": "Purchases",

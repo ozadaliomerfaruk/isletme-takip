@@ -80,6 +80,10 @@ import {
   getTransactionMutationMessageKey,
   toErrorMessage,
 } from '@/lib/errors';
+import {
+  canSubmitThroughInstallmentEditGuard,
+  getInstallmentEditGuardReason,
+} from '@/lib/installmentEditGuard';
 import type { Currency, Urun } from '@/types/database';
 
 export function QuickTransactionBar({
@@ -185,6 +189,7 @@ export function QuickTransactionBar({
   // Refs
   const amountInputRef = useRef<TextInput>(null);
   const transactionLoadErrorShownRef = useRef<string | null>(null);
+  const installmentEditWarningShownRef = useRef<string | null>(null);
 
   // Modals hook
   const modals = useQuickTransactionModals();
@@ -474,10 +479,23 @@ export function QuickTransactionBar({
   // "Nereye sayılsın?" hedeflemesi kaldırıldı (kullanıcı kararı): date-FIFO görünümüyle
   // çelişiyordu (hedef seçimi ekrana yansımıyordu) + esnaf normu zaten en-eski-önce.
 
-  // Edit'te işlem taksitliyse vade segmenti kilitlenir: update_islem_atomik
-  // taksitli işlemde vade'yi SESSİZCE korur (taksit satırlarıyla senkron kalmalı);
-  // kullanıcı vade değiştirip "güncellenmedi" yaşamasın diye girişte engelle + açıkla.
-  const { data: isTaksitliIslem } = useIslemTaksitliMi(mode === 'edit' ? transactionId : undefined);
+  const installmentEditQuery = useIslemTaksitliMi(
+    mode === 'edit' ? transactionId : undefined,
+  );
+  const installmentEditRequired =
+    visible
+    && form.isEditMode
+    && !isScheduledTransaction
+    && !!transactionId;
+  const installmentEditGuardReason = getInstallmentEditGuardReason({
+    required: installmentEditRequired,
+    data: installmentEditQuery.data,
+    isSuccess: installmentEditQuery.isSuccess,
+    isFetching: installmentEditQuery.isFetching,
+    isError:
+      installmentEditQuery.isError
+      || installmentEditQuery.isRefetchError,
+  });
 
   // Bar kapanınca / tip taksit-dışına dönünce / scheduled açılınca / ürün eklenince
   // / edit moduna girince taksit sıfırlanır (yalnız yeni-kayıt yolu destekli).
@@ -516,6 +534,52 @@ export function QuickTransactionBar({
       onDismiss();
     });
   }, [animation, onDismiss]);
+
+  const dismissForInstallmentEditGuard = useCallback((
+    reason: 'installment' | 'query_error',
+    error?: unknown,
+  ) => {
+    if (!transactionId) return;
+    const messageKey = `${transactionId}:${reason}`;
+    if (installmentEditWarningShownRef.current === messageKey) return;
+    installmentEditWarningShownRef.current = messageKey;
+
+    if (reason === 'installment') {
+      Alert.alert(
+        t('transactions:taksit.configTitle'),
+        t('transactions:taksit.editEngel'),
+      );
+    } else {
+      Alert.alert(
+        t('common:status.error'),
+        toErrorMessage(error, t('errors:general.tryAgain')),
+      );
+    }
+    handleDismiss();
+  }, [handleDismiss, t, transactionId]);
+
+  useEffect(() => {
+    if (!visible) {
+      installmentEditWarningShownRef.current = null;
+      return;
+    }
+    if (form.transactionLoadError || productPresenceError) return;
+    if (installmentEditGuardReason === 'installment') {
+      dismissForInstallmentEditGuard('installment');
+    } else if (installmentEditGuardReason === 'query_error') {
+      dismissForInstallmentEditGuard(
+        'query_error',
+        installmentEditQuery.error,
+      );
+    }
+  }, [
+    dismissForInstallmentEditGuard,
+    form.transactionLoadError,
+    installmentEditGuardReason,
+    installmentEditQuery.error,
+    productPresenceError,
+    visible,
+  ]);
 
   useEffect(() => {
     if (!visible) {
@@ -679,6 +743,52 @@ export function QuickTransactionBar({
     onSuccess,
     handleDismiss,
   });
+
+  const handleInstallmentGuardedSave = useCallback(async () => {
+    if (!installmentEditRequired) {
+      submit.handleSave();
+      return;
+    }
+    if (!canSubmitThroughInstallmentEditGuard(installmentEditGuardReason)) {
+      if (installmentEditGuardReason === 'installment') {
+        dismissForInstallmentEditGuard('installment');
+      } else if (installmentEditGuardReason === 'query_error') {
+        dismissForInstallmentEditGuard(
+          'query_error',
+          installmentEditQuery.error,
+        );
+      }
+      return;
+    }
+
+    // Mount kontrolünden sonra başka cihazda plan oluşturulmuş olabilir. Edit
+    // yazısından hemen önce bir kez daha sunucuyu doğrula; hata/plan sonucu
+    // fail-closed kalır ve finansal mutation hiç başlamaz.
+    const refreshed = await installmentEditQuery.refetch();
+    const refreshedReason = getInstallmentEditGuardReason({
+      required: true,
+      data: refreshed.data,
+      isSuccess: refreshed.isSuccess,
+      isFetching: false,
+      isError: refreshed.isError || refreshed.isRefetchError,
+    });
+    if (refreshedReason === 'installment') {
+      dismissForInstallmentEditGuard('installment');
+      return;
+    }
+    if (refreshedReason === 'query_error') {
+      dismissForInstallmentEditGuard('query_error', refreshed.error);
+      return;
+    }
+    if (refreshedReason !== 'allowed') return;
+    submit.handleSave();
+  }, [
+    dismissForInstallmentEditGuard,
+    installmentEditGuardReason,
+    installmentEditQuery,
+    installmentEditRequired,
+    submit,
+  ]);
 
   // ── A1: son-kullanılan hesap/kategori ön-doldurma ──────────────────────────
   // Bar her açılışında belleği diskten tazele (aynı oturumda yapılan kayıtlar yansısın;
@@ -1443,7 +1553,7 @@ export function QuickTransactionBar({
               setTaksitPlan(null);
               form.setVadeTarihi(addDays(form.safeDate, days));
             }}
-            vadeLocked={!!isTaksitliIslem}
+            vadeLocked={installmentEditQuery.data === true}
             onVadeLockedPress={() => {
               Alert.alert(
                 t('transactions:taksit.label'),
@@ -1578,6 +1688,10 @@ export function QuickTransactionBar({
               form.isSaving
               || form.isLoadingTransaction
               || (
+                installmentEditRequired
+                && installmentEditGuardReason !== 'allowed'
+              )
+              || (
                 form.isEditMode
                 && !isScheduledTransaction
                 && !isProductItemsResolved
@@ -1585,7 +1699,7 @@ export function QuickTransactionBar({
             }
             buttonColor={buttonColor}
             buttonLabel={buttonLabel}
-            onSave={submit.handleSave}
+            onSave={handleInstallmentGuardedSave}
             type={form.type}
             onTypeChange={form.setType}
             tabMode={tabMode}
@@ -2065,6 +2179,7 @@ export function QuickTransactionBar({
       {form.pendingExchangeData && (
         <ExchangeRateBar
           visible={modals.showExchangeRateBar}
+          presentation="inline"
           onDismiss={() => {
             modals.setShowExchangeRateBar(false);
             form.setPendingExchangeData(null);

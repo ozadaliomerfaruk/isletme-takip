@@ -10,6 +10,8 @@ type RegularCreateInput = Omit<IslemInsert, 'isletme_id'>;
 type ScheduledCreateInput = Omit<IleriTarihliIslemInsert, 'isletme_id'>;
 
 const nullable = (value: unknown) => value ?? null;
+const hasOwn = (value: object, key: PropertyKey): boolean =>
+  Object.prototype.hasOwnProperty.call(value, key);
 
 function sameDateTime(actual: unknown, expected: unknown): boolean {
   const actualMs = new Date(String(actual)).getTime();
@@ -45,8 +47,17 @@ export function isSameRegularCreate(
   if (nullable(existing.kategori_id) !== nullable(input.kategori_id)) return false;
   if (nullable(existing.cari_id) !== nullable(input.cari_id)) return false;
   if (nullable(existing.personel_id) !== nullable(input.personel_id)) return false;
-  if (nullable(existing.source_currency) !== nullable(input.source_currency)) return false;
-  if (nullable(existing.target_currency) !== nullable(input.target_currency)) return false;
+  // V2 create motoru kurları kilitli entity satırlarından türetir. Legacy/client
+  // payload alanı hiç göndermediyse DB'nin canonical değerini assertion sayma;
+  // alan açıkça gönderildiyse null dahil birebir eşleşme zorunlu kalır.
+  if (
+    hasOwn(input, 'source_currency')
+    && nullable(existing.source_currency) !== nullable(input.source_currency)
+  ) return false;
+  if (
+    hasOwn(input, 'target_currency')
+    && nullable(existing.target_currency) !== nullable(input.target_currency)
+  ) return false;
   if (nullable(existing.photo_path) !== nullable(input.photo_path)) return false;
   if (nullable(existing.source_ileri_id) !== nullable(input.source_ileri_id)) return false;
 

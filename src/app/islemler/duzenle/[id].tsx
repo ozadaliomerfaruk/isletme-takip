@@ -27,6 +27,11 @@ import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { useRequireOwner } from '@/hooks/usePagePermission';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useIslemTaksitliMi } from '@/hooks/useTaksit';
+import {
+  canSubmitThroughInstallmentEditGuard,
+  getInstallmentEditGuardReason,
+} from '@/lib/installmentEditGuard';
 
 function PickerModalList({ children }: { children: ReactNode }) {
   // Bu hook Modal ağacının içinde çalışmalı. Sayfa seviyesinde hesaplanan değer
@@ -57,6 +62,19 @@ export default function IslemDuzenlePage() {
   const { data: islem, isLoading: islemLoading } = useIslem(
     ownerVerified ? id : undefined,
   );
+  const installmentEditQuery = useIslemTaksitliMi(
+    ownerVerified ? id : undefined,
+  );
+  const installmentEditGuardReason = getInstallmentEditGuardReason({
+    required: ownerVerified && !!id,
+    data: installmentEditQuery.data,
+    isSuccess: installmentEditQuery.isSuccess,
+    isFetching: installmentEditQuery.isFetching,
+    isError:
+      installmentEditQuery.isError
+      || installmentEditQuery.isRefetchError,
+  });
+  const installmentGuardMessageShownRef = useRef<string | null>(null);
   const { canDelete } = usePermissions();
   const updateIslem = useUpdateIslem();
   const deleteIslem = useDeleteIslem();
@@ -136,6 +154,43 @@ export default function IslemDuzenlePage() {
     }
   }, [islem]);
 
+  useEffect(() => {
+    if (!ownerVerified || !id) {
+      installmentGuardMessageShownRef.current = null;
+      return;
+    }
+    if (
+      installmentEditGuardReason !== 'installment'
+      && installmentEditGuardReason !== 'query_error'
+    ) return;
+
+    const messageKey = `${id}:${installmentEditGuardReason}`;
+    if (installmentGuardMessageShownRef.current === messageKey) return;
+    installmentGuardMessageShownRef.current = messageKey;
+    if (installmentEditGuardReason === 'installment') {
+      Alert.alert(
+        t('transactions:taksit.configTitle'),
+        t('transactions:taksit.editEngel'),
+      );
+    } else {
+      Alert.alert(
+        t('common:status.error'),
+        toErrorMessage(
+          installmentEditQuery.error,
+          t('errors:general.tryAgain'),
+        ),
+      );
+    }
+    router.back();
+  }, [
+    id,
+    installmentEditGuardReason,
+    installmentEditQuery.error,
+    ownerVerified,
+    router,
+    t,
+  ]);
+
   const islemType = islem?.type as IslemType | undefined;
 
   const selectedHesap = hesaplar?.find((h) => h.id === hesapId);
@@ -179,9 +234,25 @@ export default function IslemDuzenlePage() {
   };
 
   const handleSubmit = async () => {
-    if (!validate() || !id) return;
+    if (
+      !validate()
+      || !id
+      || !canSubmitThroughInstallmentEditGuard(
+        installmentEditGuardReason,
+      )
+    ) return;
 
     try {
+      const refreshed = await installmentEditQuery.refetch();
+      const refreshedReason = getInstallmentEditGuardReason({
+        required: true,
+        data: refreshed.data,
+        isSuccess: refreshed.isSuccess,
+        isFetching: false,
+        isError: refreshed.isError || refreshed.isRefetchError,
+      });
+      if (refreshedReason !== 'allowed') return;
+
       // İleri tarihli işleme dönüştürülecekse
       if (isIleriTarihli) {
         const selectedDate = date ? parseDateFromDB(date) : new Date();
@@ -270,7 +341,13 @@ export default function IslemDuzenlePage() {
     return null;
   }
 
-  if (islemLoading) {
+  if (
+    islemLoading
+    || (
+      ownerVerified
+      && installmentEditGuardReason !== 'allowed'
+    )
+  ) {
     return (
       <Screen>
         <View style={styles.loadingContainer}>

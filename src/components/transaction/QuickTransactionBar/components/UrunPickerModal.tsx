@@ -7,12 +7,20 @@ import { useTranslation } from 'react-i18next';
 import { Text, Button, UndoSnackbar, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, formatPercent } from '@/lib/currency';
+import {
+  formatCurrency,
+  parseCurrency,
+  formatQuantity,
+  formatAmountForInput,
+  formatPercent,
+  roundUnitPrice,
+} from '@/lib/currency';
 import { useKategoriSecimReferanslari } from '@/hooks/useKategoriSecimReferanslari';
 import { useSonUrunFiyati } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import { resolveProductQuantityInput } from '@/lib/productQuantityInput';
 import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
@@ -218,12 +226,12 @@ export function UrunPickerModal({
   const handleConfirmAdd = useCallback(() => {
     if (!addingProduct) return;
 
-    // Default to 1 if miktar is empty
-    const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseQuantity(miktarStr) || 1;
-    const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
+    const miktar = resolveProductQuantityInput(addingProduct.miktar);
+    const birimFiyat = roundUnitPrice(
+      parseCurrency(addingProduct.birimFiyat) || 0,
+    );
 
-    if (miktar <= 0) return;
+    if (miktar === null) return;
 
     const newItem: UrunItem = {
       urunId: addingProduct.urun.id,
@@ -297,10 +305,10 @@ export function UrunPickerModal({
   // Ekleme modundaki ürünün satır toplamı
   const addingLineTotal = useMemo(() => {
     if (!addingProduct) return { subtotal: 0, kdvAmount: 0, total: 0 };
-    // Default to 1 if miktar is empty
-    const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseQuantity(miktarStr) || 1;
-    const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
+    const miktar = resolveProductQuantityInput(addingProduct.miktar) ?? 0;
+    const birimFiyat = roundUnitPrice(
+      parseCurrency(addingProduct.birimFiyat) || 0,
+    );
     const subtotal = miktar * birimFiyat;
     const kdvAmount = subtotal * (addingProduct.kdvOrani / 100);
     return { subtotal, kdvAmount, total: subtotal + kdvAmount };

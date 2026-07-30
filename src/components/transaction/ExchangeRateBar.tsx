@@ -21,6 +21,12 @@ export interface ExchangeRateBarProps {
   targetCurrency: Currency;
   onConfirm: (exchangeRate: number, targetAmount: number) => void;
   /**
+   * `inline`, zaten açık bir RN Modal'ın içinde ikinci native pencere açmadan
+   * aynı tam-ekran overlay'i mevcut modal ağacında gösterir. Ekran üzerindeki
+   * bağımsız kullanımlar varsayılan `modal` davranışını korur.
+   */
+  presentation?: 'modal' | 'inline';
+  /**
    * İşlemin KAYITLI kuru (yalnız düzenleme). Verilirse alan bugünün kuru yerine bununla
    * ön-dolar ve bugünün kuru ayrı bir ipucu satırında gösterilir.
    *
@@ -38,6 +44,7 @@ export function ExchangeRateBar({
   sourceCurrency,
   targetCurrency,
   onConfirm,
+  presentation = 'modal',
   initialRate,
 }: ExchangeRateBarProps) {
   const { t } = useTranslation(['transactions', 'common']);
@@ -334,8 +341,14 @@ export function ExchangeRateBar({
   const quoteSymbol = getCurrencySymbol(quoteCurrency);
   const targetSymbol = getCurrencySymbol(targetCurrency);
 
-  return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+  const overlay = (
+    <View
+      style={styles.overlay}
+      accessibilityViewIsModal
+      importantForAccessibility="yes"
+      onAccessibilityEscape={handleDismiss}
+      testID="exchange-rate-overlay"
+    >
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <View style={styles.backdrop} />
@@ -444,11 +457,30 @@ export function ExchangeRateBar({
           </Text>
         </TouchableOpacity>
       </Animated.View>
+    </View>
+  );
+
+  if (presentation === 'inline') return overlay;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={handleDismiss}
+    >
+      {overlay}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',

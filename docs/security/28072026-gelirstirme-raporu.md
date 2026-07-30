@@ -3,6 +3,126 @@
 > Bu ek, aşağıdaki tarihsel yetki notlarıyla çeliştiğinde yetkilidir. Kesin ürün
 > sözleşmesi `docs/security/YETKI-SOZLESMESI.md` v4 bölümündedir.
 
+## 30.07.2026 eski istemci mutation uyumluluk kapanışı
+
+`permission_contract_v2_server` sonrasında üretimdeki 1.5.x istemcilerin tam satır
+payload'ı ile yeni sıkı V2/V3 doğrulayıcıları arasında sözleşme kırılması tespit
+edildi. Veri bozulmadı; atomik RPC'ler hata halinde tüm yazımı geri aldı. Ancak
+işlem düzenleme ve ürünlü alış/satış kaydı gereksiz biçimde reddediliyordu.
+
+`20260730121943_legacy_mutation_contract_compatibility` migration'ı üretime
+uygulandı. Migration kullanıcı satırlarına veya kolonlara dokunmadı; yalnız
+fonksiyon gövdelerini ve yeni bir private uyumluluk yardımcısını ekledi:
+
+- eski istemcinin `null` para birimi iddiaları yalnız legacy RPC sınırında
+  çıkarılır; açıkça gönderilen para birimi hâlâ sunucuda doğrulanır;
+- pasif/arşivli kaynağa zaten bağlı tarihsel işlem düzenlenebilir, fakat yeni
+  seçilen kaynak hâlâ aktif ve arşivsiz olmak zorundadır;
+- ürün miktarı 3, birim fiyatı 4 ondalık DB sözleşmesiyle doğrulanır; eski
+  `null` fiyat/KDV satırları korunur;
+- eski istemcinin ürün kalemine eklediği `created_at` yalnız legacy sınırda
+  ayıklanır; kanonik tarih `islemler.date` olarak kalır;
+- istemci RPC sınırında miktar/fiyat kayan nokta gürültüsünü normalize eder ve
+  işlem toplamını 2 ondalığa indirir;
+- üç eski migration dosyasının yerel zaman damgası canlı migration geçmişiyle
+  hizalandı; sonraki push sırasında aynı migration'ın yeniden uygulanması
+  engellendi.
+
+Canlı katalog doğrulamasında yedi ilgili fonksiyonun yeni sözleşmesi, volatility,
+`SECURITY DEFINER/INVOKER` durumu ve ACL'leri geçti. Internal uyumluluk
+yardımcısında `anon`, `authenticated` ve `service_role` doğrudan çalıştırma
+yetkisi yoktur. Güncel ana doğrulama: TypeScript geçti, ESLint `0 hata`,
+Jest `133 suite / 1.783 test` geçti, iOS Metro `4.104 modül` ile temiz bundle
+üretti.
+
+## 31.07.2026 ürünlü mutation V3 ve 1.5.x dayanıklılık kapanışı
+
+Ürünlü işlem oluşturma/düzenleme/silme akışları ve mağazadaki 1.5.x istemciler
+için iki veri-koruyucu migration üretime uygulandı:
+
+- `20260730233552_product_mutation_v3_contract_compatibility`
+  - SHA-256:
+    `49645FF257E2A25A0285C5EECC449338CB3D1B89F389708C1B675C594B634C76`
+  - aynı UUID ile gelen eşzamanlı veya cevabı kaybolmuş create retry'ını kanonik
+    işlem payload'ı + kanonik ürün seti üzerinden karşılaştırır;
+  - birebir retry tam no-op olur; işlem veya ürün payload'ı değişmiş retry
+    fail-closed reddedilir ve ikinci stok/bakiye etkisi üretmez;
+  - ürünlü işlemin ürünsüz tipe dönüşümünü, stok geri almayı ve bakiye
+    değişikliğini tek transaction içinde yapar;
+  - owner'ın mevcut işleme zaten bağlı pasif/arşivli tarihsel ürünü koruyarak
+    düzenlemesine izin verir; ortak kullanıcı ve yeni ürün seçimi için aktiflik
+    şartı değişmez;
+  - eski `null` fiyat/KDV ürün kalemlerini yalnız private V3 sınırında sıfıra
+    kanonikleştirir; doğrudan hareket yazma trigger'ı sıkı kalır.
+- `20260730234544_legacy_empty_product_reapply_noop`
+  - SHA-256:
+    `F9C85BFDC1CCB920B0F910B84541B72AC3E99C44D3DADB74CAB0E5490D7253F4`
+  - mağazadaki 1.5.x istemcinin işlem güncellemesinden sonra gereksiz yere
+    çağırdığı eski ürün-reapply RPC'sini yalnız şu dar durumda no-op yapar:
+    ürün kalemi yok, veritabanında bağlı hareket yok ve son işlem tipi ürün
+    taşıyamıyor;
+  - tenant/kayıt/ürün düzenleme izinleri no-op kontrolünden önce çalışır;
+  - istek doluysa veya bağlı hareket varsa sıkı V3 doğrulayıcı aynen devrededir.
+
+İki migration da public RPC imzalarını ve sonuç tiplerini korur. Kullanıcı
+işlemlerinde `UPDATE`, `DELETE`, `TRUNCATE`, backfill, kolon silme/yeniden
+adlandırma/tip değiştirme yoktur. İlk migration yalnız ACL'si tamamen kapalı bir
+`internal` transaction-context tablosu ekler; ikinci migration yalnız mevcut
+legacy wrapper gövdesini drift-guard ile daraltır.
+
+### PostgreSQL ve eşzamanlılık kanıtı
+
+Temiz yerel Supabase/PostgreSQL zincirinde migration'lar gerçek SQL olarak
+uygulandı. `supabase/tests/product_mutation_v3_contract.sql` bütün fixture'ları
+tek transaction içinde kurup sonunda geri aldı ve
+`PRODUCT_MUTATION_V3_POSTGRES_OK` sonucunu verdi. Matris şunları kapsar:
+
+- aynı UUID + aynı payload retry no-op; farklı ürün veya farklı işlem payload'ı
+  tam rollback;
+- itemless aynı UUID çakışması;
+- ortak kullanıcı create/retry, aktif üründe `edit_all` pozitif akışı,
+  salt-okur ve arşivli ürün negatif akışları;
+- ürünlüden ürünsüze ve ürünsüzden ürünlüye dönüşüm;
+- ürünlü V3 silmede stok ve bakiye ters çevirme;
+- aktif + pasif ürün karışımında orta-adım hata ve tam rollback;
+- 4 ondalıklı birim fiyat, 3 ondalıklı miktar ve `null` fiyat/KDV uyumluluğu;
+- eski 1.5.x boş reapply no-op'u ile dolu reapply fail-closed ayrımı.
+
+İki gerçek PostgreSQL oturumu aynı UUID'ye eşzamanlı gönderildi. İkinci oturum
+advisory lock üzerinde yaklaşık `3,6 sn` bekledi: birebir retry tek işlem/tek
+hareket/tek stok-bakiye etkisiyle tamamlandı; farklı payload retry aynı bekleme
+sonrasında `ISLEM_LEGACY_PRODUCT_IDEMPOTENCY_CONFLICT` ile reddedildi.
+
+### Canlı post-deploy doğrulaması
+
+- migration kayıtları canlı geçmişte sırasıyla `20260730233552` ve
+  `20260730234544` olarak yer alır; repo dosya adları bunlarla birebirdir;
+- dört korumalı V3 fonksiyonu `SECURITY DEFINER`, `VOLATILE`,
+  `search_path=""` sözleşmesini korur;
+- private context tablosunun sahibi `postgres`, satır sayısı `0`;
+  `PUBLIC/anon/authenticated/service_role` tablo erişimi yoktur;
+- public create/update uçlarında yalnız `authenticated` execute vardır;
+- legacy no-op wrapper'ında permission kontrolünün no-op'tan önce olduğu,
+  hareket-varsa koruması ve sıkı V3 fallback'i canlı tanımdan doğrulandı.
+
+Final ana oturum doğrulaması: TypeScript geçti; ESLint `0 hata / 102 uyarı`
+(mevcut teknik borç); Jest `141 suite / 1.828 test` geçti; iOS Metro
+`4.106 modül` ile temiz bundle üretti.
+
+Canlı log incelemesi ayrıca eski istemcinin bir personel ödemesini başarıyla
+güncelledikten sonra boş ürün-reapply çağrısı yapıp gereksiz uyarı ürettiğini
+gösterdi. Finansal yazım başarılıydı, ürün hareketi yoktu ve veri bozulmamıştı.
+İkinci migration tam bu boş/no-movement durumunu kapatır. Gerçekten dolu veya
+değişmiş bir ürün payload'ı ise eski istemcide hâlâ anlaşılır bir kayıt hatası
+üretebilir; bu kasıtlı fail-closed davranıştır ve veri/stok/bakiye değiştirmez.
+
+> Yerel `db lint`, bu paketten bağımsız tarihsel clean-replay/live drift
+> borçlarını raporlamaya devam eder: iki tahsis fonksiyonundaki transaction-local
+> `_tahsis_freed` ilişkisi ve eski migration zincirinde eksik kalan
+> `kategoriler.parent_id` / `cariler.color` kolon snapshot'ları. Hedef
+> migration'ların derlenmesini, PostgreSQL matrisini veya canlı postcondition'ı
+> bozmaz; destructive bir şema düzeltmesine dönüştürülmeden ayrı ele alınmalıdır.
+
 ## Hedeflenen sonuç
 
 Özel rolde açık modül artık “bu sayfayı ve içindeki bütün kayıtları okuyabilir”
@@ -21,7 +141,7 @@ verisi yerinde kalır.
 
 Yetkilendirme v4 sunucu kapanışı üretime
 `20260730080658_permission_contract_v2_server` adıyla uygulandı. Uygulanan yerel
-payload, [`20260730153000_permission_contract_v2_server.sql`](../../supabase/migrations/20260730153000_permission_contract_v2_server.sql)
+payload, [`20260730080658_permission_contract_v2_server.sql`](../../supabase/migrations/20260730080658_permission_contract_v2_server.sql)
 dosyasının aşağıdaki exact sürümüdür:
 
 - SHA-256: `bc151c9946f8f37375b01f25b25ac04728abff0e0bf5be2f3601fe8083f493ac`
@@ -263,7 +383,7 @@ edilerek uygulandı:
 best-effort geri alma deneniyordu; ağ kopması veya eşzamanlı işlemde bakiye ile hareket
 satırı ayrışabilirdi.
 
-**Şimdi:** `20260730030523_add_atomic_product_movement_v2` yalnız üç yeni
+**Şimdi:** `20260730001201_add_atomic_product_movement_v2` yalnız üç yeni
 `SECURITY DEFINER` RPC ekledi:
 
 - `create_urun_hareket_atomik_v2`
@@ -419,7 +539,7 @@ adını, türünü ve para birimini görür; bakiye hiçbir aşamada dönmez vey
 kullanıcının oluşturduğu desteklenen normal işlemi düzenleyip silebilir.
 `edit_own/delete_own` yalnız kendi satırında kalır. İstemci tenant, kayıt sahipliği ve
 işlem tipi→kaynak modül kesişimini açılışta ve kaydetme/silme anında tekrar doğrular.
-Sunucu tarafında `20260729212713_shared_transaction_mutation_v2` canlıdır: yalnız bir
+Sunucu tarafında `20260729220314_shared_transaction_mutation_v2` canlıdır: yalnız bir
 internal guard ve üç yeni authenticated RPC ekler; bakiye farkını istemciden kabul
 etmeyip eski/yeni kanonik satırdan sunucuda üretir. Migration tablo, kolon, policy,
 trigger veya mevcut RPC değiştirmez; DML, backfill, `UPDATE`, `DELETE`, `DROP` ve veri

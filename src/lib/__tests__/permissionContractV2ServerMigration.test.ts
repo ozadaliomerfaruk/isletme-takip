@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const migrationPath = path.resolve(
   process.cwd(),
-  'supabase/migrations/20260730153000_permission_contract_v2_server.sql'
+  'supabase/migrations/20260730080658_permission_contract_v2_server.sql'
 );
 const sql = fs.readFileSync(migrationPath, 'utf8');
 

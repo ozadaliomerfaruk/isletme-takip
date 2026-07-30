@@ -15,7 +15,6 @@ import {
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { useCreateIleriTarihliIslem, useUpdateIleriTarihliIslem, useDeleteIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useDeleteIslemPhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
-import { useReapplyUrunHareketlerForIslem } from '@/hooks/useUrunHareketler';
 import { parseCurrency, isValidAmount, roundCurrency, toNumber } from '@/lib/currency';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
@@ -51,7 +50,6 @@ import {
   removeIslemPhotoBestEffort,
   replaceIslemPhotoCopyOnWrite,
 } from '@/lib/islemPhotoLifecycle';
-import { supportsSharedProductMutationV3 } from '@/lib/sharedProductMutationTypes';
 import {
   getTransactionProductMutationDecision,
   isEditableProductPayloadComplete,
@@ -491,7 +489,6 @@ export function useTransactionSubmit({
   const deleteIleriTarihliIslem = useDeleteIleriTarihliIslem();
   const uploadPhoto = useUploadIslemPhoto();
   const deletePhoto = useDeleteIslemPhoto();
-  const reapplyUrunHareketler = useReapplyUrunHareketlerForIslem();
   const isSavingRef = useRef(false);
   // Çift/üç gönderim koruması: handleSave'deki ilk async işten ÖNCE
   // senkron olarak kurulur; yavaş ağda hızlı çift dokunuşun ikinci/üçüncüsü erkenden eler.
@@ -662,7 +659,7 @@ export function useTransactionSubmit({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamically built per transaction type, consumed by typed mutateAsync calls
       const data: any = {
         type: apiType,
-        amount: parsedAmount,
+        amount: roundCurrency(parsedAmount),
         description: description.trim() || null,
         hesap_id: needsHesap ? hesapId : null,
         // Ürün-taşıyan işlemlerde kategori ürünlerden türetilir ve UI'da devre dışıdır
@@ -1242,12 +1239,12 @@ export function useTransactionSubmit({
           };
           const hasAnyProductItems =
             persistedProductItemCount > 0 || urunItems.length > 0;
-          const shouldUseSharedProductV3 =
-            !isOwner
-            && supportsSharedProductMutationV3(transactionData.type)
-            && hasAnyProductItems;
+          // Ürün geçmişi olan her normal edit owner dahil V3'e gider. Yeni tip V3
+          // ailesinde değilse useUpdateIslem fail-closed reddeder; işlem ile stoğu
+          // iki ayrı RPC'ye bölerek kısmi başarı üretmeyiz.
+          const shouldUseAtomicProductV3 = hasAnyProductItems;
           const hareketTipi = getUrunHareketTipi(type);
-          const sharedProductItems = shouldUseSharedProductV3
+          const atomicProductItems = shouldUseAtomicProductV3
             ? hareketTipi
               ? urunItems.map((item) => ({
                   urun_id: item.urunId,
@@ -1263,46 +1260,12 @@ export function useTransactionSubmit({
           await updateIslem.mutateAsync({
             id: transactionId,
             updates: regularUpdates,
-            productItems: sharedProductItems,
+            productItems: atomicProductItems,
           });
 
           // Fotoğraf finansal kayıttan sonra copy-on-write güncellenir. Pointer sonucu
           // belirsizse yeni obje korunur; eski obje yalnız pointer kesin başarıdan sonra silinir.
           await syncTransactionPhotoBestEffort(transactionId);
-          // #6: Yalnız ürün-bağlı işlemde stoğu da yeniden uygula. updateIslem yalnızca
-          // bakiyeyi düzeltir; ürün hareketleri eski hâli geri alınıp güncel urunItems'tan
-          // yeniden oluşturulmalı, yoksa stok ve ürün raporu islem.amount ile tutarsız
-          // kalır. Aynı islem id korunur. ATOMİK: tek RPC içinde geri-al+sil+yeniden-oluştur;
-          // hata olursa tümü geri sarılır -> stok asla yarım kalmaz. items boşsa (ürünler
-          // kaldırılmışsa) yalnızca geri alma yapılır. Eski ve yeni ürün yoksa RPC'yi hiç
-          // çağırma: no-op olsa da mobil ağda ayrı 15 sn timeout turu yaratıyordu.
-          if (
-            !shouldUseSharedProductV3
-            && hasAnyProductItems
-          ) {
-            // Ürün geçmişi olan editlerde yeniden uygula. Yeni tip ürün üretmiyorsa
-            // (ör. tahsilat/transfer'e çevrildi) items BOŞ gider → reapply RPC eski
-            // hareketleri geri alıp siler; böylece orphan stok/hayalet hareket kalmaz.
-            // Ürünsüz işlemlerde (hiç hareketi yok) bu çağrı zararsız no-op'tur.
-            try {
-              await reapplyUrunHareketler.mutateAsync({
-                islemId: transactionId,
-                items: hareketTipi
-                  ? urunItems.map((item) => ({
-                      urun_id: item.urunId,
-                      hareket_tipi: hareketTipi,
-                      miktar: item.miktar,
-                      birim_fiyat: item.birimFiyat,
-                      kdv_orani: item.kdvOrani,
-                      aciklama: description.trim() || null,
-                    }))
-                  : [],
-              });
-            } catch (urunError) {
-              console.error('[UrunHareket] Edit reapply error:', urunError);
-              Alert.alert(t('common:status.warning'), t('transactions:messages.urunMovementFailed'));
-            }
-          }
         } else if (!isScheduledTransaction && isScheduled) {
           // Was regular, now scheduled → create scheduled first, then delete regular
           createdClientScheduledId =
@@ -1622,7 +1585,6 @@ export function useTransactionSubmit({
     mode,
     enableScopedV2Create,
     isViewer,
-    isOwner,
     isCariMode,
     isPersonelMode,
     isEditMode,
@@ -1676,7 +1638,6 @@ export function useTransactionSubmit({
     urunItems,
     persistedProductItemCount,
     guardRegularProductEdit,
-    reapplyUrunHareketler,
     getUrunHareketTipi,
     description,
     taksitPlan,
@@ -1773,12 +1734,9 @@ export function useTransactionSubmit({
             };
             const hasAnyProductItems =
               persistedProductItemCount > 0 || urunItems.length > 0;
-            const shouldUseSharedProductV3 =
-              !isOwner
-              && supportsSharedProductMutationV3(transactionData.type)
-              && hasAnyProductItems;
+            const shouldUseAtomicProductV3 = hasAnyProductItems;
             const hareketTipi = getUrunHareketTipi(type);
-            const sharedProductItems = shouldUseSharedProductV3
+            const atomicProductItems = shouldUseAtomicProductV3
               ? hareketTipi
                 ? urunItems.map((item) => ({
                     urun_id: item.urunId,
@@ -1794,27 +1752,9 @@ export function useTransactionSubmit({
             await updateIslem.mutateAsync({
               id: transactionId,
               updates: regularUpdates,
-              productItems: sharedProductItems,
+              productItems: atomicProductItems,
             });
             await syncTransactionPhotoBestEffort(transactionId);
-            if (
-              !shouldUseSharedProductV3
-              && hasAnyProductItems
-            ) {
-              await reapplyUrunHareketler.mutateAsync({
-                islemId: transactionId,
-                items: hareketTipi
-                  ? urunItems.map((item) => ({
-                      urun_id: item.urunId,
-                      hareket_tipi: hareketTipi,
-                      miktar: item.miktar,
-                      birim_fiyat: item.birimFiyat,
-                      kdv_orani: item.kdvOrani,
-                      aciklama: description.trim() || null,
-                    }))
-                  : [],
-              });
-            }
           } else if (!isScheduledTransaction && isScheduled) {
             // Was regular, now scheduled → create scheduled FIRST, then delete regular.
             // (handleSave yolu ile aynı sıra.) Create patlarsa eski kayıt DURUR; delete-first
@@ -2003,7 +1943,6 @@ export function useTransactionSubmit({
       pendingExchangeData,
       enableScopedV2Create,
       isViewer,
-      isOwner,
       isletme?.id,
       isScheduled,
       isEditMode,
@@ -2018,7 +1957,6 @@ export function useTransactionSubmit({
       createIslem,
       createIslemV2,
       updateIslem,
-      reapplyUrunHareketler,
       updateIleriTarihliIslem,
       deleteIslem,
       deleteIleriTarihliIslem,

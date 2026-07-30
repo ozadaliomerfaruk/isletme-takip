@@ -283,6 +283,16 @@ export function getTransactionMutationMessageKey(
 ): string | null {
   const code = stringField(error, 'code')?.toUpperCase() ?? '';
   const serverMessage = (rawErrorMessage(error) ?? '').toUpperCase();
+  // Mevcut taksit RPC'si henüz kararlı bir token yerine P0001 + bu legacy metni
+  // döndürüyor. QTB açılış kontrolü atlanırsa genel hata yerine aynı açıklamayı
+  // göster; eşleşmeyi mesajın taksit-planı sözleşmesine özgü tam bölümünde tut.
+  if (
+    serverMessage.includes(
+      'TAKSITLI ISLEMIN TUTARI/TIPI/CARISI DEGISTIRILEMEZ; PLANI SILIP YENIDEN OLUSTURUN',
+    )
+  ) {
+    return 'transactions:taksit.editEngel';
+  }
   if (code === PRODUCT_ATOMIC_WRITE_UNAVAILABLE) {
     return 'transactions:messages.productAtomicWriteUnavailable';
   }

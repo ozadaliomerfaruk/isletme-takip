@@ -68,7 +68,7 @@ describe('transaction mutation source-module gates', () => {
     expect(body).toContain("['urunler']");
   });
 
-  it('update checks shared V2 and owner V1 source modules before their RPCs', () => {
+  it('update checks shared/owner-product V2-V3 and owner V1 source modules before their RPCs', () => {
     const body = hookBody('useUpdateIslem', 'useDeleteIslem');
     const rpcIndex = body.indexOf("supabase.rpc('update_islem_atomik'");
     const v2RpcIndex = body.indexOf("'update_islem_atomik_v2'");
@@ -83,7 +83,13 @@ describe('transaction mutation source-module gates', () => {
     expect(body).toContain('currentUserId: user?.id ?? null');
     expect(body).toContain('isletmeId: isletme?.id ?? null');
     expect(body).toContain(
-      'const useSharedMutation = !latestUpdatePermissionRef.current.isOwner',
+      'const useServerDerivedMutation =',
+    );
+    expect(body).toContain(
+      '!latestUpdatePermissionRef.current.isOwner',
+    );
+    expect(body).toContain(
+      '|| productItems !== undefined',
     );
     expect(body).toContain(
       'const permissionSnapshot = latestUpdatePermissionRef.current',
@@ -92,6 +98,10 @@ describe('transaction mutation source-module gates', () => {
       'const patch = buildSharedTransactionMutationPatch(context, updates)',
     );
     expect(body).toContain('p_patch: patch');
+    expect(body).toContain("'update_cari_urunlu_islem_atomik_v3'");
+    expect(body).toContain(
+      "invalidateRelatedQueries(queryClient, 'urunHareket')",
+    );
     expect(checks).toHaveLength(3);
     expect(checks[0]).toBeLessThan(v2RpcIndex);
     expect(checks[1]).toBeLessThan(body.indexOf('await applyLinkedCariInversion('));

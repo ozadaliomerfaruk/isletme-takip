@@ -164,20 +164,23 @@ describe('Cari/Personel bakiye-siz hesap referansi istemci sozlesmesi', () => {
     expect(submit).not.toContain('createCariCashTransaction.mutateAsync');
   });
 
-  it('urunlu shared Cari editini V3 ile atomik gunceller ve urun kalemlerini yetkili RPCden okur', () => {
+  it('urunlu owner/shared Cari editini V3 ile atomik gunceller ve urun kalemlerini yetkili RPCden okur', () => {
     const submit = read(submitPath);
     const islemler = read('src/hooks/useIslemler.ts');
     const urunHareketler = read('src/hooks/useUrunHareketler.ts');
     const cariDetail = read('src/app/cariler/[id].tsx');
 
-    expect(submit).toContain('productItems: sharedProductItems');
+    expect(submit).toContain('productItems: atomicProductItems');
+    expect(submit).not.toContain('reapplyUrunHareketler.mutateAsync');
     expect(islemler).toContain(
       "'update_cari_urunlu_islem_atomik_v3'",
     );
     expect(islemler).toContain(
       "'delete_cari_urunlu_islem_atomik_v3'",
     );
-    expect(islemler).toContain('p_items: productItems');
+    expect(islemler).toContain(
+      'p_items: normalizeProductMutationItems(productItems)',
+    );
     expect(urunHareketler).toContain(
       "supabase.rpc('get_yetkili_islem_urun_kalemleri_v1'",
     );

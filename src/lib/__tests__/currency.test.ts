@@ -34,6 +34,8 @@ import {
   calculateTargetAmount,
   toNumber,
   roundCurrency,
+  roundQuantity,
+  roundUnitPrice,
   parseCurrency,
   safeParseAmount,
   safeParseExchangeRate,
@@ -53,6 +55,21 @@ import {
   getLocaleSeparators,
   signedCurrencyText,
 } from '../currency';
+
+describe('product numeric contract rounding', () => {
+  it('rounds quantities to 3 and unit prices to 4 decimals', () => {
+    expect(roundQuantity(5.97749)).toBe(5.977);
+    expect(roundQuantity(5.9775)).toBe(5.978);
+    expect(roundUnitPrice(989.10904)).toBe(989.109);
+    expect(roundUnitPrice(927.72206)).toBe(927.7221);
+  });
+
+  it('removes IEEE-754 noise without collapsing unit prices to cents', () => {
+    expect(roundQuantity(0.1 + 0.2)).toBe(0.3);
+    expect(roundUnitPrice(989.1090000000002)).toBe(989.109);
+    expect(roundUnitPrice(1.23456)).toBe(1.2346);
+  });
+});
 
 // ============================================================================
 // Bug #5: Exchange rate=0 sessiz hata

@@ -197,7 +197,7 @@
     "gecikenPlanNot": "Taksitli planlarda geciken · Taksit Takip'te görüntüle",
     "bos": "Henüz taksitli işlem yok",
     "bosAciklama": "Satış veya alış girerken vade menüsünden \"Taksit\" seçerek plan oluşturabilirsiniz.",
-    "editEngel": "Taksitli işlemin tutarı/tipi/carisi değiştirilemez. Planı silip yeniden oluşturun.",
+    "editEngel": "Taksitli işlemler düzenlenemez. Değişiklik yapmak için bu işlemi silip yeniden oluşturun.",
     "vadeEditEngel": "Bu işlem taksitli — vade tarihleri taksit planından gelir ve buradan değiştirilemez. Taksitleri Taksit Takip'ten görebilir, değiştirmek için işlemi silip yeniden oluşturabilirsiniz.",
     "satis": "Satış",
     "alis": "Alış",

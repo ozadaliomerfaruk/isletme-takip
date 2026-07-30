@@ -48,7 +48,7 @@ describe('işlem mutation yetki ve hata sözleşmesi', () => {
     expect(source).toContain("t('transactions:messages.conversionIncomplete')");
   });
 
-  it('QTB edit/copy yükleme hatasını fail-closed kapatır; fotoğrafı owner-only, ürünlü Cari editi V3 tutar', () => {
+  it('QTB edit/copy yükleme hatasını fail-closed kapatır; fotoğrafı owner-only, ürünlü owner/shared editi V3 tutar', () => {
     const qtb = read(
       'src/components/transaction/QuickTransactionBar/QuickTransactionBar.tsx',
     );
@@ -72,10 +72,11 @@ describe('işlem mutation yetki ve hata sözleşmesi', () => {
     expect(qtb).toContain('urunItems={form.urunItems}');
     expect(qtb).not.toContain('sharedRegularEdit');
     expect(qtb).not.toContain('minimalModeAllowed');
-    expect(submit).toContain('productItems: sharedProductItems');
-    expect(submit).toMatch(
-      /syncTransactionPhotoBestEffort[\s\S]{0,180}if \(\s*!isOwner/,
+    expect(submit).toContain('productItems: atomicProductItems');
+    expect(submit).toContain(
+      'const shouldUseAtomicProductV3 = hasAnyProductItems',
     );
+    expect(submit).not.toContain('reapplyUrunHareketler.mutateAsync');
   });
 
   it('account source report gates shared editing by record and source permissions', () => {

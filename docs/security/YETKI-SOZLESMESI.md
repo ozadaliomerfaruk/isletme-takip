@@ -121,7 +121,7 @@ bağlamı olarak korunmuştur.
 - v4'ün final sunucu kapanışı üretimde
   `20260730080658_permission_contract_v2_server` migration kaydıyla aktiftir.
   Kaynak dosya
-  `supabase/migrations/20260730153000_permission_contract_v2_server.sql`,
+  `supabase/migrations/20260730080658_permission_contract_v2_server.sql`,
   exact SHA-256 değeri
   `bc151c9946f8f37375b01f25b25ac04728abff0e0bf5be2f3601fe8083f493ac`
   değeridir.
