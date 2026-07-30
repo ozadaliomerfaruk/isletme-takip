@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
-import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView, Alert, RefreshControl } from 'react-native';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import {
   TrendingUp,
   TrendingDown,
@@ -45,6 +45,12 @@ import { exportCategoryDetail } from '@/lib/pageExports';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createConversionSum } from '@/hooks/useExchangeRates';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getTransactionActionDeniedMessageKey } from '@/lib/errors';
+import {
+  getTransactionProductMutationDecision,
+} from '@/lib/transactionProductMutationGate';
+import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -83,7 +89,6 @@ export default function KategoriDetayPage() {
   const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'category_detail' }); }, []);
-  const router = useRouter();
   const { id, type, startDate, endDate, source } = useLocalSearchParams<{
     id: string;
     type: KategoriType;
@@ -93,7 +98,8 @@ export default function KategoriDetayPage() {
   }>();
   const { t } = useTranslation(['reports', 'common', 'errors', 'transactions']);
   const { formatDateMedium } = useDateFormat();
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const { canAccessModule, canUpdate, isOwner } = usePermissions();
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -139,12 +145,6 @@ export default function KategoriDetayPage() {
     }
   }, [queryClient]);
 
-  // Handle edit transaction
-  const handleEditTransaction = useCallback((transactionId: string) => {
-    setEditTransactionId(transactionId);
-    setShowEditBar(true);
-  }, []);
-
   const handleEditDismiss = useCallback(() => {
     setShowEditBar(false);
     setEditTransactionId(null);
@@ -177,8 +177,115 @@ export default function KategoriDetayPage() {
   );
 
   // Ürün kalemleri (satırda önizleme) — tek batch sorgu (İşlemler listesiyle aynı desen, N+1 yok).
-  const islemIdList = useMemo(() => (filteredIslemler || []).map((i) => i.id), [filteredIslemler]);
-  const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
+  const islemIdList = useMemo(
+    () => [
+      ...new Set([
+        ...(filteredIslemler || []).map((item) => item.id),
+        ...(uncategorizedIslemler || []).map((item) => item.id),
+      ]),
+    ],
+    [filteredIslemler, uncategorizedIslemler],
+  );
+  const {
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+    isLoading: urunKalemleriLoading,
+    isFetching: urunKalemleriFetching,
+    isError: urunKalemleriError,
+  } = useUrunKalemlerByIslemIds(islemIdList, true);
+
+  const canUpdateTransactionAs = useCallback(
+    (
+      transaction: IslemWithRelations,
+      createdBy: string | null,
+    ): boolean => {
+      // Ürün projeksiyonu sonuçlanmadan "ürünsüz" varsaymak, ürün modülü kapalı
+      // kullanıcıya kısa süreli edit penceresi açardı. Bilgi belirsizken fail-closed.
+      const productItemsResolved =
+        isProductItemsResolved
+        && !urunKalemleriLoading
+        && !urunKalemleriFetching
+        && !urunKalemleriError;
+      if (transaction.isletme_id !== isletme?.id) return false;
+
+      return getTransactionProductMutationDecision({
+        type: transaction.type,
+        productItemsResolved,
+        productItemCount: getProductItemCount(transaction.id),
+        isOwner,
+        canAccessModule,
+        canMutateTransaction: canUpdate('islemler', createdBy),
+        canMutateProduct: canUpdate('urunler', createdBy),
+      }).allowed;
+    },
+    [
+      canAccessModule,
+      canUpdate,
+      getProductItemCount,
+      isOwner,
+      isProductItemsResolved,
+      isletme?.id,
+      urunKalemleriError,
+      urunKalemleriFetching,
+      urunKalemleriLoading,
+    ],
+  );
+  const canUpdateTransaction = useCallback(
+    (transaction: IslemWithRelations): boolean =>
+      canUpdateTransactionAs(
+        transaction,
+        transaction.created_by ?? null,
+      ),
+    [canUpdateTransactionAs],
+  );
+
+  const handleEditTransaction = useCallback(
+    (transaction: IslemWithRelations) => {
+      const createdBy = transaction.created_by ?? null;
+      const canUpdateRecord = canUpdateTransaction(transaction);
+      if (!canUpdateRecord) {
+        const messageKey = getTransactionActionDeniedMessageKey('update', {
+          createdBy,
+          currentUserId: user?.id,
+          canActOnOwnRecord:
+            !!user?.id
+            && canUpdateTransactionAs(transaction, user.id),
+          canActOnRecord: canUpdateRecord,
+        });
+        Alert.alert(
+          t('common:status.error'),
+          t(messageKey),
+        );
+        return;
+      }
+      setEditTransactionId(transaction.id);
+      setShowEditBar(true);
+    },
+    [
+      canUpdateTransactionAs,
+      canUpdateTransaction,
+      t,
+      user?.id,
+    ],
+  );
+
+  const editTransaction = useMemo(
+    () => [...(filteredIslemler || []), ...(uncategorizedIslemler || [])]
+      .find((item) => item.id === editTransactionId),
+    [editTransactionId, filteredIslemler, uncategorizedIslemler],
+  );
+  const canRenderEditTransactionBar =
+    !!editTransaction && canUpdateTransaction(editTransaction);
+
+  useEffect(() => {
+    if (!showEditBar || canRenderEditTransactionBar) return;
+    handleEditDismiss();
+  }, [
+    canRenderEditTransactionBar,
+    handleEditDismiss,
+    showEditBar,
+  ]);
 
   // Alt kategori seçimini toggle et
   const toggleSubCategory = (subKategoriId: string) => {
@@ -260,6 +367,8 @@ export default function KategoriDetayPage() {
         startDate: startDate!,
         endDate: endDate!,
         subCategories: subCats,
+        parentAmount: subCategoryReport.parentTotal,
+        parentTransactionCount: subCategoryReport.parentCount,
         totalAmount: subCategoryReport.totalAmount,
         currency: baseCurrency,
         t: {
@@ -341,7 +450,7 @@ export default function KategoriDetayPage() {
         overridePrefix={showsPositive ? '+' : '-'}
         subAmount={hasCategoryAmount ? `${t('reports:labels.invoiceTotal')}: ${formatCurrency(Number(item.amount), currency)}` : null}
         hasPhoto={!!item.photo_path}
-        onPress={handleEditTransaction}
+        onPress={() => handleEditTransaction(item)}
       />
     );
   }, [type, getUrunItems, formatDateMedium, handleEditTransaction, t]);
@@ -617,14 +726,26 @@ export default function KategoriDetayPage() {
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
-        <QuickTransactionBar
-          visible={showEditBar}
-          onDismiss={handleEditDismiss}
-          mode="edit"
-          transactionId={editTransactionId ?? undefined}
-          isScheduledTransaction={false}
-          onSuccess={handleEditDismiss}
-        />
+        {canRenderEditTransactionBar && (
+          <QuickTransactionBar
+            visible={showEditBar}
+            onDismiss={handleEditDismiss}
+            mode="edit"
+            transactionId={editTransactionId ?? undefined}
+            isScheduledTransaction={false}
+            defaultHesapId={editTransaction?.hesap_id ?? undefined}
+            defaultCariId={editTransaction?.cari_id ?? undefined}
+            defaultCariType={editTransaction?.cari?.type}
+            defaultPersonelId={editTransaction?.personel_id ?? undefined}
+            createScope={
+              editTransaction
+                ? getQuickTransactionScopeForApiType(editTransaction.type)
+                  ?? undefined
+                : undefined
+            }
+            onSuccess={handleEditDismiss}
+          />
+        )}
       </Screen>
     );
   }
@@ -725,14 +846,26 @@ export default function KategoriDetayPage() {
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
-        <QuickTransactionBar
-          visible={showEditBar}
-          onDismiss={handleEditDismiss}
-          mode="edit"
-          transactionId={editTransactionId ?? undefined}
-          isScheduledTransaction={false}
-          onSuccess={handleEditDismiss}
-        />
+        {canRenderEditTransactionBar && (
+          <QuickTransactionBar
+            visible={showEditBar}
+            onDismiss={handleEditDismiss}
+            mode="edit"
+            transactionId={editTransactionId ?? undefined}
+            isScheduledTransaction={false}
+            defaultHesapId={editTransaction?.hesap_id ?? undefined}
+            defaultCariId={editTransaction?.cari_id ?? undefined}
+            defaultCariType={editTransaction?.cari?.type}
+            defaultPersonelId={editTransaction?.personel_id ?? undefined}
+            createScope={
+              editTransaction
+                ? getQuickTransactionScopeForApiType(editTransaction.type)
+                  ?? undefined
+                : undefined
+            }
+            onSuccess={handleEditDismiss}
+          />
+        )}
       </Screen>
     );
   }
@@ -776,14 +909,26 @@ export default function KategoriDetayPage() {
       />
 
       {/* Quick Transaction Bar - Edit Mode */}
-      <QuickTransactionBar
-        visible={showEditBar}
-        onDismiss={handleEditDismiss}
-        mode="edit"
-        transactionId={editTransactionId ?? undefined}
-        isScheduledTransaction={false}
-        onSuccess={handleEditDismiss}
-      />
+      {canRenderEditTransactionBar && (
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={handleEditDismiss}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          defaultHesapId={editTransaction?.hesap_id ?? undefined}
+          defaultCariId={editTransaction?.cari_id ?? undefined}
+          defaultCariType={editTransaction?.cari?.type}
+          defaultPersonelId={editTransaction?.personel_id ?? undefined}
+          createScope={
+            editTransaction
+              ? getQuickTransactionScopeForApiType(editTransaction.type)
+                ?? undefined
+              : undefined
+          }
+          onSuccess={handleEditDismiss}
+        />
+      )}
     </Screen>
   );
 }

@@ -8,12 +8,10 @@ import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { CariTabContent } from '@/components/reports/tabs';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { colors } from '@/constants/colors';
-import { usePagePermission } from '@/hooks/usePagePermission';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function CariRaporPage() {
   const contentPaddingBottom = useContentBottomPadding();
-  usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'cari' }); }, []);
   const { cariId } = useLocalSearchParams<{ cariId?: string }>();
   const state = useReportRouteState();

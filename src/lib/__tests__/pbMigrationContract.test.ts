@@ -10,8 +10,12 @@ import fs from 'fs';
 import path from 'path';
 
 const KOK = path.resolve(__dirname, '../../..');
-const MIGRATION = path.join(KOK, 'supabase/migrations/20260726140000_pb_internal_yetki_altyapisi.sql');
+const MIGRATION = path.join(KOK, 'supabase/migrations/20260729064915_pb_internal_yetki_altyapisi.sql');
 const FALLBACK = path.join(KOK, 'docs/security/taslak/PB-FALLBACK.sql');
+const POSTGRES_BEHAVIOR = path.join(
+  KOK,
+  'docs/security/taslak/PB-POSTGRES-DAVRANIS-TESTI.sql',
+);
 
 const ham = fs.readFileSync(MIGRATION, 'utf8');
 /** Yorum satırlarını atarak yalnız çalışacak SQL'i bırakır. */
@@ -19,6 +23,17 @@ const kod = ham
   .split('\n')
   .filter((s) => !s.trimStart().startsWith('--'))
   .join('\n');
+
+function fonksiyonKodu(ad: string): string {
+  const baslangic = kod.indexOf(`CREATE FUNCTION internal.${ad}`);
+  if (baslangic < 0) throw new Error(`Fonksiyon bulunamadı: internal.${ad}`);
+  const bitis = kod.indexOf('$fn$;', baslangic);
+  if (bitis < 0) throw new Error(`Fonksiyon gövde sonu bulunamadı: internal.${ad}`);
+  return kod.slice(baslangic, bitis + '$fn$;'.length);
+}
+
+const resolverKodu = fonksiyonKodu('etkin_yetki');
+const cevrilenTutarKodu = fonksiyonKodu('cevrilen_tutar');
 
 describe('P-B migration: şema ve grant hijyeni', () => {
   it('ön koşul kapısı var: internal şeması varsa DURUR', () => {
@@ -41,14 +56,16 @@ describe('P-B migration: şema ve grant hijyeni', () => {
     expect(kod).not.toMatch(/GRANT ALL ON SCHEMA internal/i);
   });
 
-  it('her fonksiyon için PUBLIC/anon EXECUTE açıkça kaldırılmış', () => {
+  it('her fonksiyonda PUBLIC/anon/authenticated/service_role EXECUTE önce kaldırılmış', () => {
     for (const fn of [
       'internal\\.islem_tipi_modulu\\(text\\)',
       'internal\\.etkin_yetki\\(uuid, text\\)',
       'internal\\.cevrilen_tutar\\(numeric, numeric, text, text\\)',
       'internal\\.bakiye_ops\\(jsonb\\)',
     ]) {
-      expect(kod).toMatch(new RegExp(`REVOKE EXECUTE ON FUNCTION ${fn} FROM PUBLIC, anon;`));
+      expect(kod).toMatch(new RegExp(
+        `REVOKE EXECUTE ON FUNCTION ${fn}\\s+FROM PUBLIC, anon, authenticated, service_role;`,
+      ));
     }
   });
 
@@ -64,8 +81,27 @@ describe('P-B migration: şema ve grant hijyeni', () => {
     expect(kod).not.toMatch(/islem_tipi_modulu\(text\) TO authenticated/);
   });
 
-  it('DEFAULT PRIVILEGES ile yeni fonksiyonlar PUBLIC’e açık doğmuyor', () => {
-    expect(kod).toMatch(/ALTER DEFAULT PRIVILEGES IN SCHEMA internal REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;/);
+  it('PG17 global PUBLIC defaultu per-schema ALTER DEFAULT ile değiştirilmiyor', () => {
+    expect(kod).not.toMatch(/\bALTER DEFAULT PRIVILEGES\b/i);
+  });
+
+  it('dört fonksiyondan sonra final schema sweep var; resolver grantı sweep’ten sonra', () => {
+    const finalSweep =
+      'REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA internal';
+    const resolverGrant =
+      'GRANT EXECUTE ON FUNCTION internal.etkin_yetki(uuid, text) TO authenticated;';
+    const sonFonksiyon = kod.indexOf(
+      'CREATE FUNCTION internal.bakiye_ops(p_islem jsonb)',
+    );
+    const sweepIndex = kod.indexOf(finalSweep);
+    const grantIndex = kod.indexOf(resolverGrant);
+
+    expect(kod).toMatch(
+      /REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA internal\s+FROM PUBLIC, anon, authenticated, service_role;/,
+    );
+    expect(sonFonksiyon).toBeGreaterThan(-1);
+    expect(sweepIndex).toBeGreaterThan(sonFonksiyon);
+    expect(grantIndex).toBeGreaterThan(sweepIndex);
   });
 
   it('her SECURITY DEFINER / fonksiyonda SET search_path var', () => {
@@ -78,6 +114,14 @@ describe('P-B migration: şema ve grant hijyeni', () => {
   it('DROP ve CASCADE içermiyor', () => {
     expect(kod).not.toMatch(/\bDROP\b/i);
     expect(kod).not.toMatch(/\bCASCADE\b/i);
+  });
+
+  it('mevcut tablo/veriye dokunan DML, backfill veya ALTER TABLE içermiyor', () => {
+    expect(kod).not.toMatch(/\bINSERT\s+INTO\b/i);
+    expect(kod).not.toMatch(/\bUPDATE\s+[a-z"]/i);
+    expect(kod).not.toMatch(/\bDELETE\s+FROM\b/i);
+    expect(kod).not.toMatch(/\bTRUNCATE\b/i);
+    expect(kod).not.toMatch(/\bALTER\s+TABLE\b/i);
   });
 });
 
@@ -106,27 +150,97 @@ describe('P-B migration: resolver semantiği', () => {
   });
 
   it('legacy COLLAPSE YOK: can_create yalnız can_create’ten türüyor', () => {
-    // can_create satırı yalnız can_create okumalı; delete/update bayrağı KARIŞMAMALI
-    expect(kod).toMatch(/COALESCE\(\(v_act->p_modul->>'can_create'\)::boolean, false\),/);
+    // can_create satırı yalnız can_create okumalı; delete/update bayrağı KARIŞMAMALI.
+    expect(resolverKodu).toMatch(
+      /COALESCE\(v_act->p_modul->'can_create' = 'true'::jsonb, false\),/,
+    );
     // can_create'in bulunduğu satırda başka bir aksiyon bayrağı geçmemeli
-    const satir = kod.split('\n').find((s) => s.includes("'can_create'"));
+    const satir = resolverKodu.split('\n').find((s) => s.includes("'can_create'"));
     expect(satir).toBeDefined();
     expect(satir).not.toMatch(/can_delete|can_update/);
   });
 
-  it('notlar/birikim fallback’i YALNIZ görünürlüğe uygulanıyor', () => {
-    expect(kod).toMatch(/v_gorunur := \(p_modul IN \('notlar', 'birikim'\)\);/);
-    // aynı dalda aksiyon kapısı kapatılıyor
-    expect(kod).toMatch(/v_modul_acik := false;\s*--\s*fallback AKSİYONA uygulanmaz/);
+  it('notlar/birikim legacy fallback’i görünürlükte; raw action kapısı ayrı', () => {
+    expect(resolverKodu).toMatch(
+      /WHEN 'notlar'\s+THEN[\s\S]*?v_legacy[\s\S]*?NOT \(v_mod \? 'notlar'\)/,
+    );
+    expect(resolverKodu).toMatch(
+      /WHEN 'birikim'\s+THEN\s+v_hesaplar_acik\s+AND[\s\S]*?v_legacy[\s\S]*?NOT \(v_mod \? 'birikim'\)/,
+    );
+    expect(resolverKodu).toMatch(
+      /IF NOT v_gorunur OR NOT v_raw_modul_acik THEN[\s\S]*?v_gorunur, false, false, false, false, false,/,
+    );
   });
 
   it('level AÇIK ALLOWLIST ile sınırlı — fail-closed', () => {
-    expect(kod).toMatch(/IF v_level NOT IN \('view', 'add', 'edit_own', 'edit_all'\) THEN\s*\n\s*RETURN QUERY SELECT false, false, false, false, false, false, false;/);
+    expect(resolverKodu).toMatch(
+      /jsonb_typeof\(v_level_json\) IS DISTINCT FROM 'string'/,
+    );
+    expect(resolverKodu).toMatch(
+      /IF v_level NOT IN \('view', 'add', 'edit_own', 'edit_all'\) THEN\s+RETURN QUERY SELECT\s+false, false, false, false, false, false, v_can_see_all_users_data;/,
+    );
   });
 
   it('can_create fail-OPEN `<> view` DEĞİL, pozitif allowlist', () => {
-    expect(kod).not.toMatch(/v_level\s*<>\s*'view'/);
-    expect(kod).toMatch(/\(v_level IN \('add', 'edit_own', 'edit_all'\)\),\s*--\s*can_create/);
+    expect(resolverKodu).not.toMatch(/v_level\s*<>\s*'view'/);
+    expect(resolverKodu).toMatch(
+      /\(v_level IN \('add', 'edit_own', 'edit_all'\)\),/,
+    );
+  });
+
+  it('permissions boolean’larında text->boolean cast YOK; yalnız exact jsonb true var', () => {
+    expect(resolverKodu).not.toMatch(/::boolean/);
+    expect(resolverKodu).not.toMatch(
+      /->>\s*'(?:can_create|can_update_own|can_update_all|can_delete_own|can_delete_all|can_see_all_users_data)'/,
+    );
+    for (const alan of [
+      'can_create',
+      'can_update_own',
+      'can_update_all',
+      'can_delete_own',
+      'can_delete_all',
+      'can_see_all_users_data',
+    ]) {
+      expect(resolverKodu).toContain(`'${alan}' = 'true'::jsonb`);
+    }
+  });
+
+  it('görünür/derived modül sözleşmesinin bütün 14 dalı açıkça tanımlı', () => {
+    for (const modul of [
+      'dashboard',
+      'hesaplar',
+      'birikim',
+      'cariler',
+      'personel',
+      'islemler',
+      'kategoriler',
+      'raporlar',
+      'cekler',
+      'ileri_tarihli',
+      'urunler',
+      'notlar',
+      'arsiv',
+      'ayarlar',
+    ]) {
+      expect(resolverKodu).toMatch(new RegExp(`WHEN '${modul}'\\s+THEN`));
+    }
+    expect(resolverKodu).toMatch(
+      /v_islem_kaynagi_acik :=\s+v_hesaplar_acik OR v_cariler_acik OR v_urunler_acik OR v_personel_acik;/,
+    );
+    expect(resolverKodu).toMatch(/WHEN 'birikim'\s+THEN\s+v_hesaplar_acik\s+AND/);
+    expect(resolverKodu).toMatch(/ELSE false\s+END;/);
+  });
+
+  it('global visibility exact true ve bilinmeyen level/modül dönüşünden bağımsız', () => {
+    expect(resolverKodu).toMatch(
+      /v_can_see_all_users_data := COALESCE\(\s+v_perm->'visibility'->'can_see_all_users_data' = 'true'::jsonb,\s+false\s+\);/,
+    );
+    expect(resolverKodu).toMatch(
+      /IF v_level NOT IN[\s\S]*?false, false, false, false, false, false, v_can_see_all_users_data;/,
+    );
+    expect(resolverKodu).toMatch(
+      /IF NOT v_gorunur OR NOT v_raw_modul_acik THEN[\s\S]*?v_can_see_all_users_data;/,
+    );
   });
 
   it('search_path YALNIZ pg_catalog — public gölgeleme yüzeyi yok', () => {
@@ -188,11 +302,12 @@ describe('P-B migration: bakiye türetme (computeBalanceOps paritesi)', () => {
   });
 
   it('kur yok/geçersiz ve para birimleri farklıysa HATA', () => {
-    const fn = kod.slice(
-      kod.indexOf('CREATE FUNCTION internal.cevrilen_tutar'),
-      kod.indexOf('CREATE FUNCTION internal.bakiye_ops')
+    expect(cevrilenTutarKodu).toMatch(
+      /IF p_rate IS NOT NULL[\s\S]*?OR p_rate <= 0\s+\) THEN\s+RAISE EXCEPTION/,
     );
-    expect(fn).toMatch(/IF p_rate IS NULL[\s\S]*?OR p_rate <= 0 THEN\s*\n\s*RAISE EXCEPTION/);
+    expect(cevrilenTutarKodu).toMatch(
+      /IF p_rate IS NULL THEN\s+RAISE EXCEPTION/,
+    );
   });
 
   it('0/negatif kur ÜST SEVİYEDE reddediliyor (aynı para biriminde bile)', () => {
@@ -223,12 +338,21 @@ describe('P-B migration: bakiye türetme (computeBalanceOps paritesi)', () => {
   });
 
   it('cevrilen_tutar da NaN/sonsuz savunmasını TEKRARLIYOR (derinlemesine)', () => {
-    const fn = kod.slice(
-      kod.indexOf('CREATE FUNCTION internal.cevrilen_tutar'),
-      kod.indexOf('CREATE FUNCTION internal.bakiye_ops')
+    expect(cevrilenTutarKodu).toMatch(/p_rate = 'NaN'::numeric/);
+    expect(cevrilenTutarKodu).toMatch(/p_amount = 'NaN'::numeric/);
+  });
+
+  it('cevrilen_tutar amount/rate güvenlik guard’ları same-currency early return’den ÖNCE', () => {
+    const tutarGuard = cevrilenTutarKodu.indexOf('IF p_amount IS NULL');
+    const kurGuard = cevrilenTutarKodu.indexOf('IF p_rate IS NOT NULL');
+    const erkenDonus = cevrilenTutarKodu.indexOf(
+      "IF COALESCE(p_source, 'TRY') = COALESCE(p_target, 'TRY')",
     );
-    expect(fn).toMatch(/p_rate = 'NaN'::numeric/);
-    expect(fn).toMatch(/p_amount = 'NaN'::numeric/);
+    expect(tutarGuard).toBeGreaterThan(-1);
+    expect(kurGuard).toBeGreaterThan(-1);
+    expect(erkenDonus).toBeGreaterThan(-1);
+    expect(tutarGuard).toBeLessThan(erkenDonus);
+    expect(kurGuard).toBeLessThan(erkenDonus);
   });
 
   it('IS NULL kontrolü TEK BAŞINA kullanılmıyor — NaN IS NULL false döner', () => {
@@ -269,14 +393,27 @@ describe('P-B fallback', () => {
     .filter((s) => !s.trimStart().startsWith('--'))
     .join('\n');
 
-  it('geçerlilik penceresi uyarısı görünür biçimde yazılı', () => {
-    expect(f).toMatch(/YALNIZ, HİÇBİR P-C \/ P-F BAĞIMLILIĞI KURULMADAN ÖNCE/);
+  it('geçerlilik penceresinin P-D bağımlılıkları nedeniyle kapandığı görünür biçimde yazılı', () => {
+    expect(f).toMatch(/YALNIZ, HİÇBİR P-C \/ P-D \/ P-F BAĞIMLILIĞI KURULMADAN ÖNCE/);
+    expect(f).toMatch(/BU PENCERE KAPANMIŞTIR/);
+    expect(f).toMatch(/get_kategori_secim_referanslari\(uuid,text\)/);
+    expect(f).toMatch(/get_transaction_creator_labels\(uuid\)/);
     expect(f).toMatch(/TEK BAŞINA GERİ ALINAMAZ/);
+    expect(f).toMatch(/SECURITY DEFINER public wrapper'lar/);
+    expect(f).toMatch(/LIKE '%islem_tipi_modulu%'/);
   });
 
-  it('çalışan SQL yalnız REVOKE — DROP yok', () => {
+  it('çalışan SQL bağımlılık guardı + REVOKE içeriyor; DROP yok', () => {
+    expect(fKod).toMatch(/\bBEGIN;/);
+    expect(fKod).toMatch(/DO \$pb_fallback_dependency_guard\$/);
+    expect(fKod).toMatch(/P-B fallback blocked: internal resolver dependencies still exist/);
+    expect(fKod).toMatch(/policy_dependencies=%s, function_dependencies=%s/);
+    expect(fKod).toMatch(/internal\\\.\(etkin_yetki\|islem_tipi_modulu\)/);
+    expect(fKod).toMatch(/FROM pg_catalog\.pg_views AS view_def/);
+    expect(fKod).toMatch(/FROM pg_catalog\.pg_depend AS dep/);
     expect(fKod).toMatch(/REVOKE EXECUTE ON FUNCTION internal\.etkin_yetki\(uuid, text\) FROM authenticated;/);
     expect(fKod).toMatch(/REVOKE USAGE\s+ON SCHEMA\s+internal\s+FROM authenticated;/);
+    expect(fKod).toMatch(/\bCOMMIT;/);
     expect(fKod).not.toMatch(/\bDROP\b/i);
   });
 
@@ -295,5 +432,42 @@ describe('P-B fallback', () => {
   it('DROP satırları yorumda ve üç şarta bağlanmış', () => {
     expect(f).toMatch(/-- DROP FUNCTION internal\.etkin_yetki\(uuid, text\);/);
     expect(f).toMatch(/AYRI AÇIK ONAY/);
+  });
+});
+
+describe('P-B gerçek PostgreSQL adversarial test sözleşmesi', () => {
+  const pgTest = fs.readFileSync(POSTGRES_BEHAVIOR, 'utf8');
+
+  it('yalnız izole ortam için transaction + zorunlu rollback ile kilitli', () => {
+    expect(pgTest).toMatch(/ÜRETİMDE ÇALIŞTIRMA/);
+    expect(pgTest).toMatch(/\\set ON_ERROR_STOP on/);
+    expect(pgTest).toMatch(/\bBEGIN;/);
+    expect(pgTest).toMatch(/\bROLLBACK;/);
+    expect(pgTest).not.toMatch(/\bCOMMIT;/);
+  });
+
+  it('PostgreSQL boolean-cast adversarial değerlerini actual resolverda sınar', () => {
+    expect(pgTest).toContain('[null,"true","yes","on","1",1,{},[]]');
+    expect(pgTest).toMatch(/FROM internal\.etkin_yetki\(v_isletme, 'cariler'\)/);
+    expect(pgTest).toMatch(/exact-jsonb ihlali/);
+  });
+
+  it('derived/birikim/legacy/unknown-level/global-visibility davranışlarını sınar', () => {
+    for (const kanit of [
+      'derived görünürlük/raw action kapısı başarısız',
+      'birikim Hesaplar kapalıyken görünür oldu',
+      'legacy modules=null notlar fallback başarısız',
+      'unknown-level/global-visibility sözleşmesi başarısız',
+    ]) {
+      expect(pgTest).toContain(kanit);
+    }
+  });
+
+  it('same-currency direct helper NaN testleri ve resultant ACL testi var', () => {
+    expect(pgTest).toMatch(
+      /internal\.cevrilen_tutar\('NaN'::numeric, NULL, 'TRY', 'TRY'\)/,
+    );
+    expect(pgTest).toMatch(/aclexplode\(/);
+    expect(pgTest).toContain('PB_POSTGRES_BEHAVIOR_OK');
   });
 });

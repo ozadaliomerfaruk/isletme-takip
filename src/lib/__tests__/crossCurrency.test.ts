@@ -14,6 +14,7 @@ import {
   CONVERTING_ISLEM_TYPES,
   CrossCurrencyRateRequiredError,
   isCrossCurrencyRateRequiredError,
+  parseCrossCurrencyRateRequiredError,
 } from '../crossCurrency';
 import { computeBalanceOps } from '../islemBalanceOps';
 import { IslemType } from '@/types/database';
@@ -179,5 +180,47 @@ describe('CrossCurrencyRateRequiredError', () => {
     expect(isCrossCurrencyRateRequiredError(new Error('boom'))).toBe(false);
     expect(isCrossCurrencyRateRequiredError(null)).toBe(false);
     expect(isCrossCurrencyRateRequiredError('CROSS_CURRENCY_RATE_REQUIRED')).toBe(false);
+  });
+
+  it('PostgREST RPC mesajını tipli kur isteğine çevirir', () => {
+    const parsed = parseCrossCurrencyRateRequiredError({
+      code: 'P0001',
+      message:
+        'CROSS_CURRENCY_RATE_REQUIRED:TRY->USD:1500.25:0123456789abcdef0123456789abcdef',
+    });
+
+    expect(parsed).toBeInstanceOf(CrossCurrencyRateRequiredError);
+    expect(parsed).toMatchObject({
+      sourceCurrency: 'TRY',
+      targetCurrency: 'USD',
+      sourceAmount: 1500.25,
+      completionToken: '0123456789abcdef0123456789abcdef',
+    });
+  });
+
+  it('eski tokensız kur mesajını geriye uyumlu kabul eder', () => {
+    expect(
+      parseCrossCurrencyRateRequiredError(
+        'CROSS_CURRENCY_RATE_REQUIRED:EUR->TRY:25.50'
+      )
+    ).toMatchObject({
+      sourceCurrency: 'EUR',
+      targetCurrency: 'TRY',
+      sourceAmount: 25.5,
+      completionToken: null,
+    });
+  });
+
+  it('geçersiz para/tutar taşıyan server mesajını kabul etmez', () => {
+    expect(
+      parseCrossCurrencyRateRequiredError(
+        'CROSS_CURRENCY_RATE_REQUIRED:TRY->BTC:100'
+      )
+    ).toBeNull();
+    expect(
+      parseCrossCurrencyRateRequiredError({
+        message: 'CROSS_CURRENCY_RATE_REQUIRED:TRY->USD:0',
+      })
+    ).toBeNull();
   });
 });

@@ -35,12 +35,17 @@ export interface HeaderSectionProps {
   onVadePreset?: (days: number) => void;
   // Faz 3: taksit — vade menüsünden girilir; vade ile karşılıklı münhasır.
   taksitAdet?: number | null;
+  /** İşlem tutarı, uygulanmış taksit önizlemesinden sonra değiştiyse plan yeniden
+   *  onaylanana kadar segmenti uyarı renginde gösterir. */
+  taksitStale?: boolean;
   onTaksitPress?: () => void;
   onTaksitClear?: () => void;
   /** Edit'te işlem taksitliyse vade değiştirilemez (sunucu zaten sessizce korur) —
    *  segment kilitli görünür, dokununca açıklama gösterilir. */
   vadeLocked?: boolean;
   onVadeLockedPress?: () => void;
+  /** S-11 dar cari RPC ileri-tarihli kaydi desteklemez. */
+  showScheduledToggle?: boolean;
 }
 
 export function HeaderSection({
@@ -59,10 +64,12 @@ export function HeaderSection({
   onVadeClear,
   onVadePreset,
   taksitAdet,
+  taksitStale,
   onTaksitPress,
   onTaksitClear,
   vadeLocked,
   onVadeLockedPress,
+  showScheduledToggle = true,
 }: HeaderSectionProps) {
   const { t } = useTranslation(['transactions', 'common', 'staff']);
   const dateIsToday = isToday(date);
@@ -128,12 +135,16 @@ export function HeaderSection({
               )}
             </TouchableOpacity>
 
-            <View style={local.divider} />
+            {showScheduledToggle && (
+              <>
+                <View style={local.divider} />
 
-            {/* İleri-tarihli (scheduled) toggle */}
-            <TouchableOpacity style={local.segmentIcon} onPress={onScheduledToggle} activeOpacity={0.6}>
-              <Bell size={20} color={isScheduled ? colors.warning : colors.textMuted} />
-            </TouchableOpacity>
+                {/* İleri-tarihli (scheduled) toggle */}
+                <TouchableOpacity style={local.segmentIcon} onPress={onScheduledToggle} activeOpacity={0.6}>
+                  <Bell size={20} color={isScheduled ? colors.warning : colors.textMuted} />
+                </TouchableOpacity>
+              </>
+            )}
 
             {/* Vade — yalnız alış/satış; boş="Vade", dolu=tarih (yeşil + temizle X segment içinde).
                 Basınca picker değil, altta 7|15|30|SEÇ hızlı-seçim satırı açılır. */}
@@ -151,13 +162,31 @@ export function HeaderSection({
                   }}
                   activeOpacity={0.6}
                 >
-                  <CalendarClock size={20} color={vadeTarihi || taksitAdet ? colors.primary : colors.textMuted} />
+                  <CalendarClock
+                    size={20}
+                    color={
+                      taksitStale
+                        ? colors.warning
+                        : vadeTarihi || taksitAdet
+                          ? colors.primary
+                          : colors.textMuted
+                    }
+                  />
                   <Text
-                    style={[local.segmentText, vadeTarihi || taksitAdet ? { color: colors.primary } : null]}
+                    style={[
+                      local.segmentText,
+                      taksitStale
+                        ? { color: colors.warning }
+                        : vadeTarihi || taksitAdet
+                          ? { color: colors.primary }
+                          : null,
+                    ]}
                     numberOfLines={1}
                   >
                     {taksitAdet
-                      ? t('transactions:taksit.adetLabel', { adet: taksitAdet })
+                      ? taksitStale
+                        ? t('transactions:taksit.planGuncelle', { adet: taksitAdet })
+                        : t('transactions:taksit.adetLabel', { adet: taksitAdet })
                       : vadeTarihi
                         ? formatDateMedium(vadeTarihi)
                         : onTaksitPress
@@ -168,7 +197,7 @@ export function HeaderSection({
                   </Text>
                   {vadeLocked ? null : taksitAdet && onTaksitClear ? (
                     <TouchableOpacity onPress={onTaksitClear} hitSlop={HIT_SLOP.sm} style={local.segClear}>
-                      <X size={18} color={colors.primary} />
+                      <X size={18} color={taksitStale ? colors.warning : colors.primary} />
                     </TouchableOpacity>
                   ) : vadeTarihi && onVadeClear ? (
                     <TouchableOpacity onPress={onVadeClear} hitSlop={HIT_SLOP.sm} style={local.segClear}>

@@ -50,6 +50,7 @@ import { useSetupProgress, type SetupStepKey } from '@/hooks/useSetupProgress';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { getAllowedScopedQuickTransactionTypes } from '@/lib/quickTransactionCreateScope';
 
 export default function HomePage() {
   const router = useRouter();
@@ -96,21 +97,46 @@ export default function HomePage() {
   const deleteHesap = useDeleteHesap();
 
   // Permissions
-  const { canUpdate, canDelete, canAccessModule, isOwner } = usePermissions();
+  const {
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    canCreateTransactionType,
+    isOwner,
+  } = usePermissions();
   const canSeeAccounts = canAccessModule('hesaplar');
   const canSeeCariler = canAccessModule('cariler');
   const canSeeReports = canAccessModule('raporlar');
+  const accountCreateTypes = useMemo(
+    () => getAllowedScopedQuickTransactionTypes({
+      scope: 'hesap',
+      canCreateTransactionType,
+    }),
+    [canCreateTransactionType],
+  );
+  const canCreateAccountTransactions =
+    canSeeAccounts && accountCreateTypes.length > 0;
+  const canCreateCreditCardTransactions =
+    canCreateTransactionType('gider')
+    || canCreateTransactionType('transfer')
+    || canCreateTransactionType('cari_odeme')
+    || canCreateTransactionType('personel_odeme');
+  const canCreateSupplierTransactions =
+    canSeeCariler && canCreateTransactionType('cari_alis');
+  const canCreateCustomerTransactions =
+    canSeeCariler && canCreateTransactionType('cari_satis');
+  const canCreateDailyCash = canCreateTransactionType('gelir');
+  const canShowTransactionFab =
+    canCreateAccountTransactions
+    || canCreateSupplierTransactions
+    || canCreateCustomerTransactions
+    || canCreateDailyCash;
   const canSearch =
     canSeeAccounts ||
     canSeeCariler ||
     canAccessModule('personel') ||
     canAccessModule('urunler') ||
     canAccessModule('notlar');
-  // İşlem satırları bugün temel `islemler` tablosundan ve geniş join'lerden geliyor.
-  // Tip-bazlı server projeksiyonu devreye girene kadar shared kullanıcıya QTB/bildirim
-  // açmak kapalı hesap/personel verisini sızdırabilir; owner akışı korunur.
-  const canUseUnprojectedTransactions = isOwner;
-
   const { isletme, cancelAccountDeletion } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
   const { showToast } = useToast();
@@ -245,6 +271,7 @@ export default function HomePage() {
     totalInflow,
     totalOutflow,
     netCashFlow,
+    conversionIncomplete: cashFlowConversionIncomplete,
     refetch: refetchCashFlow,
   } = useCashFlowByCategory({
     startDate: currentMonthStart,
@@ -482,7 +509,7 @@ export default function HomePage() {
         )}
 
         {/* Kur bulunamayan bakiyeler toplamlardan hariç tutuldu — manşet sayı eksik */}
-        {((canSeeReports && conversionIncomplete) ||
+        {((canSeeReports && (conversionIncomplete || cashFlowConversionIncomplete)) ||
           (canSeeAccounts && categoryTotals.conversionIncomplete)) && (
           <View style={styles.conversionWarning}>
             <AlertTriangle size={14} color={colors.error} />
@@ -613,22 +640,26 @@ export default function HomePage() {
                         }
                       >
                         <View style={styles.actionButtons}>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={<Zap size={16} color={colors.surface} />}
-                            onPress={() => {
-                              if (hesap.type === 'kredi_karti') {
-                                setCreditCardForTransaction(hesap);
-                              } else {
-                                setSelectedHesapId(hesap.id);
-                                setHesapQuickBarVisible(true);
-                              }
-                            }}
-                            style={styles.actionButton}
-                          >
-                            {t('common:archive.actions.makeTransaction')}
-                          </Button>
+                          {(hesap.type === 'kredi_karti'
+                            ? canCreateCreditCardTransactions
+                            : canCreateAccountTransactions) && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={<Zap size={16} color={colors.surface} />}
+                              onPress={() => {
+                                if (hesap.type === 'kredi_karti') {
+                                  setCreditCardForTransaction(hesap);
+                                } else {
+                                  setSelectedHesapId(hesap.id);
+                                  setHesapQuickBarVisible(true);
+                                }
+                              }}
+                              style={styles.actionButton}
+                            >
+                              {t('common:archive.actions.makeTransaction')}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -663,14 +694,14 @@ export default function HomePage() {
                 <Search size={20} color={colors.text} />
               </GlassIconButton>
             )}
-            {canUseUnprojectedTransactions && <NotificationBell />}
+            {isOwner && <NotificationBell />}
             <AddEntityButton />
           </>
         }
       />
 
       {/* FAB Menü - Backdrop */}
-      {canUseUnprojectedTransactions && showFabMenu && (
+      {canShowTransactionFab && showFabMenu && (
         <Pressable style={StyleSheet.absoluteFill} onPress={closeFabMenu}>
           <Animated.View
             style={[
@@ -682,37 +713,46 @@ export default function HomePage() {
       )}
 
       {/* FAB Menü - Seçenekler (yukarı doğru açılır) */}
-      {canUseUnprojectedTransactions && showFabMenu && (
+      {canShowTransactionFab && showFabMenu && (
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
           style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
         >
           {[
             {
+              visible: canCreateAccountTransactions,
+              label: t('accounts:actions.addTransaction'),
+              icon: <Zap size={18} color={colors.primary} />,
+              onPress: () => handleFabMenuOption(() => {
+                setSelectedHesapId(null);
+                setHesapQuickBarVisible(true);
+              }),
+            },
+            {
+              visible: canCreateSupplierTransactions,
               label: t('clients:types.tedarikci'),
               icon: <Truck size={18} color={colors.warning} />,
               onPress: () => handleFabMenuOption(() => {
                 setCariPickerMode('supplier');
                 setShowCariPicker(true);
               }),
-              index: 2,
             },
             {
+              visible: canCreateCustomerTransactions,
               label: t('clients:types.musteri'),
               icon: <UserCheck size={18} color={colors.success} />,
               onPress: () => handleFabMenuOption(() => {
                 setCariPickerMode('customer');
                 setShowCariPicker(true);
               }),
-              index: 1,
             },
             {
+              visible: canCreateDailyCash,
               label: t('transactions:dailyCash.enterButton'),
               icon: <Banknote size={18} color={colors.primary} />,
               onPress: () => handleFabMenuOption(() => setDailyCashModalVisible(true)),
-              index: 0,
             },
-          ].map((item) => (
+          ].filter((item) => item.visible).map((item, index) => (
             <Animated.View
               key={item.label}
               style={{
@@ -722,7 +762,7 @@ export default function HomePage() {
                 transform: [{
                   translateY: fabAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [20 + item.index * 10, 0],
+                    outputRange: [20 + index * 10, 0],
                   }),
                 }, {
                   scale: fabAnim.interpolate({
@@ -739,7 +779,7 @@ export default function HomePage() {
       )}
 
       {/* FAB Button */}
-      {canUseUnprojectedTransactions && (
+      {canShowTransactionFab && (
       <GlassFab
         style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
         onPress={() => {
@@ -762,7 +802,7 @@ export default function HomePage() {
       )}
 
       {/* DailyCashModal */}
-      {canUseUnprojectedTransactions && (
+      {canCreateDailyCash && (
       <DailyCashModal
         visible={dailyCashModalVisible}
         onDismiss={() => setDailyCashModalVisible(false)}
@@ -770,7 +810,7 @@ export default function HomePage() {
       )}
 
       {/* CreditCardTransactionBar */}
-      {canUseUnprojectedTransactions && creditCardForTransaction && (
+      {canCreateCreditCardTransactions && creditCardForTransaction && (
         <CreditCardTransactionBar
           visible={!!creditCardForTransaction}
           onDismiss={() => setCreditCardForTransaction(null)}
@@ -779,7 +819,7 @@ export default function HomePage() {
       )}
 
       {/* Hesap QuickTransactionBar */}
-      {canUseUnprojectedTransactions && canSeeAccounts && (
+      {canCreateAccountTransactions && (
       <QuickTransactionBar
         visible={hesapQuickBarVisible}
         onDismiss={() => {
@@ -787,6 +827,7 @@ export default function HomePage() {
           setSelectedHesapId(null);
         }}
         defaultHesapId={selectedHesapId || undefined}
+        createScope="hesap"
         onSuccess={() => {
           setHesapQuickBarVisible(false);
           setSelectedHesapId(null);
@@ -809,7 +850,7 @@ export default function HomePage() {
       )}
 
       {/* Cari Picker (FAB'dan açılır) */}
-      {canUseUnprojectedTransactions && canSeeCariler && (
+      {(canCreateSupplierTransactions || canCreateCustomerTransactions) && (
       <CariPickerSheet
         visible={showCariPicker}
         onDismiss={() => setShowCariPicker(false)}
@@ -821,12 +862,13 @@ export default function HomePage() {
       )}
 
       {/* Cari QuickTransactionBar (cari seçildikten sonra açılır) */}
-      {canUseUnprojectedTransactions && canSeeCariler && (
+      {(canCreateSupplierTransactions || canCreateCustomerTransactions) && (
       <QuickTransactionBar
         visible={!!selectedCariForQuickBar}
         onDismiss={() => setSelectedCariForQuickBar(null)}
         defaultCariId={selectedCariForQuickBar?.id}
         defaultCariType={selectedCariForQuickBar?.type}
+        createScope="cari"
         onSuccess={() => setSelectedCariForQuickBar(null)}
       />
       )}

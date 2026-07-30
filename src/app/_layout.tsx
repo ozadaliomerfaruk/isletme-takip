@@ -8,7 +8,12 @@ import { SafeAreaProvider, SafeAreaInsetsContext, useSafeAreaInsets } from 'reac
 import { View, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
-import { queryClient, asyncStoragePersister, CACHE_BUSTER } from '@/lib/queryClient';
+import {
+  queryClient,
+  asyncStoragePersister,
+  CACHE_BUSTER,
+  neverDehydrateMutation,
+} from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ReviewProvider } from '@/contexts/ReviewContext';
@@ -16,7 +21,7 @@ import { ToastContainer, Text } from '@/components/ui';
 import { ChangePasswordModal } from '@/components/auth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { WifiOff } from 'lucide-react-native';
+import { ServerOff, WifiOff } from 'lucide-react-native';
 import { PersistentTabBar, TAB_BAR_CONTENT_HEIGHT } from '@/components/ui/PersistentTabBar';
 import { goToTab } from '@/lib/tabNav';
 import { isTabBarVisible } from '@/lib/tabBarVisibility';
@@ -119,7 +124,7 @@ function RootLayoutNav() {
     () => ({ ...insets, bottom: insets.bottom + (tabBarVisible ? TAB_BAR_CONTENT_HEIGHT : 0) }),
     [insets, tabBarVisible]
   );
-  const isOffline = useNetworkStatus();
+  const { status: networkStatus } = useNetworkStatus();
 
   // Session tracking: Türkiye saatine göre günde 1 kez kayıt
   const SESSION_DATE_KEY = '@defter_last_session_date';
@@ -305,12 +310,6 @@ function RootLayoutNav() {
     <>
       <StatusBar style="dark" />
       <ToastContainer />
-      {isOffline && (
-        <View style={[layoutStyles.offlineBanner, { paddingTop: insets.top }]}>
-          <WifiOff size={14} color={colors.white} />
-          <Text style={layoutStyles.offlineText}>{t('errors:network.noConnection')}</Text>
-        </View>
-      )}
       <View style={{ flex: 1 }}>
       {/* GERÇEK insets ayrıca yayınlanıyor: modallar (ayrı native pencerede
           açıldıkları için tab bar oralarda çizilmez) alt ağaçları için bunu
@@ -974,6 +973,27 @@ function RootLayoutNav() {
       </SafeAreaInsetsContext.Provider>
       </RealInsetsContext.Provider>
       <PersistentTabBar />
+      {(networkStatus === 'disconnected' || networkStatus === 'backend_unreachable') && (
+        <View
+          testID="network-status-banner"
+          pointerEvents="none"
+          accessibilityRole="alert"
+          style={[layoutStyles.networkBanner, { paddingTop: insets.top }]}
+        >
+          {networkStatus === 'disconnected' ? (
+            <WifiOff size={14} color={colors.white} />
+          ) : (
+            <ServerOff size={14} color={colors.white} />
+          )}
+          <Text style={layoutStyles.networkBannerText}>
+            {t(
+              networkStatus === 'disconnected'
+                ? 'errors:network.noConnection'
+                : 'errors:network.serverUnavailable'
+            )}
+          </Text>
+        </View>
+      )}
       {__DEV__ && <NavDepthLogger />}
       </View>
 
@@ -1001,11 +1021,15 @@ export default function RootLayout() {
             // Uygulama sürümü değişince cache'i geçersiz kıl (şema kayması güvenliği)
             buster: CACHE_BUSTER,
             dehydrateOptions: {
+              // Yazma işlemleri hiçbir koşulda diske kuyruklanmaz; reconnect'te
+              // kullanıcının haberi olmadan finansal mutation oynatılmasını engeller.
+              shouldDehydrateMutation: neverDehydrateMutation,
               // Yalnız BAŞARILI sorguları diske yaz; ayrıca Map/Set gibi JSON'a
               // serileşMEYEN verileri DIŞLA — persist edilirse JSON.stringify onları {}
               // yapar, rehydrate'te .get/.has fonksiyon olmadığından render crash eder.
               shouldDehydrateQuery: (query) => {
                 if (query.state.status !== 'success') return false;
+                if (query.meta?.persist === false) return false;
                 const data = query.state.data;
                 if (data instanceof Map || data instanceof Set) return false;
                 return true;
@@ -1038,7 +1062,13 @@ const styles = StyleSheet.create({
 });
 
 const layoutStyles = StyleSheet.create({
-  offlineBanner: {
+  networkBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    elevation: 1000,
     backgroundColor: colors.error,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1046,7 +1076,7 @@ const layoutStyles = StyleSheet.create({
     paddingVertical: 6,
     gap: 6,
   },
-  offlineText: {
+  networkBannerText: {
     color: colors.white,
     fontSize: 13,
     fontWeight: '600',

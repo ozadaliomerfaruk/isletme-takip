@@ -41,6 +41,8 @@ import type { UrunItem } from '../QuickTransactionBar/types';
 import { useUrunler, useCreateUrun } from '@/hooks/useUrunler';
 import { useCreateUrunHareket } from '@/hooks/useUrunHareketler';
 import { useSettings } from '@/hooks/useSettings';
+import { getTransactionMutationMessageKey } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import { CreditCardDatePicker } from './CreditCardDatePicker';
 import { HesapPickerSheet, CariPickerSheet, PersonelPickerSheet, OdemeHedefTypePicker } from './CreditCardPickerSheets';
@@ -64,6 +66,32 @@ export function CreditCardTransactionBar({
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
+  const {
+    canAccessModule,
+    canCreate,
+    canCreateTransactionType,
+  } = usePermissions();
+  const canCreateExpense = canCreateTransactionType('gider');
+  const canCreateStatementPayment = canCreateTransactionType('transfer');
+  const canCreateSupplierPayment = canCreateTransactionType('cari_odeme');
+  const canCreatePersonelPayment = canCreateTransactionType('personel_odeme');
+  const canCreatePayment =
+    canCreateSupplierPayment || canCreatePersonelPayment;
+  const canUseProducts =
+    canCreateExpense
+    && canAccessModule('urunler')
+    && canCreate('urunler');
+  const allowedTypes = useMemo<TransactionType[]>(() => {
+    const result: TransactionType[] = [];
+    if (canCreateExpense) result.push('kredi_karti_gider');
+    if (canCreatePayment) result.push('kredi_karti_odeme');
+    if (canCreateStatementPayment) result.push('kredi_karti_ekstre');
+    return result;
+  }, [
+    canCreateExpense,
+    canCreatePayment,
+    canCreateStatementPayment,
+  ]);
 
   // Form state
   const [type, setType] = useState<TransactionType>('kredi_karti_gider');
@@ -124,9 +152,22 @@ export function CreditCardTransactionBar({
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Data
-  const { data: hesaplar } = useHesaplar();
-  const { data: tedarikciCariler } = useCariler('tedarikci');
-  const { data: personelList } = usePersonelList();
+  const { data: hesaplar } = useHesaplar(
+    false,
+    false,
+    canAccessModule('hesaplar'),
+  );
+  const { data: tedarikciCariler } = useCariler(
+    'tedarikci',
+    false,
+    false,
+    canCreateSupplierPayment,
+  );
+  const { data: personelList } = usePersonelList(
+    false,
+    false,
+    canCreatePersonelPayment,
+  );
   const createIslem = useCreateIslem();
   const updateIslem = useUpdateIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
@@ -151,7 +192,7 @@ export function CreditCardTransactionBar({
   }, [photoUri]);
 
   // Ürün — ana bar ile aynı hook'lar (reuse)
-  const { data: urunler } = useUrunler();
+  const { data: urunler } = useUrunler(false, canUseProducts);
   const createUrun = useCreateUrun();
   const createUrunHareket = useCreateUrunHareket();
   const { currency: userCurrency } = useSettings();
@@ -263,19 +304,41 @@ export function CreditCardTransactionBar({
 
   useEffect(() => {
     if (visible) {
-      setType('kredi_karti_gider');
+      const firstAllowedType = allowedTypes[0];
+      if (!firstAllowedType) return;
+      setType(firstAllowedType);
       setSourceHesapId(null);
     }
-  }, [visible]);
+  }, [allowedTypes, visible]);
+
+  useEffect(() => {
+    if (!visible || type !== 'kredi_karti_odeme') return;
+
+    if (odemeHedefType === 'tedarikci' && !canCreateSupplierPayment) {
+      setOdemeHedefType('staff');
+      setCariId(null);
+    } else if (odemeHedefType === 'staff' && !canCreatePersonelPayment) {
+      setOdemeHedefType('tedarikci');
+      setPersonelId(null);
+    }
+  }, [
+    canCreatePersonelPayment,
+    canCreateSupplierPayment,
+    odemeHedefType,
+    type,
+    visible,
+  ]);
 
   useEffect(() => {
     setCariId(null);
     setPersonelId(null);
-    setOdemeHedefType('tedarikci');
+    setOdemeHedefType(
+      canCreateSupplierPayment ? 'tedarikci' : 'staff',
+    );
     // NOT: urunItems tür değişince TEMİZLENMEZ — kullanıcı sekme değiştirip geri gelince
     // ürünler durur (ana bar ile aynı UX). Kayıtta yalnız kredi_karti_gider'de stok
     // hareketi oluşur (aşağıdaki tip guard'ı); Ürün butonu da yalnız o tipte görünür.
-  }, [type]);
+  }, [canCreateSupplierPayment, type]);
 
   // Keyboard listeners
   useEffect(() => {
@@ -513,7 +576,13 @@ export function CreditCardTransactionBar({
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
-        Alert.alert(t('common:status.error'), t('transactions:messages.saveFailed'));
+        const messageKey = getTransactionMutationMessageKey(error, 'create');
+        Alert.alert(
+          t('common:status.error'),
+          messageKey
+            ? t(messageKey)
+            : t('transactions:messages.saveFailed'),
+        );
       }
     },
     [
@@ -568,6 +637,29 @@ export function CreditCardTransactionBar({
       return;
     }
 
+    const permissionApiType: IslemType =
+      type === 'kredi_karti_odeme'
+        ? odemeHedefType === 'tedarikci'
+          ? 'cari_odeme'
+          : 'personel_odeme'
+        : type === 'kredi_karti_ekstre'
+          ? 'transfer'
+          : 'gider';
+    const productModules = urunItems.length > 0
+      ? (['urunler'] as const)
+      : [];
+    if (
+      !allowedTypes.includes(type)
+      || !canCreateTransactionType(permissionApiType, productModules)
+      || (urunItems.length > 0 && !canCreate('urunler'))
+    ) {
+      Alert.alert(
+        t('common:status.error'),
+        t('common:errors.permissionDenied'),
+      );
+      return;
+    }
+
     const parsedAmount = roundCurrency(parseCurrency(amount));
     const legs = resolveLegs();
 
@@ -602,7 +694,8 @@ export function CreditCardTransactionBar({
   }, [
     t, amount, type, kategoriId, categorySkipped,
     isScheduled, sourceHesapId, cariId, personelId, odemeHedefType,
-    urunItems, resolveLegs, persistIslem,
+    allowedTypes, canCreate, canCreateTransactionType, urunItems,
+    resolveLegs, persistIslem,
   ]);
 
   const handleAmountChange = useCallback((text: string) => {
@@ -652,7 +745,7 @@ export function CreditCardTransactionBar({
     setPersonelSearchQuery('');
   }, []);
 
-  if (!visible) return null;
+  if (!visible || allowedTypes.length === 0) return null;
 
   const buttonColor = getTransactionTypeColor(type);
   const buttonLabels: Record<string, string> = {
@@ -677,7 +770,8 @@ export function CreditCardTransactionBar({
 
   // Ürün butonu: yalnızca ürün varsa VE kredi kartı HARCAMA tipinde (mal alımı)
   const hasUrunler = (urunler?.length ?? 0) > 0;
-  const showUrunButton = hasUrunler && type === 'kredi_karti_gider';
+  const showUrunButton =
+    canUseProducts && hasUrunler && type === 'kredi_karti_gider';
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
@@ -941,6 +1035,7 @@ export function CreditCardTransactionBar({
           value={type}
           onChange={setType}
           mode="kredi_karti"
+          allowedTypes={allowedTypes}
         />
       </Animated.View>
 
@@ -966,7 +1061,7 @@ export function CreditCardTransactionBar({
       />
 
       <CariPickerSheet
-        visible={showCariPicker}
+        visible={showCariPicker && canCreateSupplierPayment}
         onDismiss={handleCariPickerDismiss}
         searchQuery={cariSearchQuery}
         onSearchChange={setCariSearchQuery}
@@ -977,7 +1072,7 @@ export function CreditCardTransactionBar({
       />
 
       <PersonelPickerSheet
-        visible={showPersonelPicker}
+        visible={showPersonelPicker && canCreatePersonelPayment}
         onDismiss={handlePersonelPickerDismiss}
         searchQuery={personelSearchQuery}
         onSearchChange={setPersonelSearchQuery}
@@ -992,12 +1087,16 @@ export function CreditCardTransactionBar({
         onDismiss={() => setShowOdemeHedefTypePicker(false)}
         odemeHedefType={odemeHedefType}
         onSelect={handleOdemeHedefTypeSelect}
+        allowedTypes={[
+          ...(canCreateSupplierPayment ? ['tedarikci' as const] : []),
+          ...(canCreatePersonelPayment ? ['staff' as const] : []),
+        ]}
         t={t}
       />
 
       {/* Ürün seçici — yalnız kredi kartı harcamasında; ana bar ile aynı bileşen (reuse) */}
       <UrunPickerModal
-        visible={showUrunPicker}
+        visible={showUrunPicker && canUseProducts}
         onDismiss={() => {
           setShowUrunPicker(false);
           setUrunSearchQuery('');

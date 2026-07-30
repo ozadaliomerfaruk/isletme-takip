@@ -1,7 +1,7 @@
 # AGENTS.md — defterappv2
 
 > Bu dosya, projede çalışan tüm AI ajanları (ChatGPT/Codex, Claude, vb.) için ortak bağlam ve kurallardır.
-> Claude Code'un kalıcı hafızasından damıtılmıştır. Son güncelleme: 2026-07-26.
+> Claude Code'un kalıcı hafızasından damıtılmıştır. Son güncelleme: 2026-07-28.
 > Buradaki "durum" bilgileri anlık fotoğraftır — koddan ve git geçmişinden teyit etmeden kesin kabul etme.
 
 ## Proje nedir
@@ -9,6 +9,8 @@
 - **İşletme Takip / Defter uygulaması**: esnaf ve küçük işletmeler için gelir-gider, cari (müşteri/tedarikçi), personel, ürün/stok, vade-taksit takibi.
 - **Stack:** React Native + Expo (expo-router, dosya-bazlı routing `src/app/`), TypeScript, Supabase (Postgres + RLS + RPC + Edge Functions), TanStack React Query (disk-persist'li read cache), Reanimated, jest.
 - **Üretimde ~650 işletme var.** Store'daki eski sürümler aylarca kullanımda kalır — her değişiklikte "eski client ne yaşar?" sorusu geçerlidir.
+- Yaklaşık **60–70 günlük aktif kullanıcı** vardır; migration'larda kullanıcı işlemleri ve
+  mevcut veri korunması birinci önceliktir.
 - Dil: UI Türkçe (i18n altyapısı var), para birimi çoklu (TRY canonical), tarih/kur TR odaklı.
 - Hedef kitle esnaf → **sadelik ilkesi**: kullanılmayan özelliğin kartı/giriş noktası UI'da hiç görünmesin. Görünürlük "bu ay kullanıldı mı" gibi dar pencereye değil, özelliğin hiç kullanılıp kullanılmadığına bağlanır.
 
@@ -18,9 +20,16 @@
    - Yalnız **ADDITIVE** migration (yeni kolon DEFAULT'lu / yeni tablo). Kolon silme, yeniden adlandırma, tip değiştirme **YASAK**.
    - Backfill'den kaçın; anlam client'ta hesaplanabiliyorsa kolonu ilk kullanımda doldur.
    - RPC/view değişikliğinde imza korunur (parametre ekleme yalnız DEFAULT'lu); önce mevcut çıktıyı SQL snapshot'la, sonra diff'le.
-   - Migration öncesi kullanıcının yönettiği **güncel ve doğrulanmış tam yedek**
-     bulunduğu açıkça teyit edilmelidir. Ajanlar kullanıcı ayrıca istemedikçe
-     yedek/restore altyapısı tasarlamaz, çalıştırmaz veya otomatikleştirmez.
+   - Kullanıcı 27 Temmuz 2026'da güncel yedek aldığını teyit etti. **Additive ve mevcut
+     veriyi silmeyen/yeniden yazmayan migration'lar için her seferinde yeni yedek
+     istenmez.** Yeni fonksiyon/RPC, DEFAULT'lu nullable kolon, yeni tablo/index gibi
+     veri-koruyucu değişikliklerle ilerlenebilir.
+   - `DROP`, kolon silme/yeniden adlandırma/tip değiştirme, `DELETE`/`TRUNCATE`, toplu
+     `UPDATE`/backfill, tabloyu yeniden yazan veya mevcut kullanıcı işlemlerini
+     riske atan bir değişiklik gerekirse DUR; etkisini açıkça anlat, kullanıcıdan
+     ayrıca onay ve güncel/doğrulanmış tam yedek teyidi al.
+   - Ajanlar kullanıcı ayrıca istemedikçe yedek/restore altyapısı tasarlamaz,
+     çalıştırmaz veya otomatikleştirmez.
    - "1.5.x kullanan eski client bu migration'dan sonra ne yaşar?" sorusuna **yazılı** cevap ver.
 2. **Ajan/otomasyon işi bitince doğrulama ana oturumda:** `tsc` + `eslint` + `jest` + Metro bundle bizzat koşulmadan iş "bitti" ilan edilmez. Ajanın "derledim/test ettim" beyanına güvenilmez.
 3. **Denetim/audit bulgusu uygulanmadan önce bulgu-başı KOD teyidi:** bulgular yazıldığı anda bayat olabiliyor. Dosyanın güncel halini açıp iddiayı doğrula. Yeni denetim başlatırken prompt'a baz commit SHA + "güncel koddan birebir alıntı" zorunluluğu koy.

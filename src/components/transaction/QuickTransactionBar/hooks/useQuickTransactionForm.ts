@@ -6,13 +6,17 @@ import type { CariType, Currency, BirimType } from '@/types/database';
 import { useIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
+import {
+  getCariTypeForApiTransactionType,
+  resolveScopedQuickTransactionDefaultType,
+} from '@/lib/quickTransactionCreateScope';
 import { mapApiTypeToFormState } from '../utils/reverseTypeMapper';
 import { getCategoryType } from '../utils/categoryTypeMapper';
 
 interface Hesap {
   id: string;
   name: string;
-  balance: number;
+  balance?: number;
   currency?: string;
   type?: string;
 }
@@ -45,6 +49,8 @@ interface PendingExchangeData {
   sourceCurrency: Currency;
   targetCurrency: Currency;
   sourceAmount: number;
+  /** Kur onayından sonraki create tekrarlarında kullanılan sabit idempotency anahtarı. */
+  clientIslemId?: string;
   /** Düzenlemede kur alanına ön-dolacak KAYITLI kur (bkz. ExchangeRateBar.initialRate). */
   initialRate?: number | null;
 }
@@ -70,6 +76,17 @@ interface UseQuickTransactionFormReturn {
   isEditMode: boolean;
   isCopyMode: boolean;
   isLoadingTransaction: boolean;
+  transactionLoadError: unknown | null;
+  /**
+   * Düzenlenen asıl işlem satırının creator'ı. `undefined`, işlem satırı henüz
+   * çözümlenmedi demektir; gerçek DB `NULL` değeri ise `null` olarak korunur.
+   * Submit-anı own/all kontrolü bu ayrımı fail-closed kullanır.
+   */
+  editTransactionCreatedBy: string | null | undefined;
+  /** Full editable product rows loaded successfully (not the read-only presence summary). */
+  productEditDataResolved: boolean;
+  editableProductItemCount: number;
+  loadedCariType: CariType | undefined;
 
   // Form state
   type: TransactionType;
@@ -131,7 +148,6 @@ interface UseQuickTransactionFormReturn {
   // Urun items (alış/satış/iade işlemlerinde urun hareketi)
   urunItems: UrunItem[];
   /** Edit açılışında işleme bağlı en az bir ürün hareketi var mıydı? */
-  hadOriginalUrunHareketler: boolean;
   setUrunItems: React.Dispatch<React.SetStateAction<UrunItem[]>>;
   addUrunItem: (item: UrunItem) => void;
   removeUrunItem: (urunId: string) => void;
@@ -199,20 +215,46 @@ export function useQuickTransactionForm({
   // Fetch transaction data for edit/copy mode
   const shouldLoadNormal = (isEditMode || isCopyMode) && !isScheduledTransaction;
   const shouldLoadScheduled = isEditMode && isScheduledTransaction;
-  const { data: normalTransaction, isLoading: isLoadingNormal } = useIslem(
+  const {
+    data: normalTransaction,
+    isLoading: isLoadingNormal,
+    error: normalTransactionError,
+  } = useIslem(
     shouldLoadNormal ? loadSourceId : undefined
   );
-  const { data: scheduledTransaction, isLoading: isLoadingScheduled } = useIleriTarihliIslem(
+  const {
+    data: scheduledTransaction,
+    isLoading: isLoadingScheduled,
+    error: scheduledTransactionError,
+  } = useIleriTarihliIslem(
     shouldLoadScheduled ? loadSourceId : undefined
   );
 
   // Fetch urun hareketler for edit/copy mode (only for normal transactions)
-  const { data: urunHareketler, isLoading: isLoadingUrunHareketler } = useUrunHareketlerByIslemId(
+  const {
+    data: urunHareketler,
+    isLoading: isLoadingUrunHareketler,
+    error: urunHareketlerError,
+  } = useUrunHareketlerByIslemId(
     shouldLoadNormal ? loadSourceId : undefined
   );
 
   // Combined loading state
   const isLoadingTransaction = (isEditMode || isCopyMode) && (isLoadingNormal || isLoadingScheduled || isLoadingUrunHareketler);
+  const transactionLoadError =
+    normalTransactionError
+    ?? scheduledTransactionError
+    ?? urunHareketlerError
+    ?? null;
+  const productEditDataResolved =
+    !shouldLoadNormal
+    || (
+      !isLoadingUrunHareketler
+      && !urunHareketlerError
+      && Array.isArray(urunHareketler)
+    );
+  const editableProductItemCount =
+    Array.isArray(urunHareketler) ? urunHareketler.length : 0;
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -256,7 +298,6 @@ export function useQuickTransactionForm({
 
   // Urun items state (alış/satış/iade işlemlerinde urun hareketi)
   const [urunItems, setUrunItems] = useState<UrunItem[]>([]);
-  const [hadOriginalUrunHareketler, setHadOriginalUrunHareketler] = useState(false);
 
   // Urun items helper functions
   const addUrunItem = useCallback((item: UrunItem) => {
@@ -321,7 +362,6 @@ export function useQuickTransactionForm({
     setPendingExchangeData(null);
     setEditOriginal(null);
     setUrunItems([]); // Urun items'ı temizle
-    setHadOriginalUrunHareketler(false);
     setEditDataLoaded(false);
     setIsCariMode(!!defaultCariId);
     setIsPersonelMode(!!defaultPersonelId);
@@ -426,7 +466,6 @@ export function useQuickTransactionForm({
 
     // Load urun items from urun hareketler (if available)
     const hasOriginalUrunHareketler = !!urunHareketler?.length;
-    setHadOriginalUrunHareketler(hasOriginalUrunHareketler);
     if (hasOriginalUrunHareketler) {
       const loadedUrunItems: UrunItem[] = urunHareketler.map(hareket => ({
         urunId: hareket.urun_id,
@@ -503,18 +542,33 @@ export function useQuickTransactionForm({
       // Personel mode
       if (isPersonelMode && defaultPersonelId) {
         setPersonelId(defaultPersonelId);
-        setType('personel_gider_tab');
+        setType(
+          resolveScopedQuickTransactionDefaultType({
+            scope: 'personel',
+            requestedType: defaultType,
+          }),
+        );
       }
       // Cari mode
       else if (isCariMode && defaultCariId) {
         setCariId(defaultCariId);
         if (defaultCariType === 'tedarikci') {
-          const validTedarikciTypes: TransactionType[] = ['alis', 'odeme', 'alis_iade'];
-          setType(validTedarikciTypes.includes(defaultType) ? defaultType : 'alis');
+          setType(
+            resolveScopedQuickTransactionDefaultType({
+              scope: 'cari',
+              cariType: 'tedarikci',
+              requestedType: defaultType,
+            }),
+          );
           setOdemeHedefType('tedarikci');
         } else {
-          const validMusteriTypes: TransactionType[] = ['satis', 'tahsilat', 'satis_iade'];
-          setType(validMusteriTypes.includes(defaultType) ? defaultType : 'satis');
+          setType(
+            resolveScopedQuickTransactionDefaultType({
+              scope: 'cari',
+              cariType: 'musteri',
+              requestedType: defaultType,
+            }),
+          );
         }
       } else {
         // Normal mode
@@ -595,6 +649,21 @@ export function useQuickTransactionForm({
     isEditMode,
     isCopyMode,
     isLoadingTransaction,
+    transactionLoadError,
+    editTransactionCreatedBy: isEditMode
+      ? isScheduledTransaction
+        ? scheduledTransaction
+          ? scheduledTransaction.created_by ?? null
+          : undefined
+        : normalTransaction
+          ? normalTransaction.created_by ?? null
+          : undefined
+      : undefined,
+    productEditDataResolved,
+    editableProductItemCount,
+    loadedCariType: getCariTypeForApiTransactionType(
+      normalTransaction?.type ?? scheduledTransaction?.type,
+    ) ?? undefined,
 
     // Form state
     type,
@@ -647,7 +716,6 @@ export function useQuickTransactionForm({
 
     // Urun items
     urunItems,
-    hadOriginalUrunHareketler,
     setUrunItems,
     addUrunItem,
     removeUrunItem,

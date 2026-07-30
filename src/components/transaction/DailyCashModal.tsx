@@ -20,6 +20,7 @@ import { getHesapIconConfig } from '@/lib/icons';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { Hesap } from '@/types/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getTransactionMutationMessageKey, toErrorMessage } from '@/lib/errors';
 
 // Gizli-hesap tercihi isletme_id ile namespace'lenir (çapraz-kiracı sızıntı yok).
 // NOT: eski global anahtar (`@defter_daily_cash_hidden_accounts`) artık okunmaz;
@@ -386,7 +387,13 @@ export function DailyCashModal({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
-      Alert.alert(t('common:status.error'), error instanceof Error ? error.message : t('transactions:messages.saveFailed'));
+      const messageKey = getTransactionMutationMessageKey(error, 'create');
+      Alert.alert(
+        t('common:status.error'),
+        messageKey
+          ? t(messageKey)
+          : toErrorMessage(error, t('transactions:messages.saveFailed')),
+      );
     } finally {
       isSavingRef.current = false;
       setIsSaving(false);

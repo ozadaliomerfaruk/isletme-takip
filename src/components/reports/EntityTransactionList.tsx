@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text, Card } from '@/components/ui';
-import { ProductDetailModal } from '@/components/transaction';
+import { ReportProductItemsModal } from './ReportProductItemsModal';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { parseDateFromDB } from '@/lib/date';
@@ -20,21 +20,62 @@ import {
   Banknote,
   Package,
 } from 'lucide-react-native';
-import { IslemWithRelations } from '@/types/database';
+import type { IslemWithRelations } from '@/types/database';
 import { formatCurrency, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { useIslemlerWithUrun } from '@/hooks/useUrunHareketler';
+import { useUrunKalemlerByIslemIds } from '@/hooks/useUrunHareketler';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
+import { useTransactionCreatorLabelResolver } from '@/hooks/useTransactionCreatorLabels';
 import { useAuthContext } from '@/contexts/AuthContext';
+import {
+  isPersonelIslemListRow,
+  toPersonelTransactionCreatorSource,
+  type PersonelIslemListRow,
+} from '@/lib/personelTransactionProjection';
+import {
+  isCariIslemListRow,
+  type CariIslemListRow,
+} from '@/lib/cariTransactionProjection';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getTransactionProductMutationDecision } from '@/lib/transactionProductMutationGate';
 
-interface EntityTransactionListProps {
-  transactions: IslemWithRelations[];
+export type EntityReportTransaction =
+  | IslemWithRelations
+  | CariIslemListRow
+  | PersonelIslemListRow;
+
+function getEntityTransactionCurrencyDisplay(
+  transaction: EntityReportTransaction,
+) {
+  if (
+    !isPersonelIslemListRow(transaction)
+    && !isCariIslemListRow(transaction)
+  ) {
+    return getCrossCurrencyDisplay(transaction);
+  }
+
+  // Paylaşımlı entity projection'ındaki `hesap` bilinçli olarak yalnız ad taşır.
+  // Para birimi motoruna sadece RPC'nin doğruladığı işlem-düzeyi alanları verilir.
+  return getCrossCurrencyDisplay({
+    type: transaction.type,
+    amount: transaction.amount,
+    source_currency: transaction.source_currency,
+    target_currency: transaction.target_currency,
+    exchange_rate: transaction.exchange_rate,
+  });
+}
+
+interface EntityTransactionListProps<
+  TTransaction extends EntityReportTransaction,
+> {
+  transactions: TTransaction[];
   maxItems?: number;
   onViewAll?: () => void;
-  onTransactionPress?: (transaction: IslemWithRelations) => void;
+  onTransactionPress?: (transaction: TTransaction) => void;
+  canEditTransaction?: (transaction: TTransaction) => boolean;
 }
 
 // İşlem tipine göre ikon ve renk
@@ -64,37 +105,74 @@ const getTransactionStyle = (type: string, t: (key: string) => string) => {
   return { Icon: CreditCard, color: colors.textMuted, label: label || type };
 };
 
-export function EntityTransactionList({
+export function EntityTransactionList<
+  TTransaction extends EntityReportTransaction = IslemWithRelations,
+>({
   transactions,
   maxItems = 10,
   onViewAll,
   onTransactionPress: onTransactionPressExternal,
-}: EntityTransactionListProps) {
+  canEditTransaction,
+}: EntityTransactionListProps<TTransaction>) {
   const { t } = useTranslation(['reports', 'transactions', 'staff']);
   const { formatDateNative } = useDateFormat();
   const router = useRouter();
-  const { user } = useAuthContext();
+  const { isletme } = useAuthContext();
+  const {
+    canAccessModule,
+    canUpdate,
+    isOwner,
+  } = usePermissions();
+  const resolveCreatorLabel = useTransactionCreatorLabelResolver();
 
   const displayTransactions = maxItems > 0 ? transactions.slice(0, maxItems) : transactions;
   const hasMore = transactions.length > maxItems;
 
   // Ürünlü işlem göstergesi (kutu ikonu): satırda ürün kalemi varsa Package rozeti.
   // Tek batch sorgu (islem_id → adet); early-return'den ÖNCE çağrılmalı (hooks kuralı).
-  const { hasUrun, getUrunCount } = useIslemlerWithUrun(displayTransactions.map((tr) => tr.id));
+  const {
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+  } = useUrunKalemlerByIslemIds(
+    displayTransactions.map((transaction) => transaction.id),
+    true,
+  );
+  const productItemsSettled = isProductItemsResolved;
+  const hasUrun = (islemId: string) =>
+    productItemsSettled && getProductItemCount(islemId) > 0;
+  const getUrunCount = (islemId: string) =>
+    productItemsSettled ? getProductItemCount(islemId) : 0;
 
   // Ürün detay modalı (kutu ikonu standart davranışı — cari detay sayfasıyla AYNI).
   const [productModalIslemId, setProductModalIslemId] = useState<string | null>(null);
   // Ürün detay modalının para birimi: satır tutarının hesaplandığı AYNI değer.
-  const productModalCurrency = productModalIslemId
-    ? getCrossCurrencyDisplay(
-        transactions.find((tr) => tr.id === productModalIslemId) ?? { type: '', amount: 0 }
-      ).mainCurrency
+  const productModalTransaction = productModalIslemId
+    ? transactions.find((tr) => tr.id === productModalIslemId) ?? null
+    : null;
+  const productModalCurrency = productModalTransaction
+    ? getEntityTransactionCurrencyDisplay(productModalTransaction).mainCurrency
     : undefined;
+  const getEditDecision = (transaction: TTransaction) =>
+    getTransactionProductMutationDecision({
+      type: transaction.type,
+      productItemsResolved: isProductItemsResolved,
+      productItemCount: getProductItemCount(transaction.id),
+      isOwner,
+      canAccessModule,
+      canMutateTransaction:
+        canEditTransaction?.(transaction) ?? false,
+      canMutateProduct:
+        canUpdate('urunler', transaction.created_by ?? null),
+    });
+  const canEditProductTransaction =
+    !!productModalTransaction
+    && getEditDecision(productModalTransaction as TTransaction).allowed;
 
-  const openEdit = (transaction: IslemWithRelations) => {
+  const openEdit = (transaction: TTransaction) => {
     if (onTransactionPressExternal) {
       onTransactionPressExternal(transaction);
-    } else {
+    } else if (canEditTransaction?.(transaction) === true) {
       router.push({
         pathname: '/islemler/duzenle/[id]',
         params: { id: transaction.id },
@@ -103,7 +181,8 @@ export function EntityTransactionList({
   };
 
   // Ürünlü işlem → önce alttan ürün detay modalı; ürünsüz → doğrudan düzenleme.
-  const handleTransactionPress = (transaction: IslemWithRelations) => {
+  const handleTransactionPress = (transaction: TTransaction) => {
+    if (!productItemsSettled) return;
     if (hasUrun(transaction.id)) {
       setProductModalIslemId(transaction.id);
     } else {
@@ -137,7 +216,15 @@ export function EntityTransactionList({
           // 1970-guard: ham new Date() Hermes'te boşluklu/bozuk string'de Invalid olur
           const dateObj = parseDateFromDB(transaction.date);
           // İşlemi kendi (hedef taraf) para biriminde göster — yerleşik desen
-          const xc = getCrossCurrencyDisplay(transaction);
+          const xc = getEntityTransactionCurrencyDisplay(transaction);
+          const creatorText = resolveCreatorLabel(
+            isPersonelIslemListRow(transaction)
+              ? toPersonelTransactionCreatorSource(
+                  transaction,
+                  isletme?.id,
+                )
+              : transaction,
+          );
 
           return (
             <TouchableOpacity
@@ -187,11 +274,11 @@ export function EntityTransactionList({
                       {transaction.description}
                     </Text>
                   )}
-                  {transaction.created_by && transaction.created_by !== user?.id && transaction.creator && (
+                  {creatorText ? (
                     <Text variant="caption" style={styles.creatorText} numberOfLines={1}>
-                      {transaction.creator.display_name || transaction.creator.email}
+                      {creatorText}
                     </Text>
-                  )}
+                  ) : null}
                 </View>
                 {transaction.kategori && (
                   <View style={styles.categoryBadge}>
@@ -215,12 +302,18 @@ export function EntityTransactionList({
       )}
 
       {/* Ürünlü işleme tıklanınca alttan ürün detay modalı (paylaşılan, tek standart) */}
-      <ProductDetailModal
+      <ReportProductItemsModal
         islemId={productModalIslemId}
+        items={
+          productModalIslemId
+            ? getUrunItems(productModalIslemId)
+            : []
+        }
+        isLoading={!productItemsSettled}
         // Satırdaki tutarla AYNI para birimi (kutu ikonu ≠ satır çelişkisi)
         currency={productModalCurrency}
         onDismiss={() => setProductModalIslemId(null)}
-        onEdit={handleProductEdit}
+        onEdit={canEditProductTransaction ? handleProductEdit : undefined}
       />
     </View>
   );

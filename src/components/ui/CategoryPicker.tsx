@@ -3,7 +3,6 @@ import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollVie
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import * as Haptics from 'expo-haptics';
 import {
   Check,
   ChevronDown,
@@ -35,7 +34,10 @@ import { Text } from './Text';
 import { ModalSearchBar } from './ModalSearchBar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useKategorilerHierarchical, FlattenedCategory } from '@/hooks/useKategoriler';
+import {
+  useKategoriSecimReferanslari,
+  type KategoriSecimSecenegi,
+} from '@/hooks/useKategoriSecimReferanslari';
 import { usePermissions } from '@/hooks/usePermissions';
 import { KategoriType } from '@/types/database';
 import { searchMatchesTr, upperTr } from '@/lib/turkishTextUtils';
@@ -120,7 +122,7 @@ export function CategoryPicker({
 }: CategoryPickerProps) {
   const router = useRouter();
   const { t } = useTranslation(['common', 'categories']);
-  const { canCreate: canCreateCategory } = usePermissions();
+  const { canManageCategories } = usePermissions();
   const [internalOpen, setInternalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
@@ -164,7 +166,7 @@ export function CategoryPicker({
   const displayLabel = label ?? t('common:labels.category');
   const displayPlaceholder = placeholder || t('common:select.selectCategory');
 
-  const { flatList, isLoading } = useKategorilerHierarchical(type);
+  const { data: flatList, isLoading } = useKategoriSecimReferanslari(type);
 
   // Seçili kategoriyi bul
   const selectedCategory = flatList?.find(c => c.id === value);
@@ -199,7 +201,7 @@ export function CategoryPicker({
     router.push(`/kategoriler/ekle?type=${type}`);
   };
 
-  const getCategoryIcon = (category: FlattenedCategory, size: number = 20) => {
+  const getCategoryIcon = (category: KategoriSecimSecenegi, size: number = 20) => {
     const iconName = category.icon;
     const isGelir = category.type === 'gelir';
     const isUrun = category.type === 'urun';
@@ -222,7 +224,7 @@ export function CategoryPicker({
     );
   };
 
-  const getCategoryBgColor = (category: FlattenedCategory) => {
+  const getCategoryBgColor = (category: KategoriSecimSecenegi) => {
     const isGelir = category.type === 'gelir';
     const isUrun = category.type === 'urun';
     const defaultColor = isUrun ? colors.primary : isGelir ? colors.success : colors.error;
@@ -286,7 +288,7 @@ export function CategoryPicker({
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
               {/* Ana sayfa sticky header'larındaki AddEntityButton ile aynı görünüm.
                   Kapatma X'i yok: modal dışına dokununca zaten kapanıyor. */}
-              {canCreateCategory('kategoriler') && (
+              {canManageCategories && (
                 <TouchableOpacity
                   onPress={handleAddCategory}
                   style={styles.addButton}

@@ -1,21 +1,76 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { Islem, IslemInsert, IslemWithRelations, IslemType, UrunHareketTipi } from '@/types/database';
-import { isIncomeType, isExpenseType, isIncomeReturnType, isExpenseReturnType, LEAVE_TYPES } from '@/constants/islemTypes';
+import {
+  isIncomeType,
+  isExpenseType,
+  isIncomeReturnType,
+  isExpenseReturnType,
+  isLeaveType,
+  LEAVE_TYPES,
+} from '@/constants/islemTypes';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
 import { computeBalanceOps } from '@/lib/islemBalanceOps';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { usePermissions } from './usePermissions';
 import { invertCariTransactionType } from '@/lib/cariTransactionMapper';
 import {
   getDateRange,
 } from '@/lib/date';
-import { LinkedRecordsError } from '@/lib/errors';
+import {
+  classifyMutationError,
+  MutationRetryPayloadChangedError,
+  SharedTransactionMutationUnsupportedError,
+  TransactionPermissionError,
+  type TransactionPermissionReason,
+} from '@/lib/errors';
+import { isSameRegularCreate } from '@/lib/mutationIdentity';
+import type { InstallmentRpcRow } from '@/lib/installmentDistribution';
+import {
+  canAccessTransactionSources,
+  isProductTransactionType,
+  type TransactionSourceModule,
+} from '@/lib/transactionSourceModules';
+import { supportsSharedProductMutationV3 } from '@/lib/sharedProductMutationTypes';
+import {
+  type CariIslemCursor,
+  type CariIslemListRow,
+  parseCariIslemListRows,
+} from '@/lib/cariTransactionProjection';
+import {
+  dedupeHesapIslemRowsById,
+  type HesapIslemCursor,
+  type HesapIslemListRow,
+  parseHesapIslemListRows,
+} from '@/lib/hesapTransactionProjection';
+import {
+  dedupePersonelIslemRowsById,
+  type PersonelIslemCursor,
+  type PersonelIslemListRow,
+  parsePersonelIslemListRows,
+} from '@/lib/personelTransactionProjection';
+import {
+  buildCreateIslemV2Payload,
+  parseCreateIslemV2Response,
+  type CreateIslemV2CariScope,
+  type CreateIslemV2Input,
+} from '@/lib/createIslemV2Client';
+import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
+import {
+  buildSharedTransactionMutationPatch,
+  parseTransactionMutationContext,
+  type TransactionMutationContext,
+} from '@/lib/transactionMutationContext';
+import {
+  dedupeAuthorizedTransactionRowsById,
+  parseAuthorizedTransactionRows,
+} from '@/lib/authorizedTransactionProjection';
 import i18n from '@/i18n';
 
 interface IslemFilters {
@@ -29,17 +84,368 @@ interface IslemFilters {
 }
 
 const ISLEMLER_PAGE_SIZE = 50;
+const CARI_PROJECTION_ALL_PAGE_SIZE = 100;
+const CARI_PROJECTION_MAX_PAGES = 1000;
+const PERSONEL_PROJECTION_ALL_PAGE_SIZE = 100;
+const PERSONEL_PROJECTION_MAX_PAGES = 1000;
+
+interface AllTransactionsPageParam {
+  page: number;
+  beforeDate: string | null;
+  beforeId: string | null;
+}
+
+interface AllTransactionsPage {
+  rows: IslemWithRelations[];
+  nextPageParam?: AllTransactionsPageParam;
+}
+
+export type PersonelTransactionRow =
+  | IslemWithRelations
+  | PersonelIslemListRow;
+export type CariTransactionRow =
+  | IslemWithRelations
+  | CariIslemListRow;
+
+export interface CariProductMutationItem {
+  urun_id: string;
+  hareket_tipi: UrunHareketTipi;
+  miktar: number;
+  birim_fiyat: number;
+  kdv_orani: number;
+  aciklama: string | null;
+}
+
+async function fetchAllCariProjectionPages(
+  isletmeId: string,
+  cariId: string,
+): Promise<CariIslemListRow[]> {
+  const rows: CariIslemListRow[] = [];
+  const seenIds = new Set<string>();
+  let cursor: CariIslemCursor | null = null;
+
+  for (
+    let pageIndex = 0;
+    pageIndex < CARI_PROJECTION_MAX_PAGES;
+    pageIndex += 1
+  ) {
+    const { data, error } = await supabase.rpc(
+      'get_cari_islem_satirlari_v1',
+      {
+        p_isletme_id: isletmeId,
+        p_cari_id: cariId,
+        p_limit: CARI_PROJECTION_ALL_PAGE_SIZE,
+        p_before_date: cursor?.date ?? null,
+        p_before_created_at: cursor?.created_at ?? null,
+        p_before_id: cursor?.id ?? null,
+      },
+    );
+    if (error) throw error;
+
+    const page = parseCariIslemListRows(data);
+    page.forEach((row) => {
+      if (seenIds.has(row.id)) return;
+      seenIds.add(row.id);
+      rows.push(row);
+    });
+    if (page.length < CARI_PROJECTION_ALL_PAGE_SIZE) {
+      return rows;
+    }
+
+    const lastRow = page[page.length - 1];
+    const nextCursor: CariIslemCursor = {
+      date: lastRow.date,
+      created_at: lastRow.created_at,
+      id: lastRow.id,
+    };
+    if (
+      cursor
+      && cursor.date === nextCursor.date
+      && cursor.created_at === nextCursor.created_at
+      && cursor.id === nextCursor.id
+    ) {
+      throw new Error('Cari transaction projection cursor did not advance');
+    }
+    cursor = nextCursor;
+  }
+
+  throw new Error('Cari transaction projection page limit exceeded');
+}
+
+async function fetchAllPersonelProjectionPages(
+  isletmeId: string,
+  personelId: string,
+): Promise<PersonelIslemListRow[]> {
+  const rows: PersonelIslemListRow[] = [];
+  let cursor: PersonelIslemCursor | null = null;
+
+  for (
+    let pageIndex = 0;
+    pageIndex < PERSONEL_PROJECTION_MAX_PAGES;
+    pageIndex += 1
+  ) {
+    const { data, error } = await supabase.rpc(
+      'get_personel_islem_satirlari_v1',
+      {
+        p_isletme_id: isletmeId,
+        p_personel_id: personelId,
+        p_limit: PERSONEL_PROJECTION_ALL_PAGE_SIZE,
+        p_before_date: cursor?.date ?? null,
+        p_before_created_at: cursor?.created_at ?? null,
+        p_before_id: cursor?.id ?? null,
+      },
+    );
+
+    if (error) throw error;
+    const page = parsePersonelIslemListRows(data);
+    rows.push(...page);
+
+    if (page.length < PERSONEL_PROJECTION_ALL_PAGE_SIZE) {
+      return dedupePersonelIslemRowsById(rows);
+    }
+
+    const lastRow = page[page.length - 1];
+    const nextCursor: PersonelIslemCursor = {
+      date: lastRow.date,
+      created_at: lastRow.created_at,
+      id: lastRow.id,
+    };
+    if (
+      cursor
+      && cursor.date === nextCursor.date
+      && cursor.created_at === nextCursor.created_at
+      && cursor.id === nextCursor.id
+    ) {
+      throw new Error('Personnel transaction projection cursor did not advance');
+    }
+    cursor = nextCursor;
+  }
+
+  throw new Error('Personnel transaction projection page limit exceeded');
+}
+
+function transactionPermissionError(
+  action: 'create' | 'update' | 'delete',
+  reason: TransactionPermissionReason,
+  originalError?: unknown,
+): TransactionPermissionError {
+  const messageKey =
+    action === 'create'
+      ? 'transactions:permissions.createDenied'
+      : reason === 'ownership'
+      ? action === 'update'
+        ? 'transactions:permissions.otherUserUpdateDenied'
+        : 'transactions:permissions.otherUserDeleteDenied'
+      : action === 'update'
+        ? 'transactions:permissions.updateDenied'
+        : 'transactions:permissions.deleteDenied';
+
+  return new TransactionPermissionError(
+    action,
+    reason,
+    i18n.t(messageKey),
+    originalError,
+  );
+}
+
+type CanCreateModule = (module: string) => boolean;
+type CanModifyModule = (module: string, createdBy: string | null) => boolean;
+type CanAccessSourceModule = (module: TransactionSourceModule) => boolean;
+
+interface CreatePermissionSnapshot {
+  isletmeId: string | null;
+  canCreate: CanCreateModule;
+  canAccessModule: CanAccessSourceModule;
+}
+
+interface ModifyPermissionSnapshot {
+  isletmeId: string | null;
+  currentUserId: string | null;
+  isOwner: boolean;
+  canModify: CanModifyModule;
+  canAccessModule: CanAccessSourceModule;
+}
+
+function assertCanCreateTransaction(
+  type: unknown,
+  expectedIsletmeId: string,
+  snapshot: CreatePermissionSnapshot,
+  additionalModules: readonly TransactionSourceModule[] = [],
+): void {
+  if (
+    snapshot.isletmeId !== expectedIsletmeId
+    || !snapshot.canCreate('islemler')
+    || !canAccessTransactionSources(
+      [type],
+      snapshot.canAccessModule,
+      additionalModules,
+    )
+  ) {
+    throw transactionPermissionError('create', 'permission');
+  }
+}
+
+function assertCanModifyTransaction(
+  action: 'update' | 'delete',
+  types: readonly unknown[],
+  createdBy: string | null,
+  expectedIsletmeId: string,
+  snapshot: ModifyPermissionSnapshot,
+  additionalModules: readonly TransactionSourceModule[] = [],
+  requiredActionModules: readonly TransactionSourceModule[] = [],
+): void {
+  const canAccessSources = canAccessTransactionSources(
+    types,
+    snapshot.canAccessModule,
+    additionalModules,
+  );
+  const canModifyRecord =
+    snapshot.isletmeId === expectedIsletmeId
+    && canAccessSources
+    && snapshot.canModify('islemler', createdBy)
+    && requiredActionModules.every(
+      (module) => snapshot.canModify(module, createdBy),
+    );
+
+  if (canModifyRecord) return;
+
+  const canModifyOwnRecord =
+    snapshot.isletmeId === expectedIsletmeId
+    && canAccessSources
+    && !!snapshot.currentUserId
+    && snapshot.canModify('islemler', snapshot.currentUserId)
+    && requiredActionModules.every(
+      (module) => snapshot.canModify(module, snapshot.currentUserId),
+    );
+  const reason: TransactionPermissionReason =
+    canModifyOwnRecord
+    && !!createdBy
+    && createdBy !== snapshot.currentUserId
+      ? 'ownership'
+      : 'permission';
+
+  throw transactionPermissionError(action, reason);
+}
+
+type TransactionMutationAction = 'update' | 'delete';
+
+async function fetchTransactionMutationContext(
+  isletmeId: string,
+  islemId: string,
+  action: TransactionMutationAction,
+): Promise<TransactionMutationContext> {
+  const { data, error } = await supabase.rpc(
+    'get_islem_mutation_context_v1',
+    {
+      p_isletme_id: isletmeId,
+      p_islem_id: islemId,
+      p_action: action,
+    },
+  );
+
+  if (error) {
+    if (classifyMutationError(error) === 'permission') {
+      throw transactionPermissionError(action, 'permission', error);
+    }
+    throw error;
+  }
+
+  return parseTransactionMutationContext(data);
+}
+
+function mutationContextToIslem(
+  context: TransactionMutationContext,
+  isletmeId: string,
+): Islem {
+  return {
+    ...context,
+    isletme_id: isletmeId,
+    photo_path: null,
+    source_ileri_id: null,
+    updated_by: null,
+    created_at: context.date,
+    updated_at: context.date,
+  };
+}
 
 export function useIslemler(filters?: IslemFilters, enabled: boolean = true) {
-  const { isletme, isletmeLoading } = useAuthContext();
+  const {
+    isletme,
+    isletmeLoading,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const { isOwner } = usePermissions();
+  const permissionFingerprint = permissionAccessSignature(currentPermissions);
+  const pageSize = Math.max(
+    1,
+    Math.min(filters?.limit ?? ISLEMLER_PAGE_SIZE, ISLEMLER_PAGE_SIZE),
+  );
 
   const result = useInfiniteQuery({
-    queryKey: queryKeys.islemler.list(isletme?.id ?? '', filters),
-    queryFn: async ({ pageParam = 0 }) => {
-      if (!isletme) return [];
+    queryKey: [
+      ...queryKeys.islemler.list(isletme?.id ?? '', filters),
+      isOwner ? 'owner' : 'authorized-v1',
+      isOwner ? '' : user?.id ?? '',
+      isOwner ? '' : permissionFingerprint,
+    ],
+    queryFn: async ({ pageParam }): Promise<AllTransactionsPage> => {
+      if (!isletme) return { rows: [] };
 
-      const from = pageParam * ISLEMLER_PAGE_SIZE;
-      const to = from + ISLEMLER_PAGE_SIZE - 1;
+      if (!isOwner) {
+        const { data, error } = await supabase.rpc(
+          'get_yetkili_islem_satirlari_v1',
+          {
+            p_isletme_id: isletme.id,
+            p_limit: pageSize,
+            p_before_date: pageParam.beforeDate,
+            p_before_id: pageParam.beforeId,
+          },
+        );
+
+        if (error) throw error;
+        const rawRows = parseAuthorizedTransactionRows(data, isletme.id);
+        const rows = rawRows.filter((row) => {
+          if (filters?.type && row.type !== filters.type) return false;
+          if (
+            filters?.hesapId
+            && row.hesap_id !== filters.hesapId
+            && row.hedef_hesap_id !== filters.hesapId
+          ) {
+            return false;
+          }
+          if (filters?.cariId && row.cari_id !== filters.cariId) return false;
+          if (
+            filters?.personelId
+            && row.personel_id !== filters.personelId
+          ) {
+            return false;
+          }
+          if (filters?.startDate && row.date < filters.startDate) return false;
+          if (filters?.endDate) {
+            const end = filters.endDate.includes('T')
+              ? filters.endDate
+              : `${filters.endDate}T23:59:59`;
+            if (row.date > end) return false;
+          }
+          return true;
+        });
+        const last = rawRows.at(-1);
+        return {
+          rows,
+          nextPageParam:
+            !filters?.limit && rawRows.length === pageSize && last
+              ? {
+                  page: pageParam.page + 1,
+                  beforeDate: last.date,
+                  beforeId: last.id,
+                }
+              : undefined,
+        };
+      }
+
+      const from = pageParam.page * pageSize;
+      const to = from + pageSize - 1;
 
       let query = supabase
         .from('islemler')
@@ -50,7 +456,7 @@ export function useIslemler(filters?: IslemFilters, enabled: boolean = true) {
           kategori:kategoriler(id,name),
           cari:cariler(id,name,type,currency),
           personel:personel(id,first_name,last_name,currency),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+          creator:profiles!islemler_created_by_profiles_fk(display_name)
         `)
         .eq('isletme_id', isletme.id)
         .order('date', { ascending: false })
@@ -91,35 +497,75 @@ export function useIslemler(filters?: IslemFilters, enabled: boolean = true) {
       const { data, error } = await query;
 
       if (error) throw error;
-      return data as IslemWithRelations[];
+      const rows = data as IslemWithRelations[];
+      return {
+        rows,
+        nextPageParam:
+          !filters?.limit && rows.length === pageSize
+            ? {
+                page: pageParam.page + 1,
+                beforeDate: null,
+                beforeId: null,
+              }
+            : undefined,
+      };
     },
-    initialPageParam: 0,
-    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
-      if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
-      return lastPageParam + 1;
-    },
+    initialPageParam: {
+      page: 0,
+      beforeDate: null,
+      beforeId: null,
+    } as AllTransactionsPageParam,
+    getNextPageParam: (lastPage) => lastPage.nextPageParam,
     enabled: enabled && !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
-    meta: { query_purpose: 'islemler:list' },
+    meta: {
+      persist: isOwner,
+      query_purpose: isOwner
+        ? 'islemler:list'
+        : 'islemler:authorized-list-v1',
+    },
   });
 
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...result,
-    data: result.data?.pages.flat() ?? [],
+    data: dedupeAuthorizedTransactionRowsById(
+      result.data?.pages.flatMap((page) => page.rows) ?? [],
+    ),
     isLoading: enabled && (result.isLoading || isletmeLoading),
   };
 }
 
 // Tek işlem getir
 export function useIslem(id: string | undefined) {
-  const { isletme } = useAuthContext();
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const { isOwner } = usePermissions();
+  const permissionFingerprint = permissionAccessSignature(currentPermissions);
 
   return useQuery({
-    queryKey: queryKeys.islemler.detail(id ?? ''),
+    queryKey: [
+      ...queryKeys.islemler.detail(id ?? ''),
+      isletme?.id ?? '',
+      isOwner ? 'owner' : 'mutation-context-v1',
+      isOwner ? '' : user?.id ?? '',
+      isOwner ? '' : permissionFingerprint,
+    ],
     queryFn: async () => {
       if (!id || !isletme) return null;
+
+      if (!isOwner) {
+        const context = await fetchTransactionMutationContext(
+          isletme.id,
+          id,
+          'update',
+        );
+        return mutationContextToIslem(context, isletme.id);
+      }
 
       const { data, error } = await supabase
         .from('islemler')
@@ -132,12 +578,30 @@ export function useIslem(id: string | undefined) {
       return data as Islem;
     },
     enabled: !!id && !!isletme,
+    retry: isOwner ? undefined : false,
+    meta: {
+      persist: isOwner,
+      query_purpose: isOwner
+        ? 'islemler:detail'
+        : 'islemler:mutation-context',
+    },
   });
 }
 
 export function useCreateIslem() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canCreate, canAccessModule } = usePermissions();
+  const latestCreatePermissionRef = useRef<CreatePermissionSnapshot>({
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  });
+  latestCreatePermissionRef.current = {
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  };
 
   return useMutation({
     // Finansal mutation zincirini baştan otomatik tekrarlama. QTB create yolu client UUID ile
@@ -146,6 +610,12 @@ export function useCreateIslem() {
     retry: false,
     mutationFn: async (input: Omit<IslemInsert, 'isletme_id'>) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      assertCanCreateTransaction(
+        input.type,
+        isletme.id,
+        latestCreatePermissionRef.current,
+      );
 
       // ─── [GEÇİCİ TEŞHİS — auth/kayıt-hang ölçümü, 13 Tem] ───────────────────
       // Uzun arka plandan sonra kayıt yolunda HANGİ await'in astığını KESİN görmek
@@ -171,6 +641,11 @@ export function useCreateIslem() {
         // "ya hepsi ya hiçbiri" olması → ikinci bacak patlarsa sessiz para kaybı YOK.
         const ops = computeBalanceOps(balanceInput);
         const __tRpc = Date.now();
+        assertCanCreateTransaction(
+          input.type,
+          isletme.id,
+          latestCreatePermissionRef.current,
+        );
         const { data, error } = await supabase.rpc('create_islem_atomik', {
           p_isletme_id: isletme.id,
           p_new_row: input,
@@ -178,20 +653,15 @@ export function useCreateIslem() {
         });
         __timing.rpc_ms = Date.now() - __tRpc;
 
-        if (error) {
-          // Emniyet: RPC dağıtım boşluğu (undefined_function) → ESKİ insert+increment yoluna
-          // düş (işlem yine kaydedilir; yalnız o nadir durumda atomik değil). Diğer TÜM
-          // hataları yükselt — atomik olduğundan kısmi/yarım state kalmaz.
-          if (error.code === '42883' || /create_islem_atomik/.test(error.message ?? '')) {
-            const legacy = await createIslemLegacy(isletme.id, input, balanceInput);
-            __ok = true;
-            return legacy;
-          }
-          throw error;
+        if (error) throw error;
+
+        const created = data as Islem;
+        if (input.id && !isSameRegularCreate(created, input, isletme.id)) {
+          throw new MutationRetryPayloadChangedError();
         }
 
         __ok = true;
-        return data as Islem;
+        return created;
       } finally {
         // [GEÇİCİ TEŞHİS] Yalnız yavaş kayıtları logla (normal kayıt <1sn → gürültü yok).
         const __totalMs = Date.now() - __t0;
@@ -220,6 +690,89 @@ export function useCreateIslem() {
 // useCreateIslem ile AYNI kaynaktan (applyLinkedCariInversion + computeBalanceOps) hesaplanır →
 // parite tam. Atomik olduğundan istemci tarafı manuel rollback GEREKMEZ (RPC patlarsa hiçbir
 // bacak commit olmaz). p_new_row.id istemciden gelirse idempotent (retry çift kayıt yazmaz).
+/**
+ * P0-S2 first client slice. This hook is intentionally separate from the legacy
+ * create hook so only explicitly migrated, client-UUID-backed normal flows opt in.
+ */
+export function useCreateIslemV2() {
+  const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
+  const { canCreate, canAccessModule } = usePermissions();
+  const latestCreatePermissionRef = useRef<CreatePermissionSnapshot>({
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  });
+  latestCreatePermissionRef.current = {
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  };
+
+  return useMutation({
+    retry: false,
+    mutationFn: async (input: CreateIslemV2Input) => {
+      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      assertCanCreateTransaction(
+        input.type,
+        isletme.id,
+        latestCreatePermissionRef.current,
+      );
+
+      let cariScope: CreateIslemV2CariScope = 'not_applicable';
+      if (input.cari_id && isCariType(String(input.type))) {
+        const linkInfo = await getLinkedCariInfo(input.cari_id, isletme.id);
+        cariScope = !linkInfo
+          ? 'unknown'
+          : linkInfo.isLinked
+            ? 'linked'
+            : 'same_tenant';
+      }
+
+      const payload = buildCreateIslemV2Payload(input, cariScope);
+      if (!payload) {
+        const unsupported = new Error('ISLEM_V2_CLIENT_UNSUPPORTED') as Error & {
+          code: string;
+        };
+        unsupported.code = '0A000';
+        throw unsupported;
+      }
+
+      // Permission may narrow while the same-tenant cari probe is awaiting.
+      assertCanCreateTransaction(
+        input.type,
+        isletme.id,
+        latestCreatePermissionRef.current,
+      );
+      const { data, error } = await supabase.rpc('create_islem_atomik_v2', {
+        p_isletme_id: isletme.id,
+        p_new_row: payload,
+      });
+
+      // Never fall back to V1 after a V2 error. A lost HTTP response may hide a
+      // committed V2 write; a fallback would create a second financial transaction.
+      if (error) {
+        if (classifyMutationError(error) === 'permission') {
+          throw transactionPermissionError('create', 'permission', error);
+        }
+        throw error;
+      }
+
+      return parseCreateIslemV2Response(data, isletme.id, String(input.id));
+    },
+    onSuccess: (data) => {
+      invalidateRelatedQueries(queryClient, 'islem');
+      logEvent('transaction_created', {
+        type: data.type,
+        has_cari: !!data.cari_id,
+        has_personel: !!data.personel_id,
+        has_kategori: !!data.kategori_id,
+        write_engine: 'v2',
+      });
+    },
+  });
+}
+
 export interface CreateIslemWithUrunItem {
   urun_id: string;
   hareket_tipi: UrunHareketTipi;
@@ -232,6 +785,17 @@ export interface CreateIslemWithUrunItem {
 export function useCreateIslemWithUrun() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canCreate, canAccessModule } = usePermissions();
+  const latestCreatePermissionRef = useRef<CreatePermissionSnapshot>({
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  });
+  latestCreatePermissionRef.current = {
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  };
 
   return useMutation({
     // Atomik RPC olsa da HTTP cevabı kaybolduğunda mutation'ı körlemesine baştan koşturma;
@@ -239,11 +803,26 @@ export function useCreateIslemWithUrun() {
     retry: false,
     mutationFn: async ({ input, items }: { input: Omit<IslemInsert, 'isletme_id'>; items: CreateIslemWithUrunItem[] }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!isProductTransactionType(input.type)) {
+        throw transactionPermissionError('create', 'permission');
+      }
+      assertCanCreateTransaction(
+        input.type,
+        isletme.id,
+        latestCreatePermissionRef.current,
+        ['urunler'],
+      );
 
       // Linked-cari inversiyonu + bakiye deltaları: useCreateIslem ile BİREBİR aynı yol.
       const balanceInput = await applyLinkedCariInversion(input, isletme.id);
       const ops = computeBalanceOps(balanceInput);
 
+      assertCanCreateTransaction(
+        input.type,
+        isletme.id,
+        latestCreatePermissionRef.current,
+        ['urunler'],
+      );
       const { data, error } = await supabase.rpc('create_islem_with_urun_atomik', {
         p_isletme_id: isletme.id,
         p_new_row: input,
@@ -251,12 +830,16 @@ export function useCreateIslemWithUrun() {
         p_items: items,
       });
 
-      // 42883 (fonksiyon yok) dahil TÜM hatalar yükseltilir; çağıran (handleSave) 42883'te
-      // eski çok-çağrılı yola (create_islem_atomik + per-product) düşer. Atomik olduğundan
-      // hata halinde kısmi state kalmaz. createIslem paritesi: özel 42501 mesaj eşlemesi yok.
+      // 42883 (fonksiyon yok) dahil TÜM hatalar yükseltilir. Çağıran fail-closed davranır;
+      // ürün/stok etkisini ayrı isteklerle taklit eden non-atomik fallback veri güvenli değildir.
       if (error) throw error;
 
-      return data as Islem;
+      const created = data as Islem;
+      if (input.id && !isSameRegularCreate(created, input, isletme.id)) {
+        throw new MutationRetryPayloadChangedError();
+      }
+
+      return created;
     },
     onSuccess: (data) => {
       invalidateRelatedQueries(queryClient, 'islem');
@@ -275,25 +858,42 @@ export function useCreateIslemWithUrun() {
 // (taksit_plani_olustur). Bakiye matematiği useCreateIslem ile BİREBİR aynı
 // (computeBalanceOps; satış BİR KEZ satış tarihinde — taksit yalnız tahsilat beklentisi).
 // p_new_row.id client'tan gelir → idempotent (retry çift plan yazmaz).
-export interface TaksitSatiri {
-  sira: number;
-  vade_tarihi: string; // YYYY-MM-DD
-  tutar: number;
-}
+export type TaksitSatiri = InstallmentRpcRow;
 
 export function useCreateIslemTaksitli() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canCreate, canAccessModule } = usePermissions();
+  const latestCreatePermissionRef = useRef<CreatePermissionSnapshot>({
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  });
+  latestCreatePermissionRef.current = {
+    isletmeId: isletme?.id ?? null,
+    canCreate,
+    canAccessModule,
+  };
 
   return useMutation({
     // Taksit planı finansal write'tır; belirsiz ağ hatasında otomatik tam-zincir retry yapma.
     retry: false,
     mutationFn: async ({ input, taksitler }: { input: Omit<IslemInsert, 'isletme_id'>; taksitler: TaksitSatiri[] }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      assertCanCreateTransaction(
+        input.type,
+        isletme.id,
+        latestCreatePermissionRef.current,
+      );
 
       const balanceInput = await applyLinkedCariInversion(input, isletme.id);
       const ops = computeBalanceOps(balanceInput);
 
+      assertCanCreateTransaction(
+        input.type,
+        isletme.id,
+        latestCreatePermissionRef.current,
+      );
       const { data, error } = await supabase.rpc('taksit_plani_olustur', {
         p_isletme_id: isletme.id,
         p_new_row: input,
@@ -304,7 +904,11 @@ export function useCreateIslemTaksitli() {
       // Yeni özellik: dağıtım-boşluğu fallback'i YOK (eski yol taksit bilmez) —
       // hata olduğu gibi yükselir, atomik olduğundan kısmi state kalmaz.
       if (error) throw error;
-      return data as Islem;
+      const created = data as Islem;
+      if (input.id && !isSameRegularCreate(created, input, isletme.id)) {
+        throw new MutationRetryPayloadChangedError();
+      }
+      return created;
     },
     onSuccess: (data, variables) => {
       invalidateRelatedQueries(queryClient, 'islem');
@@ -323,8 +927,16 @@ function isCariType(type: string): boolean {
   return type.startsWith('cari_');
 }
 
+interface LinkedCariInfo {
+  isLinked: boolean;
+  shouldInvert: boolean;
+}
+
 // Linked cari bilgisini getir - viewer mı ve type mismatch var mı?
-async function getLinkedCariInfo(cariId: string, currentIsletmeId: string): Promise<{ shouldInvert: boolean } | null> {
+async function getLinkedCariInfo(
+  cariId: string,
+  currentIsletmeId: string,
+): Promise<LinkedCariInfo | null> {
   // Önce carinin hangi isletmeye ait olduğunu öğren
   const { data: cari, error: cariError } = await supabase
     .from('cariler')
@@ -335,7 +947,9 @@ async function getLinkedCariInfo(cariId: string, currentIsletmeId: string): Prom
   if (cariError || !cari) return null;
 
   // Kendi carisi ise inversiyona gerek yok
-  if (cari.isletme_id === currentIsletmeId) return null;
+  if (cari.isletme_id === currentIsletmeId) {
+    return { isLinked: false, shouldInvert: false };
+  }
 
   // Linked cari - viewer tarafından oluşturuluyor
   // cari_links'ten viewer_type bilgisini al
@@ -346,11 +960,15 @@ async function getLinkedCariInfo(cariId: string, currentIsletmeId: string): Prom
     .eq('viewer_isletme_id', currentIsletmeId)
     .single();
 
-  if (linkError || !link) return null;
+  if (linkError || !link) {
+    // The cari row already proves this is a foreign-tenant/viewer path. Keep the
+    // V2 route closed even if the secondary link lookup cannot resolve inversion.
+    return { isLinked: true, shouldInvert: false };
+  }
 
   // Type mismatch varsa invert gerekli
   const shouldInvert = cari.type !== link.viewer_type;
-  return { shouldInvert };
+  return { isLinked: true, shouldInvert };
 }
 
 // İşlem verisini linked cari inversiyonu ile dönüştür (bakiye hesaplamaları için)
@@ -367,92 +985,65 @@ async function applyLinkedCariInversion<T extends { cari_id?: string | null; typ
   return { ...input, type: invertCariTransactionType(input.type as IslemType) as string };
 }
 
-// RPC çağrısı için helper fonksiyon - hata kontrolü ile
-async function safeIncrementBalance(tableName: string, rowId: string, amount: number) {
-  const { error } = await supabase.rpc('increment_balance', {
-    table_name: tableName,
-    row_id: rowId,
-    amount: amount,
-  });
-
-  if (error) {
-    if (__DEV__) {
-      console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
-    }
-    throw new Error(i18n.t('common:errors.balanceUpdateFailed', { detail: error.message }));
-  }
-}
-
-// Bakiye güncelleme (APPLY): işlemin bakiye etkisini uygular.
-// Matematik computeBalanceOps'ta (tek kaynak, birim-testli); burası yalnız executor.
-// Kısmi başarı korumalı: bir bacak (ör. iki-bacaklı transfer'in 2.'si) patlarsa, o ana
-// kadar uygulanan bacaklar GERİ ALINIR — yoksa satır silinse bile bakiye orphan kalırdı.
-async function updateBalances(islem: Omit<IslemInsert, 'isletme_id'>) {
-  const ops = computeBalanceOps(islem);
-  const applied: typeof ops = [];
-  try {
-    for (const op of ops) {
-      await safeIncrementBalance(op.t, op.id, op.d);
-      applied.push(op);
-    }
-  } catch (err) {
-    // Uygulanan bacakları ters sırada geri al; geri alma da patlarsa yut (üst katman
-    // islem satırını siler + kullanıcıya kritik hata mesajı verir).
-    for (const op of applied.reverse()) {
-      try {
-        await safeIncrementBalance(op.t, op.id, -op.d);
-      } catch {
-        /* best-effort geri alma */
-      }
-    }
-    throw err;
-  }
-}
-
-// Eski (NON-ATOMIK) create yolu — YALNIZ create_islem_atomik RPC'si bulunamazsa fallback.
-// insert + ayrı increment_balance'lar; ikinci bacak patlarsa satırı geri sil (mevcut davranış).
-// Not: atomik RPC yoluyla çağrıldığında bu hiç çalışmaz; sadece dağıtım boşluğuna karşı emniyet.
-async function createIslemLegacy(
-  isletmeId: string,
-  input: Omit<IslemInsert, 'isletme_id'>,
-  balanceInput: Omit<IslemInsert, 'isletme_id'>,
-): Promise<Islem> {
-  const { data, error } = await supabase
-    .from('islemler')
-    .insert({ ...input, isletme_id: isletmeId })
-    .select()
-    .single();
-  if (error) throw error;
-
-  try {
-    await updateBalances(balanceInput);
-  } catch (balanceError) {
-    try {
-      await supabase.from('islemler').delete().eq('id', data.id).eq('isletme_id', isletmeId);
-    } catch (rollbackError) {
-      throw new Error(
-        i18n.t('common:errors.balanceRollbackCritical', { detail: (rollbackError as Error).message })
-      );
-    }
-    throw balanceError;
-  }
-  return data as Islem;
-}
-
 // Cari işlemleri (kategori bilgisi dahil) - infinite scroll
 // asViewer=true: bağlantılı cari'yi GÖRÜNTÜLEYEN işletme için. Kendi isletme_id filtresi
 // UYGULANMAZ; bunun yerine RLS (view_linked_islemler) erişimi yalnız bağlı cari'nin
 // işlemleriyle sınırlar → sahibin işlemleri güvenle görünür, başka veri sızmaz.
 // asViewer=false (varsayılan): sahip/normal akış — davranış birebir aynı.
 export function useIslemlerByCari(cariId: string, asViewer = false) {
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const {
+    canAccessModule,
+    canSeeAllUsersData,
+    isOwner,
+  } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
+  const isSharedNonViewer = !isOwner && !asViewer;
+  const useSharedProjection = isSharedNonViewer && canSeeCariler;
+  const queryKey = isSharedNonViewer
+    ? queryKeys.islemler.cariProjection(
+      isletme?.id ?? '',
+      cariId,
+      user?.id ?? '',
+      canSeeAllUsersData,
+    )
+    : [
+      ...queryKeys.islemler.byCari(cariId, isletme?.id ?? ''),
+      asViewer ? 'viewer' : 'owner',
+    ] as const;
 
   const result = useInfiniteQuery({
-    queryKey: [...queryKeys.islemler.byCari(cariId, isletme?.id ?? ''), asViewer ? 'viewer' : 'owner'],
-    queryFn: async ({ pageParam = 0 }) => {
+    queryKey,
+    queryFn: async ({
+      pageParam = 0 as number | CariIslemCursor,
+    }): Promise<CariIslemListRow[]> => {
       if (!isletme || !cariId) return [];
 
-      const from = pageParam * ISLEMLER_PAGE_SIZE;
+      if (useSharedProjection) {
+        const cursor =
+          typeof pageParam === 'number' ? null : pageParam;
+        const { data, error } = await supabase.rpc(
+          'get_cari_islem_satirlari_v1',
+          {
+            p_isletme_id: isletme.id,
+            p_cari_id: cariId,
+            p_limit: ISLEMLER_PAGE_SIZE,
+            p_before_date: cursor?.date ?? null,
+            p_before_created_at: cursor?.created_at ?? null,
+            p_before_id: cursor?.id ?? null,
+          },
+        );
+
+        if (error) throw error;
+        return parseCariIslemListRows(data);
+      }
+
+      // Cariler modulu kapali shared kullanici disabled sorgunun queryFn'ini
+      // manuel tetiklese bile eski genis SELECT yoluna dusmez.
+      if (isSharedNonViewer) return [];
+
+      const pageIndex = typeof pageParam === 'number' ? pageParam : 0;
+      const from = pageIndex * ISLEMLER_PAGE_SIZE;
       const to = from + ISLEMLER_PAGE_SIZE - 1;
 
       let query = supabase
@@ -461,7 +1052,7 @@ export function useIslemlerByCari(cariId: string, asViewer = false) {
           *,
           kategori:kategoriler(id,name),
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+          creator:profiles!islemler_created_by_profiles_fk(display_name)
         `)
         .eq('cari_id', cariId);
 
@@ -476,32 +1067,103 @@ export function useIslemlerByCari(cariId: string, asViewer = false) {
         .range(from, to);
 
       if (error) throw error;
-      return data as IslemWithRelations[];
+      return parseCariIslemListRows(data);
     },
-    initialPageParam: 0,
+    initialPageParam: 0 as number | CariIslemCursor,
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
-      return lastPageParam + 1;
+      if (useSharedProjection) {
+        const lastRow = lastPage[lastPage.length - 1];
+        return {
+          date: lastRow.date,
+          created_at: lastRow.created_at,
+          id: lastRow.id,
+        } satisfies CariIslemCursor;
+      }
+      return typeof lastPageParam === 'number' ? lastPageParam + 1 : 1;
     },
-    enabled: !!isletme && !!cariId,
+    enabled:
+      !!isletme
+      && !!cariId
+      && (
+        !isSharedNonViewer
+        || (canSeeCariler && !!user?.id)
+      ),
+    meta: isSharedNonViewer
+      ? {
+        persist: false,
+        query_purpose: 'islemler:cari-projection-v1',
+      }
+      : undefined,
   });
 
   return {
     ...result,
-    data: result.data?.pages.flat() ?? [],
+    data:
+      !isSharedNonViewer || canSeeCariler
+        ? result.data?.pages.flat() ?? []
+        : [],
   };
 }
 
 // Hesap işlemleri (kategori bilgisi dahil) - infinite scroll
 export function useIslemlerByHesap(hesapId: string) {
-  const { isletme } = useAuthContext();
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const {
+    canAccessModule,
+    isOwner,
+  } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const isShared = !isOwner;
+  const useSharedProjection = isShared && canSeeHesaplar;
+  const permissionFingerprint = permissionAccessSignature(
+    currentPermissions,
+  );
+  const queryKey = isShared
+    ? queryKeys.islemler.hesapProjection(
+      isletme?.id ?? '',
+      hesapId,
+      user?.id ?? '',
+      permissionFingerprint,
+    )
+    : queryKeys.islemler.byHesap(hesapId, isletme?.id ?? '');
 
   const result = useInfiniteQuery({
-    queryKey: queryKeys.islemler.byHesap(hesapId, isletme?.id ?? ''),
-    queryFn: async ({ pageParam = 0 }) => {
+    queryKey,
+    queryFn: async ({
+      pageParam = 0 as number | HesapIslemCursor,
+    }): Promise<Array<IslemWithRelations | HesapIslemListRow>> => {
       if (!isletme || !hesapId) return [];
 
-      const from = pageParam * ISLEMLER_PAGE_SIZE;
+      if (useSharedProjection) {
+        const cursor =
+          typeof pageParam === 'number' ? null : pageParam;
+        const { data, error } = await supabase.rpc(
+          'get_hesap_islem_satirlari_v1',
+          {
+            p_isletme_id: isletme.id,
+            p_hesap_id: hesapId,
+            p_limit: ISLEMLER_PAGE_SIZE,
+            p_before_date: cursor?.date ?? null,
+            p_before_created_at: cursor?.created_at ?? null,
+            p_before_id: cursor?.id ?? null,
+          },
+        );
+
+        if (error) throw error;
+        return parseHesapIslemListRows(data);
+      }
+
+      // Hesaplar modulu kapali shared kullanici disabled sorguyu manuel
+      // tetiklese bile owner'in genis SELECT yoluna dusemez.
+      if (isShared) return [];
+
+      const pageIndex = typeof pageParam === 'number' ? pageParam : 0;
+      const from = pageIndex * ISLEMLER_PAGE_SIZE;
       const to = from + ISLEMLER_PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -513,41 +1175,123 @@ export function useIslemlerByHesap(hesapId: string) {
           hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
           cari:cariler(id,name,type,currency),
           personel:personel(id,first_name,last_name,currency),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+          creator:profiles!islemler_created_by_profiles_fk(display_name)
         `)
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${hesapId},hedef_hesap_id.eq.${hesapId}`)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
       return data as IslemWithRelations[];
     },
-    initialPageParam: 0,
+    initialPageParam: 0 as number | HesapIslemCursor,
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
-      return lastPageParam + 1;
+      if (useSharedProjection) {
+        const lastRow = lastPage[lastPage.length - 1];
+        return {
+          date: lastRow.date,
+          created_at: lastRow.created_at,
+          id: lastRow.id,
+        } satisfies HesapIslemCursor;
+      }
+      return typeof lastPageParam === 'number' ? lastPageParam + 1 : 1;
     },
-    enabled: !!isletme && !!hesapId,
+    enabled:
+      !!isletme
+      && !!hesapId
+      && (
+        !isShared
+        || (canSeeHesaplar && !!user?.id)
+      ),
+    meta: isShared
+      ? {
+        persist: false,
+        query_purpose: 'islemler:hesap-projection-v1',
+      }
+      : undefined,
   });
+
+  const mergedRows = useMemo(() => {
+    const rows = result.data?.pages.flat() ?? [];
+    if (!useSharedProjection) return rows;
+
+    // Keyset cursor normalde tekrar uretmez; yine de refetch/page yarisi veya
+    // server retry ayni ID'yi iki sayfaya tasirsa UI'da cift satir olusturma.
+    return dedupeHesapIslemRowsById(rows);
+  }, [result.data, useSharedProjection]);
 
   return {
     ...result,
-    data: result.data?.pages.flat() ?? [],
+    data:
+      !isShared || canSeeHesaplar
+        ? mergedRows
+        : [],
   };
 }
 
 // Personel işlemleri (kategori bilgisi dahil) - infinite scroll
 export function useIslemlerByPersonel(personelId: string) {
-  const { isletme } = useAuthContext();
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const {
+    canAccessModule,
+    isOwner,
+  } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
+  const isShared = !isOwner;
+  const useSharedProjection = isShared && canSeePersonel;
+  const permissionFingerprint = permissionAccessSignature(
+    currentPermissions,
+  );
+  const queryKey = isShared
+    ? queryKeys.islemler.personelProjection(
+      isletme?.id ?? '',
+      personelId,
+      user?.id ?? '',
+      permissionFingerprint,
+      'paged',
+    )
+    : queryKeys.islemler.byPersonel(personelId, isletme?.id ?? '');
 
   const result = useInfiniteQuery({
-    queryKey: queryKeys.islemler.byPersonel(personelId, isletme?.id ?? ''),
-    queryFn: async ({ pageParam = 0 }) => {
+    queryKey,
+    queryFn: async ({
+      pageParam = 0 as number | PersonelIslemCursor,
+    }): Promise<PersonelTransactionRow[]> => {
       if (!isletme || !personelId) return [];
 
-      const from = pageParam * ISLEMLER_PAGE_SIZE;
+      if (useSharedProjection) {
+        const cursor =
+          typeof pageParam === 'number' ? null : pageParam;
+        const { data, error } = await supabase.rpc(
+          'get_personel_islem_satirlari_v1',
+          {
+            p_isletme_id: isletme.id,
+            p_personel_id: personelId,
+            p_limit: ISLEMLER_PAGE_SIZE,
+            p_before_date: cursor?.date ?? null,
+            p_before_created_at: cursor?.created_at ?? null,
+            p_before_id: cursor?.id ?? null,
+          },
+        );
+
+        if (error) throw error;
+        return parsePersonelIslemListRows(data);
+      }
+
+      // Personel modulu kapali shared kullanici disabled sorguyu manuel
+      // tetiklese bile owner'in genis SELECT yoluna dusemez.
+      if (isShared) return [];
+
+      const pageIndex = typeof pageParam === 'number' ? pageParam : 0;
+      const from = pageIndex * ISLEMLER_PAGE_SIZE;
       const to = from + ISLEMLER_PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -556,39 +1300,109 @@ export function useIslemlerByPersonel(personelId: string) {
           *,
           kategori:kategoriler(id,name),
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+          creator:profiles!islemler_created_by_profiles_fk(display_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
       return data as IslemWithRelations[];
     },
-    initialPageParam: 0,
+    initialPageParam: 0 as number | PersonelIslemCursor,
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       if (!lastPage || lastPage.length < ISLEMLER_PAGE_SIZE) return undefined;
-      return lastPageParam + 1;
+      if (useSharedProjection) {
+        const lastRow = lastPage[lastPage.length - 1];
+        return {
+          date: lastRow.date,
+          created_at: lastRow.created_at,
+          id: lastRow.id,
+        } satisfies PersonelIslemCursor;
+      }
+      return typeof lastPageParam === 'number' ? lastPageParam + 1 : 1;
     },
-    enabled: !!isletme && !!personelId,
+    enabled:
+      !!isletme
+      && !!personelId
+      && (
+        !isShared
+        || (canSeePersonel && !!user?.id)
+      ),
+    meta: isShared
+      ? {
+        persist: false,
+        query_purpose: 'islemler:personel-projection-v1',
+      }
+      : undefined,
   });
+
+  const mergedRows = useMemo(() => {
+    const rows = result.data?.pages.flat() ?? [];
+    if (!useSharedProjection) return rows;
+    return dedupePersonelIslemRowsById(rows);
+  }, [result.data, useSharedProjection]);
+  const hasUnsafeQueryState = result.isError || result.isRefetchError;
 
   return {
     ...result,
-    data: result.data?.pages.flat() ?? [],
+    data:
+      (
+        !isShared
+        || canSeePersonel
+      )
+      && !hasUnsafeQueryState
+        ? mergedRows
+        : [],
   };
 }
 
 // Personel işlemleri - rapor için tüm işlemler (pagination yok)
-export function useAllIslemlerByPersonel(personelId: string) {
-  const { isletme } = useAuthContext();
+export function useAllIslemlerByPersonel(
+  personelId: string,
+  allowReportAccess: boolean = false,
+) {
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const { canAccessModule, isOwner } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
+  const canReadPersonel =
+    canSeePersonel
+    || (allowReportAccess && canAccessModule('raporlar'));
+  const isShared = !isOwner;
+  const permissionFingerprint = permissionAccessSignature(
+    currentPermissions,
+  );
+  const queryKey = isShared
+    ? queryKeys.islemler.personelProjection(
+      isletme?.id ?? '',
+      personelId,
+      user?.id ?? '',
+      permissionFingerprint,
+      'all',
+    )
+    : queryKeys.islemler.allByPersonel(
+      personelId,
+      isletme?.id ?? '',
+    );
 
-  return useQuery({
-    queryKey: queryKeys.islemler.allByPersonel(personelId, isletme?.id ?? ''),
-    queryFn: async () => {
-      if (!isletme || !personelId) return [];
+  const result = useQuery({
+    queryKey,
+    queryFn: async (): Promise<PersonelTransactionRow[]> => {
+      if (!canReadPersonel || !isletme || !personelId) return [];
+
+      if (isShared) {
+        return fetchAllPersonelProjectionPages(
+          isletme.id,
+          personelId,
+        );
+      }
 
       const data = await fetchAllPages<IslemWithRelations>(() => supabase
         .from('islemler')
@@ -596,28 +1410,81 @@ export function useAllIslemlerByPersonel(personelId: string) {
           *,
           kategori:kategoriler(id,name),
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+          creator:profiles!islemler_created_by_profiles_fk(display_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
       );
       return data;
     },
-    enabled: !!isletme && !!personelId,
+    enabled:
+      canReadPersonel
+      && !!isletme
+      && !!personelId
+      && (!isShared || !!user?.id),
+    meta: isShared
+      ? {
+        persist: false,
+        query_purpose: 'islemler:personel-projection-v1-all',
+      }
+      : {
+        persist: true,
+        query_purpose: 'islemler:all-by-personel',
+      },
   });
+
+  const hasUnsafeQueryState = result.isError || result.isRefetchError;
+  return {
+    ...result,
+    data:
+      canReadPersonel && !hasUnsafeQueryState
+        ? result.data ?? []
+        : [],
+  };
 }
 
 // Personel İZİN işlemleri - izin geçmişi için (type-filtreli, pagination yok).
 // Sadece izin satırları çekilir (düşük egress); tüm izin geçmişi eksiksiz gelir.
 export function useAllLeaveByPersonel(personelId: string) {
-  const { isletme } = useAuthContext();
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const { canAccessModule, isOwner } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
+  const isShared = !isOwner;
+  const permissionFingerprint = permissionAccessSignature(
+    currentPermissions,
+  );
+  const queryKey = isShared
+    ? queryKeys.islemler.personelProjection(
+      isletme?.id ?? '',
+      personelId,
+      user?.id ?? '',
+      permissionFingerprint,
+      'leave',
+    )
+    : queryKeys.islemler.allLeaveByPersonel(
+      personelId,
+      isletme?.id ?? '',
+    );
 
-  return useQuery({
-    queryKey: queryKeys.islemler.allLeaveByPersonel(personelId, isletme?.id ?? ''),
-    queryFn: async () => {
-      if (!isletme || !personelId) return [];
+  const result = useQuery({
+    queryKey,
+    queryFn: async (): Promise<PersonelTransactionRow[]> => {
+      if (!canSeePersonel || !isletme || !personelId) return [];
+
+      if (isShared) {
+        const rows = await fetchAllPersonelProjectionPages(
+          isletme.id,
+          personelId,
+        );
+        return rows.filter((row) => isLeaveType(row.type));
+      }
 
       const data = await fetchAllPages<IslemWithRelations>(() => supabase
         .from('islemler')
@@ -625,30 +1492,90 @@ export function useAllLeaveByPersonel(personelId: string) {
           *,
           kategori:kategoriler(id,name),
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+          creator:profiles!islemler_created_by_profiles_fk(display_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('personel_id', personelId)
         .in('type', LEAVE_TYPES)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
       );
       return data;
     },
-    enabled: !!isletme && !!personelId,
+    enabled:
+      canSeePersonel
+      && !!isletme
+      && !!personelId
+      && (!isShared || !!user?.id),
+    meta: isShared
+      ? {
+        persist: false,
+        query_purpose: 'islemler:personel-projection-v1-leave',
+      }
+      : {
+        persist: true,
+        query_purpose: 'islemler:all-leave-by-personel',
+      },
   });
+
+  const hasUnsafeQueryState = result.isError || result.isRefetchError;
+  return {
+    ...result,
+    data:
+      canSeePersonel && !hasUnsafeQueryState
+        ? result.data ?? []
+        : [],
+  };
 }
 
 // Cari işlemleri - rapor için tüm işlemler (pagination yok)
 // enabled=false: mutabakat raporu snapshot alındıktan sonra kuyruktan eklenen her
 // işlemin invalidation'ı tüm geçmişi yeniden indirmesin diye kapatılabilir.
-export function useAllIslemlerByCari(cariId: string, enabled: boolean = true) {
-  const { isletme } = useAuthContext();
+export function useAllIslemlerByCari(
+  cariId: string,
+  enabled: boolean = true,
+  allowReportAccess: boolean = false,
+) {
+  const { isletme, user } = useAuthContext();
+  const {
+    canAccessModule,
+    canSeeAllUsersData,
+    isOwner,
+  } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
+  const canReadCariler =
+    canSeeCariler
+    || (allowReportAccess && canAccessModule('raporlar'));
+  const isShared = !isOwner;
+  const queryKey = isShared
+    ? [
+        ...queryKeys.islemler.cariProjection(
+          isletme?.id ?? '',
+          cariId,
+          user?.id ?? '',
+          canSeeAllUsersData,
+        ),
+        'all',
+        'report-access',
+        allowReportAccess,
+      ] as const
+    : [
+        ...queryKeys.islemler.allByCari(
+          cariId,
+          isletme?.id ?? '',
+        ),
+        'owner',
+      ] as const;
 
-  return useQuery({
-    queryKey: queryKeys.islemler.allByCari(cariId, isletme?.id ?? ''),
-    queryFn: async () => {
-      if (!isletme || !cariId) return [];
+  const result = useQuery({
+    queryKey,
+    queryFn: async (): Promise<CariTransactionRow[]> => {
+      if (!canReadCariler || !isletme || !cariId) return [];
+
+      if (isShared) {
+        return fetchAllCariProjectionPages(isletme.id, cariId);
+      }
 
       const data = await fetchAllPages<IslemWithRelations>(() => supabase
         .from('islemler')
@@ -656,7 +1583,7 @@ export function useAllIslemlerByCari(cariId: string, enabled: boolean = true) {
           *,
           kategori:kategoriler(id,name),
           hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
+          creator:profiles!islemler_created_by_profiles_fk(display_name)
         `)
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
@@ -665,21 +1592,132 @@ export function useAllIslemlerByCari(cariId: string, enabled: boolean = true) {
       );
       return data;
     },
-    enabled: !!isletme && !!cariId && enabled,
+    enabled:
+      canReadCariler
+      && !!isletme
+      && !!cariId
+      && enabled
+      && (!isShared || !!user?.id),
+    meta: isShared
+      ? {
+          persist: false,
+          query_purpose: 'islemler:cari-projection-v1-all',
+        }
+      : {
+          persist: true,
+          query_purpose: 'islemler:all-by-cari',
+        },
   });
+
+  const hasUnsafeQueryState = result.isError || result.isRefetchError;
+  return {
+    ...result,
+    data:
+      canReadCariler && !hasUnsafeQueryState
+        ? result.data ?? []
+        : [],
+  };
 }
 
 // İşlem güncelleme - transaction güvenliği ile
 export function useUpdateIslem() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const { canUpdate, canAccessModule, isOwner } = usePermissions();
+  const latestUpdatePermissionRef = useRef<ModifyPermissionSnapshot>({
+    isletmeId: isletme?.id ?? null,
+    currentUserId: user?.id ?? null,
+    isOwner,
+    canModify: canUpdate,
+    canAccessModule,
+  });
+  latestUpdatePermissionRef.current = {
+    isletmeId: isletme?.id ?? null,
+    currentUserId: user?.id ?? null,
+    isOwner,
+    canModify: canUpdate,
+    canAccessModule,
+  };
 
   return useMutation({
     // SELECT(old) + linked-cari kontrolleri + atomik RPC'nin tamamını ağ hatasında baştan
     // koşturmak 15 sn timeout turlarını katlıyor. Retry kararı üst akışta doğrulanarak verilmeli.
     retry: false,
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Omit<IslemInsert, 'isletme_id'>> }) => {
+    mutationFn: async ({
+      id,
+      updates,
+      productItems,
+    }: {
+      id: string;
+      updates: Partial<Omit<IslemInsert, 'isletme_id'>>;
+      /**
+       * Yalnız Cari+Ürün shared V3. Boş dizi mevcut kalemlerin tamamını kaldırır;
+       * undefined non-product V2 yoludur.
+       */
+      productItems?: CariProductMutationItem[];
+    }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      const useSharedMutation = !latestUpdatePermissionRef.current.isOwner;
+      if (useSharedMutation) {
+        const context = await fetchTransactionMutationContext(
+          isletme.id,
+          id,
+          'update',
+        );
+        const permissionSnapshot = latestUpdatePermissionRef.current;
+        const updatedType = updates.type ?? context.type;
+        if (
+          productItems !== undefined
+          && (
+            !supportsSharedProductMutationV3(context.type)
+            || !supportsSharedProductMutationV3(updatedType)
+          )
+        ) {
+          throw new SharedTransactionMutationUnsupportedError();
+        }
+        assertCanModifyTransaction(
+          'update',
+          [context.type, updatedType],
+          context.created_by,
+          isletme.id,
+          permissionSnapshot,
+          productItems !== undefined ? ['urunler'] : [],
+          productItems !== undefined ? ['urunler'] : [],
+        );
+
+        const patch = buildSharedTransactionMutationPatch(context, updates);
+        const { data, error } = productItems !== undefined
+          ? await supabase.rpc(
+              'update_cari_urunlu_islem_atomik_v3',
+              {
+                p_isletme_id: isletme.id,
+                p_islem_id: id,
+                p_patch: patch,
+                p_items: productItems,
+              },
+            )
+          : await supabase.rpc(
+              'update_islem_atomik_v2',
+              {
+                p_isletme_id: isletme.id,
+                p_islem_id: id,
+                p_patch: patch,
+              },
+            );
+
+        if (error) {
+          if (classifyMutationError(error) === 'permission') {
+            throw transactionPermissionError('update', 'permission', error);
+          }
+          throw error;
+        }
+
+        return mutationContextToIslem(
+          parseTransactionMutationContext(data),
+          isletme.id,
+        );
+      }
 
       // Önce mevcut işlemi al
       const { data: oldIslem, error: fetchError } = await supabase
@@ -689,8 +1727,22 @@ export function useUpdateIslem() {
         .eq('isletme_id', isletme.id)
         .single();
 
+      if (fetchError?.code === 'PGRST116') {
+        throw new Error(i18n.t('common:errors.transactionNotFound'));
+      }
       if (fetchError) throw fetchError;
       if (!oldIslem) throw new Error(i18n.t('common:errors.transactionNotFound'));
+
+      const createdBy = oldIslem.created_by ?? null;
+      const updatedType = updates.type ?? oldIslem.type;
+      const transactionTypes = [oldIslem.type, updatedType] as const;
+      assertCanModifyTransaction(
+        'update',
+        transactionTypes,
+        createdBy,
+        isletme.id,
+        latestUpdatePermissionRef.current,
+      );
 
       // ATOMİK GÜNCELLEME: net bakiye değişimi + islem satırı güncelleme TEK
       // transaction'da (update_islem_atomik RPC). Eski akış satır update + reverse(old)
@@ -708,6 +1760,13 @@ export function useUpdateIslem() {
         ...computeBalanceOps(newBalanceInput).map((op) => ({ t: op.t, id: op.id, d: op.d })), //  apply new
       ];
 
+      assertCanModifyTransaction(
+        'update',
+        transactionTypes,
+        createdBy,
+        isletme.id,
+        latestUpdatePermissionRef.current,
+      );
       const { data, error } = await supabase.rpc('update_islem_atomik', {
         p_isletme_id: isletme.id,
         p_islem_id: id,
@@ -716,12 +1775,11 @@ export function useUpdateIslem() {
       });
 
       if (error) {
-        if (
-          error.code === '42501' ||
-          error.message?.includes('policy') ||
-          error.message?.includes('Yetkisiz')
-        ) {
-          throw new Error(i18n.t('common:errors.permissionDenied'));
+        if (classifyMutationError(error) === 'permission') {
+          // RPC'nin 42501'i sahiplik ile genel yetki reddini tek başına ayıramaz.
+          // Yerel preflight sahiplik durumunu yukarıda typed error'a çevirdi; burada
+          // TOCTOU/rol değişimi için güvenli genel permission fallback'i kullanılır.
+          throw transactionPermissionError('update', 'permission', error);
         }
         throw error;
       }
@@ -737,14 +1795,87 @@ export function useUpdateIslem() {
 // İşlem silme - önce bakiyeleri geri al, sonra sil (transaction güvenliği)
 export function useDeleteIslem() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const { canDelete, canAccessModule, isOwner } = usePermissions();
+  const latestDeletePermissionRef = useRef<ModifyPermissionSnapshot>({
+    isletmeId: isletme?.id ?? null,
+    currentUserId: user?.id ?? null,
+    isOwner,
+    canModify: canDelete,
+    canAccessModule,
+  });
+  latestDeletePermissionRef.current = {
+    isletmeId: isletme?.id ?? null,
+    currentUserId: user?.id ?? null,
+    isOwner,
+    canModify: canDelete,
+    canAccessModule,
+  };
 
   return useMutation({
     // Silme cevabı kaybolduktan sonra ikinci deneme "kayıt bulunamadı" üretir; kör retry yerine
     // çağıranın güncel durumu doğrulaması gerekir.
     retry: false,
-    mutationFn: async (id: string) => {
+    mutationFn: async (
+      input: string | {
+        id: string;
+        useCariProductV3?: boolean;
+      },
+    ) => {
+      const id = typeof input === 'string' ? input : input.id;
+      const useCariProductV3 =
+        typeof input === 'string' ? false : input.useCariProductV3 === true;
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+
+      const useSharedMutation = !latestDeletePermissionRef.current.isOwner;
+      if (useSharedMutation) {
+        const context = await fetchTransactionMutationContext(
+          isletme.id,
+          id,
+          'delete',
+        );
+        const permissionSnapshot = latestDeletePermissionRef.current;
+        assertCanModifyTransaction(
+          'delete',
+          [context.type],
+          context.created_by,
+          isletme.id,
+          permissionSnapshot,
+          useCariProductV3 ? ['urunler'] : [],
+          useCariProductV3 ? ['urunler'] : [],
+        );
+
+        if (
+          useCariProductV3
+          && !supportsSharedProductMutationV3(context.type)
+        ) {
+          throw new SharedTransactionMutationUnsupportedError();
+        }
+
+        const { error } = useCariProductV3
+          ? await supabase.rpc(
+              'delete_cari_urunlu_islem_atomik_v3',
+              {
+                p_isletme_id: isletme.id,
+                p_islem_id: id,
+              },
+            )
+          : await supabase.rpc(
+              'delete_islem_atomik_v2',
+              {
+                p_isletme_id: isletme.id,
+                p_islem_id: id,
+              },
+            );
+
+        if (error) {
+          if (classifyMutationError(error) === 'permission') {
+            throw transactionPermissionError('delete', 'permission', error);
+          }
+          throw error;
+        }
+        return;
+      }
 
       // Önce işlemi al (bakiye geri almak için) - ownership kontrolü ile
       const { data: islem, error: fetchError } = await supabase
@@ -754,8 +1885,21 @@ export function useDeleteIslem() {
         .eq('isletme_id', isletme.id)
         .single();
 
+      if (fetchError?.code === 'PGRST116') {
+        throw new Error(i18n.t('common:errors.transactionNotFound'));
+      }
       if (fetchError) throw fetchError;
       if (!islem) throw new Error(i18n.t('common:errors.transactionNotFound'));
+
+      const createdBy = islem.created_by ?? null;
+      const transactionTypes = [islem.type] as const;
+      assertCanModifyTransaction(
+        'delete',
+        transactionTypes,
+        createdBy,
+        isletme.id,
+        latestDeletePermissionRef.current,
+      );
 
       // Linked cari inversiyonu: viewer perspektifinden owner perspektifine çevir
       const balanceIslem = await applyLinkedCariInversion(islem, isletme.id);
@@ -770,6 +1914,13 @@ export function useDeleteIslem() {
       // update_urun_miktar'ı aynı transaction içinde çağırır (davranış birebir aynı).
       const reverseOps = computeBalanceOps(balanceIslem).map((op) => ({ t: op.t, id: op.id, d: -op.d }));
 
+      assertCanModifyTransaction(
+        'delete',
+        transactionTypes,
+        createdBy,
+        isletme.id,
+        latestDeletePermissionRef.current,
+      );
       const { error: delError } = await supabase.rpc('delete_islem_atomik', {
         p_isletme_id: isletme.id,
         p_islem_id: id,
@@ -777,13 +1928,8 @@ export function useDeleteIslem() {
       });
 
       if (delError) {
-        // RLS/guard hatası ise daha açıklayıcı mesaj
-        if (
-          delError.code === '42501' ||
-          delError.message?.includes('policy') ||
-          delError.message?.includes('Yetkisiz')
-        ) {
-          throw new Error(i18n.t('common:errors.permissionDenied'));
+        if (classifyMutationError(delError) === 'permission') {
+          throw transactionPermissionError('delete', 'permission', delError);
         }
         throw delError;
       }
@@ -827,6 +1973,8 @@ export function useMonthSummary(
   enabled: boolean = true,
 ) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled = enabled && canAccessModule('raporlar');
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const rates = exchangeRatesData?.rates;
@@ -839,7 +1987,7 @@ export function useMonthSummary(
   const query = useQuery({
     queryKey: queryKeys.reports.monthSummary(isletme?.id ?? '', period, offset, startDate, endDate),
     queryFn: async () => {
-      if (!isletme) return { income: 0, expense: 0 };
+      if (!reportsEnabled || !isletme) return { income: 0, expense: 0 };
 
       // Server-side aggregation: Supabase max_rows sınırından etkilenmez
       // Binlerce satır yerine sadece tip başına 1 satır döner
@@ -876,7 +2024,7 @@ export function useMonthSummary(
         expense: Math.round(result.expense * 100) / 100,
       };
     },
-    enabled: enabled && !!isletme,
+    enabled: reportsEnabled && !!isletme,
     staleTime: 5 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
   });
@@ -884,6 +2032,9 @@ export function useMonthSummary(
   // RPC sonucu TRY cinsindendir; ana para birimine çevir (dashboard'ın geri kalanıyla tutarlı).
   // Kur yoksa TRY değeri korunur (sessiz 1:1 yerine mevcut değeri gösterir).
   const convertedData = useMemo(() => {
+    // Yetki sonradan daraltılırsa disabled query eski memory/disk verisini
+    // tutabilir. Kartın gizlenmesine güvenmeden cached özeti de fail-closed yap.
+    if (!reportsEnabled) return undefined;
     const raw = query.data;
     if (!raw) return raw;
     if (baseCurrency === 'TRY') return raw;
@@ -893,7 +2044,7 @@ export function useMonthSummary(
       income: income === null ? raw.income : roundCurrency(income),
       expense: expense === null ? raw.expense : roundCurrency(expense),
     };
-  }, [query.data, baseCurrency, rates]);
+  }, [reportsEnabled, query.data, baseCurrency, rates]);
 
   return {
     ...query,
@@ -904,37 +2055,9 @@ export function useMonthSummary(
 
 // İşlem notlarında arama (description alanında server-side ilike)
 export function useSearchIslemler(searchQuery: string) {
-  const { isletme } = useAuthContext();
-  const q = searchQuery.trim();
-
-  return useQuery({
-    queryKey: queryKeys.islemler.search(isletme?.id ?? '', q),
-    queryFn: async () => {
-      if (!isletme || !q) return [];
-
-      // SQL wildcard karakterlerini escape et (%, _, \)
-      const sanitized = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-
-      const { data, error } = await supabase
-        .from('islemler')
-        .select(`
-          *,
-          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
-          kategori:kategoriler(id,name),
-          cari:cariler(id,name,type,currency),
-          personel:personel(id,first_name,last_name,currency),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
-        `)
-        .eq('isletme_id', isletme.id)
-        .ilike('description', `%${sanitized}%`)
-        .order('date', { ascending: false })
-        .limit(20);
-
-      if (error) throw error;
-      return data as IslemWithRelations[];
-    },
-    enabled: !!isletme && q.length >= 2,
+  return useFilteredIslemler({
+    searchQuery,
+    enabled: true,
   });
 }
 
@@ -948,57 +2071,72 @@ interface IslemFilterSearchParams {
 }
 
 export function useFilteredIslemler(params: IslemFilterSearchParams) {
-  const { isletme } = useAuthContext();
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSearchTransactions = canAccessModule('islemler');
+  const permissionFingerprint = permissionAccessSignature(
+    currentPermissions,
+  );
   const q = params.searchQuery?.trim() || '';
   const hasTextQuery = q.length >= 2;
   const hasAmountFilter = params.minAmount != null || params.maxAmount != null;
   const hasDateFilter = !!params.dateFrom || !!params.dateTo;
   const hasAnyFilter = hasTextQuery || hasAmountFilter || hasDateFilter;
 
-  return useQuery({
-    queryKey: ['islemler', 'filtered', isletme?.id ?? '', q, params.minAmount, params.maxAmount, params.dateFrom, params.dateTo],
-    queryFn: async () => {
-      if (!isletme) return [];
+  const result = useQuery({
+    queryKey: [
+      'islemler',
+      'authorized-search-v1',
+      isletme?.id ?? '',
+      user?.id ?? '',
+      permissionFingerprint,
+      q,
+      params.minAmount,
+      params.maxAmount,
+      params.dateFrom,
+      params.dateTo,
+    ],
+    queryFn: async (): Promise<IslemWithRelations[]> => {
+      if (!canSearchTransactions || !isletme || !user?.id) return [];
 
-      let queryBuilder = supabase
-        .from('islemler')
-        .select(`
-          *,
-          hesap:hesaplar!hesap_id(id,name,currency,type,is_active),
-          hedef_hesap:hesaplar!hedef_hesap_id(id,name,currency,type,is_active),
-          kategori:kategoriler(id,name),
-          cari:cariler(id,name,type,currency),
-          personel:personel(id,first_name,last_name,currency),
-          creator:profiles!islemler_created_by_profiles_fk(display_name,email)
-        `)
-        .eq('isletme_id', isletme.id);
-
-      if (hasTextQuery) {
-        const sanitized = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
-        queryBuilder = queryBuilder.ilike('description', `%${sanitized}%`);
-      }
-
-      if (params.minAmount != null) {
-        queryBuilder = queryBuilder.gte('amount', params.minAmount);
-      }
-      if (params.maxAmount != null) {
-        queryBuilder = queryBuilder.lte('amount', params.maxAmount);
-      }
-
-      if (params.dateFrom) {
-        queryBuilder = queryBuilder.gte('date', params.dateFrom);
-      }
-      if (params.dateTo) {
-        queryBuilder = queryBuilder.lte('date', `${params.dateTo}T23:59:59`);
-      }
-
-      const { data, error } = await queryBuilder
-        .order('date', { ascending: false })
-        .limit(50);
+      const { data, error } = await supabase.rpc(
+        'search_yetkili_islem_satirlari_v1',
+        {
+          p_isletme_id: isletme.id,
+          p_search_query: hasTextQuery ? q : null,
+          p_min_amount: params.minAmount ?? null,
+          p_max_amount: params.maxAmount ?? null,
+          p_date_from: params.dateFrom ?? null,
+          p_date_to: params.dateTo ?? null,
+          p_limit: 50,
+        },
+      );
 
       if (error) throw error;
-      return data as IslemWithRelations[];
+      return parseAuthorizedTransactionRows(data ?? [], isletme.id);
     },
-    enabled: (params.enabled ?? true) && !!isletme && hasAnyFilter,
+    enabled:
+      (params.enabled ?? true)
+      && canSearchTransactions
+      && !!isletme
+      && !!user?.id
+      && hasAnyFilter,
+    meta: {
+      persist: false,
+      query_purpose: 'islemler:authorized-search-v1',
+    },
   });
+
+  const hasUnsafeQueryState = result.isError || result.isRefetchError;
+  return {
+    ...result,
+    data:
+      canSearchTransactions && !hasUnsafeQueryState
+        ? result.data ?? []
+        : [],
+  };
 }

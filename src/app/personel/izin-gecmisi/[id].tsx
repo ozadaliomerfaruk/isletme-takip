@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,10 +17,18 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { usePersonel } from '@/hooks/usePersonel';
-import { useAllLeaveByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
+import {
+  useAllLeaveByPersonel,
+  useDeleteIslem,
+  type PersonelTransactionRow,
+} from '@/hooks/useIslemler';
+import { isPersonelIslemListRow } from '@/lib/personelTransactionProjection';
 import { useNotlarByEntity, useDeleteNot, useUpdateNot, useToggleNotCompletion, useMarkAsTask } from '@/hooks/useNotlar';
-import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
-import { NoteRow } from '@/components/notes/NoteRow';
+import {
+  removeNotePhotoBestEffort,
+  useUploadNotePhoto,
+} from '@/hooks/useNotePhoto';
+import { NoteListRow } from '@/components/notes/NoteListRow';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import type { NoteFormData } from '@/components/notes/NoteInputModal';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -29,12 +37,25 @@ import { isLeaveType } from '@/constants/islemTypes';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { usePermissions } from '@/hooks/usePermissions';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
 import { getTransactionColor, getTransactionPrefix, showAccentBar } from '@/lib/transactionColors';
-import { toErrorMessage } from '@/lib/errors';
+import {
+  classifyMutationError,
+  getTransactionActionDeniedMessageKey,
+  getTransactionMutationMessageKey,
+  isPermissionDeniedError,
+  toErrorMessage,
+} from '@/lib/errors';
 import { parseDateFromDB } from '@/lib/date';
 import { exportLeaveHistory } from '@/lib/pageExports';
-import type { IslemWithRelations, Not } from '@/types/database';
+import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
+import type { Not } from '@/types/database';
+
+const LEAVE_TRANSACTION_DELETE_PERMISSION_REVOKED = Object.assign(
+  new Error('Leave transaction delete permission revoked'),
+  { code: '42501' as const },
+);
 
 function toNumber(val: unknown): number {
   if (typeof val === 'number') return val;
@@ -60,7 +81,14 @@ export default function LeaveHistoryPage() {
   const { formatDateMedium, formatDateSmart } = useDateFormat();
   const insets = useSafeAreaInsets();
 
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const {
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    canCreateTransactions,
+    isOwner,
+  } = usePermissions();
   const { data: personel, refetch: refetchPersonel } = usePersonel(id);
   // İzin-only, pagination'sız sorgu: TÜM izin hareketleri (geçmiş yıl dahil) eksiksiz gelir,
   // sadece izin satırları çekilir (düşük egress). Böylece liste tam + kalan gün ana sayfayla
@@ -88,27 +116,129 @@ export default function LeaveHistoryPage() {
   const [showCopyBar, setShowCopyBar] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
-  // Undo delete
-  const {
-    requestDelete,
-    undoDelete,
-    dismissDelete,
-    snackbar: undoSnackbar,
-  } = useUndoDelete<IslemWithRelations>({
-    onCommitDelete: async (islemId: string) => {
-      await deleteIslem.mutateAsync(islemId);
-    },
-    onError: (error: unknown) => {
-      const message = error instanceof Error ? toErrorMessage(error) : t('errors:transaction.deleteFailed');
-      Alert.alert(t('common:status.error'), message);
-    },
-  });
-
   // Filter to leave transactions only
   const leaveTransactions = useMemo(() => {
     if (!islemler) return [];
     return islemler.filter(i => isLeaveType(i.type));
   }, [islemler]);
+
+  const isActiveTenantTransaction = useCallback(
+    (transaction: PersonelTransactionRow): boolean => {
+      if (!isletme?.id || !isLeaveType(transaction.type)) return false;
+
+      // Shared projection tenant/personel kimliklerini istemciye taşımaz; satırlar
+      // aktif işletme + rota personeliyle çağrılan RPC'den gelir. Owner satırında
+      // tenant eşitliğini doğrudan yeniden doğrularız.
+      return isPersonelIslemListRow(transaction)
+        ? transaction.projection_source === 'personel-v1'
+        : transaction.isletme_id === isletme.id;
+    },
+    [isletme?.id],
+  );
+  const canUpdateTransactionRecord = useCallback(
+    (transaction: PersonelTransactionRow): boolean =>
+      isActiveTenantTransaction(transaction)
+      && canAccessTransactionSources(
+        [transaction.type],
+        canAccessModule,
+      )
+      && canUpdate('islemler', transaction.created_by ?? null),
+    [canAccessModule, canUpdate, isActiveTenantTransaction],
+  );
+  const canDeleteTransactionRecord = useCallback(
+    (transaction: PersonelTransactionRow): boolean =>
+      isActiveTenantTransaction(transaction)
+      && canAccessTransactionSources(
+        [transaction.type],
+        canAccessModule,
+      )
+      && canDelete('islemler', transaction.created_by ?? null),
+    [canAccessModule, canDelete, isActiveTenantTransaction],
+  );
+  const canUpdateTransaction = useCallback(
+    (islemId: string): boolean => {
+      const transaction = leaveTransactions.find((item) => item.id === islemId);
+      return !!transaction && canUpdateTransactionRecord(transaction);
+    },
+    [canUpdateTransactionRecord, leaveTransactions],
+  );
+
+  const showTransactionUpdateDenied = useCallback((islemId: string) => {
+    const transaction = leaveTransactions.find((item) => item.id === islemId);
+    if (!transaction) {
+      Alert.alert(
+        t('common:status.error'),
+        t('common:errors.transactionNotFound'),
+      );
+      return;
+    }
+
+    const createdBy = transaction.created_by ?? null;
+    const hasSourceAccess = canAccessTransactionSources(
+      [transaction.type],
+      canAccessModule,
+    );
+    const canUpdateRecord = canUpdateTransactionRecord(transaction);
+    const messageKey = getTransactionActionDeniedMessageKey('update', {
+      createdBy,
+      currentUserId: user?.id,
+      canActOnOwnRecord:
+        isActiveTenantTransaction(transaction)
+        && hasSourceAccess
+        && !!user?.id
+        && canUpdate('islemler', user.id),
+      canActOnRecord: canUpdateRecord,
+    });
+    Alert.alert(t('common:status.error'), t(messageKey));
+  }, [
+    canAccessModule,
+    canUpdate,
+    canUpdateTransactionRecord,
+    isActiveTenantTransaction,
+    leaveTransactions,
+    t,
+    user?.id,
+  ]);
+
+  const canRenderEditTransactionBar =
+    !!editTransactionId && canUpdateTransaction(editTransactionId);
+
+  useEffect(() => {
+    if (!showEditBar || canRenderEditTransactionBar) return;
+    setShowEditBar(false);
+    setEditTransactionId(null);
+  }, [canRenderEditTransactionBar, showEditBar]);
+
+  useEffect(() => {
+    if (isOwner) return;
+    setShowCopyBar(false);
+    setCopySourceId(null);
+  }, [isOwner]);
+
+  // Undo delete: beş saniyelik pencere boyunca rol veya kaynak erişimi
+  // daralabileceği için commit anında en güncel kayıt yetkisini yeniden doğrula.
+  const {
+    requestDelete,
+    undoDelete,
+    dismissDelete,
+    snackbar: undoSnackbar,
+  } = useUndoDelete<PersonelTransactionRow>({
+    onCommitDelete: async (islemId: string) => {
+      const transaction = leaveTransactions.find((item) => item.id === islemId);
+      if (!transaction || !canDeleteTransactionRecord(transaction)) {
+        throw LEAVE_TRANSACTION_DELETE_PERMISSION_REVOKED;
+      }
+      // useDeleteIslem shared kullanıcıda atomik V2 mutation yolunu seçer.
+      await deleteIslem.mutateAsync(islemId);
+    },
+    onError: (error: unknown) => {
+      const messageKey = getTransactionMutationMessageKey(error, 'delete');
+      const message = messageKey
+        ? t(messageKey)
+        : toErrorMessage(error, t('errors:transaction.deleteFailed'));
+      Alert.alert(t('common:status.error'), message);
+    },
+  });
 
   // Calculate quota
   const quota = useMemo(() => {
@@ -194,21 +324,48 @@ export default function LeaveHistoryPage() {
 
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = leaveTransactions.find(i => i.id === islemId);
-    if (islem) {
-      const desc = islem.description || t(getLeaveLabel(islem.type));
-      requestDelete(islemId, islem, desc);
+    if (!islem) return;
+    if (!canDeleteTransactionRecord(islem)) {
+      const messageKey = getTransactionMutationMessageKey(
+        LEAVE_TRANSACTION_DELETE_PERMISSION_REVOKED,
+        'delete',
+      );
+      Alert.alert(
+        t('common:status.error'),
+        messageKey
+          ? t(messageKey)
+          : t('errors:transaction.deleteFailed'),
+      );
+      return;
     }
-  }, [leaveTransactions, requestDelete, t]);
+    const desc = islem.description || t(getLeaveLabel(islem.type));
+    requestDelete(islemId, islem, desc);
+  }, [
+    canDeleteTransactionRecord,
+    leaveTransactions,
+    requestDelete,
+    t,
+  ]);
 
   const handleEditIslem = useCallback((islemId: string) => {
+    const transaction = leaveTransactions.find((item) => item.id === islemId);
+    if (!transaction || !canUpdateTransactionRecord(transaction)) {
+      showTransactionUpdateDenied(islemId);
+      return;
+    }
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, []);
+  }, [
+    canUpdateTransactionRecord,
+    leaveTransactions,
+    showTransactionUpdateDenied,
+  ]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
+    if (!isOwner) return;
     setCopySourceId(islemId);
     setShowCopyBar(true);
-  }, []);
+  }, [isOwner]);
 
   const handleNoteDelete = useCallback((noteId: string) => {
     const note = entityNotes?.find(n => n.id === noteId);
@@ -220,19 +377,62 @@ export default function LeaveHistoryPage() {
         {
           text: t('common:buttons.delete'),
           style: 'destructive',
-          onPress: () => deleteNot.mutate({ id: noteId, photo_path: note?.photo_path }),
+          onPress: async () => {
+            try {
+              await deleteNot.mutateAsync({
+                id: noteId,
+                photo_path: note?.photo_path,
+                contextModule: 'personel',
+              });
+            } catch (error) {
+              Alert.alert(
+                t('common:status.error'),
+                isPermissionDeniedError(error)
+                  ? t('common:errors.permissionDenied')
+                  : t('common:errors.genericError'),
+              );
+            }
+          },
         },
       ],
     );
   }, [deleteNot, entityNotes, t]);
 
-  const handleToggleNoteCompletion = useCallback((noteId: string, done: boolean) => {
-    toggleNotCompletion.mutate({ id: noteId, done });
-  }, [toggleNotCompletion]);
+  const handleToggleNoteCompletion = useCallback(async (
+    noteId: string,
+    done: boolean,
+  ) => {
+    try {
+      await toggleNotCompletion.mutateAsync({
+        id: noteId,
+        done,
+        contextModule: 'personel',
+      });
+    } catch (error) {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
+    }
+  }, [t, toggleNotCompletion]);
 
-  const handleMarkAsTask = useCallback((noteId: string) => {
-    markAsTask.mutate(noteId);
-  }, [markAsTask]);
+  const handleMarkAsTask = useCallback(async (noteId: string) => {
+    try {
+      await markAsTask.mutateAsync({
+        id: noteId,
+        contextModule: 'personel',
+      });
+    } catch (error) {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
+    }
+  }, [markAsTask, t]);
 
   const editingNote = useMemo(() => {
     if (!editingNoteId || !entityNotes) return null;
@@ -241,59 +441,96 @@ export default function LeaveHistoryPage() {
 
   const handleNoteUpdate = useCallback(async (data: NoteFormData) => {
     if (!editingNoteId || !editingNote) return;
+    const isPhotoReplacement =
+      !!data.photo_uri && data.photo_uri !== editingNote.photo_path;
+    let uploadedPhotoPath: string | null = null;
+    let noteUpdated = false;
+    let failedDuringPhotoUpload = false;
+    let reminderUpdateFailed = false;
+
     try {
+      if (isPhotoReplacement && !isletme) {
+        throw new Error('No isletme');
+      }
+      if (isPhotoReplacement && isletme && data.photo_uri) {
+        failedDuringPhotoUpload = true;
+        uploadedPhotoPath = await uploadNotePhoto.mutateAsync({
+          uri: data.photo_uri,
+          isletmeId: isletme.id,
+          noteId: editingNoteId,
+          contextModule: 'personel',
+          action: 'update',
+          createdBy: editingNote.created_by ?? null,
+        });
+        failedDuringPhotoUpload = false;
+      }
+
+      const nextPhotoPath = isPhotoReplacement
+        ? uploadedPhotoPath
+        : data.photo_uri
+          ? editingNote.photo_path
+          : null;
+
       await updateNot.mutateAsync({
         id: editingNoteId,
+        contextModule: 'personel',
         content: data.content,
         is_completed: data.is_completed,
         reminder_date: data.reminder_date,
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
         assigned_to_personel: data.assigned_to_personel,
+        photo_path: nextPhotoPath,
       });
+      noteUpdated = true;
 
-      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
-        try {
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: editingNoteId,
-          });
-          await updateNot.mutateAsync({
-            id: editingNoteId,
-            photo_path: photoPath,
-          });
-          if (editingNote.photo_path) {
-            const { supabase } = await import('@/lib/supabase');
-            await supabase.storage
-              .from('islem-photos')
-              .remove([editingNote.photo_path]);
-          }
-        } catch { /* ignore */ }
-      } else if (!data.photo_uri && editingNote.photo_path) {
-        await updateNot.mutateAsync({
-          id: editingNoteId,
-          photo_path: null,
-        });
-        const { supabase } = await import('@/lib/supabase');
-        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
+      if (
+        editingNote.photo_path
+        && editingNote.photo_path !== nextPhotoPath
+      ) {
+        await removeNotePhotoBestEffort(editingNote.photo_path);
       }
 
-      if (data.reminder_date) {
-        await scheduleNoteReminder(
-          editingNoteId,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: editingNoteId, entity_type: 'personel_izin', entity_id: id },
-        );
-      } else {
-        await cancelNoteReminder(editingNoteId);
+      try {
+        if (data.reminder_date) {
+          await scheduleNoteReminder(
+            editingNoteId,
+            t('common:notes.reminderNotification'),
+            t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+            new Date(data.reminder_date),
+            { type: 'note_reminder', note_id: editingNoteId, entity_type: 'personel_izin', entity_id: id },
+          );
+        } else {
+          await cancelNoteReminder(editingNoteId);
+        }
+      } catch (error) {
+        console.warn('[Notes] reminder update failed after edit:', error);
+        reminderUpdateFailed = true;
       }
 
       setEditingNoteId(null);
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+      if (reminderUpdateFailed) {
+        Alert.alert(
+          t('common:status.error'),
+          t('common:notes.reminderUpdateFailed'),
+        );
+      }
+    } catch (error) {
+      if (
+        uploadedPhotoPath
+        && !noteUpdated
+        && classifyMutationError(error) !== 'network_unknown'
+      ) {
+        await removeNotePhotoBestEffort(uploadedPhotoPath);
+      }
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : failedDuringPhotoUpload
+            ? t('common:photo.uploadError')
+            : t('common:errors.genericError'),
+      );
     }
   }, [editingNoteId, editingNote, updateNot, uploadNotePhoto, isletme, id, t]);
 
@@ -301,7 +538,11 @@ export default function LeaveHistoryPage() {
   const copyLabel = t('common:buttons.copy');
 
   const renderItem = useCallback(
-    ({ item }: { item: TransactionListItem }) => {
+    ({
+      item,
+    }: {
+      item: TransactionListItem<PersonelTransactionRow>;
+    }) => {
       if (item.type === 'header') {
         return <DateSectionHeader title={item.title} />;
       }
@@ -311,14 +552,16 @@ export default function LeaveHistoryPage() {
       if (item.type === 'note') {
         const noteData = item.data as Not;
         return (
-          <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel} flush>
-            <NoteRow
-              note={noteData}
-              onEdit={() => setEditingNoteId(item.data.id)}
-              onToggleComplete={handleToggleNoteCompletion}
-              onMarkAsTask={handleMarkAsTask}
-            />
-          </SwipeableRow>
+          <NoteListRow
+            note={noteData}
+            onEditId={setEditingNoteId}
+            onDeleteId={handleNoteDelete}
+            onToggleComplete={handleToggleNoteCompletion}
+            onMarkAsTask={handleMarkAsTask}
+            deleteLabel={deleteLabel}
+            contextModule="personel"
+            flush
+          />
         );
       }
 
@@ -328,9 +571,11 @@ export default function LeaveHistoryPage() {
       const txColor = getTransactionColor(islem.type);
       const prefix = getTransactionPrefix(islem.type);
       const hasBar = showAccentBar(islem.type);
+      const canDeleteTransaction = canDeleteTransactionRecord(islem);
+      const canCopyTransaction = isOwner && canCreateTransactions;
 
       // Build date range text for leave usage with date_end
-      const dateEnd = (islem as { date_end?: string | null }).date_end;
+      const dateEnd = islem.date_end;
       let dateRangeText: string | null = null;
       if (dateEnd) {
         // 1970-guard: ham new Date() Hermes'te boşluklu/bozuk string'de Invalid olur
@@ -341,8 +586,9 @@ export default function LeaveHistoryPage() {
 
       return (
         <SwipeableRow
-          onDelete={() => handleDeleteIslem(islem.id)}
-          onCopy={() => handleCopyIslem(islem.id)}
+          onDelete={canDeleteTransaction ? () => handleDeleteIslem(islem.id) : undefined}
+          onCopy={canCopyTransaction ? () => handleCopyIslem(islem.id) : undefined}
+          enabled={canDeleteTransaction || canCopyTransaction}
           deleteLabel={deleteLabel}
           copyLabel={copyLabel}
           flush
@@ -395,10 +641,13 @@ export default function LeaveHistoryPage() {
         </SwipeableRow>
       );
     },
-    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, deleteLabel, copyLabel]
+    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, deleteLabel, copyLabel, isOwner, canDeleteTransactionRecord, canCreateTransactions]
   );
 
-  const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
+  const keyExtractor = useCallback(
+    (item: TransactionListItem<PersonelTransactionRow>) => item.key,
+    [],
+  );
 
   const ListHeader = useMemo(
     () => (
@@ -461,7 +710,7 @@ export default function LeaveHistoryPage() {
       <Screen>
       {/* Content */}
       <SwipeableProvider>
-        <FlatList
+        <FlatList<TransactionListItem<PersonelTransactionRow>>
           data={groupedData}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
@@ -485,8 +734,9 @@ export default function LeaveHistoryPage() {
       </SwipeableProvider>
 
       {/* Edit QuickTransactionBar */}
+      {canRenderEditTransactionBar && (
       <QuickTransactionBar
-        visible={showEditBar}
+        visible={showEditBar && canRenderEditTransactionBar}
         onDismiss={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
@@ -495,14 +745,17 @@ export default function LeaveHistoryPage() {
         transactionId={editTransactionId ?? undefined}
         isScheduledTransaction={false}
         defaultPersonelId={id!}
+        createScope="personel"
         tabModeOverride="personel_izin"
         onSuccess={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
         }}
       />
+      )}
 
       {/* Copy QuickTransactionBar */}
+      {isOwner && (
       <QuickTransactionBar
         visible={showCopyBar}
         onDismiss={() => {
@@ -518,8 +771,10 @@ export default function LeaveHistoryPage() {
           setCopySourceId(null);
         }}
       />
+      )}
 
       {/* New Leave QuickTransactionBar */}
+      {canCreateTransactions && (
       <QuickTransactionBar
         visible={showNewLeaveBar}
         onDismiss={() => setShowNewLeaveBar(false)}
@@ -529,6 +784,7 @@ export default function LeaveHistoryPage() {
         tabModeOverride="personel_izin"
         onSuccess={() => setShowNewLeaveBar(false)}
       />
+      )}
 
       {/* FABs — kardeş detay sayfalarıyla aynı taban/aralık: ana FAB cam (GlassFab),
           not FAB'ı 70px yukarıda ayrı konumlanır (yan yana cam+opak görünmesin). */}
@@ -537,11 +793,13 @@ export default function LeaveHistoryPage() {
         entityId={id!}
         style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
       />
-      <GlassFab
-        style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-        onPress={() => setShowNewLeaveBar(true)}
-        renderIcon={({ color, size }) => <Plus size={size} color={color} />}
-      />
+      {canCreateTransactions && (
+        <GlassFab
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+          onPress={() => setShowNewLeaveBar(true)}
+          renderIcon={({ color, size }) => <Plus size={size} color={color} />}
+        />
+      )}
 
       <UndoSnackbar
         visible={undoSnackbar.visible}
@@ -565,7 +823,7 @@ export default function LeaveHistoryPage() {
           assigned_to_personel: editingNote.assigned_to_personel,
         } : undefined}
         isEditing
-        loading={updateNot.isPending}
+        loading={updateNot.isPending || uploadNotePhoto.isPending}
         entityType="personel_izin"
         entityId={id!}
         existingPhotoPath={editingNote?.photo_path}

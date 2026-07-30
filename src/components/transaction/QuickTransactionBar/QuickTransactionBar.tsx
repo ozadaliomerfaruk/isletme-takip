@@ -1,17 +1,28 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
-import { View, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, StyleSheet, Alert, ScrollView, useWindowDimensions } from 'react-native';
-import { X } from 'lucide-react-native';
+import { View, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, StyleSheet, Alert, ScrollView, FlatList, useWindowDimensions } from 'react-native';
+import { X, Lock, Unlock, Minus, Plus } from 'lucide-react-native';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Text, Modal } from '@/components/ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import { useRouter, useFocusEffect, type Href } from 'expo-router';
 
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { colors } from '@/constants/colors';
-import { roundCurrency, parseCurrency, formatCurrency, formatAmountForInput } from '@/lib/currency';
-import { addDays, addMonths } from '@/lib/date';
+import { roundCurrency, parseCurrency, formatCurrency, formatAmountForInput, cleanAmountInput } from '@/lib/currency';
+import { addDays, addMonths, formatDateForDB } from '@/lib/date';
+import {
+  MAX_INSTALLMENT_COUNT,
+  MIN_INSTALLMENT_COUNT,
+  amountToCents,
+  buildInstallmentPlan,
+  type InstallmentPlan,
+  type InstallmentPlanErrorCode,
+  type InstallmentRpcRow,
+  type LockedInstallmentRow,
+} from '@/lib/installmentDistribution';
 
 import { getTransactionTypeColor } from '../TransactionTypeTabs';
 import { ExchangeRateBar } from '../ExchangeRateBar';
@@ -50,14 +61,25 @@ import {
 } from './hooks';
 import { getCategoryType as resolveCategoryFamily } from './utils/categoryTypeMapper';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { useKategoriler } from '@/hooks/useKategoriler';
+import { useKategoriSecimReferanslari } from '@/hooks/useKategoriSecimReferanslari';
 import { usePickImage, useTakePhoto } from '@/hooks/useIslemPhoto';
 import { useCreateCari } from '@/hooks/useCariler';
 import { useCreateUrun } from '@/hooks/useUrunler';
 import { useSettings } from '@/hooks/useSettings';
 import { useIslemTaksitliMi } from '@/hooks/useTaksit';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useUrunKalemlerByIslemIds } from '@/hooks/useUrunHareketler';
 import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
-import { checkNetworkConnectivity } from '@/lib/supabase';
+import {
+  canUseMinimalAccountRefs,
+  getAllowedScopedQuickTransactionTypes,
+} from '@/lib/quickTransactionCreateScope';
+import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
+import { checkBackendConnectivity } from '@/lib/supabase';
+import {
+  getTransactionMutationMessageKey,
+  toErrorMessage,
+} from '@/lib/errors';
 import type { Currency, Urun } from '@/types/database';
 
 export function QuickTransactionBar({
@@ -80,15 +102,89 @@ export function QuickTransactionBar({
   isScheduledTransaction = false,
   copySourceId,
   tabModeOverride,
+  createScope,
+  minimalAccountReferenceMode,
+  cariMinimalAccountMode = false,
 }: QuickTransactionBarProps) {
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, width: windowWidth } = useWindowDimensions();
   const router = useRouter();
+  const {
+    canAccessModule,
+    canCreateTransactionType,
+    isOwner,
+  } = usePermissions();
+  const requestedAccountReferenceScope =
+    minimalAccountReferenceMode
+    ?? (cariMinimalAccountMode ? 'cari' : undefined);
+  // Bakiye-siz hesap referanslari hem yeni kayitta hem de ayni isletmedeki normal
+  // cari/personel odeme-tahsilat duzenlemesinde kullanilabilir. Copy, linked viewer ve
+  // ileri-tarihli edit bu dar hesaba erisim baglamina opt-in olamaz.
+  const minimalAccountRefsAllowed = canUseMinimalAccountRefs({
+    requestedScope: requestedAccountReferenceScope,
+    mode,
+    transactionId,
+    copySourceId,
+    defaultCariId,
+    defaultPersonelId,
+    isViewer,
+    isScheduledTransaction,
+  });
+  const scopedCreateRequested =
+    !copySourceId
+    && !isViewer
+    && (
+      (mode === 'create' && !transactionId)
+      || (
+        mode === 'edit'
+        && !!transactionId
+        && !isScheduledTransaction
+      )
+    )
+      ? createScope
+      : undefined;
+  const scopedCreateContext =
+    scopedCreateRequested
+    && (
+      scopedCreateRequested === 'hesap'
+      || (mode === 'edit' && !!transactionId)
+      || (scopedCreateRequested === 'cari' && !!defaultCariId)
+      || (scopedCreateRequested === 'personel' && !!defaultPersonelId)
+    )
+      ? scopedCreateRequested
+      : undefined;
+  const initialAllowedTypes = useMemo(
+    () => scopedCreateContext
+      ? getAllowedScopedQuickTransactionTypes({
+          scope: scopedCreateContext,
+          cariType: defaultCariType,
+          canCreateTransactionType: (apiType) =>
+            mode === 'edit'
+              ? canAccessTransactionSources(
+                  [apiType],
+                  canAccessModule,
+                )
+              : canCreateTransactionType(apiType),
+        })
+      : undefined,
+    [
+      canAccessModule,
+      canCreateTransactionType,
+      defaultCariType,
+      mode,
+      scopedCreateContext,
+    ],
+  );
+  const effectiveDefaultType: TransactionType =
+    initialAllowedTypes && !initialAllowedTypes.includes(defaultType)
+      ? (initialAllowedTypes[0] ?? defaultType)
+      : defaultType;
 
   // Refs
   const amountInputRef = useRef<TextInput>(null);
+  const transactionLoadErrorShownRef = useRef<string | null>(null);
 
   // Modals hook
   const modals = useQuickTransactionModals();
@@ -100,8 +196,11 @@ export function QuickTransactionBar({
   // We need to get hesaplar first for form initialization
   const tempEntities = useQuickTransactionEntities({
     isCariMode: !!defaultCariId,
+    minimalAccountReferenceMode:
+      minimalAccountRefsAllowed ? requestedAccountReferenceScope : undefined,
+    createScope: scopedCreateRequested,
     defaultCariType,
-    type: defaultType,
+    type: effectiveDefaultType,
     tahsilatHedefType: null,
     hesapId: undefined,
     sourceHesapId: null,
@@ -118,7 +217,7 @@ export function QuickTransactionBar({
   // Form hook
   const form = useQuickTransactionForm({
     visible,
-    defaultType,
+    defaultType: effectiveDefaultType,
     defaultHesapId,
     defaultCariId,
     defaultCariType,
@@ -136,17 +235,117 @@ export function QuickTransactionBar({
     // A1: son-kullanılan hesap ön-doldurma getter'ı (doğrulama form hook'unda)
     getLastUsedHesapId: lastUsed.getHesapId,
   });
+  const inferredScopedCariType =
+    form.type === 'odeme' || form.type === 'alis_iade'
+      ? 'tedarikci'
+      : form.type === 'tahsilat' || form.type === 'satis_iade'
+        ? 'musteri'
+        : undefined;
+  const effectiveScopedCariType =
+    defaultCariType
+    ?? form.loadedCariType
+    ?? inferredScopedCariType;
+  const allowedTypes = useMemo(() => {
+    if (
+      !initialAllowedTypes
+      || mode !== 'edit'
+      || scopedCreateContext !== 'cari'
+    ) {
+      return initialAllowedTypes;
+    }
+
+    if (!effectiveScopedCariType) {
+      // Alis/satis iki cari tipinde de vardir. Cari tipi projeksiyonda
+      // bulunmuyorsa karsi yonde odeme/iade sekmesi tahmin ederek yetki
+      // yukseltmek yerine yalniz ortak iki sekmeyi goster.
+      return initialAllowedTypes.filter(
+        (candidate) => candidate === 'alis' || candidate === 'satis',
+      );
+    }
+
+    return getAllowedScopedQuickTransactionTypes({
+      scope: 'cari',
+      cariType: effectiveScopedCariType,
+      canCreateTransactionType: (apiType) =>
+        canAccessTransactionSources([apiType], canAccessModule),
+    });
+  }, [
+    canAccessModule,
+    effectiveScopedCariType,
+    form.type,
+    initialAllowedTypes,
+    mode,
+    scopedCreateContext,
+  ]);
+  const visibleTransactionTypes = allowedTypes;
+  const productPresenceIds = useMemo(
+    () => (
+      visible
+      && mode === 'edit'
+      && !!transactionId
+      && !isScheduledTransaction
+        ? [transactionId]
+        : []
+    ),
+    [isScheduledTransaction, mode, transactionId, visible],
+  );
+  const {
+    getProductItemCount: getPersistedProductItemCount,
+    isProductItemsResolved,
+    error: productPresenceError,
+  } = useUrunKalemlerByIslemIds(productPresenceIds, true);
+  const persistedProductItemCount =
+    transactionId ? getPersistedProductItemCount(transactionId) : 0;
 
   // Tab mode
   const tabMode: TransactionTabMode = tabModeOverride
-    ? tabModeOverride
-    : form.isPersonelMode
-      ? 'personel'
-      : form.isCariMode
-        ? defaultCariType === 'tedarikci'
-          ? (isViewer ? 'tedarikci_viewer' : 'tedarikci')
-          : (isViewer ? 'musteri_viewer' : 'musteri')
-        : 'normal';
+    ?? (
+      form.isPersonelMode
+        ? 'personel'
+        : form.isCariMode
+          ? effectiveScopedCariType === 'tedarikci'
+            ? (isViewer ? 'tedarikci_viewer' : 'tedarikci')
+            : (isViewer ? 'musteri_viewer' : 'musteri')
+          : 'normal'
+    );
+
+  const resetScopedModalStates = modals.resetModalStates;
+  const resetScopedType = form.setType;
+  const resetScopedSourceHesap = form.setSourceHesapId;
+  const resetScopedHedefHesap = form.setHedefHesapId;
+  const resetScopedExchange = form.setPendingExchangeData;
+  const resetScopedProducts = form.setUrunItems;
+
+  // Permission can narrow while QTB is open. Keep the fixed cari/personel id,
+  // but remove account/product/modal state from a type that is no longer legal.
+  useEffect(() => {
+    if (!visible || !allowedTypes) return;
+    const nextType = allowedTypes[0];
+    if (!nextType) {
+      resetScopedModalStates();
+      onDismiss();
+      return;
+    }
+    if (allowedTypes.includes(form.type)) return;
+
+    resetScopedModalStates();
+    resetScopedSourceHesap(null);
+    resetScopedHedefHesap(null);
+    resetScopedExchange(null);
+    resetScopedProducts([]);
+    resetScopedType(nextType);
+  }, [
+    allowedTypes,
+    form.type,
+    onDismiss,
+    resetScopedExchange,
+    resetScopedHedefHesap,
+    resetScopedModalStates,
+    resetScopedProducts,
+    resetScopedSourceHesap,
+    resetScopedType,
+    visible,
+  ]);
 
   // Leave usage type flag
   const isLeaveUsageType = form.type === 'personel_izin_kullanimi_tab';
@@ -183,7 +382,10 @@ export function QuickTransactionBar({
   // Entities hook - with actual form values
   const entities = useQuickTransactionEntities({
     isCariMode: form.isCariMode,
-    defaultCariType,
+    minimalAccountReferenceMode:
+      minimalAccountRefsAllowed ? requestedAccountReferenceScope : undefined,
+    createScope: scopedCreateRequested,
+    defaultCariType: effectiveScopedCariType,
     type: form.type,
     tahsilatHedefType: form.tahsilatHedefType,
     hesapId: form.hesapId,
@@ -234,15 +436,38 @@ export function QuickTransactionBar({
 
   // FAZ 3 — taksit planı (yalnız alış/satış + non-scheduled + ürünsüz create).
   // Vade ile karşılıklı münhasır: taksit seçilince vade temizlenir (ve tersi).
-  const [taksitPlan, setTaksitPlan] = useState<{ adet: number; ilkVade: Date } | null>(null);
+  const [taksitPlan, setTaksitPlan] = useState<InstallmentPlan | null>(null);
   const [showTaksitConfig, setShowTaksitConfig] = useState(false);
   const [taksitAdetDraft, setTaksitAdetDraft] = useState(3);
   const [taksitIlkVadeDraft, setTaksitIlkVadeDraft] = useState<Date>(() => addMonths(new Date(), 1));
+  const [taksitPreviewPlan, setTaksitPreviewPlan] = useState<InstallmentPlan | null>(null);
+  const [taksitDraftLocks, setTaksitDraftLocks] = useState<LockedInstallmentRow[]>([]);
+  const [taksitDraftError, setTaksitDraftError] = useState<InstallmentPlanErrorCode | null>(null);
+  const [taksitDraftWasStale, setTaksitDraftWasStale] = useState(false);
+  const [editingTaksitIndex, setEditingTaksitIndex] = useState<number | null>(null);
+  const [editingTaksitText, setEditingTaksitText] = useState('');
   const [showTaksitVadePicker, setShowTaksitVadePicker] = useState(false);
+
+  const currentTaksitTotalCents = useMemo(
+    () => amountToCents(parseCurrency(form.amount)),
+    [form.amount]
+  );
+  const taksitPlanDateStale =
+    !!taksitPlan &&
+    formatDateForDB(taksitPlan.ilkVade) < formatDateForDB(form.safeDate);
+  const taksitPlanStale =
+    !!taksitPlan &&
+    (currentTaksitTotalCents === null ||
+      taksitPlan.totalCents !== currentTaksitTotalCents ||
+      taksitPlanDateStale);
 
   // Taksit modalı kapanınca satır-içi tarih seçici de kapanır (yeniden açılışta temiz)
   useEffect(() => {
-    if (!showTaksitConfig) setShowTaksitVadePicker(false);
+    if (!showTaksitConfig) {
+      setShowTaksitVadePicker(false);
+      setEditingTaksitIndex(null);
+      setEditingTaksitText('');
+    }
   }, [showTaksitConfig]);
 
   // Ödeme/tahsilat dağıtımı SAF FIFO (en eski borç önce) — sunucu otomatik yapar.
@@ -257,7 +482,17 @@ export function QuickTransactionBar({
   // Bar kapanınca / tip taksit-dışına dönünce / scheduled açılınca / ürün eklenince
   // / edit moduna girince taksit sıfırlanır (yalnız yeni-kayıt yolu destekli).
   useEffect(() => {
-    if (!visible) setTaksitPlan(null);
+    if (!visible) {
+      setTaksitPlan(null);
+      setShowTaksitConfig(false);
+      setTaksitPreviewPlan(null);
+      setTaksitDraftLocks([]);
+      setTaksitDraftError(null);
+      setTaksitDraftWasStale(false);
+      setEditingTaksitIndex(null);
+      setEditingTaksitText('');
+      setShowTaksitVadePicker(false);
+    }
   }, [visible]);
   useEffect(() => {
     if (
@@ -281,6 +516,57 @@ export function QuickTransactionBar({
       onDismiss();
     });
   }, [animation, onDismiss]);
+
+  useEffect(() => {
+    if (!visible) {
+      transactionLoadErrorShownRef.current = null;
+      return;
+    }
+    const editLoadError =
+      form.transactionLoadError
+      ?? (
+        form.isEditMode && !isScheduledTransaction
+          ? productPresenceError
+          : null
+      );
+    if (
+      (!form.isEditMode && !form.isCopyMode)
+      || !editLoadError
+    ) return;
+
+    const errorKey = `${transactionId ?? copySourceId ?? ''}:${toErrorMessage(
+      editLoadError,
+      'transaction-load-error',
+    )}`;
+    if (transactionLoadErrorShownRef.current === errorKey) return;
+    transactionLoadErrorShownRef.current = errorKey;
+
+    const messageKey = getTransactionMutationMessageKey(
+      editLoadError,
+      form.isEditMode ? 'update' : 'create',
+    );
+    Alert.alert(
+      t('common:status.error'),
+      messageKey
+        ? t(messageKey)
+        : toErrorMessage(
+          editLoadError,
+          t('common:errors.transactionNotFound'),
+        ),
+    );
+    handleDismiss();
+  }, [
+    copySourceId,
+    form.isEditMode,
+    form.isCopyMode,
+    form.transactionLoadError,
+    handleDismiss,
+    isScheduledTransaction,
+    productPresenceError,
+    t,
+    transactionId,
+    visible,
+  ]);
 
   // Tam ekran bir sayfaya (ör. /urunler/ekle) gidip geri dönünce, navigatedAway ile GİZLENEN
   // bar'ı geri getir. `visible`'a hiç dokunulmadığı için form/urunItems korunmuştur → kullanıcı
@@ -321,6 +607,10 @@ export function QuickTransactionBar({
 
   // Submit hook
   const submit = useTransactionSubmit({
+    visible,
+    enableScopedV2Create:
+      mode === 'create' && !transactionId && !!scopedCreateContext,
+    isViewer,
     isCariMode: form.isCariMode,
     isPersonelMode: form.isPersonelMode,
     isEditMode: form.isEditMode,
@@ -343,7 +633,20 @@ export function QuickTransactionBar({
     categorySkipped: modals.categorySkipped,
     // DB'den yüklenen mevcut storage path yeni yerel fotoğraf değildir; editte tekrar
     // sıkıştırılıp upload edilmesin. Yalnız kullanıcı gerçekten yeni fotoğraf seçtiyse gönder.
-    photoUri: form.photoUri && form.photoUri !== form.originalPhotoPath ? form.photoUri : null,
+    photoUri: !isOwner
+      ? null
+      : form.photoUri && form.photoUri !== form.originalPhotoPath
+        ? form.photoUri
+        : null,
+    originalPhotoPath:
+      isOwner && form.isEditMode
+        ? form.originalPhotoPath
+        : null,
+    removeOriginalPhoto:
+      isOwner
+      && form.isEditMode
+      && !!form.originalPhotoPath
+      && form.photoUri === null,
     hesapId: form.hesapId,
     hedefHesapId: form.hedefHesapId,
     sourceHesapId: form.sourceHesapId,
@@ -354,7 +657,11 @@ export function QuickTransactionBar({
     cariler: entities.carilerForType,
     personelList: entities.personelList,
     urunItems: form.urunItems,
-    hadOriginalUrunHareketler: form.hadOriginalUrunHareketler,
+    productItemsResolved: isProductItemsResolved,
+    persistedProductItemCount,
+    productEditDataResolved: form.productEditDataResolved,
+    editableProductItemCount: form.editableProductItemCount,
+    editTransactionCreatedBy: form.editTransactionCreatedBy,
     setIsSaving: form.setIsSaving,
     setHesapPickerTarget: modals.setHesapPickerTarget,
     setShowHesapPicker: modals.setShowHesapPicker,
@@ -380,18 +687,21 @@ export function QuickTransactionBar({
     if (visible) {
       lastUsed.reload();
       // SOKET ISITMA (kaydet-asılması fix'i): bayat idle keep-alive soketi kayıt anında
-      // 3-5sn stall yapıyordu (app_events teşhisi: netcheck maks 5sn, submit ort ~9sn,
+      // 3-5sn stall yapıyordu (app_events teşhisi: backend-health maks 5sn, submit ort ~9sn,
       // ~2-3dk hareketsizlik sonrası). Bar açılınca hafif bir sağlık isteği (fire-and-forget)
       // soketi TAZELER; bayat-soket cezası kullanıcı formu doldururken arka planda yutulur →
-      // Kaydet'e basıldığında netcheck + RPC sıcak sokette hızlı biter.
-      void checkNetworkConnectivity();
+      // Kaydet'e basıldığında doğrudan RPC sıcak sokette hızlı biter.
+      void checkBackendConnectivity();
     }
   }, [visible, lastUsed.reload]);
 
   // Mevcut işlem tipinin kategori ailesi (gelir/gider) — doğrulama + prefill anahtarı.
   const currentCategoryFamily = resolveCategoryFamily(form.type);
   // Doğrulama listesi: CategoryPicker ile AYNI sorgu anahtarı → cache isabeti (ek ağ yok).
-  const { data: kategorilerForFamily } = useKategoriler(currentCategoryFamily);
+  const { data: kategorilerForFamily } = useKategoriSecimReferanslari(
+    currentCategoryFamily,
+    true,
+  );
 
   // selectedCategoryType override'ını mevcut aileyle senkron tut → tip değişince bayat
   // override CategoryPicker'ı yanlış ailede göstermesin (mis-tag guard; latent bug fix).
@@ -454,7 +764,7 @@ export function QuickTransactionBar({
   // müşteri; ödeme -> tedarikçi. Bu, picker başlığı/ikonu + inline cari oluşturma
   // tipinin (müşteri/tedarikçi) doğru olmasını sağlar.
   const cariPickerMode: 'customer' | 'supplier' = form.isCariMode
-    ? defaultCariType === 'tedarikci'
+    ? effectiveScopedCariType === 'tedarikci'
       ? 'supplier'
       : 'customer'
     : form.type === 'tahsilat'
@@ -497,6 +807,419 @@ export function QuickTransactionBar({
       }
     },
     [createUrun, userCurrency]
+  );
+
+  const handleOpenTaksitConfig = useCallback(() => {
+    Keyboard.dismiss();
+
+    const count = taksitPlan?.adet ?? 3;
+    const planDateStale =
+      !!taksitPlan &&
+      formatDateForDB(taksitPlan.ilkVade) < formatDateForDB(form.safeDate);
+    const firstDueDate =
+      taksitPlan && !planDateStale
+        ? taksitPlan.ilkVade
+        : addMonths(form.safeDate, 1);
+    const wasStale =
+      !!taksitPlan &&
+      (currentTaksitTotalCents === null ||
+        taksitPlan.totalCents !== currentTaksitTotalCents ||
+        planDateStale);
+    let locks = taksitPlan?.lockedRows.map((row) => ({ ...row })) ?? [];
+
+    setTaksitAdetDraft(count);
+    setTaksitIlkVadeDraft(firstDueDate);
+    setTaksitDraftWasStale(wasStale);
+    setEditingTaksitIndex(null);
+    setEditingTaksitText('');
+
+    if (currentTaksitTotalCents === null) {
+      setTaksitPreviewPlan(null);
+      setTaksitDraftLocks([]);
+      setTaksitDraftError('INVALID_TOTAL_CENTS');
+      setShowTaksitConfig(true);
+      return;
+    }
+
+    let result = buildInstallmentPlan(
+      currentTaksitTotalCents,
+      count,
+      firstDueDate,
+      locks
+    );
+
+    // Tutar küçüldüğünde eski elle-sabitlenmiş satırlar yeni toplamı aşabilir.
+    // Kullanıcının planını sessizce kaydetmek yerine kilitleri temizleyip yeni,
+    // doğrulanabilir dağılımı önizle; eski committed plan Apply'a kadar korunur.
+    if (!result.ok && wasStale && locks.length > 0) {
+      locks = [];
+      result = buildInstallmentPlan(currentTaksitTotalCents, count, firstDueDate);
+    }
+
+    setTaksitDraftLocks(locks);
+    if (result.ok) {
+      setTaksitPreviewPlan(result.plan);
+      setTaksitDraftError(null);
+    } else {
+      setTaksitPreviewPlan(null);
+      setTaksitDraftError(result.error.code);
+    }
+    setShowTaksitConfig(true);
+  }, [currentTaksitTotalCents, form.safeDate, taksitPlan]);
+
+  const rebuildTaksitDraft = useCallback(
+    (
+      count: number,
+      firstDueDate: Date,
+      locks: LockedInstallmentRow[],
+      clearPreviewOnError = false
+    ): InstallmentPlan | null => {
+      if (currentTaksitTotalCents === null) {
+        if (clearPreviewOnError) setTaksitPreviewPlan(null);
+        setTaksitDraftError('INVALID_TOTAL_CENTS');
+        return null;
+      }
+
+      const result = buildInstallmentPlan(
+        currentTaksitTotalCents,
+        count,
+        firstDueDate,
+        locks
+      );
+      if (!result.ok) {
+        if (clearPreviewOnError) setTaksitPreviewPlan(null);
+        setTaksitDraftError(result.error.code);
+        return null;
+      }
+
+      setTaksitPreviewPlan(result.plan);
+      setTaksitDraftLocks(result.plan.lockedRows);
+      setTaksitDraftError(null);
+      return result.plan;
+    },
+    [currentTaksitTotalCents]
+  );
+
+  const handleTaksitCountChange = useCallback(
+    (nextCount: number) => {
+      if (editingTaksitIndex !== null) return;
+
+      const count = Math.max(
+        MIN_INSTALLMENT_COUNT,
+        Math.min(MAX_INSTALLMENT_COUNT, nextCount)
+      );
+      if (count === taksitAdetDraft) return;
+
+      Keyboard.dismiss();
+      setEditingTaksitIndex(null);
+      setEditingTaksitText('');
+      setTaksitAdetDraft(count);
+      setTaksitDraftLocks([]);
+      rebuildTaksitDraft(count, taksitIlkVadeDraft, [], true);
+    },
+    [
+      editingTaksitIndex,
+      rebuildTaksitDraft,
+      taksitAdetDraft,
+      taksitIlkVadeDraft,
+    ]
+  );
+
+  const handleTaksitDateChange = useCallback(
+    (date: Date) => {
+      if (editingTaksitIndex !== null) return;
+      setTaksitIlkVadeDraft(date);
+      rebuildTaksitDraft(taksitAdetDraft, date, taksitDraftLocks, true);
+    },
+    [
+      editingTaksitIndex,
+      rebuildTaksitDraft,
+      taksitAdetDraft,
+      taksitDraftLocks,
+    ]
+  );
+
+  const buildTaksitDraftWithEdit = useCallback(
+    (index: number, rawAmount: string): InstallmentPlan | null => {
+      const amountCents = amountToCents(parseCurrency(rawAmount));
+      if (amountCents === null) {
+        setTaksitDraftError('INVALID_LOCKED_AMOUNT');
+        return null;
+      }
+
+      const nextLocks = [
+        ...taksitDraftLocks.filter((row) => row.index !== index),
+        { index, amountCents },
+      ].sort((a, b) => a.index - b.index);
+      return rebuildTaksitDraft(
+        taksitAdetDraft,
+        taksitIlkVadeDraft,
+        nextLocks
+      );
+    },
+    [rebuildTaksitDraft, taksitAdetDraft, taksitDraftLocks, taksitIlkVadeDraft]
+  );
+
+  const handleCommitTaksitEdit = useCallback(
+    (index: number, rawAmount: string) => {
+      buildTaksitDraftWithEdit(index, rawAmount);
+      setEditingTaksitIndex(null);
+      setEditingTaksitText('');
+    },
+    [buildTaksitDraftWithEdit]
+  );
+
+  const handleToggleTaksitLock = useCallback(
+    (index: number, row: InstallmentRpcRow) => {
+      if (editingTaksitIndex !== null) return;
+
+      const existing = taksitDraftLocks.some((lock) => lock.index === index);
+      const rowCents = amountToCents(row.tutar);
+      if (!existing && rowCents === null) {
+        setTaksitDraftError('INVALID_LOCKED_AMOUNT');
+        return;
+      }
+
+      const nextLocks = existing
+        ? taksitDraftLocks.filter((lock) => lock.index !== index)
+        : [
+            ...taksitDraftLocks,
+            { index, amountCents: rowCents as number },
+          ].sort((a, b) => a.index - b.index);
+      rebuildTaksitDraft(
+        taksitAdetDraft,
+        taksitIlkVadeDraft,
+        nextLocks
+      );
+    },
+    [
+      editingTaksitIndex,
+      rebuildTaksitDraft,
+      taksitAdetDraft,
+      taksitDraftLocks,
+      taksitIlkVadeDraft,
+    ]
+  );
+
+  const handleTaksitDistributionPreset = useCallback(
+    (target: 'first' | 'last' | 'reset') => {
+      if (editingTaksitIndex !== null) return;
+
+      if (currentTaksitTotalCents === null) {
+        setTaksitDraftError('INVALID_TOTAL_CENTS');
+        return;
+      }
+
+      Keyboard.dismiss();
+      setEditingTaksitIndex(null);
+      setEditingTaksitText('');
+
+      const base = buildInstallmentPlan(
+        currentTaksitTotalCents,
+        taksitAdetDraft,
+        taksitIlkVadeDraft
+      );
+      if (!base.ok) {
+        setTaksitPreviewPlan(null);
+        setTaksitDraftError(base.error.code);
+        return;
+      }
+
+      if (target === 'reset') {
+        setTaksitDraftLocks([]);
+        setTaksitPreviewPlan(base.plan);
+        setTaksitDraftError(null);
+        return;
+      }
+
+      const residualRow = base.plan.rows[base.plan.rows.length - 1];
+      const residualCents = residualRow ? amountToCents(residualRow.tutar) : null;
+      if (residualCents === null) {
+        setTaksitDraftError('DISTRIBUTION_INVARIANT_FAILED');
+        return;
+      }
+
+      const index = target === 'first' ? 0 : taksitAdetDraft - 1;
+      rebuildTaksitDraft(
+        taksitAdetDraft,
+        taksitIlkVadeDraft,
+        [{ index, amountCents: residualCents }]
+      );
+    },
+    [
+      currentTaksitTotalCents,
+      editingTaksitIndex,
+      rebuildTaksitDraft,
+      taksitAdetDraft,
+      taksitIlkVadeDraft,
+    ]
+  );
+
+  const handleApplyTaksitPlan = useCallback(() => {
+    let candidate = taksitPreviewPlan;
+    if (editingTaksitIndex !== null) {
+      candidate = buildTaksitDraftWithEdit(
+        editingTaksitIndex,
+        editingTaksitText
+      );
+    }
+    if (
+      !candidate ||
+      currentTaksitTotalCents === null ||
+      candidate.adet !== taksitAdetDraft ||
+      formatDateForDB(candidate.ilkVade) !== formatDateForDB(taksitIlkVadeDraft) ||
+      formatDateForDB(candidate.ilkVade) < formatDateForDB(form.safeDate)
+    ) {
+      setTaksitDraftError('INVALID_FIRST_DUE_DATE');
+      return;
+    }
+
+    setTaksitPlan(candidate);
+    form.setVadeTarihi(null);
+    setTaksitDraftWasStale(false);
+    setShowTaksitConfig(false);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [
+    buildTaksitDraftWithEdit,
+    currentTaksitTotalCents,
+    editingTaksitIndex,
+    editingTaksitText,
+    form,
+    taksitAdetDraft,
+    taksitIlkVadeDraft,
+    taksitPreviewPlan,
+  ]);
+
+  const taksitCurrency = entities.selectedCari?.currency || userCurrency;
+  const editingTaksitCents =
+    editingTaksitIndex === null
+      ? null
+      : amountToCents(parseCurrency(editingTaksitText));
+  const pendingEditedTaksitResult = useMemo(() => {
+    if (
+      editingTaksitIndex === null ||
+      currentTaksitTotalCents === null ||
+      editingTaksitCents === null
+    ) {
+      return null;
+    }
+
+    const nextLocks = [
+      ...taksitDraftLocks.filter((row) => row.index !== editingTaksitIndex),
+      { index: editingTaksitIndex, amountCents: editingTaksitCents },
+    ].sort((a, b) => a.index - b.index);
+
+    return buildInstallmentPlan(
+      currentTaksitTotalCents,
+      taksitAdetDraft,
+      taksitIlkVadeDraft,
+      nextLocks
+    );
+  }, [
+    currentTaksitTotalCents,
+    editingTaksitCents,
+    editingTaksitIndex,
+    taksitAdetDraft,
+    taksitDraftLocks,
+    taksitIlkVadeDraft,
+  ]);
+  const effectiveTaksitPreviewPlan =
+    pendingEditedTaksitResult?.ok === true
+      ? pendingEditedTaksitResult.plan
+      : taksitPreviewPlan;
+  const lockedTaksitIndexes = useMemo(
+    () =>
+      new Set(
+        (effectiveTaksitPreviewPlan?.lockedRows ?? taksitDraftLocks).map(
+          (row) => row.index
+        )
+      ),
+    [effectiveTaksitPreviewPlan, taksitDraftLocks]
+  );
+  const taksitPreviewTotalCents = useMemo(
+    () =>
+      (effectiveTaksitPreviewPlan?.rows ?? []).reduce(
+        (sum, row, index) => {
+          const rowCents =
+            editingTaksitIndex === index && editingTaksitCents !== null
+              ? editingTaksitCents
+              : amountToCents(row.tutar) ?? 0;
+          return sum + rowCents;
+        },
+        0
+      ),
+    [editingTaksitCents, editingTaksitIndex, effectiveTaksitPreviewPlan]
+  );
+  const taksitDifferenceCents =
+    taksitPreviewTotalCents - (currentTaksitTotalCents ?? 0);
+  const visibleTaksitDraftError =
+    editingTaksitIndex === null
+      ? taksitDraftError
+      : editingTaksitCents === null
+        ? 'INVALID_LOCKED_AMOUNT'
+        : pendingEditedTaksitResult && !pendingEditedTaksitResult.ok
+          ? pendingEditedTaksitResult.error.code
+          : null;
+  const isTaksitDraftValid =
+    !!effectiveTaksitPreviewPlan &&
+    currentTaksitTotalCents !== null &&
+    visibleTaksitDraftError === null &&
+    effectiveTaksitPreviewPlan.adet === taksitAdetDraft &&
+    formatDateForDB(effectiveTaksitPreviewPlan.ilkVade) ===
+      formatDateForDB(taksitIlkVadeDraft) &&
+    formatDateForDB(effectiveTaksitPreviewPlan.ilkVade) >=
+      formatDateForDB(form.safeDate) &&
+    (editingTaksitIndex === null
+      ? taksitDifferenceCents === 0
+      : pendingEditedTaksitResult?.ok === true) &&
+    effectiveTaksitPreviewPlan.rows.every(
+      (row) => (amountToCents(row.tutar) ?? 0) >= 1
+    );
+
+  const taksitDraftErrorText = useMemo(() => {
+    if (!visibleTaksitDraftError) return null;
+    if (visibleTaksitDraftError === 'INVALID_TOTAL_CENTS') {
+      return t('transactions:taksit.tutarOnce');
+    }
+    if (
+      visibleTaksitDraftError === 'TOTAL_TOO_SMALL' ||
+      visibleTaksitDraftError === 'INVALID_LOCKED_AMOUNT' ||
+      visibleTaksitDraftError === 'INSUFFICIENT_REMAINDER'
+    ) {
+      return t('transactions:taksit.enAzBirKurus');
+    }
+    return t('transactions:taksit.dagitimGecersiz');
+  }, [t, visibleTaksitDraftError]);
+
+  const renderTaksitRow = useCallback(
+    ({ item, index }: { item: InstallmentRpcRow; index: number }) => (
+      <InstallmentPreviewRow
+        row={item}
+        index={index}
+        isLocked={lockedTaksitIndexes.has(index)}
+        isEditing={editingTaksitIndex === index}
+        editingText={editingTaksitText}
+        formatDate={formatDateMedium}
+        onStartEditing={(rowIndex, value) => {
+          setEditingTaksitIndex(rowIndex);
+          setEditingTaksitText(value);
+        }}
+        onEditingTextChange={setEditingTaksitText}
+        onCommitEditing={handleCommitTaksitEdit}
+        onToggleLock={handleToggleTaksitLock}
+        lockControlsDisabled={editingTaksitIndex !== null}
+        t={t}
+      />
+    ),
+    [
+      editingTaksitIndex,
+      editingTaksitText,
+      formatDateMedium,
+      handleCommitTaksitEdit,
+      handleToggleTaksitLock,
+      lockedTaksitIndexes,
+      t,
+    ]
   );
 
   // Handle personel selection from picker
@@ -589,7 +1312,17 @@ export function QuickTransactionBar({
     [modals, form.kategoriId, form.urunItems.length]
   );
 
-  if (!visible) return null;
+  if (
+    !visible
+    || (
+      requestedAccountReferenceScope !== undefined
+      && !minimalAccountRefsAllowed
+    )
+    || (scopedCreateRequested !== undefined && !scopedCreateContext)
+    || (allowedTypes !== undefined && allowedTypes.length === 0)
+  ) {
+    return null;
+  }
 
   const buttonColor = getTransactionTypeColor(form.type);
   const buttonLabels: Record<TransactionType, string> = {
@@ -694,6 +1427,7 @@ export function QuickTransactionBar({
             formatDateMedium={formatDateMedium}
             onDatePress={() => modals.setShowDatePicker(true)}
             onScheduledToggle={() => form.setIsScheduled(!form.isScheduled)}
+            showScheduledToggle
             onResetToNow={() => form.setDate(new Date())}
             isLeaveUsageType={isLeaveUsageType}
             dateEnd={form.dateEnd}
@@ -717,14 +1451,11 @@ export function QuickTransactionBar({
               );
             }}
             taksitAdet={taksitPlan?.adet ?? null}
+            taksitStale={taksitPlanStale}
             onTaksitPress={
               // Taksit yalnız yeni kayıt + ürünsüz yolda (RPC ürünlü varyantı Faz 3 kapsamı dışı)
               !form.isEditMode && form.urunItems.length === 0
-                ? () => {
-                    setTaksitAdetDraft(taksitPlan?.adet ?? 3);
-                    setTaksitIlkVadeDraft(taksitPlan?.ilkVade ?? addMonths(form.safeDate, 1));
-                    setShowTaksitConfig(true);
-                  }
+                ? handleOpenTaksitConfig
                 : undefined
             }
             onTaksitClear={() => setTaksitPlan(null)}
@@ -735,7 +1466,7 @@ export function QuickTransactionBar({
             type={form.type}
             isCariMode={form.isCariMode}
             isPersonelMode={form.isPersonelMode}
-            defaultCariType={defaultCariType}
+            defaultCariType={effectiveScopedCariType}
             selectedHesap={entities.selectedHesap}
             selectedSourceHesap={entities.selectedSourceHesap}
             selectedCari={entities.selectedCari}
@@ -745,6 +1476,8 @@ export function QuickTransactionBar({
               modals.setShowHesapPicker(true);
             }}
             onOpenCariPicker={() => modals.setShowCariPicker(true)}
+            showAccountBalances={!minimalAccountRefsAllowed}
+            showEntityBalances
           />
 
           {/* Transfer: Kaynak ve Hedef Hesap */}
@@ -817,7 +1550,10 @@ export function QuickTransactionBar({
             }}
             categoryType={categoryType ?? null}
             recentCategories={recentCategories}
-            categoryPickerOpen={modals.categoryPickerOpen && form.urunItems.length === 0}
+            categoryPickerOpen={
+              modals.categoryPickerOpen
+              && form.urunItems.length === 0
+            }
             onCategoryPickerOpenChange={(open) => {
               // Prevent opening category picker when products are selected
               if (open && form.urunItems.length > 0) {
@@ -831,23 +1567,33 @@ export function QuickTransactionBar({
             // Kategori-ekle'ye giderken QTB KAPANMAZ, gizlenir (ürün akışıyla aynı):
             // dönüşte form korunur + yeni kategori otomatik seçilir (focus effect)
             onNavigateAway={() => modals.setNavigatedAway(true)}
-            hasPhoto={!!form.photoUri}
+            hasPhoto={isOwner && !!form.photoUri}
             onPickImage={handlePickImage}
             onTakePhoto={handleTakePhoto}
             onRemovePhoto={handleRemovePhoto}
             onViewPhoto={handleViewPhoto}
             photoLoading={pickImage.isPending || takePhoto.isPending}
             isScheduled={form.isScheduled}
-            isSaving={form.isSaving || form.isLoadingTransaction}
+            isSaving={
+              form.isSaving
+              || form.isLoadingTransaction
+              || (
+                form.isEditMode
+                && !isScheduledTransaction
+                && !isProductItemsResolved
+              )
+            }
             buttonColor={buttonColor}
             buttonLabel={buttonLabel}
             onSave={submit.handleSave}
             type={form.type}
             onTypeChange={form.setType}
             tabMode={tabMode}
+            allowedTypes={visibleTransactionTypes}
             showUrunButton={showUrunButton}
             urunItemCount={form.urunItems.length}
             onUrunButtonPress={() => modals.setShowUrunPicker(true)}
+            showPhotoButton={isOwner}
           />
         </View>
       </Animated.View>
@@ -872,114 +1618,366 @@ export function QuickTransactionBar({
         />
       )}
 
-      {/* FAZ 3 — Taksit plan konfigürasyonu (adet + ilk vade; aylık aralık sabit) */}
-      <Modal visible={showTaksitConfig} transparent animationType="fade" statusBarTranslucent>
-        <TouchableWithoutFeedback onPress={() => setShowTaksitConfig(false)}>
-          <View style={styles.pickerBackdrop}>
-            <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={styles.pickerContainer}>
-                <Text style={styles.pickerTitle}>{t('transactions:taksit.configTitle')}</Text>
+      {/* Taksit editörü ana QTB Modal'ının İÇİNDE inline overlay'dir. İkinci bir
+          RN Modal sunulmaz; iOS'taki modal-üstü-modal donması böylece oluşmaz. */}
+      {showTaksitConfig && (
+        <View
+          style={[
+            taksitStyles.overlay,
+            {
+              paddingTop: insets.top + 12,
+              paddingBottom:
+                (Platform.OS === 'ios' && animation.isKeyboardVisible
+                  ? animation.keyboardHeight
+                  : insets.bottom) + 12,
+            },
+          ]}
+        >
+          <TouchableWithoutFeedback
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowTaksitConfig(false);
+            }}
+          >
+            <View style={taksitStyles.overlayBackdrop} />
+          </TouchableWithoutFeedback>
 
-                <Text style={styles.pickerSectionTitle}>{t('transactions:taksit.adetSecin')}</Text>
-                <View style={taksitStyles.adetRow}>
-                  {[2, 3, 4, 5, 6, 9, 12].map((n) => (
+          <View
+            style={[
+              taksitStyles.editorContainer,
+              {
+                width: Math.min(windowWidth - 24, 520),
+                maxHeight: Math.max(
+                  180,
+                  windowHeight -
+                    insets.top -
+                    (Platform.OS === 'ios' && animation.isKeyboardVisible
+                      ? animation.keyboardHeight
+                      : insets.bottom) -
+                    24
+                ),
+              },
+            ]}
+          >
+            <View style={taksitStyles.editorTitleRow}>
+              <Text style={taksitStyles.editorTitle}>
+                {t('transactions:taksit.configTitle')}
+              </Text>
+              <TouchableOpacity
+                style={taksitStyles.editorClose}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowTaksitConfig(false);
+                }}
+                hitSlop={HIT_SLOP.sm}
+                accessibilityRole="button"
+                accessibilityLabel={t('common:buttons.close')}
+              >
+                <X size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {taksitDraftWasStale && (
+              <View style={taksitStyles.staleBanner}>
+                <Text style={taksitStyles.staleTitle}>
+                  {t('transactions:taksit.planGuncellenmeli')}
+                </Text>
+                <Text style={taksitStyles.staleText}>
+                  {t('transactions:taksit.planGuncellenmeliAciklama')}
+                </Text>
+              </View>
+            )}
+
+            <FlatList
+              style={taksitStyles.planList}
+              contentContainerStyle={taksitStyles.planListContent}
+              data={effectiveTaksitPreviewPlan?.rows ?? []}
+              keyExtractor={(row) => String(row.sira)}
+              renderItem={renderTaksitRow}
+              extraData={`${editingTaksitIndex ?? 'x'}:${editingTaksitText}:${Array.from(lockedTaksitIndexes).join(',')}`}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              showsVerticalScrollIndicator
+              initialNumToRender={8}
+              maxToRenderPerBatch={8}
+              windowSize={5}
+              removeClippedSubviews={Platform.OS === 'android'}
+              ListHeaderComponent={
+                <View>
+                  <Text style={styles.pickerSectionTitle}>
+                    {t('transactions:taksit.adetSecin')}
+                  </Text>
+                  <View style={taksitStyles.stepperRow}>
                     <TouchableOpacity
-                      key={n}
-                      style={[taksitStyles.adetChip, taksitAdetDraft === n && taksitStyles.adetChipActive]}
-                      onPress={() => {
-                        Haptics.selectionAsync();
-                        setTaksitAdetDraft(n);
-                      }}
+                      style={[
+                        taksitStyles.stepperButton,
+                        (taksitAdetDraft <= MIN_INSTALLMENT_COUNT ||
+                          editingTaksitIndex !== null) &&
+                          taksitStyles.controlDisabled,
+                      ]}
+                      onPress={() => handleTaksitCountChange(taksitAdetDraft - 1)}
+                      disabled={
+                        taksitAdetDraft <= MIN_INSTALLMENT_COUNT ||
+                        editingTaksitIndex !== null
+                      }
                       accessibilityRole="button"
-                      accessibilityState={{ selected: taksitAdetDraft === n }}
-                      accessibilityLabel={t('transactions:taksit.adetLabel', { adet: n })}
-                    >
-                      <Text
-                        style={[taksitStyles.adetChipText, taksitAdetDraft === n && taksitStyles.adetChipTextActive]}
-                      >
-                        {n}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Canlı önizleme: taksit başına tutar (sunucudaki bölüşümle birebir —
-                    her taksit yuvarlanır, küsurat son taksite gider) */}
-                {(() => {
-                  const toplam = parseCurrency(form.amount) || 0;
-                  const cur = entities.selectedCari?.currency || userCurrency;
-                  if (toplam <= 0) {
-                    return <Text style={taksitStyles.onizleme}>{t('transactions:taksit.tutarOnce')}</Text>;
-                  }
-                  const per = roundCurrency(toplam / taksitAdetDraft);
-                  const son = roundCurrency(toplam - per * (taksitAdetDraft - 1));
-                  const sonFarkli = Math.abs(son - per) >= 0.005;
-                  return (
-                    <Text style={taksitStyles.onizleme} numberOfLines={2}>
-                      {t('transactions:taksit.onizleme', { adet: taksitAdetDraft, tutar: formatCurrency(per, cur) })}
-                      {sonFarkli ? ` (${t('transactions:taksit.onizlemeSon', { tutar: formatCurrency(son, cur) })})` : ''}
-                    </Text>
-                  );
-                })()}
-
-                <Text style={styles.pickerSectionTitle}>{t('transactions:taksit.ilkVade')}</Text>
-                <TouchableOpacity
-                  style={taksitStyles.vadeButton}
-                  onPress={() => setShowTaksitVadePicker((v) => !v)}
-                >
-                  <Text style={taksitStyles.vadeButtonText}>{formatDateMedium(taksitIlkVadeDraft)}</Text>
-                </TouchableOpacity>
-
-                {/* İlk-vade seçici SATIR İÇİ (ayrı Modal DEĞİL): taksit modalı açıkken
-                    ikinci bir RN Modal açmak iOS production'da UI'ı DONDURUYORDU
-                    (eşzamanlı modal sunumu). iOS: spinner inline; Android: native dialog
-                    (RN Modal olmadığı için güvenli). Geçmiş tarih seçilemez. */}
-                {showTaksitVadePicker && (
-                  <View style={taksitStyles.inlinePickerWrap}>
-                    <DateTimePickerRN
-                      // iOS spinner, value < minimumDate iken ÇÖKÜYOR (form tarihi ilk-vadeden
-                      // sonraya alınmışsa olur). value'yu minimumDate'e kelepçele → çökme yok.
-                      value={taksitIlkVadeDraft.getTime() < form.safeDate.getTime() ? form.safeDate : taksitIlkVadeDraft}
-                      mode="date"
-                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                      minimumDate={form.safeDate}
-                      locale={locale}
-                      themeVariant="light"
-                      onChange={(event, d) => {
-                        if (Platform.OS === 'android') {
-                          setShowTaksitVadePicker(false);
-                          if (event.type === 'dismissed') return;
-                        }
-                        if (d) setTaksitIlkVadeDraft(d);
+                      accessibilityLabel={t('transactions:taksit.adetAzalt')}
+                      accessibilityState={{
+                        disabled:
+                          taksitAdetDraft <= MIN_INSTALLMENT_COUNT ||
+                          editingTaksitIndex !== null,
                       }}
-                    />
+                    >
+                      <Minus size={20} color={colors.primary} />
+                    </TouchableOpacity>
+                    <View style={taksitStyles.stepperValue}>
+                      <Text style={taksitStyles.stepperValueText}>{taksitAdetDraft}</Text>
+                      <Text style={taksitStyles.stepperHint}>
+                        {t('transactions:taksit.adetAraligi')}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={[
+                        taksitStyles.stepperButton,
+                        (taksitAdetDraft >= MAX_INSTALLMENT_COUNT ||
+                          editingTaksitIndex !== null) &&
+                          taksitStyles.controlDisabled,
+                      ]}
+                      onPress={() => handleTaksitCountChange(taksitAdetDraft + 1)}
+                      disabled={
+                        taksitAdetDraft >= MAX_INSTALLMENT_COUNT ||
+                        editingTaksitIndex !== null
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={t('transactions:taksit.adetArtir')}
+                      accessibilityState={{
+                        disabled:
+                          taksitAdetDraft >= MAX_INSTALLMENT_COUNT ||
+                          editingTaksitIndex !== null,
+                      }}
+                    >
+                      <Plus size={20} color={colors.primary} />
+                    </TouchableOpacity>
                   </View>
-                )}
 
-                <Text style={taksitStyles.not}>{t('transactions:taksit.aylikNot')}</Text>
+                  <ScrollView
+                    horizontal
+                    bounces={false}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={taksitStyles.quickChipRow}
+                  >
+                    {[2, 3, 4, 5, 6, 9, 10, 12].map((count) => (
+                      <TouchableOpacity
+                        key={count}
+                        style={[
+                          taksitStyles.adetChip,
+                          taksitAdetDraft === count && taksitStyles.adetChipActive,
+                          editingTaksitIndex !== null && taksitStyles.controlDisabled,
+                        ]}
+                        onPress={() => {
+                          Haptics.selectionAsync();
+                          handleTaksitCountChange(count);
+                        }}
+                        disabled={editingTaksitIndex !== null}
+                        accessibilityRole="button"
+                        accessibilityState={{
+                          selected: taksitAdetDraft === count,
+                          disabled: editingTaksitIndex !== null,
+                        }}
+                        accessibilityLabel={t('transactions:taksit.adetLabel', {
+                          adet: count,
+                        })}
+                      >
+                        <Text
+                          style={[
+                            taksitStyles.adetChipText,
+                            taksitAdetDraft === count &&
+                              taksitStyles.adetChipTextActive,
+                          ]}
+                        >
+                          {count}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
 
+                  <Text style={styles.pickerSectionTitle}>
+                    {t('transactions:taksit.ilkVade')}
+                  </Text>
+                  <TouchableOpacity
+                    style={[
+                      taksitStyles.vadeButton,
+                      editingTaksitIndex !== null && taksitStyles.controlDisabled,
+                    ]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setShowTaksitVadePicker((value) => !value);
+                    }}
+                    disabled={editingTaksitIndex !== null}
+                    accessibilityRole="button"
+                    accessibilityState={{ disabled: editingTaksitIndex !== null }}
+                  >
+                    <Text style={taksitStyles.vadeButtonText}>
+                      {formatDateMedium(taksitIlkVadeDraft)}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Tarih seçici de satır içidir; ikinci RN Modal açılmaz. */}
+                  {showTaksitVadePicker && (
+                    <View style={taksitStyles.inlinePickerWrap}>
+                      <DateTimePickerRN
+                        value={
+                          taksitIlkVadeDraft.getTime() < form.safeDate.getTime()
+                            ? form.safeDate
+                            : taksitIlkVadeDraft
+                        }
+                        mode="date"
+                        display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        minimumDate={form.safeDate}
+                        locale={locale}
+                        themeVariant="light"
+                        onChange={(event, date) => {
+                          if (Platform.OS === 'android') {
+                            setShowTaksitVadePicker(false);
+                            if (event.type === 'dismissed') return;
+                          }
+                          if (date) handleTaksitDateChange(date);
+                        }}
+                      />
+                    </View>
+                  )}
+
+                  <Text style={taksitStyles.not}>
+                    {t('transactions:taksit.aylikNot')}
+                  </Text>
+                  <View style={taksitStyles.tableHeader}>
+                    <Text style={[taksitStyles.tableHeaderText, taksitStyles.rowNumber]}>
+                      {t('transactions:taksit.satirSira')}
+                    </Text>
+                    <Text style={[taksitStyles.tableHeaderText, taksitStyles.rowDate]}>
+                      {t('transactions:taksit.satirVade')}
+                    </Text>
+                    <Text style={[taksitStyles.tableHeaderText, taksitStyles.rowAmount]}>
+                      {t('transactions:taksit.satirTutar')}
+                    </Text>
+                    <View style={taksitStyles.rowLock} />
+                  </View>
+                </View>
+              }
+              ListEmptyComponent={
+                <Text style={taksitStyles.emptyPlanText}>
+                  {taksitDraftErrorText ?? t('transactions:taksit.tutarOnce')}
+                </Text>
+              }
+            />
+
+            {!animation.isKeyboardVisible && (
+              <View style={taksitStyles.distributionActions}>
                 <TouchableOpacity
-                  style={styles.pickerDoneButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setTaksitPlan({ adet: taksitAdetDraft, ilkVade: taksitIlkVadeDraft });
-                    form.setVadeTarihi(null); // karşılıklı münhasır
-                    setShowTaksitConfig(false);
-                  }}
+                  style={[
+                    taksitStyles.distributionAction,
+                    editingTaksitIndex !== null && taksitStyles.controlDisabled,
+                  ]}
+                  onPress={() => handleTaksitDistributionPreset('first')}
+                  disabled={!taksitPreviewPlan || editingTaksitIndex !== null}
                 >
-                  <Text style={styles.pickerDoneText}>{t('transactions:taksit.uygula')}</Text>
+                  <Text style={taksitStyles.distributionActionText} numberOfLines={2}>
+                    {t('transactions:taksit.farkiIlkeAl')}
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={styles.pickerCancelButton}
-                  onPress={() => setShowTaksitConfig(false)}
+                  style={[
+                    taksitStyles.distributionAction,
+                    editingTaksitIndex !== null && taksitStyles.controlDisabled,
+                  ]}
+                  onPress={() => handleTaksitDistributionPreset('last')}
+                  disabled={!taksitPreviewPlan || editingTaksitIndex !== null}
                 >
-                  <Text style={styles.pickerCancelText}>{t('common:buttons.cancel')}</Text>
+                  <Text style={taksitStyles.distributionActionText} numberOfLines={2}>
+                    {t('transactions:taksit.farkiSonaAl')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    taksitStyles.distributionAction,
+                    editingTaksitIndex !== null && taksitStyles.controlDisabled,
+                  ]}
+                  onPress={() => handleTaksitDistributionPreset('reset')}
+                  disabled={!taksitPreviewPlan || editingTaksitIndex !== null}
+                >
+                  <Text style={taksitStyles.distributionActionText} numberOfLines={2}>
+                    {t('transactions:taksit.esitDagit')}
+                  </Text>
                 </TouchableOpacity>
               </View>
-            </TouchableWithoutFeedback>
+            )}
+
+            <View style={taksitStyles.summary}>
+              <View style={taksitStyles.summaryRow}>
+                <Text style={taksitStyles.summaryLabel}>
+                  {t('transactions:taksit.taksitToplami')}
+                </Text>
+                <Text style={taksitStyles.summaryValue}>
+                  {formatCurrency(taksitPreviewTotalCents / 100, taksitCurrency)}
+                </Text>
+              </View>
+              <View style={taksitStyles.summaryRow}>
+                <Text style={taksitStyles.summaryLabel}>
+                  {t('transactions:taksit.islemToplami')}
+                </Text>
+                <Text style={taksitStyles.summaryValue}>
+                  {formatCurrency((currentTaksitTotalCents ?? 0) / 100, taksitCurrency)}
+                </Text>
+              </View>
+              <View style={taksitStyles.summaryRow}>
+                <Text style={taksitStyles.summaryLabel}>
+                  {t('transactions:taksit.fark')}
+                </Text>
+                <Text
+                  style={[
+                    taksitStyles.summaryValue,
+                    {
+                      color:
+                        taksitDifferenceCents === 0 ? colors.success : colors.error,
+                    },
+                  ]}
+                >
+                  {formatCurrency(taksitDifferenceCents / 100, taksitCurrency)}
+                </Text>
+              </View>
+              {taksitDraftErrorText && (
+                <Text style={taksitStyles.errorText}>{taksitDraftErrorText}</Text>
+              )}
+            </View>
+
+            <View style={taksitStyles.editorFooter}>
+              <TouchableOpacity
+                style={taksitStyles.cancelButton}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowTaksitConfig(false);
+                }}
+              >
+                <Text style={styles.pickerCancelText}>{t('common:buttons.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  taksitStyles.applyButton,
+                  !isTaksitDraftValid && taksitStyles.controlDisabled,
+                ]}
+                onPress={handleApplyTaksitPlan}
+                disabled={!isTaksitDraftValid}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: !isTaksitDraftValid }}
+              >
+                <Text style={styles.pickerDoneText}>
+                  {t('transactions:taksit.uygula')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        </View>
+      )}
 
       {/* DateTime End Picker Modal (for leave usage date range) */}
       {isLeaveUsageType && (
@@ -1010,6 +2008,7 @@ export function QuickTransactionBar({
         excludeId={modals.hesapPickerTarget === 'hedef' ? form.hesapId : undefined}
         pendingModal={modals.pendingModal}
         onPendingModalHandled={handlePendingModalHandled}
+        showBalances={!minimalAccountRefsAllowed}
       />
 
       {/* Cari Picker Modal - Bottom Sheet */}
@@ -1129,11 +2128,99 @@ export function QuickTransactionBar({
 
       {/* Photo Viewer Modal */}
       <PhotoViewerModal
-        visible={showPhotoViewer}
+        visible={isOwner && showPhotoViewer}
         photoPath={form.photoUri}
         onClose={() => setShowPhotoViewer(false)}
       />
     </Modal>
+  );
+}
+
+interface InstallmentPreviewRowProps {
+  row: InstallmentRpcRow;
+  index: number;
+  isLocked: boolean;
+  isEditing: boolean;
+  editingText: string;
+  formatDate: (date: string | Date) => string;
+  onStartEditing: (index: number, value: string) => void;
+  onEditingTextChange: (value: string) => void;
+  onCommitEditing: (index: number, value: string) => void;
+  onToggleLock: (index: number, row: InstallmentRpcRow) => void;
+  lockControlsDisabled: boolean;
+  t: TFunction;
+}
+
+function InstallmentPreviewRow({
+  row,
+  index,
+  isLocked,
+  isEditing,
+  editingText,
+  formatDate,
+  onStartEditing,
+  onEditingTextChange,
+  onCommitEditing,
+  onToggleLock,
+  lockControlsDisabled,
+  t,
+}: InstallmentPreviewRowProps) {
+  const displayAmount = isEditing
+    ? editingText
+    : formatAmountForInput(row.tutar, 2);
+
+  return (
+    <View style={taksitStyles.previewRow}>
+      <Text style={[taksitStyles.previewText, taksitStyles.rowNumber]}>
+        {row.sira}
+      </Text>
+      <Text
+        style={[taksitStyles.previewText, taksitStyles.rowDate]}
+        numberOfLines={1}
+      >
+        {formatDate(row.vade_tarihi)}
+      </Text>
+      <TextInput
+        style={[
+          taksitStyles.rowAmount,
+          taksitStyles.amountEditor,
+          isLocked && taksitStyles.amountEditorLocked,
+        ]}
+        value={displayAmount}
+        onFocus={() => onStartEditing(index, formatAmountForInput(row.tutar, 2))}
+        onChangeText={(value) => onEditingTextChange(cleanAmountInput(value))}
+        onEndEditing={(event) => onCommitEditing(index, event.nativeEvent.text)}
+        keyboardType="decimal-pad"
+        selectTextOnFocus
+        maxLength={15}
+        accessibilityLabel={t('transactions:taksit.satirDuzenle', {
+          sira: row.sira,
+        })}
+      />
+      <TouchableOpacity
+        style={[
+          taksitStyles.rowLock,
+          isLocked && taksitStyles.rowLockActive,
+          lockControlsDisabled && taksitStyles.controlDisabled,
+        ]}
+        onPress={() => onToggleLock(index, row)}
+        disabled={lockControlsDisabled}
+        hitSlop={HIT_SLOP.sm}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isLocked, disabled: lockControlsDisabled }}
+        accessibilityLabel={
+          isLocked
+            ? t('transactions:taksit.satirKilidiniAc', { sira: row.sira })
+            : t('transactions:taksit.satiriKilitle', { sira: row.sira })
+        }
+      >
+        {isLocked ? (
+          <Lock size={16} color={colors.primary} />
+        ) : (
+          <Unlock size={16} color={colors.textMuted} />
+        )}
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -1146,22 +2233,122 @@ const qtbLocal = StyleSheet.create({
   },
 });
 
-// FAZ 3 — taksit konfigürasyon modalı yerel stilleri
+// Taksit planı inline editörü (ana QTB Modal'ı içinde; ayrı RN Modal değildir).
 const taksitStyles = StyleSheet.create({
-  adetRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  adetChip: {
-    minWidth: 44,
-    height: 44,
-    borderRadius: 10,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 200,
+    elevation: 200,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+  },
+  overlayBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  editorContainer: {
+    flexShrink: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.22,
+    shadowRadius: 16,
+    elevation: 24,
+  },
+  editorTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 38,
+    paddingHorizontal: 4,
+    marginBottom: 6,
+  },
+  editorTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  editorClose: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+  },
+  staleBanner: {
+    backgroundColor: colors.warningLight,
+    borderRadius: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+  },
+  staleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.warning,
+  },
+  staleText: {
+    marginTop: 2,
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  planList: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minHeight: 70,
+  },
+  planListContent: {
+    paddingBottom: 4,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 8,
+  },
+  stepperButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  stepperValue: {
+    minWidth: 88,
+    alignItems: 'center',
+  },
+  stepperValueText: {
+    fontSize: 24,
+    lineHeight: 27,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  stepperHint: {
+    fontSize: 10,
+    color: colors.textMuted,
+  },
+  quickChipRow: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 2,
+    paddingBottom: 10,
+  },
+  adetChip: {
+    minWidth: 38,
+    height: 34,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 9,
     backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
@@ -1171,34 +2358,27 @@ const taksitStyles = StyleSheet.create({
     borderColor: colors.primary,
   },
   adetChipText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: colors.text,
   },
   adetChipTextActive: {
     color: '#FFFFFF',
   },
-  onizleme: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
-    textAlign: 'center',
-    marginBottom: 12,
-  },
   vadeButton: {
     alignSelf: 'center',
-    paddingVertical: 10,
+    paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 10,
     backgroundColor: colors.background,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   inlinePickerWrap: {
     alignItems: 'center',
     marginBottom: 8,
   },
   vadeButtonText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.primary,
   },
@@ -1206,6 +2386,155 @@ const taksitStyles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: 8,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 26,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  tableHeaderText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 44,
+    paddingHorizontal: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  previewText: {
+    fontSize: 12,
+    color: colors.text,
+  },
+  rowNumber: {
+    width: 32,
+    textAlign: 'center',
+  },
+  rowDate: {
+    flex: 0.9,
+    minWidth: 78,
+    paddingRight: 5,
+  },
+  rowAmount: {
+    flex: 1,
+    minWidth: 88,
+  },
+  amountEditor: {
+    height: 34,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  amountEditorLocked: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
+  },
+  rowLock: {
+    width: 38,
+    height: 34,
+    marginLeft: 5,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowLockActive: {
+    backgroundColor: colors.primaryLight,
+  },
+  emptyPlanText: {
+    paddingVertical: 20,
+    paddingHorizontal: 10,
+    fontSize: 13,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  distributionActions: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingTop: 7,
+  },
+  distributionAction: {
+    flex: 1,
+    minHeight: 38,
+    paddingHorizontal: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  distributionActionText: {
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '600',
+    color: colors.primary,
+    textAlign: 'center',
+  },
+  summary: {
+    marginTop: 7,
+    paddingVertical: 5,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    backgroundColor: colors.background,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 20,
+  },
+  summaryLabel: {
+    flex: 1,
+    fontSize: 11,
+    color: colors.textMuted,
+  },
+  summaryValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  errorText: {
+    marginTop: 3,
+    fontSize: 11,
+    color: colors.error,
+    textAlign: 'center',
+  },
+  editorFooter: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  applyButton: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 10,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controlDisabled: {
+    opacity: 0.4,
   },
 });

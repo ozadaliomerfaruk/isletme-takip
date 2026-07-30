@@ -44,12 +44,7 @@ interface RpcRow {
 export function useNetWorthTrend(monthsBack: number) {
   const { isletme } = useAuthContext();
   const { canAccessModule } = usePermissions();
-  const reportsEnabled =
-    canAccessModule('raporlar')
-    && canAccessModule('hesaplar')
-    && canAccessModule('cariler')
-    && canAccessModule('urunler')
-    && canAccessModule('personel');
+  const reportsEnabled = canAccessModule('raporlar');
   const { t } = useTranslation('common');
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();

@@ -10,7 +10,7 @@ import { styles } from '../styles';
 interface Hesap {
   id: string;
   name: string;
-  balance: number;
+  balance?: number;
   currency?: string;
 }
 

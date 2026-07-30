@@ -119,7 +119,7 @@ function normalizePermissions(value: Permissions | null | undefined): AccessVect
     const rawValue = rawModules[moduleName];
     modules[moduleName] = typeof rawValue === 'boolean'
       ? rawValue
-      : DEFAULT_TRUE_MODULES.has(moduleName as ModuleName);
+      : !hasDeclaredLevel && DEFAULT_TRUE_MODULES.has(moduleName as ModuleName);
   }
 
   const legacyActions: Record<string, boolean> = {};

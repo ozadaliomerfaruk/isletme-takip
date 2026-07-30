@@ -4,6 +4,10 @@
 çalıştırılmadı, üretime dokunulmadı.
 **Tarih:** 26 Temmuz 2026 · **Karar:** Seçenek **A** — Docker Desktop + yerel Supabase
 
+> **29 Temmuz güncellik notu:** Bu dosyanın ortam/envanter sayıları 26 Temmuz
+> tarihsel snapshot'ıdır. P-A ve P-B daha sonra ayrı güvenlik hattında canlıya
+> alınmış ve canonical dosyaları canlı migration sürümleriyle yeniden adlandırılmıştır.
+
 ---
 
 # 1. Docker Desktop ön koşulları
@@ -118,13 +122,13 @@ kısıtı geçerli kalır.
 | Git'te tracked | **183** |
 | **Untracked** | **3** |
 
-## 5.1 🔴 Untracked üçlü — bilinçli karar gerekiyor
+## 5.1 26 Temmuz tarihsel “untracked üçlü” snapshot'ı
 
 | # | Dosya | Durum |
 |---|---|---|
 | 184 | **`20260726120000_undo_import_batch_owner_guard.sql`** | ⚠️ **AYRI ONAY HATTINDA** — P-A/P-B kapsamında değil |
-| 185 | `20260726130000_cleanup_audit_log_acl.sql` | P-A |
-| 186 | `20260726140000_pb_internal_yetki_altyapisi.sql` | P-B |
+| 185 | `20260729035553_cleanup_audit_log_acl.sql` | P-A — 29 Temmuz'da canlı |
+| 186 | `20260729064915_pb_internal_yetki_altyapisi.sql` | P-B — 29 Temmuz'da canlı |
 
 > **`undo_import_batch` migration'ı `supabase start` ile yerelde de çalışır.**
 > Yerel ortamda bu zararsızdır (izole), ama **sessizce olmamalı.** İki seçenek:

@@ -98,7 +98,7 @@
   },
   "summary": {
     "generalStatus": "General Status",
-    "conversionIncomplete": "Exchange rates unavailable; some foreign-currency balances were excluded from totals.",
+    "conversionIncomplete": "Some foreign-currency amounts could not be converted; displayed totals may be incomplete or approximate.",
     "netValue": "Net Worth",
     "netAssets": "Total Assets",
     "assets": "Assets",

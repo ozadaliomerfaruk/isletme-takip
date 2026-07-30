@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Screen } from '@/components/ui';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
@@ -9,7 +9,7 @@ import { GenelTabContent } from '@/components/reports/tabs';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useHesaplar } from '@/hooks/useHesaplar';
+import { useReportHesaplar } from '@/hooks/useHesaplar';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createConversionSum } from '@/hooks/useExchangeRates';
@@ -30,15 +30,24 @@ export default function GenelRaporPage() {
   const { currency: baseCurrency } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: hesaplar, refetch: refetchHesaplar } = useHesaplar(false, false);
+  const {
+    data: hesaplar,
+    refetch: refetchHesaplar,
+  } = useReportHesaplar();
   const { data: exchangeRatesData, refetch: refetchRates } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
   const financialSummary = useFinancialSummary();
 
   const { refreshing, onRefresh } = usePullToRefresh(refetchHesaplar, refetchRates);
 
-  const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
-  const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
+  const normalHesaplar = useMemo(
+    () => hesaplar?.filter((hesap) => hesap.type !== 'kredi_karti') || [],
+    [hesaplar],
+  );
+  const krediKartiHesaplar = useMemo(
+    () => hesaplar?.filter((hesap) => hesap.type === 'kredi_karti') || [],
+    [hesaplar],
+  );
 
   // Excel'e giden toplamlar EKRANDAKİ ile aynı politikadan geçmeli (GenelTabContent):
   // kur yoksa kalem hariç tutulur, `?? balance` ile 1:1 eklenmez.

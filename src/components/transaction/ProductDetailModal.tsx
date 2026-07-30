@@ -5,7 +5,11 @@ import { Text, Button, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontWeight } from '@/constants/spacing';
 import { formatCurrency, formatQuantity, formatPercent } from '@/lib/currency';
-import { useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
+import {
+  useUrunHareketlerByIslemId,
+  useUrunKalemlerByIslemIds,
+} from '@/hooks/useUrunHareketler';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { Currency } from '@/types/database';
 
 /**
@@ -27,7 +31,28 @@ export function ProductDetailModal({
   currency?: Currency | string | null;
 }) {
   const { t } = useTranslation(['clients', 'common', 'products']);
-  const { data: urunHareketler, isLoading } = useUrunHareketlerByIslemId(islemId || undefined);
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
+  const {
+    data: urunHareketler,
+    isLoading: isFullItemsLoading,
+    isError: isFullItemsError,
+  } = useUrunHareketlerByIslemId(islemId || undefined);
+  const {
+    getUrunItems,
+    isProductItemsResolved,
+    isError: isSummaryItemsError,
+  } = useUrunKalemlerByIslemIds(
+    islemId && !canSeeUrunler ? [islemId] : [],
+    true,
+  );
+  const summaryItems = islemId ? getUrunItems(islemId) : [];
+  const isLoading = canSeeUrunler
+    ? isFullItemsLoading
+    : !isProductItemsResolved;
+  const isError = canSeeUrunler
+    ? isFullItemsError
+    : isSummaryItemsError;
   const windowHeight = Dimensions.get('window').height;
 
   if (!islemId) return null;
@@ -57,18 +82,26 @@ export function ProductDetailModal({
             <View style={styles.loading}>
               <Text variant="body" color="secondary">{t('common:status.loading')}</Text>
             </View>
-          ) : !urunHareketler || urunHareketler.length === 0 ? (
+          ) : isError ? (
+            <View style={styles.loading}>
+              <Text variant="body" color="secondary">{t('common:status.error')}</Text>
+            </View>
+          ) : canSeeUrunler && (!urunHareketler || urunHareketler.length === 0) ? (
             <View style={styles.loading}>
               <Text variant="body" color="secondary">{t('clients:productDetail.noProducts')}</Text>
             </View>
-          ) : (
+          ) : !canSeeUrunler && summaryItems.length === 0 ? (
+            <View style={styles.loading}>
+              <Text variant="body" color="secondary">{t('clients:productDetail.noProducts')}</Text>
+            </View>
+          ) : canSeeUrunler ? (
             <ScrollView
               style={styles.list}
               showsVerticalScrollIndicator={true}
               nestedScrollEnabled={true}
               bounces={true}
             >
-              {urunHareketler.map((hareket) => {
+              {(urunHareketler ?? []).map((hareket) => {
                 const subtotal = Math.abs(hareket.miktar) * (hareket.birim_fiyat || 0);
                 const kdvAmount = subtotal * ((hareket.kdv_orani || 0) / 100);
                 const total = subtotal + kdvAmount;
@@ -94,6 +127,42 @@ export function ProductDetailModal({
                       )}
                       <Text variant="body" color="primary" style={styles.itemTotal}>
                         {formatCurrency(total, currency)}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          ) : (
+            <ScrollView
+              style={styles.list}
+              showsVerticalScrollIndicator={true}
+              nestedScrollEnabled={true}
+              bounces={true}
+            >
+              {summaryItems.map((item, index) => {
+                const subtotal =
+                  Math.abs(item.miktar) * (item.birim_fiyat || 0);
+                const birimLabel = item.birim
+                  ? t(`products:units.${item.birim}`)
+                  : '';
+                return (
+                  <View key={`${item.ad}-${index}`} style={styles.item}>
+                    <View style={styles.itemHeader}>
+                      <Package size={16} color={colors.primary} />
+                      <Text variant="body" style={styles.itemName} numberOfLines={2}>
+                        {item.ad}
+                      </Text>
+                    </View>
+                    <View style={styles.itemDetails}>
+                      <Text variant="caption" color="secondary">
+                        {formatQuantity(Math.abs(item.miktar))}
+                        {birimLabel ? ` ${birimLabel}` : ''}
+                        {' x '}
+                        {formatCurrency(item.birim_fiyat || 0, currency)}
+                      </Text>
+                      <Text variant="body" color="primary" style={styles.itemTotal}>
+                        {formatCurrency(subtotal, currency)}
                       </Text>
                     </View>
                   </View>

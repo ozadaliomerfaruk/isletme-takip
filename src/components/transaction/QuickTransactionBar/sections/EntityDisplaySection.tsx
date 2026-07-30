@@ -12,8 +12,9 @@ import type { CariType } from '@/types/database';
 interface Hesap {
   id: string;
   name: string;
-  balance: number;
+  balance?: number;
   currency?: string;
+  type?: string;
 }
 
 interface Cari {
@@ -43,6 +44,10 @@ export interface EntityDisplaySectionProps {
   onOpenHesapPicker: () => void;
   /** Normal modda satış/alış için müşteri/tedarikçi seçici tetiği (direkt QTB girişi). */
   onOpenCariPicker?: () => void;
+  /** Hesaplar modulu kapaliyken hesap referansi ad/tur/para birimiyle sinirlidir. */
+  showAccountBalances?: boolean;
+  /** Acik Cari/Personel modulunun kendi bakiyesi hesap bakiyesinden bagimsizdir. */
+  showEntityBalances?: boolean;
 }
 
 export function EntityDisplaySection({
@@ -56,6 +61,8 @@ export function EntityDisplaySection({
   selectedPersonel,
   onOpenHesapPicker,
   onOpenCariPicker,
+  showAccountBalances = true,
+  showEntityBalances = true,
 }: EntityDisplaySectionProps) {
   const { t } = useTranslation(['accounts', 'clients']);
 
@@ -66,14 +73,16 @@ export function EntityDisplaySection({
         <View style={styles.sourceAccountRow}>
           <Wallet size={16} color={colors.primary} />
           <Text style={styles.sourceAccountText}>{selectedHesap.name}</Text>
-          <Text
-            style={[
-              styles.balanceText,
-              { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error },
-            ]}
-          >
-            {formatCurrency(Number(selectedHesap.balance), selectedHesap.currency)}
-          </Text>
+          {showAccountBalances && (
+            <Text
+              style={[
+                styles.balanceText,
+                { color: Number(selectedHesap.balance) >= 0 ? colors.success : colors.error },
+              ]}
+            >
+              {formatCurrency(Number(selectedHesap.balance), selectedHesap.currency)}
+            </Text>
+          )}
         </View>
       )}
 
@@ -84,7 +93,7 @@ export function EntityDisplaySection({
           <Text style={styles.sourceAccountText}>
             {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
           </Text>
-          {selectedSourceHesap && (
+          {selectedSourceHesap && showAccountBalances && (
             <Text
               style={[
                 styles.balanceText,
@@ -95,6 +104,18 @@ export function EntityDisplaySection({
               ]}
             >
               {formatCurrency(Number(selectedSourceHesap.balance), selectedSourceHesap.currency)}
+            </Text>
+          )}
+          {selectedSourceHesap && !showAccountBalances && (
+            <Text style={[styles.balanceText, { color: colors.textMuted }]}>
+              {[
+                selectedSourceHesap.type
+                  ? t(`accounts:typeLabels.${selectedSourceHesap.type}`, {
+                      defaultValue: selectedSourceHesap.type,
+                    })
+                  : null,
+                selectedSourceHesap.currency,
+              ].filter(Boolean).join(' · ')}
             </Text>
           )}
           <ChevronDown size={16} color={colors.info} />
@@ -110,14 +131,16 @@ export function EntityDisplaySection({
             <Users size={16} color={colors.primary} />
           )}
           <Text style={styles.sourceAccountText}>{selectedCari.name}</Text>
-          <Text
-            style={[
-              styles.balanceText,
-              { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error },
-            ]}
-          >
-            {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
-          </Text>
+          {showEntityBalances && (
+            <Text
+              style={[
+                styles.balanceText,
+                { color: Number(selectedCari.balance) >= 0 ? colors.success : colors.error },
+              ]}
+            >
+              {formatCurrency(Number(selectedCari.balance), selectedCari.currency)}
+            </Text>
+          )}
         </View>
       )}
 
@@ -136,7 +159,7 @@ export function EntityDisplaySection({
                 ? t('clients:transactionForm.selectSupplier')
                 : t('clients:transactionForm.selectCustomer'))}
           </Text>
-          {selectedCari && (
+          {selectedCari && showEntityBalances && (
             <Text
               style={[
                 styles.balanceText,
@@ -157,14 +180,16 @@ export function EntityDisplaySection({
           <Text style={styles.sourceAccountText}>
             {selectedPersonel.first_name}{selectedPersonel.last_name ? ` ${selectedPersonel.last_name}` : ''}
           </Text>
-          <Text
-            style={[
-              styles.balanceText,
-              { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error },
-            ]}
-          >
-            {formatCurrency(Number(selectedPersonel.balance), selectedPersonel.currency)}
-          </Text>
+          {showEntityBalances && (
+            <Text
+              style={[
+                styles.balanceText,
+                { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error },
+              ]}
+            >
+              {formatCurrency(Number(selectedPersonel.balance), selectedPersonel.currency)}
+            </Text>
+          )}
         </View>
       )}
 
@@ -175,7 +200,7 @@ export function EntityDisplaySection({
           <Text style={styles.sourceAccountText}>
             {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
           </Text>
-          {selectedSourceHesap && (
+          {selectedSourceHesap && showAccountBalances && (
             <Text
               style={[
                 styles.balanceText,

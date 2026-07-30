@@ -132,6 +132,11 @@ export function useCariLinkStatus(cariId: string | undefined) {
       };
     },
     enabled: canSeeCariler && !!isletme && !!cariId,
+    // Link izni yazma kapısı olarak da kullanılıyor. Eski `full` cache'iyle ekranı
+    // fail-open bırakmamak için her mount/odakta sunucudan tazele.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -193,7 +198,13 @@ export function useAcceptShareCode() {
       });
 
       if (error) throw error;
-      return { link_id: data as string };
+      // Geçersiz/süresi dolmuş ve hız sınırına takılan kodlarda RPC, deneme
+      // sayacının commit edilebilmesi için hata yerine NULL döndürür. Yalnız
+      // gerçek bağlantı kimliği başarı kabul edilmelidir.
+      if (typeof data !== 'string' || data.length === 0) {
+        throw new Error(i18n.t('clients:sharing.invalidCode'));
+      }
+      return { link_id: data };
     },
     onSuccess: (_data, variables) => {
       invalidateRelatedQueries(queryClient, 'cariSharing');

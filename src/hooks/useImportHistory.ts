@@ -16,6 +16,7 @@ import { ImportResult } from './useDataImport';
 
 const IMPORT_HISTORY_KEY = 'import_history';
 const LAST_IMPORT_KEY = 'last_import_data';
+const UNDO_DEADLOCK_RETRY_DELAY_MS = 150;
 const MAX_HISTORY_ITEMS = 10; // Her işletme için max 10 import kaydı
 
 // ============================================================================
@@ -57,7 +58,7 @@ export interface LastImportData {
 // ============================================================================
 
 export function useImportHistory() {
-  const { isletme } = useAuthContext();
+  const { isletme, isOwner } = useAuthContext();
   const [history, setHistory] = useState<ImportHistoryItem[]>([]);
   const [lastImport, setLastImport] = useState<LastImportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -324,6 +325,12 @@ export function useImportHistory() {
     if (!isletme || !lastImport || !lastImport.canUndo) {
       return { ...emptyResult, error: 'No import found to undo' };
     }
+    if (!isOwner) {
+      return {
+        ...emptyResult,
+        error: 'Bu içe aktarmayı geri alma yetkiniz yok. Geri alma işlemini yalnızca işletme sahibi yapabilir.',
+      };
+    }
 
     setIsUndoing(true);
 
@@ -358,9 +365,20 @@ export function useImportHistory() {
           console.log('Undo import: Calling undo_import_batch RPC for', transactionIds.length, 'transactions');
         }
 
-        const { data, error: rpcError } = await supabase.rpc('undo_import_batch', {
+        const callUndoImportBatch = () => supabase.rpc('undo_import_batch', {
           p_transaction_ids: transactionIds,
         });
+        let { data, error: rpcError } = await callUndoImportBatch();
+
+        // 40P01 sunucuda tum statement/transaction'i geri alir; sonuc belirsiz
+        // degildir. Yalniz bu kesin ve atomik cakisma kodunda bir kez yeniden dene.
+        // Ag/timeout hatalarini retry etme: ilk cagrinin sonucu belirsiz olabilir.
+        if ((rpcError as { code?: string } | null)?.code === '40P01') {
+          await new Promise<void>((resolve) => {
+            setTimeout(resolve, UNDO_DEADLOCK_RETRY_DELAY_MS);
+          });
+          ({ data, error: rpcError } = await callUndoImportBatch());
+        }
 
         if (rpcError) {
           // Sunucu guard'ları kullanıcıya ANLAŞILIR dönsün — ham Postgres metni değil.
@@ -377,6 +395,11 @@ export function useImportHistory() {
           if (kod === '22023') {
             throw new Error(
               'İçe aktarma geri alınamadı: kayıt listesi geçersiz. Kayıtların bir kısmı silinmiş ya da değiştirilmiş olabilir. Hiçbir değişiklik yapılmadı.'
+            );
+          }
+          if (kod === '40P01') {
+            throw new Error(
+              'Aynı kayıtlar şu anda başka bir işlem tarafından değiştiriliyor. Hiçbir değişiklik yapılmadı; lütfen tekrar deneyin.'
             );
           }
           throw new Error(`undo_import_batch failed: ${rpcError.message || rpcError.code || JSON.stringify(rpcError)}`);
@@ -558,7 +581,7 @@ export function useImportHistory() {
     } finally {
       setIsUndoing(false);
     }
-  }, [isletme, lastImport]);
+  }, [isletme, isOwner, lastImport]);
 
   // İlk yüklemede geçmişi getir
   useEffect(() => {

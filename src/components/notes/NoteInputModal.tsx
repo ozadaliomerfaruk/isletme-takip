@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type ReactNode } from 'react';
 import { View, StyleSheet, Pressable, TextInput, Platform, KeyboardAvoidingView, ScrollView, TouchableOpacity, Image, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,6 +52,17 @@ interface NoteInputModalProps {
   hideUserAssignment?: boolean;
 }
 
+function NoteModalSheet({ children }: { children: ReactNode }) {
+  // Modal sarmalayıcısının sağladığı gerçek inset burada okunur. Dış sayfadan
+  // hesaplanan tab-bar ekli değer native sheet'e taşınmamalı.
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
+      {children}
+    </View>
+  );
+}
+
 export function NoteInputModal({
   visible,
   onClose,
@@ -66,9 +77,6 @@ export function NoteInputModal({
 }: NoteInputModalProps) {
   const { t, i18n } = useTranslation(['common']);
   const inputRef = useRef<TextInput>(null);
-  // Sheet ekranın dibine yaslı: Kaydet/İptal home indicator'ın altında kalmasın.
-  // Modal içeriği ModalInsets ile sarılı olduğundan bu değer GERÇEK (bar'sız).
-  const insets = useSafeAreaInsets();
 
   const [content, setContent] = useState('');
   const [isCompleted, setIsCompleted] = useState(false);
@@ -185,7 +193,10 @@ export function NoteInputModal({
   };
 
   // Assignment picker data
-  const userItems: EntityPickerItem[] = (isletmeUsers ?? []).map(u => ({
+  const activeIsletmeUsers = (isletmeUsers ?? []).filter(
+    (user) => user.status === 'active',
+  );
+  const userItems: EntityPickerItem[] = activeIsletmeUsers.map(u => ({
     id: u.user_id,
     label: u.profile?.display_name ?? u.profile?.email ?? u.user_id,
   }));
@@ -269,7 +280,7 @@ export function NoteInputModal({
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <Pressable style={styles.backdrop} onPress={handleDismiss} />
-        <View style={[styles.container, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
+        <NoteModalSheet>
           {/* Header */}
           <View style={styles.header}>
             <Text variant="h3">
@@ -385,7 +396,7 @@ export function NoteInputModal({
             </TouchableOpacity>
 
             {/* Assign buttons — individual for each type (hide user if single-user) */}
-            {!(hideUserAssignment ?? (isletmeUsers && isletmeUsers.length <= 1)) && (
+            {!(hideUserAssignment ?? (activeIsletmeUsers.length <= 1)) && (
               <TouchableOpacity
                 style={[styles.toolbarBtn, assignedUser && styles.toolbarBtnActive]}
                 onPress={() => { setAssignPickerType('user'); setAssignSearch(''); }}
@@ -446,7 +457,7 @@ export function NoteInputModal({
               {t('common:buttons.save')}
             </Button>
           </View>
-        </View>
+        </NoteModalSheet>
       </KeyboardAvoidingView>
 
       {/* Assignment Picker Modal */}

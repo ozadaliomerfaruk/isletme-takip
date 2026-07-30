@@ -47,7 +47,7 @@ interface EffectiveModuleOptions {
   legacyDefaults?: boolean;
 }
 
-// Tüm modüller (sıralı). dashboard her zaman açık; ayarlar owner-only.
+// Tüm modüller (sıralı). dashboard Raporlar'dan türetilir; ayarlar owner-only.
 export const ALL_MODULES: ModuleName[] = [
   'dashboard', 'hesaplar', 'birikim', 'cariler', 'personel', 'islemler',
   'kategoriler', 'raporlar', 'cekler', 'ileri_tarihli',
@@ -91,7 +91,10 @@ export function deriveEffectiveModules(
     effective[module] = directFlag(module);
   }
 
-  effective.dashboard = true;
+  // Dashboard işletmenin bütün finansal özetini gösterir; görünürlüğü yalnız
+  // Raporlar modülünden gelir. Ana Sayfa sekmesinin görünürlüğü ayrıca
+  // Hesaplar/Birikim/Raporlar birleşimiyle istemcide hesaplanır.
+  effective.dashboard = effective.raporlar;
   effective.birikim = effective.hesaplar && directFlag('birikim');
 
   const hasTransactionSource = TRANSACTION_SOURCE_MODULES.some(
@@ -134,6 +137,20 @@ export function canAccessPermissionModule(
 }
 
 /**
+ * Mevcut QuickTransactionBar bütün hesap/cari/personel/ürün listelerini aynı
+ * anda yükler. Bu geniş işlem bağlamı ancak dört kaynak modülün tamamı açıksa
+ * shared kullanıcıya güvenle gösterilebilir. Tek modüllü roller, tip-bazlı
+ * minimal sunucu projeksiyonları tamamlanana kadar fail-closed kalır.
+ */
+export function hasFullTransactionSourceAccess(
+  permissions: Permissions | null | undefined,
+): boolean {
+  return TRANSACTION_SOURCE_MODULES.every(
+    (module) => canAccessPermissionModule(permissions, module),
+  );
+}
+
+/**
  * Açık bir modülde görülebilen verinin Excel/PDF gibi salt-okunur bir çıktıya
  * dönüştürülmesi `view` seviyesinin parçasıdır. Bu kapı hiçbir yazma aksiyonu
  * vermez; yalnız modül görünürlüğünü tekrar kullanır.
@@ -172,7 +189,7 @@ export function deriveLevel(p: Permissions | null | undefined): PermissionLevel 
 /**
  * Sade girdiden (modules + level) TAM Permissions üret.
  * `level` + `modules` yazar; geçiş için eski `actions` (açık modüller başına) ve
- * `visibility`'yi de türetir. dashboard her zaman açık tutulur.
+ * `visibility`'yi de türetir. dashboard yalnız Raporlar açıksa etkinleşir.
  */
 export function buildPermissions(
   modules: Readonly<Partial<Record<ModuleName, boolean>>>,
@@ -224,9 +241,7 @@ export function rolePresetPermissions(role: UserRole): Permissions {
   const modules = emptyModuleMap();
   if (role === 'manager') {
     GRANTABLE_MODULES.forEach((m) => { modules[m] = true; });
-    const permissions = buildPermissions(modules, 'edit_all');
-    permissions.visibility.can_see_passive = true;
-    return permissions;
+    return buildPermissions(modules, 'edit_all');
   }
   if (role === 'operator') {
     GRANTABLE_MODULES.forEach((m) => { modules[m] = true; });

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   View,
   StyleSheet,
@@ -25,7 +26,8 @@ import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriDuzenlePage() {
-  const contentPaddingBottom = useContentBottomPadding();
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -34,7 +36,12 @@ export default function KategoriDuzenlePage() {
   const updateKategori = useUpdateKategori();
 
   const kategori = kategoriler?.find((k) => k.id === id);
-  usePagePermission({ module: 'kategoriler', action: 'update', createdBy: kategori?.created_by });
+  usePagePermission({
+    module: 'kategoriler',
+    action: 'update',
+    createdBy: kategori?.created_by,
+    allowManager: true,
+  });
 
   const [name, setName] = useState('');
   const [type, setType] = useState<KategoriType>('gelir');
@@ -133,12 +140,14 @@ export default function KategoriDuzenlePage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Tip Seçimi */}
             <View style={styles.section}>
@@ -295,27 +304,27 @@ export default function KategoriDuzenlePage() {
               </View>
             )}
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updateKategori.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.update')}
-              </Button>
-            </View>
           </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updateKategori.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.update')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
     </Screen>
   );
@@ -386,11 +395,15 @@ const styles = StyleSheet.create({
   mappingPickers: {
     gap: spacing.md,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

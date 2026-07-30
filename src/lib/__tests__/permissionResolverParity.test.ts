@@ -14,6 +14,10 @@
 
 import fs from 'fs';
 import path from 'path';
+import { renderHook } from '@testing-library/react-native';
+import { ALL_MODULES, canAccessPermissionModule } from '../permissions';
+import { usePermissions } from '../../hooks/usePermissions';
+import type { ModuleName, Permissions } from '../../types/multiUser';
 import {
   PARITE_MODULLERI,
   yetenekVektoru,
@@ -25,6 +29,12 @@ import {
   type UyelikKaydi,
   type YetenekVektoru,
 } from '../permissionResolver.reference';
+
+const mockUseAuthContext = jest.fn();
+
+jest.mock('@/contexts/AuthContext', () => ({
+  useAuthContext: () => mockUseAuthContext(),
+}));
 
 const FIXTURE = path.resolve(
   __dirname,
@@ -62,14 +72,56 @@ function sunucuVektoru(u: UyelikKaydi, modul: string): YetenekVektoru {
       can_delete_own: false, can_delete_all: false,
     };
   }
-  const modulAcik = u.modules?.[modul];
-  const gorunur =
-    modulAcik === undefined || modulAcik === null
-      ? modul === 'notlar' || modul === 'birikim'
-      : modulAcik;
+  const modKaydi =
+    typeof u.modules === 'object'
+    && u.modules !== null
+    && !Array.isArray(u.modules)
+      ? u.modules as Record<string, unknown>
+      : null;
+  const legacy = u.level === null || u.level === undefined;
+  const levelGecerli =
+    legacy
+    || (
+      typeof u.level === 'string'
+      && ['view', 'add', 'edit_own', 'edit_all'].includes(u.level)
+    );
+  if (!levelGecerli) {
+    return {
+      can_view: false, can_create: false,
+      can_update_own: false, can_update_all: false,
+      can_delete_own: false, can_delete_all: false,
+    };
+  }
 
-  // Aksiyonlar fallback KULLANMAZ: modül açıkça true değilse hepsi false.
-  if (!modulAcik) {
+  const exactModul = (m: string) => modKaydi?.[m] === true;
+  const eksikLegacy = (m: string) => (
+    legacy
+    && (
+      u.modules === null
+      || u.modules === undefined
+      || (
+        modKaydi !== null
+        && !Object.prototype.hasOwnProperty.call(modKaydi, m)
+      )
+    )
+  );
+  const kaynakAcik = ['hesaplar', 'cariler', 'urunler', 'personel']
+    .some(exactModul);
+  const gorunur = (() => {
+    if (modul === 'dashboard') return exactModul('raporlar');
+    if (['hesaplar', 'cariler', 'urunler', 'personel', 'raporlar'].includes(modul)) {
+      return exactModul(modul);
+    }
+    if (modul === 'notlar') return exactModul(modul) || eksikLegacy(modul);
+    if (modul === 'birikim') {
+      return exactModul('hesaplar') && (exactModul('birikim') || eksikLegacy('birikim'));
+    }
+    if (['islemler', 'ileri_tarihli', 'arsiv'].includes(modul)) return kaynakAcik;
+    return false;
+  })();
+
+  // Aksiyonlar fallback/derived görünürlük kullanmaz: raw modül exact true olmalı.
+  if (!gorunur || !exactModul(modul)) {
     return {
       can_view: gorunur, can_create: false,
       can_update_own: false, can_update_all: false,
@@ -77,20 +129,14 @@ function sunucuVektoru(u: UyelikKaydi, modul: string): YetenekVektoru {
     };
   }
 
-  if (u.level) {
-    // 🔒 AÇIK ALLOWLIST — FAIL-CLOSED. Bilinmeyen level -> her şey deny.
-    if (!['view', 'add', 'edit_own', 'edit_all'].includes(u.level)) {
-      return {
-        can_view: false, can_create: false,
-        can_update_own: false, can_update_all: false,
-        can_delete_own: false, can_delete_all: false,
-      };
-    }
+  if (!legacy) {
     const hepsi = u.level === 'edit_all';
     const kendi = u.level === 'edit_own' || hepsi;
     return {
       can_view: gorunur,
-      can_create: ['add', 'edit_own', 'edit_all'].includes(u.level),
+      can_create:
+        typeof u.level === 'string'
+        && ['add', 'edit_own', 'edit_all'].includes(u.level),
       can_update_own: kendi,
       can_update_all: hepsi,
       can_delete_own: kendi,
@@ -98,24 +144,90 @@ function sunucuVektoru(u: UyelikKaydi, modul: string): YetenekVektoru {
     };
   }
 
-  const a = u.actions?.[modul];
+  const aksiyonKaydi =
+    typeof u.actions === 'object'
+    && u.actions !== null
+    && !Array.isArray(u.actions)
+      ? u.actions as Record<string, unknown>
+      : null;
+  const hamAksiyon = aksiyonKaydi?.[modul];
+  const a =
+    typeof hamAksiyon === 'object'
+    && hamAksiyon !== null
+    && !Array.isArray(hamAksiyon)
+      ? hamAksiyon as Record<string, unknown>
+      : null;
   return {
     can_view: gorunur,
-    can_create: a?.c ?? false,
-    can_update_own: (a?.ua ?? false) || (a?.uo ?? false),
-    can_update_all: a?.ua ?? false,
-    can_delete_own: (a?.da ?? false) || (a?.do ?? false),
-    can_delete_all: a?.da ?? false,
+    can_create: a?.c === true,
+    can_update_own: a?.ua === true || a?.uo === true,
+    can_update_all: a?.ua === true,
+    can_delete_own: a?.da === true || a?.do === true,
+    can_delete_all: a?.da === true,
   };
 }
 
-describe('P-B ④: 864 hücrelik parite — İSTİSNASIZ SIFIR SAPMA', () => {
+function runtimePermissions(u: UyelikKaydi): Permissions {
+  const actions: Permissions['actions'] = {};
+  if (
+    typeof u.actions === 'object'
+    && u.actions !== null
+    && !Array.isArray(u.actions)
+  ) {
+    for (const [modul, ham] of Object.entries(u.actions)) {
+      if (typeof ham !== 'object' || ham === null || Array.isArray(ham)) continue;
+      const a = ham as Record<string, unknown>;
+      actions[modul] = {
+        can_create: a.c as boolean,
+        can_update_own: a.uo as boolean,
+        can_update_all: a.ua as boolean,
+        can_delete_own: a.do as boolean,
+        can_delete_all: a.da as boolean,
+      };
+    }
+  }
+
+  return {
+    modules: u.modules,
+    level: u.level,
+    actions,
+    visibility: {
+      can_see_passive: false,
+      can_see_archived: true,
+      can_see_all_users_data: u.csaud,
+    },
+  } as unknown as Permissions;
+}
+
+function hookVektoru(
+  hook: ReturnType<typeof usePermissions>,
+  modul: ModuleName,
+): YetenekVektoru {
+  return {
+    can_view: hook.canAccessModule(modul),
+    can_create: hook.canCreate(modul),
+    can_update_own: hook.canUpdate(modul, SELF),
+    can_update_all: hook.canUpdate(modul, OTHER),
+    can_delete_own: hook.canDelete(modul, SELF),
+    can_delete_all: hook.canDelete(modul, OTHER),
+  };
+}
+
+describe('P-B ④: bütün modüllerde parite — İSTİSNASIZ SIFIR SAPMA', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it('fixture 24 üyelik içeriyor', () => {
     expect(UYELIKLER).toHaveLength(24);
     expect(UYELIKLER.filter((u) => u.status === 'active')).toHaveLength(23);
   });
 
-  it('24 üyelik × 6 modül × 6 yetenek = 864 hücrede sapma YOK', () => {
+  it('parite modülleri production ALL_MODULES ile birebir', () => {
+    expect(PARITE_MODULLERI).toEqual(ALL_MODULES);
+  });
+
+  it('24 üyelik × 14 modül × 6 yetenek = 2016 hücrede SQL modeliyle sapma YOK', () => {
     const sapmalar: string[] = [];
     let hucre = 0;
 
@@ -132,21 +244,51 @@ describe('P-B ④: 864 hücrelik parite — İSTİSNASIZ SIFIR SAPMA', () => {
       }
     }
 
-    expect(hucre).toBe(864);
+    expect(hucre).toBe(2016);
     expect(sapmalar).toEqual([]);
   });
 
-  it('can_see_all_users_data: yok → false (deny-by-default)', () => {
+  it('aktif fixture üyelerinde reference, gerçek usePermissions hookuyla birebir', () => {
+    for (const u of UYELIKLER.filter((x) => x.status === 'active')) {
+      mockUseAuthContext.mockReturnValue({
+        isOwner: false,
+        currentPermissions: runtimePermissions(u),
+        currentUserRole: 'custom',
+        user: { id: SELF },
+        isSharedMode: true,
+      });
+      const { result, unmount } = renderHook(() => usePermissions());
+
+      for (const modul of PARITE_MODULLERI) {
+        expect(hookVektoru(result.current, modul)).toEqual(
+          yetenekVektoru(u, modul),
+        );
+        expect(
+          canAccessPermissionModule(runtimePermissions(u), modul),
+        ).toBe(canAccessModule(u, modul));
+      }
+      expect(result.current.canSeeRecord(OTHER)).toBe(canSeeAllUsersData(u));
+      unmount();
+    }
+  });
+
+  it('can_see_all_users_data: geçerli aktif üyelikte creator filtresi uygulanmaz', () => {
     for (const u of UYELIKLER) {
-      const beklenen = u.status === 'active' ? (u.csaud ?? false) : false;
+      const legacy = u.level === null || u.level === undefined;
+      const validLevel =
+        typeof u.level === 'string'
+        && ['view', 'add', 'edit_own', 'edit_all'].includes(u.level);
+      const beklenen =
+        u.status === 'active'
+        && (legacy || validLevel);
       expect(canSeeAllUsersData(u)).toBe(beklenen);
     }
   });
 
-  it('gerçek vaka: csaud=false olan aktif üyelik mevcut ve korunuyor', () => {
+  it('gerçek vaka: eski csaud=false bayrağı okuma kapsamını daraltmaz', () => {
     const csaudFalse = UYELIKLER.filter((u) => u.status === 'active' && u.csaud === false);
     expect(csaudFalse.length).toBeGreaterThan(0);
-    for (const u of csaudFalse) expect(canSeeAllUsersData(u)).toBe(false);
+    for (const u of csaudFalse) expect(canSeeAllUsersData(u)).toBe(true);
   });
 
   it('gerçek vaka: level’i olmayan 8 aktif legacy üyelik var', () => {
@@ -157,7 +299,8 @@ describe('P-B ④: 864 hücrelik parite — İSTİSNASIZ SIFIR SAPMA', () => {
   it('legacy üyeliklerde notlar anahtarı YOK → görünür ama yazma actions’a bağlı', () => {
     const legacy = UYELIKLER.filter((u) => u.status === 'active' && !u.level);
     for (const u of legacy) {
-      expect(u.modules?.notlar).toBeUndefined();
+      const modules = u.modules as Record<string, unknown> | null;
+      expect(modules?.notlar).toBeUndefined();
       expect(canAccessModule(u, 'notlar')).toBe(true); // fallback: görünür
       expect(canCreate(u, 'notlar')).toBe(false); // fallback aksiyona UYGULANMAZ
     }
@@ -165,8 +308,8 @@ describe('P-B ④: 864 hücrelik parite — İSTİSNASIZ SIFIR SAPMA', () => {
 });
 
 // ---------------------------------------------------------------------------
-// S1..S12 — SENTETİK SINIR VE ASİMETRİ VAKALARI
-// Üretimde örneği olmayan kombinasyonlar; 864 hücre bunları kapsamaz.
+// SENTETİK SINIR, ASİMETRİ VE BOZUK-JSON VAKALARI
+// Üretim fixture'ında olmayan kombinasyonlar bütün-modül matrisini tamamlar.
 // ---------------------------------------------------------------------------
 
 const bos = (over: Partial<UyelikKaydi> = {}): UyelikKaydi => ({
@@ -275,15 +418,17 @@ describe('P-B ④: sentetik sınır ve asimetri vakaları', () => {
     expect(canCreate(u, 'notlar')).toBe(false);
   });
 
-  it('S8 — tamamen boş permissions → her şey deny', () => {
+  it('S8 — legacy modules=null: yalnız notlar fallback görünür, tüm yazmalar deny', () => {
     const u = bos({ modules: null, actions: null });
     for (const modul of PARITE_MODULLERI) {
       const v = yetenekVektoru(u, modul);
+      expect(sunucuVektoru(u, modul)).toEqual(v);
+      expect(v.can_view).toBe(modul === 'notlar');
       expect(v.can_create).toBe(false);
       expect(v.can_update_all).toBe(false);
       expect(v.can_delete_all).toBe(false);
     }
-    expect(canSeeAllUsersData(u)).toBe(false);
+    expect(canSeeAllUsersData(u)).toBe(true);
   });
 
   it('S9 — modules.notlar=true ama actions.notlar YOK → okuma ✅ / yazma ❌ (D-N1 hedefi)', () => {
@@ -294,8 +439,8 @@ describe('P-B ④: sentetik sınır ve asimetri vakaları', () => {
     expect(canDelete(u, 'notlar', SELF)).toBe(false);
   });
 
-  it('S10 — can_see_all_users_data YOK → false', () => {
-    expect(canSeeAllUsersData(bos({ csaud: null }))).toBe(false);
+  it('S10 — legacy visibility bayrağı yokken de açık modül read-all kalır', () => {
+    expect(canSeeAllUsersData(bos({ csaud: null }))).toBe(true);
   });
 
   it('S11 — status=removed → tüm yetenekler false', () => {
@@ -323,14 +468,92 @@ describe('P-B ④: sentetik sınır ve asimetri vakaları', () => {
     expect(canCreate(b, 'cariler')).toBe(false); // modül kapalı → aksiyon okunmaz
   });
 
-  it('canlı fixture’da allowlist dışı level YOK — S6 sapması sıfır-etkili', () => {
+  it('S13 — derived modüller görünür olsa da raw flag yoksa yazma hakkı üretmez', () => {
+    const u = bos({
+      level: 'edit_all',
+      modules: { cariler: true },
+    });
+    for (const modul of ['islemler', 'ileri_tarihli', 'arsiv']) {
+      expect(canAccessModule(u, modul)).toBe(true);
+      expect(canCreate(u, modul)).toBe(false);
+      expect(canUpdate(u, modul, SELF)).toBe(false);
+      expect(canDelete(u, modul, SELF)).toBe(false);
+      expect(sunucuVektoru(u, modul)).toEqual(yetenekVektoru(u, modul));
+    }
+  });
+
+  it('S14 — birikim Hesaplar ile AND bağlı; legacy fallback tek başına açamaz', () => {
+    const hesapKapali = bos({ modules: {} });
+    const hesapAcik = bos({ modules: { hesaplar: true } });
+    expect(canAccessModule(hesapKapali, 'birikim')).toBe(false);
+    expect(canAccessModule(hesapAcik, 'birikim')).toBe(true);
+    expect(canCreate(hesapAcik, 'birikim')).toBe(false);
+  });
+
+  it('S15 — mevcut null/string/number/object/array modül bayrağı asla true değildir', () => {
+    const bozukDegerler: unknown[] = [null, 'true', 'yes', 'on', '1', 1, {}, []];
+    for (const deger of bozukDegerler) {
+      const u = bos({
+        modules: { cariler: deger, notlar: deger },
+        actions: {
+          cariler: { c: true, uo: true, ua: true, do: true, da: true },
+        },
+      });
+      expect(canAccessModule(u, 'cariler')).toBe(false);
+      expect(canAccessModule(u, 'notlar')).toBe(false);
+      expect(canCreate(u, 'cariler')).toBe(false);
+      expect(sunucuVektoru(u, 'cariler')).toEqual(yetenekVektoru(u, 'cariler'));
+    }
+  });
+
+  it('S16 — legacy action bozuk değerleri yazma vermez; okuma creator filtresizdir', () => {
+    const bozukDegerler: unknown[] = [null, 'true', 'yes', 'on', '1', 1, {}, []];
+    for (const deger of bozukDegerler) {
+      const u = bos({
+        modules: { cariler: true },
+        actions: {
+          cariler: { c: deger, uo: deger, ua: deger, do: deger, da: deger },
+        },
+        csaud: deger,
+      });
+      expect(yetenekVektoru(u, 'cariler')).toEqual({
+        can_view: true,
+        can_create: false,
+        can_update_own: false,
+        can_update_all: false,
+        can_delete_own: false,
+        can_delete_all: false,
+      });
+      expect(canSeeAllUsersData(u)).toBe(true);
+      expect(sunucuVektoru(u, 'cariler')).toEqual(yetenekVektoru(u, 'cariler'));
+    }
+  });
+
+  it('S17 — bilinmeyen level bütün yetenekleri fail-closed kapatır', () => {
+    const u = bos({
+      level: 'gelecek-seviye',
+      modules: { cariler: true },
+      csaud: true,
+    });
+    expect(yetenekVektoru(u, 'cariler')).toEqual({
+      can_view: false,
+      can_create: false,
+      can_update_own: false,
+      can_update_all: false,
+      can_delete_own: false,
+      can_delete_all: false,
+    });
+    expect(canSeeAllUsersData(u)).toBe(false);
+  });
+
+  it('canlı fixture’da allowlist dışı level YOK', () => {
     const gecerli = [null, 'view', 'add', 'edit_own', 'edit_all'];
     for (const u of UYELIKLER) {
       expect(gecerli).toContain(u.level);
     }
   });
 
-  it('sentetik vakaların HEPSİNDE sunucu ile referans aynı (bilinmeyen level HARİÇ)', () => {
+  it('sentetik vakaların HEPSİNDE sunucu modeli ile referans aynı', () => {
     const vakalar = [
       bos({ modules: { cariler: true }, actions: { cariler: { c: false, uo: false, ua: false, do: false, da: true } } }),
       bos({ level: 'edit_own', modules: { cariler: true } }),

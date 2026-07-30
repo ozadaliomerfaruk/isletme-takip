@@ -1,10 +1,48 @@
-import { OwnerRouteGuard } from '@/components/permissions/ModuleRouteGuard';
+import { Stack, useSegments } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import {
+  ModuleRouteStack,
+  OwnerRouteStack,
+} from '@/components/navigation/GuardedRouteStack';
 
 /**
- * İşlem ekranları temel `islemler` tablosu ve geniş ilişkilerden okuyor.
- * Tip-bazlı RLS/projeksiyon tamamlandığında bu geçici owner kapısı,
- * kaynak-modül kesişimini uygulayan ModuleRouteGuard ile değiştirilecek.
+ * Tüm İşlemler listesi açık işlem-kaynağı olan rollere görünür. Gelir ekleme ve
+ * eski geniş düzenleme route'ları ise kendi dar write sözleşmeleri tamamlanana
+ * kadar owner-only kalır.
  */
 export default function IslemlerLayout() {
-  return <OwnerRouteGuard />;
+  const { t } = useTranslation('transactions');
+  const segments = useSegments();
+  const islemlerIndex = (segments as string[]).indexOf('islemler');
+  const child = islemlerIndex >= 0
+    ? (segments as string[])[islemlerIndex + 1]
+    : undefined;
+  const isAllTransactionsRoute = child === undefined || child === 'index';
+
+  const screens = (
+    <>
+      <Stack.Screen
+        name="index"
+        options={{ headerTitle: t('titles.allTransactions') }}
+      />
+      <Stack.Screen
+        name="gelir"
+        options={{ headerTitle: t('titles.addIncome') }}
+      />
+      <Stack.Screen
+        name="duzenle/[id]"
+        options={{ headerTitle: t('titles.editTransaction') }}
+      />
+    </>
+  );
+
+  return isAllTransactionsRoute ? (
+    <ModuleRouteStack module="islemler">
+      {screens}
+    </ModuleRouteStack>
+  ) : (
+    <OwnerRouteStack>
+      {screens}
+    </OwnerRouteStack>
+  );
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   View,
   StyleSheet,
@@ -25,12 +26,17 @@ import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriEklePage() {
-  const contentPaddingBottom = useContentBottomPadding();
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { type: initialType } = useLocalSearchParams<{ type?: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
-  usePagePermission({ module: 'kategoriler', action: 'create' });
+  usePagePermission({
+    module: 'kategoriler',
+    action: 'create',
+    allowManager: true,
+  });
   const createKategori = useCreateKategori();
 
   const [name, setName] = useState('');
@@ -107,12 +113,14 @@ export default function KategoriEklePage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Tip Seçimi */}
             <View style={styles.section}>
@@ -291,27 +299,27 @@ export default function KategoriEklePage() {
               </Card>
             </View>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={createKategori.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.add')}
-              </Button>
-            </View>
           </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={createKategori.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.add')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
     </Screen>
   );
@@ -387,11 +395,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight + '30',
     borderRadius: borderRadius.full,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

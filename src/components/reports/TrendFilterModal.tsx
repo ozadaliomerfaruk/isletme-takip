@@ -5,7 +5,15 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, FlatList, Pressable } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import {
   X,
   Check,
@@ -16,17 +24,21 @@ import {
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Button, TabFilter, ModalSearchBar, Modal } from '@/components/ui';
+import { useModalSafeAreaInsets } from '@/components/ui/ModalInsets';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { HIT_SLOP, spacing } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { getHesapIcon } from '@/lib/icons';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
-import { useHesaplar } from '@/hooks/useHesaplar';
-import { useCariler } from '@/hooks/useCariler';
-import { usePersonelList } from '@/hooks/usePersonel';
-import { useKategoriler } from '@/hooks/useKategoriler';
+import { useReportHesaplar } from '@/hooks/useHesaplar';
+import { useReportCariler } from '@/hooks/useCariler';
+import { useReportPersonelList } from '@/hooks/usePersonel';
+import {
+  useReportKategoriSecimReferanslari,
+  type KategoriSecimSecenegi,
+} from '@/hooks/useKategoriSecimReferanslari';
 import type { TrendFilter, TrendFilterType } from '@/types/analytics';
-import type { Hesap, Cari, Personel, Kategori } from '@/types/database';
+import type { Hesap, Cari, Personel } from '@/types/database';
 
 interface TrendFilterModalProps {
   visible: boolean;
@@ -35,7 +47,7 @@ interface TrendFilterModalProps {
   onApply: (filter: TrendFilter | null) => void;
 }
 
-type FilterableEntity = Hesap | Cari | Personel | Kategori;
+type FilterableEntity = Hesap | Cari | Personel | KategoriSecimSecenegi;
 
 type FilterTypeOption = {
   value: TrendFilterType;
@@ -49,6 +61,7 @@ export function TrendFilterModal({
   onApply,
 }: TrendFilterModalProps) {
   const { t } = useTranslation(['analytics', 'common', 'accounts', 'clients', 'staff']);
+  const insets = useModalSafeAreaInsets();
 
   // Local state for filter selection
   const [filterType, setFilterType] = useState<TrendFilterType>(
@@ -63,10 +76,22 @@ export function TrendFilterModal({
   const [searchQuery, setSearchQuery] = useState('');
 
   // Data hooks
-  const { data: hesaplar = [], isLoading: hesaplarLoading } = useHesaplar();
-  const { data: cariler = [], isLoading: carilerLoading } = useCariler();
-  const { data: personelList = [], isLoading: personelLoading } = usePersonelList();
-  const { data: kategoriler = [], isLoading: kategorilerLoading } = useKategoriler();
+  const { data: hesaplar = [], isLoading: hesaplarLoading } = useReportHesaplar();
+  const { data: cariler = [], isLoading: carilerLoading } = useReportCariler();
+  const { data: personelList = [], isLoading: personelLoading } =
+    useReportPersonelList();
+  const {
+    data: rawKategoriler,
+    isLoading: kategorilerLoading,
+  } = useReportKategoriSecimReferanslari();
+  // Eski useKategoriler sorgusu ada gore siraliydi. Owner hiyerarsisi veya RPC
+  // sirasi filtre UX'ini degistirmesin; iki rolde de mevcut alfabetik duzeni koru.
+  const kategoriler = useMemo(
+    () => [...rawKategoriler].sort(
+      (a, b) => a.name.localeCompare(b.name, 'tr'),
+    ),
+    [rawKategoriler],
+  );
 
   // Filter type options
   const filterTypeOptions: FilterTypeOption[] = [
@@ -118,7 +143,7 @@ export function TrendFilterModal({
       case 'cari':
         return (item as Cari).name;
       case 'kategori':
-        return (item as Kategori).name;
+        return (item as KategoriSecimSecenegi).name;
       case 'personel': {
         const p = item as Personel;
         return `${p.first_name} ${p.last_name}`;
@@ -218,7 +243,10 @@ export function TrendFilterModal({
             <View
               style={[
                 styles.categoryDot,
-                { backgroundColor: (item as Kategori).color || colors.primary },
+                {
+                  backgroundColor:
+                    (item as KategoriSecimSecenegi).color || colors.primary,
+                },
               ]}
             />
           ) : (
@@ -247,12 +275,16 @@ export function TrendFilterModal({
       transparent
       onRequestClose={onClose}
     >
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoider}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
+        <Pressable style={styles.modalOverlay} onPress={onClose}>
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
           {/* Header */}
           <View style={styles.modalHeader}>
             <Text variant="h3">{t('analytics:filter.title')}</Text>
-            <TouchableOpacity onPress={onClose}>
+            <TouchableOpacity onPress={onClose} hitSlop={HIT_SLOP.md}>
               <X size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
@@ -285,6 +317,7 @@ export function TrendFilterModal({
               contentContainerStyle={styles.listContainer}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <Text variant="body" color="secondary">
@@ -298,7 +331,12 @@ export function TrendFilterModal({
           </View>
 
           {/* Footer Buttons */}
-          <View style={styles.footer}>
+          <View
+            style={[
+              styles.footer,
+              { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+            ]}
+          >
             <Button
               variant="outline"
               onPress={handleClear}
@@ -315,13 +353,17 @@ export function TrendFilterModal({
               {t('analytics:filter.apply')}
             </Button>
           </View>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardAvoider: {
+    flex: 1,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

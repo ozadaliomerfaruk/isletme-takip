@@ -9,7 +9,8 @@ import { Text, Input, Button, CurrencyPicker, BalanceDirectionSelector, type Bal
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
-import { useCreatePersonel } from '@/hooks/usePersonel';
+import { useCreatePersonel, usePersonelList } from '@/hooks/usePersonel';
+import { useCariler } from '@/hooks/useCariler';
 import { formatDateForDB, ensureValidDate } from '@/lib/date';
 import { parseCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -17,6 +18,13 @@ import { Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { DeviceContactPickerButton } from '@/components/contacts/DeviceContactPickerButton';
+import {
+  findPhoneDuplicateMatches,
+  getPhoneDuplicateWarningCopy,
+  getPhoneValidationMessageKey,
+  preparePhoneForSave,
+} from '@/lib/phone';
 
 /**
  * Tarih seçici alt sayfası — AYRI BİLEŞEN, çünkü güvenli alan Modal'ın İÇİNDE
@@ -60,6 +68,8 @@ export default function PersonelEklePage() {
   usePagePermission({ module: 'personel', action: 'create' });
   const { locale, formatDateNative } = useDateFormat();
   const createPersonel = useCreatePersonel();
+  const { data: visibleCariler } = useCariler(undefined, true, true);
+  const { data: visiblePersoneller } = usePersonelList(true, true);
   const insets = useSafeAreaInsets();
   const footerInset = useFooterBottomPadding();
 
@@ -79,22 +89,27 @@ export default function PersonelEklePage() {
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [balance, setBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
-  const [errors, setErrors] = useState<{ firstName?: string }>({});
+  const [errors, setErrors] = useState<{ firstName?: string; phone?: string }>({});
 
   const validate = () => {
-    const newErrors: { firstName?: string } = {};
+    const newErrors: { firstName?: string; phone?: string } = {};
+    const phoneResult = preparePhoneForSave(phone);
 
     if (!firstName.trim()) {
       newErrors.firstName = t('staff:validation.firstNameRequired');
     }
+    if (!phoneResult.ok) {
+      newErrors.phone = t(`common:${getPhoneValidationMessageKey(phoneResult.reason)}`);
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      normalizedPhone: phoneResult.ok ? phoneResult.value : null,
+    };
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
+  const persistPersonel = async (normalizedPhone: string | null) => {
     // Bakiye hesaplama
     // debt (bize borç) = personelin bize borcu var = pozitif bakiye (alacağımız var)
     // credit (bize alacak) = bizim personele borcumuz var = negatif bakiye
@@ -109,7 +124,7 @@ export default function PersonelEklePage() {
         first_name: firstName.trim(),
         last_name: lastName.trim() || '',
         currency,
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         position: position.trim() || null,
         salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
@@ -123,6 +138,29 @@ export default function PersonelEklePage() {
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:personel.createFailed'));
     }
+  };
+
+  const handleSubmit = async () => {
+    const validation = validate();
+    if (!validation.isValid) return;
+
+    const duplicateMatches = findPhoneDuplicateMatches(validation.normalizedPhone, {
+      cariler: visibleCariler,
+      personeller: visiblePersoneller,
+    });
+    if (duplicateMatches.length > 0) {
+      const warning = getPhoneDuplicateWarningCopy(duplicateMatches, i18n.language);
+      Alert.alert(warning.title, warning.message, [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: warning.confirmLabel,
+          onPress: () => void persistPersonel(validation.normalizedPhone),
+        },
+      ]);
+      return;
+    }
+
+    await persistPersonel(validation.normalizedPhone);
   };
 
   return (
@@ -173,6 +211,20 @@ export default function PersonelEklePage() {
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
+              error={errors.phone}
+              rightIcon={(
+                <DeviceContactPickerButton
+                  onSelect={(selection) => {
+                    setPhone(selection.phone);
+                    if (!firstName.trim() && selection.firstName) {
+                      setFirstName(selection.firstName);
+                    }
+                    if (!lastName.trim() && selection.lastName) {
+                      setLastName(selection.lastName);
+                    }
+                  }}
+                />
+              )}
             />
 
             <Input

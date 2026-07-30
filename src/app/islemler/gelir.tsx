@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   View,
   StyleSheet,
@@ -35,7 +36,8 @@ const errorKeyMap: Record<string, string> = {
 };
 
 export default function GelirEklePage() {
-  const contentPaddingBottom = useContentBottomPadding();
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['transactions', 'common', 'errors']);
@@ -136,12 +138,14 @@ export default function GelirEklePage() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           <View style={styles.header}>
             {/* Sayfa-içi başlık (native header ile çift) kaldırıldı; satırda yalnız
@@ -282,26 +286,27 @@ export default function GelirEklePage() {
             />
           </View>
 
-          <View style={styles.buttons}>
-            <Button
-              variant="outline"
-              size="lg"
-              onPress={() => router.back()}
-              style={styles.button}
-            >
-              {t('common:buttons.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={createIslem.isPending || createIleriTarihliIslem.isPending}
-              onPress={handleSubmit(onSubmit)}
-              style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
-            >
-              {isIleriTarihli ? t('transactions:form.schedule') : t('common:buttons.save')}
-            </Button>
-          </View>
         </ScrollView>
+
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+          <Button
+            variant="outline"
+            size="lg"
+            onPress={() => router.back()}
+            style={styles.button}
+          >
+            {t('common:buttons.cancel')}
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            loading={createIslem.isPending || createIleriTarihliIslem.isPending}
+            onPress={handleSubmit(onSubmit)}
+            style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
+          >
+            {isIleriTarihli ? t('transactions:form.schedule') : t('common:buttons.save')}
+          </Button>
+        </View>
       </KeyboardAvoidingView>
     </Screen>
   );
@@ -374,11 +379,15 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   errorText: { marginTop: spacing.xs },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: { flex: 1 },
   buttonIleriTarihli: {

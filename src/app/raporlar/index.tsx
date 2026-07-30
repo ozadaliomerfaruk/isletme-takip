@@ -65,26 +65,26 @@ export default function RaporlarPage() {
     router.push({
       pathname: route,
       params: {
-        period: widgetPeriod,
+        period,
         periodOffset: String(periodOffset),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         ...params,
       },
     } as Href);
-  }, [router, widgetPeriod, periodOffset, dateRange]);
+  }, [router, period, periodOffset, dateRange]);
 
   const handleExplorePress = useCallback((route: string) => {
     router.push({
       pathname: route,
       params: {
-        period: widgetPeriod,
+        period,
         periodOffset: String(periodOffset),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       },
     } as Href);
-  }, [router, widgetPeriod, periodOffset, dateRange]);
+  }, [router, period, periodOffset, dateRange]);
 
   return (
     <Screen>
@@ -156,6 +156,7 @@ export default function RaporlarPage() {
                 dateRange={dateRange}
                 previousDateRange={previousDateRange}
                 onNavigate={handleNavigate}
+                isCustomRange={period === 'custom'}
               />
             </View>
 

@@ -169,7 +169,8 @@ export function FloatingSearchBar({
               <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
                 {/* İçerideki X: yalnızca yazılanı siler, odak korunur */}
                 <TouchableOpacity
-                  onPress={() => {
+                  onPress={(event) => {
+                    event.stopPropagation();
                     onChangeText('');
                     inputRef.current?.focus();
                   }}

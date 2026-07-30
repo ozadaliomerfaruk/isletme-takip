@@ -1,5 +1,15 @@
 import { useState, useRef, useEffect, type ReactNode } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, TextInput, Switch, Alert } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  TextInput,
+  Switch,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -64,6 +74,7 @@ function PickerSheet({
 export default function FotoImportReviewPage() {
   const { t } = useTranslation(['ocrImport', 'common', 'products', 'clients']);
   const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const ctx = useFotoImportContext();
 
@@ -205,10 +216,16 @@ export default function FotoImportReviewPage() {
   return (
     <>
       <Screen>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
+        >
         <ScrollView
           style={styles.reviewScroll}
           contentContainerStyle={styles.reviewContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
         >
           {/* Document type badge */}
           {docConfig && docType && (
@@ -724,6 +741,7 @@ export default function FotoImportReviewPage() {
             )}
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Screen>
 
       {/* New product modal */}
@@ -912,6 +930,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardView: {
+    flex: 1,
   },
   reviewScroll: {
     flex: 1,

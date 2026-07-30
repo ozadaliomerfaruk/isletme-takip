@@ -1,5 +1,10 @@
-import { ModuleRouteGuard } from '@/components/permissions/ModuleRouteGuard';
+import { Stack } from 'expo-router';
+import { ModuleRouteStack } from '@/components/navigation/GuardedRouteStack';
 
 export default function VadeLayout() {
-  return <ModuleRouteGuard module="cariler" />;
+  return (
+    <ModuleRouteStack module="cariler">
+      <Stack.Screen name="index" />
+    </ModuleRouteStack>
+  );
 }

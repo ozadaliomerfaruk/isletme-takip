@@ -4,9 +4,17 @@
 //
 // Tetikleme: Database webhook (INSERT on islemler) veya client tarafindan cagirilir
 // Payload: { record: { id, cari_id, type, amount, description, isletme_id }, type: 'INSERT' }
+// Güven sınırı: payload'dan yalnız record.id alınır; diğer alanlar public.islemler'den okunur.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
+import {
+  getBearerToken,
+  guardPostRequest,
+  isServiceRoleBearer,
+  serviceUnavailableResponse,
+  unauthorizedResponse,
+} from "../_shared/workerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -117,18 +125,71 @@ function formatCurrency(amount: number, currency: string = "TRY"): string {
 // Aynı islem ID'si 30sn içinde tekrar gelirse atla.
 const recentIds = new Map<string, number>();
 const DEDUP_TTL_MS = 30_000;
+const notifyFailureBody = { success: false, sent: 0 };
 
-Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
+interface CanonicalIslem {
+  id: string;
+  cari_id: string | null;
+  type: IslemType;
+  amount: number;
+  description: string | null;
+  isletme_id: string;
+  source_currency: string | null;
+}
+
+interface CariLink {
+  id: string;
+  cari_id: string;
+  owner_isletme_id: string;
+  viewer_isletme_id: string;
+}
+
+function notifyResponse(
+  success: boolean,
+  sent: number,
+  status = 200,
+): Response {
+  return new Response(JSON.stringify({ success, sent }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(withFnTelemetry({
+  name: "notify-linked-users",
+  // Telemetry must not read an untrusted chunked body before authorization.
+  largePayloadProne: true,
+}, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
+  }
+
+  const methodError = guardPostRequest(req, corsHeaders, notifyFailureBody);
+  if (methodError) return methodError;
+
+  const bearerToken = getBearerToken(req);
+  if (!bearerToken) {
+    return unauthorizedResponse(corsHeaders, notifyFailureBody);
+  }
+
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!serviceRoleKey) {
+    return serviceUnavailableResponse(corsHeaders, notifyFailureBody);
+  }
+
+  // Legacy app versions called this function with the signed-in user's JWT.
+  // Keep that fire-and-forget call successful but side-effect free. Only the
+  // service-role trigger may read canonical rows or send notifications.
+  if (!isServiceRoleBearer(req, serviceRoleKey)) {
+    return notifyResponse(true, 0);
   }
 
   try {
     // Admin client olustur (service role key ile)
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      serviceRoleKey,
       {
         auth: {
           autoRefreshToken: false,
@@ -137,68 +198,98 @@ Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
       }
     );
 
-    const { record, type } = await req.json();
+    let payload: unknown;
+    try {
+      payload = await req.json();
+    } catch {
+      return notifyResponse(false, 0, 400);
+    }
 
-    // Sadece INSERT islemlerini isle, cari_id olmayan islemleri atla
-    if (type !== "INSERT" || !record?.cari_id) {
-      return new Response(
-        JSON.stringify({ message: "No action needed (not INSERT or no cari_id)" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        }
+    const recordId =
+      typeof payload === "object" &&
+        payload !== null &&
+        "record" in payload &&
+        typeof payload.record === "object" &&
+        payload.record !== null &&
+        "id" in payload.record &&
+        typeof payload.record.id === "string"
+        ? payload.record.id.trim()
+        : "";
+
+    if (!recordId) return notifyResponse(false, 0, 400);
+
+    // İstemci/webhook payload'ındaki type/amount/description/currency/isletme_id
+    // güvenilir değildir. Bildirim için yalnız public.islemler kanonik satırı kullanılır.
+    const { data: canonicalRow, error: canonicalError } = await supabaseAdmin
+      .schema("public")
+      .from("islemler")
+      .select(
+        "id, cari_id, type, amount, description, isletme_id, source_currency",
+      )
+      .eq("id", recordId)
+      .maybeSingle();
+
+    if (canonicalError) {
+      console.error(
+        "[notify-linked-users] Canonical transaction query error:",
+        canonicalError.message,
       );
+      return notifyResponse(false, 0, 500);
     }
 
-    // Dedup: aynı islem için tekrar çağrıldıysa atla
-    const now = Date.now();
-    if (record.id && recentIds.has(record.id)) {
-      const lastSeen = recentIds.get(record.id)!;
-      if (now - lastSeen < DEDUP_TTL_MS) {
-        console.log(`[notify-linked-users] Dedup: skipping duplicate for islem ${record.id}`);
-        return new Response(
-          JSON.stringify({ message: "Duplicate skipped" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-        );
-      }
-    }
-    if (record.id) {
-      recentIds.set(record.id, now);
-      // Eski kayıtları temizle
-      for (const [id, ts] of recentIds) {
-        if (now - ts > DEDUP_TTL_MS) recentIds.delete(id);
-      }
-    }
+    if (!canonicalRow) return notifyResponse(false, 0, 404);
 
-    console.log(
-      `[notify-linked-users] New transaction: cari_id=${record.cari_id}, type=${record.type}, amount=${record.amount}`
-    );
+    const record = canonicalRow as CanonicalIslem;
+
+    if (!record.cari_id) return notifyResponse(false, 0, 422);
 
     // v2: cari_links tablosunda cari_id ile baglantili linkleri bul
-    const { data: links, error: linkError } = await supabaseAdmin
+    const { data: rawLinks, error: linkError } = await supabaseAdmin
       .from("cari_links")
       .select("id, cari_id, owner_isletme_id, viewer_isletme_id")
       .eq("cari_id", record.cari_id);
 
     if (linkError) {
       console.error("[notify-linked-users] Link query error:", linkError.message);
-      throw new Error(`Link query error: ${linkError.message}`);
+      return notifyResponse(false, 0, 500);
     }
 
-    if (!links || links.length === 0) {
+    const links = ((rawLinks || []) as CariLink[]).filter(
+      (link) =>
+        record.isletme_id === link.owner_isletme_id ||
+        record.isletme_id === link.viewer_isletme_id,
+    );
+
+    if (!rawLinks || rawLinks.length === 0) {
       console.log("[notify-linked-users] No links found for this cari");
-      return new Response(
-        JSON.stringify({ message: "No links found for this cari" }),
-        {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-          status: 200,
-        }
-      );
+      return notifyResponse(true, 0);
     }
+
+    // Aynı cari_id için link bulunsa bile işlem işletmesi linkin iki ucundan biri
+    // değilse karşı taraf çıkarımı yapılamaz; fail-closed reddet.
+    if (links.length === 0) return notifyResponse(false, 0, 403);
+
+    // Dedup: aynı islem için tekrar çağrıldıysa atla
+    const now = Date.now();
+    if (recentIds.has(record.id)) {
+      const lastSeen = recentIds.get(record.id)!;
+      if (now - lastSeen < DEDUP_TTL_MS) {
+        console.log(`[notify-linked-users] Dedup: skipping duplicate for islem ${record.id}`);
+        return notifyResponse(true, 0);
+      }
+    }
+    recentIds.set(record.id, now);
+    // Eski kayıtları temizle
+    for (const [id, ts] of recentIds) {
+      if (now - ts > DEDUP_TTL_MS) recentIds.delete(id);
+    }
+
+    console.log(
+      `[notify-linked-users] New transaction: cari_id=${record.cari_id}, type=${record.type}, amount=${record.amount}`
+    );
 
     // Her link icin karsi tarafa bildirim gonder
     let sentCount = 0;
-    const results: unknown[] = [];
 
     for (const link of links) {
       // Alici: islem yapan kisi owner ise viewer'a, viewer ise owner'a bildir
@@ -335,42 +426,17 @@ Deno.serve(withFnTelemetry({ name: "notify-linked-users" }, async (req) => {
           sentCount++;
         }
 
-        results.push({
-          recipient_user: userId,
-          recipient_isletme: recipientIsletme.name,
-          result: pushResult,
-        });
       }
     }
 
     console.log(`[notify-linked-users] Sent ${sentCount} notifications for ${links.length} links`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        sent: sentCount,
-        total_links: links.length,
-        results,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      }
-    );
+    return notifyResponse(true, sentCount);
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
     console.error("[notify-linked-users] Error:", errorMessage);
 
-    return new Response(
-      JSON.stringify({
-        success: false,
-        error: errorMessage,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 500,
-      }
-    );
+    return notifyResponse(false, 0, 500);
   }
 }));

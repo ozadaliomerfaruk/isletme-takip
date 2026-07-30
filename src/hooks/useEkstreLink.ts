@@ -4,6 +4,10 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { logEvent } from '@/lib/appEvents';
 import { usePermissions } from '@/hooks/usePermissions';
+import {
+  isAllowedPublicStatementDuration,
+  type PublicStatementDuration,
+} from '@/lib/publicStatementExpiry';
 
 /**
  * Web-ekstre linki (Faz 4): opak token'lı public web ekstresi.
@@ -24,18 +28,18 @@ export function useEkstreLinkOlustur() {
   const { canShareCariStatement, isOwner } = usePermissions();
 
   return useMutation({
-    /** gecerlilikGun: gün sayısı; null = SÜRESİZ (sunucu 100 yıl damgalar). */
+    /** Owner için en fazla 365, ortak kullanıcı için en fazla 30 gün. */
     mutationFn: async (
-      { cariId, gecerlilikGun }: { cariId: string; gecerlilikGun: number | null },
+      { cariId, gecerlilikGun }: {
+        cariId: string;
+        gecerlilikGun: PublicStatementDuration;
+      },
     ): Promise<{ url: string; expiresAt: string }> => {
       if (!isletme?.id) throw new Error(i18n.t('common:errors.businessNotFound'));
       if (!canShareCariStatement()) {
         throw new Error(i18n.t('multiUser:permissions.noModuleAccess'));
       }
-      const allowedDurations = isOwner
-        ? [1, 7, 30, 365, null]
-        : [1, 7, 30];
-      if (!allowedDurations.includes(gecerlilikGun)) {
+      if (!isAllowedPublicStatementDuration(gecerlilikGun, isOwner)) {
         throw new Error(i18n.t('multiUser:permissions.noActionAccess'));
       }
       const { data, error } = await supabase.rpc('ekstre_link_olustur', {
@@ -48,7 +52,10 @@ export function useEkstreLinkOlustur() {
       return { url: ekstreLinkUrl(result.token), expiresAt: result.expires_at };
     },
     onSuccess: (_data, variables) => {
-      logEvent('web_ekstre_generated', { suresiz: variables.gecerlilikGun === null, sure_gun: variables.gecerlilikGun });
+      logEvent('web_ekstre_generated', {
+        suresiz: false,
+        sure_gun: variables.gecerlilikGun,
+      });
     },
   });
 }

@@ -15,6 +15,10 @@ import { toErrorMessage } from '@/lib/errors';
 import { EntityType } from '@/lib/excelExport';
 import { generatePdfHtml, prepareStatementData, PdfExportOptions, PdfStatementData } from '@/lib/pdfExport';
 import { usePermissions } from '@/hooks/usePermissions';
+import {
+  fetchHesapStatementTransactions,
+  filterHesapStatementPeriod,
+} from '@/lib/hesapStatementProjection';
 
 interface UsePdfExportOptions {
   entityType: EntityType;
@@ -39,7 +43,7 @@ interface UsePdfExportReturn {
 export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
   const { entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch, phone } = options;
   const { isletme } = useAuthContext();
-  const { canExportModule } = usePermissions();
+  const { canExportModule, isOwner } = usePermissions();
   const { t } = useTranslation(['common', 'transactions']);
   const [isExporting, setIsExporting] = useState(false);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -100,6 +104,23 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
         : 'personel';
     if (!canExportModule(requiredModule)) {
       throw new Error('Permission denied');
+    }
+
+    if (entityType === 'hesap' && !isOwner) {
+      const allTransactions = await fetchHesapStatementTransactions({
+        isletmeId: isletme.id,
+        hesapId: entityId,
+        hesapName: entityName,
+        hesapCurrency: entityCurrency,
+      });
+      return {
+        transactions: filterHesapStatementPeriod(
+          allTransactions,
+          startDate,
+          endDate,
+        ),
+        allTransactions,
+      };
     }
 
     const endDateTime = new Date(endDate + 'T00:00:00');
@@ -164,7 +185,15 @@ export function usePdfExport(options: UsePdfExportOptions): UsePdfExportReturn {
       transactions: rawTransactions.filter(keepInStatement),
       allTransactions: rawAllTransactions.filter(keepInStatement),
     };
-  }, [entityType, entityId, isletme, canExportModule]);
+  }, [
+    canExportModule,
+    entityCurrency,
+    entityId,
+    entityName,
+    entityType,
+    isOwner,
+    isletme,
+  ]);
 
   const buildOptions = useCallback((startDate: string, endDate: string, transactions: IslemWithRelations[], allTransactions: IslemWithRelations[]): PdfExportOptions => ({
     entityType,

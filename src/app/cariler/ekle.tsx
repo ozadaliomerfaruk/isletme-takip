@@ -15,12 +15,20 @@ import { Text, Input, Button, Card, Collapsible, CurrencyPicker, Screen } from '
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { useCreateCari } from '@/hooks/useCariler';
+import { useCariler, useCreateCari } from '@/hooks/useCariler';
+import { usePersonelList } from '@/hooks/usePersonel';
 import { CariType, Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { getNeedsSetupSync } from '@/lib/setupFlow';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { DeviceContactPickerButton } from '@/components/contacts/DeviceContactPickerButton';
+import {
+  findPhoneDuplicateMatches,
+  getPhoneDuplicateWarningCopy,
+  getPhoneValidationMessageKey,
+  preparePhoneForSave,
+} from '@/lib/phone';
 
 export default function CariEklePage() {
   const router = useRouter();
@@ -33,6 +41,10 @@ export default function CariEklePage() {
   const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
   usePagePermission({ module: 'cariler', action: 'create' });
   const createCari = useCreateCari();
+  // Bu iki hook tenant + modül görünürlüğünü kendi içinde uygular. Arşiv/pasif
+  // dahil edilse bile kullanıcıya kapalı kayıtlar sorgu sonucuna girmez.
+  const { data: visibleCariler } = useCariler(undefined, true, true);
+  const { data: visiblePersoneller } = usePersonelList(true, true);
   const insets = useSafeAreaInsets();
   const footerInset = useFooterBottomPadding();
 
@@ -51,22 +63,27 @@ export default function CariEklePage() {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState(params.prefillTaxNumber ? `VKN: ${params.prefillTaxNumber}` : '');
-  const [errors, setErrors] = useState<{ name?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
 
   const validate = () => {
-    const newErrors: { name?: string } = {};
+    const newErrors: { name?: string; phone?: string } = {};
+    const phoneResult = preparePhoneForSave(phone);
 
     if (!name.trim()) {
       newErrors.name = t('clients:validation.nameRequired');
     }
+    if (!phoneResult.ok) {
+      newErrors.phone = t(`common:${getPhoneValidationMessageKey(phoneResult.reason)}`);
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      normalizedPhone: phoneResult.ok ? phoneResult.value : null,
+    };
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
+  const persistCari = async (normalizedPhone: string | null) => {
     try {
       // Açılış bakiyesi artık formda YOK (Dilim 1 #3): cari 0 bakiye ile oluşur;
       // açılış bakiyesi, işlem girilmeden önce cari DETAY sayfasından (yön'lü,
@@ -75,7 +92,7 @@ export default function CariEklePage() {
         name: name.trim(),
         type,
         currency,
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         email: email.trim() || null,
         address: address.trim() || null,
         balance: 0,
@@ -99,6 +116,29 @@ export default function CariEklePage() {
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:cari.createFailed'));
     }
+  };
+
+  const handleSubmit = async () => {
+    const validation = validate();
+    if (!validation.isValid) return;
+
+    const duplicateMatches = findPhoneDuplicateMatches(validation.normalizedPhone, {
+      cariler: visibleCariler,
+      personeller: visiblePersoneller,
+    });
+    if (duplicateMatches.length > 0) {
+      const warning = getPhoneDuplicateWarningCopy(duplicateMatches, i18n.language);
+      Alert.alert(warning.title, warning.message, [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: warning.confirmLabel,
+          onPress: () => void persistCari(validation.normalizedPhone),
+        },
+      ]);
+      return;
+    }
+
+    await persistCari(validation.normalizedPhone);
   };
 
   return (
@@ -178,6 +218,17 @@ export default function CariEklePage() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                error={errors.phone}
+                rightIcon={(
+                  <DeviceContactPickerButton
+                    onSelect={(selection) => {
+                      setPhone(selection.phone);
+                      if (!name.trim()) {
+                        setName(selection.name || selection.company);
+                      }
+                    }}
+                  />
+                )}
               />
 
               <Input

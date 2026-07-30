@@ -28,6 +28,8 @@ interface NoteRowProps {
   assignedUserName?: string | null;
   assignedCariName?: string | null;
   assignedPersonelName?: string | null;
+  /** Detay bağlamı kendi parent modül yetkisini önceden hesaplar. */
+  canModifyOverride?: boolean;
 }
 
 export function NoteRow({
@@ -40,6 +42,7 @@ export function NoteRow({
   assignedUserName: assignedUserNameProp,
   assignedCariName: assignedCariNameProp,
   assignedPersonelName: assignedPersonelNameProp,
+  canModifyOverride,
 }: NoteRowProps) {
   const { formatDateSmart } = useDateFormat();
   const { t } = useTranslation(['common']);
@@ -47,7 +50,8 @@ export function NoteRow({
   const [expanded, setExpanded] = useState(false);
 
   const { canAccessModule, canUpdate } = usePermissions();
-  const canModifyNote = canUpdate('notlar', note.created_by);
+  const canModifyNote =
+    canModifyOverride ?? canUpdate('notlar', note.created_by);
   const canResolveCari = canAccessModule('cariler') && !!note.assigned_to_cari;
   const canResolvePersonel =
     canAccessModule('personel') && !!note.assigned_to_personel;

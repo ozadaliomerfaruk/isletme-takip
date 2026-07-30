@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, CategoryPicker, UnitPicker } from '@/components/ui';
-import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType, KdvOrani } from '@/types/database';
@@ -61,7 +61,7 @@ interface UrunFormProps {
 
 export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }: UrunFormProps) {
   const { t } = useTranslation(['products', 'common', 'transactions']);
-  const contentPaddingBottom = useContentBottomPadding();
+  const footerInset = useFooterBottomPadding();
   const insets = useSafeAreaInsets();
 
   const [ad, setAd] = useState(DEFAULT_VALUES.ad);
@@ -109,7 +109,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardView}
       // Ofset = pencere tepesi ile KAV tepesi arası (status bar + native header 44).
       // Sabit 100 cihaza göre yanlış oluyordu; diğer altı form da insets'ten türetiyor.
@@ -118,11 +118,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
           style={styles.scrollView}
-          // A SINIFI: butonlar sabit footer DEĞİL, kaydırma içeriğinin parçası
-          // (aşağıda, ScrollView'ın içinde). Dolayısıyla alt boşluk İÇERİĞE
-          // ait — eskiden sabit spacing['3xl'] idi ve overlay tab bar'ı
-          // temizlemiyordu, butonlar bar'ın altında kalıyordu.
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -237,23 +233,25 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
             />
           </View>
 
-          {/* Buttons */}
-          <View style={styles.buttons}>
-            <Button variant="outline" size="lg" onPress={onCancel} style={styles.button}>
-              {t('common:buttons.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={submitting}
-              onPress={handleSubmit}
-              style={styles.button}
-            >
-              {submitLabel}
-            </Button>
-          </View>
         </ScrollView>
       </TouchableWithoutFeedback>
+
+      {/* KAV içinde sabit footer: klavye açılınca güvenli alan payı sıfırlanır,
+          böylece butonlar klavyenin hemen üstünde kalır. */}
+      <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+        <Button variant="outline" size="lg" onPress={onCancel} style={styles.button}>
+          {t('common:buttons.cancel')}
+        </Button>
+        <Button
+          variant="primary"
+          size="lg"
+          loading={submitting}
+          onPress={handleSubmit}
+          style={styles.button}
+        >
+          {submitLabel}
+        </Button>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -303,11 +301,15 @@ const styles = StyleSheet.create({
   priceItem: {
     flex: 1,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

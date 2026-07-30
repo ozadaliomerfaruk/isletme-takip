@@ -8,7 +8,7 @@ import { Text, Button, UndoSnackbar, ModalSearchBar, Modal } from '@/components/
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, formatPercent } from '@/lib/currency';
-import { useKategoriler } from '@/hooks/useKategoriler';
+import { useKategoriSecimReferanslari } from '@/hooks/useKategoriSecimReferanslari';
 import { useSonUrunFiyati } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
@@ -70,7 +70,9 @@ export function UrunPickerModal({
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
   const windowHeight = Dimensions.get('window').height;
-  const { data: kategoriler } = useKategoriler();
+  // Eski veride urun, yanlis-tip ama aktif bir kategoriye bagli olabilir.
+  // Etiket/aramanin kaybolmamasi icin map tum aktif dar referanslardan kurulur.
+  const { data: kategoriler } = useKategoriSecimReferanslari();
   const kategoriNameMap = useMemo(
     () => new Map(kategoriler?.map(k => [k.id, k.name]) || []),
     [kategoriler]

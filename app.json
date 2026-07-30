@@ -68,6 +68,14 @@
             ]
           },
           {
+            "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypePhoneNumber",
+            "NSPrivacyCollectedDataTypeLinked": true,
+            "NSPrivacyCollectedDataTypeTracking": false,
+            "NSPrivacyCollectedDataTypePurposes": [
+              "NSPrivacyCollectedDataTypePurposeAppFunctionality"
+            ]
+          },
+          {
             "NSPrivacyCollectedDataType": "NSPrivacyCollectedDataTypeUserID",
             "NSPrivacyCollectedDataTypeLinked": true,
             "NSPrivacyCollectedDataTypeTracking": false,
@@ -93,6 +101,9 @@
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
         "POST_NOTIFICATIONS"
+      ],
+      "blockedPermissions": [
+        "android.permission.WRITE_CONTACTS"
       ]
     },
     "web": {
@@ -103,6 +114,12 @@
       "./plugins/withBuildConfig",
       "expo-router",
       "expo-secure-store",
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "$(PRODUCT_NAME), yalnızca seçtiğiniz kişinin adını ve telefon numarasını cari veya personel formuna aktarmak için rehberi kullanır."
+        }
+      ],
       "expo-apple-authentication",
       "expo-web-browser",
       [

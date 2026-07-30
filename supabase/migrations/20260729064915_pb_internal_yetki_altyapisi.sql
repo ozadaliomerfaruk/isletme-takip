@@ -5,16 +5,16 @@
 --   ① internal.etkin_yetki        — yetenek vektörü çözümleyicisi
 --   ② internal.bakiye_ops         — sunucu-otoriter bakiye türetme
 --   ③ internal.islem_tipi_modulu  — tip -> modül allowlist'i (ELSE NULL)
---   ④/⑤ testler yereldedir (jest + test ortamı)
+--   ④ testler yereldedir (jest + izole gerçek PostgreSQL davranış turu)
 --
 -- BU MIGRATION MEVCUT VERİ YOLLARINI DEĞİŞTİRMEZ.
 --   Hiçbir politika, mevcut RPC veya tablo davranışı değişmiyor.
---   ⚠️ Ama YENİ BİR GÜVENLİK YÜZEYİDİR: yeni SECURITY DEFINER fonksiyonlar ve
+--   ⚠️ Ama YENİ BİR GÜVENLİK YÜZEYİDİR: SECURITY DEFINER resolver, helperlar ve
 --      USAGE/EXECUTE grant'ları ekleniyor. "Davranış değişikliği yok" ifadesi
 --      "risk yok" anlamına GELMEZ.
 --
 -- ÖN KOŞUL — internal şeması var olmamalı
---   26 Tem salt-okunur doğrulama: internal/private/app_private/sec -> HİÇBİRİ YOK.
+--   26 Tem kontrolü yalnız tarihsel snapshot'tır. Uygulama anında yeniden ölçülür.
 --   Aşağıdaki kapı uygulama anında bunu TEKRAR kontrol eder ve şema varsa
 --   HATA VERİP DURUR. Sessiz yeniden kullanım YOK.
 --
@@ -51,8 +51,14 @@ REVOKE ALL ON SCHEMA internal FROM anon;
 -- ve yalnız ① resolver'a verilir.
 GRANT USAGE ON SCHEMA internal TO authenticated;
 
--- Yeni nesnelerin PUBLIC'e açık doğmasını engelle (bu şemaya özel).
-ALTER DEFAULT PRIVILEGES IN SCHEMA internal REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;
+-- PostgreSQL 17 kısıtı: per-schema ALTER DEFAULT PRIVILEGES REVOKE, global
+-- PUBLIC EXECUTE defaultunu kaldıramaz. Global `postgres` default privilege'ına
+-- burada dokunulmaz. Her fonksiyon kendi explicit REVOKE'uyla daraltılır ve
+-- migration EN SONDA schema-wide ACL sweep yapar.
+--
+-- GELECEK KURAL: `internal` şemasına fonksiyon ekleyen HER migration, bütün yeni
+-- fonksiyonlar oluşturulduktan sonra aynı final sweep'i çalıştırmalı ve yalnız
+-- tasarlanmış imzalara gereken explicit GRANT'ları sweep'ten SONRA vermelidir.
 
 
 -- ===========================================================================
@@ -62,7 +68,8 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA internal REVOKE EXECUTE ON FUNCTIONS FROM PUB
 -- Matriste olmayan her tip NULL döner -> çağıran taraf 42501 ile reddeder.
 -- "default -> no-op" davranışı yetkilendirmede KULLANILMAZ.
 --
--- nakit_avans_taksit: CHECK'te var, üretimde 0 satır, özellik EMEKLİ -> NULL (deny).
+-- nakit_avans_taksit: CHECK'te var, güncel istemcide emekli -> NULL (deny).
+-- Canlı satır dağılımı uygulama öncesi yeniden ölçülür; bu yorum canlı sayı iddiası değildir.
 -- ---------------------------------------------------------------------------
 CREATE FUNCTION internal.islem_tipi_modulu(p_type text)
 RETURNS text[]
@@ -90,7 +97,8 @@ AS $fn$
   END;
 $fn$;
 
-REVOKE EXECUTE ON FUNCTION internal.islem_tipi_modulu(text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION internal.islem_tipi_modulu(text)
+  FROM PUBLIC, anon, authenticated, service_role;
 -- authenticated'a GRANT YOK: yalnız internal fonksiyonlar çağırır.
 
 
@@ -105,15 +113,27 @@ REVOKE EXECUTE ON FUNCTION internal.islem_tipi_modulu(text) FROM PUBLIC, anon;
 --     Yalnız mevcut kullanıcı için boolean yetenekler döner.
 --   • Genel bir "izin sorgulama RPC'si" DEĞİLDİR.
 --
--- SEMANTİK: src/hooks/usePermissions.ts ile BİREBİR (parite testi 864 hücre).
+-- SEMANTİK KAYNAĞI:
+--   src/lib/permissions.ts::canAccessPermissionModule/deriveEffectiveModules
+--   src/hooks/usePermissions.ts::canCreate/canUpdate/canDelete/canSeeRecord
+--   İyi-biçimli izin JSON'unda birebir parite; bozuk JSON boolean değerlerinde
+--   sunucu bilinçli olarak daha dardır (yalnız JSON true yetki verir).
 --   • Owner -> hepsi true
---   • level VARSA  -> level'dan türetilir
+--   • dashboard -> aktif üyede görünür
+--   • görünür modüller -> kendi exact-boolean bayrağından okunur
+--   • birikim -> hesaplar AND birikim; Hesaplar kapalıyken açılamaz
+--   • islemler/ileri_tarihli/arsiv -> hesaplar|cariler|urunler|personel
+--   • kategoriler/cekler/ayarlar -> shared kullanıcıda kapalı
+--   • level VARSA  -> exact string allowlist'ten türetilir; bilinmeyen tip/değer deny
 --   • level YOKSA  -> actions[modul] bayrakları BİREBİR; birbirine yükseltilmez,
 --                     modüller arası taşınmaz (COLLAPSE YASAK)
 --   • notlar/birikim anahtarı YOKSA -> yalnız GÖRÜNÜRLÜK true; aksiyonlar yine
---     actions'a bağlı (fallback aksiyona UYGULANMAZ)
+--     actions'a bağlı (fallback aksiyona UYGULANMAZ); fallback yalnız legacy'de
 --   • Diğer modül anahtarı yoksa -> false
---   • Eksik/bozuk -> deny-by-default
+--   • Boolean okuma: yalnız jsonb `true` true'dur. "true"/"yes"/1/null/nesne/dizi
+--     false'tur ve cast exception'ı üretmez.
+--   • visibility.can_see_all_users_data modülden ve level'dan BAĞIMSIZ global
+--     bayraktır; yalnız exact jsonb true ise true'dur.
 --
 -- *_own KAPSAYICIDIR: *_all doğruysa *_own da doğrudur (istemciyle aynı).
 -- ---------------------------------------------------------------------------
@@ -138,13 +158,21 @@ SECURITY DEFINER
 SET search_path TO 'pg_catalog'
 AS $fn$
 DECLARE
-  v_uid   uuid := auth.uid();
-  v_perm  jsonb;
-  v_level text;
-  v_mod   jsonb;
-  v_act   jsonb;
-  v_gorunur boolean;
-  v_modul_acik boolean;
+  v_uid                    uuid := auth.uid();
+  v_perm                   jsonb;
+  v_level_json             jsonb;
+  v_level                  text;
+  v_mod                    jsonb;
+  v_act                    jsonb;
+  v_legacy                 boolean;
+  v_gorunur                boolean;
+  v_raw_modul_acik         boolean;
+  v_hesaplar_acik          boolean;
+  v_cariler_acik           boolean;
+  v_urunler_acik           boolean;
+  v_personel_acik          boolean;
+  v_islem_kaynagi_acik     boolean;
+  v_can_see_all_users_data boolean;
 BEGIN
   -- Kimlik yoksa (anon) hiçbir şey.
   IF v_uid IS NULL OR p_isletme_id IS NULL OR p_modul IS NULL THEN
@@ -168,85 +196,152 @@ BEGIN
     AND iu.user_id = v_uid
     AND iu.status = 'active';
 
-  IF v_perm IS NULL THEN
+  IF v_perm IS NULL OR jsonb_typeof(v_perm) IS DISTINCT FROM 'object' THEN
     RETURN QUERY SELECT false, false, false, false, false, false, false;
     RETURN;
   END IF;
 
-  v_level := v_perm->>'level';
-  v_mod   := v_perm->'modules';
-  v_act   := v_perm->'actions';
+  v_level_json := v_perm->'level';
+  v_mod        := v_perm->'modules';
+  v_act        := v_perm->'actions';
+  v_legacy     := v_level_json IS NULL OR v_level_json = 'null'::jsonb;
 
-  -- Modül GÖRÜNÜRLÜĞÜ: notlar/birikim anahtarı yoksa true, diğerleri false.
-  IF v_mod IS NULL OR NOT (v_mod ? p_modul) THEN
-    v_gorunur := (p_modul IN ('notlar', 'birikim'));
-    v_modul_acik := false;                       -- fallback AKSİYONA uygulanmaz
-  ELSE
-    v_gorunur := COALESCE((v_mod->>p_modul)::boolean, false);
-    v_modul_acik := v_gorunur;
-  END IF;
+  -- usePermissions.canSeeRecord: global görünürlük modül/level sonucuna bağlı
+  -- değildir. Yalnız gerçek JSON boolean true kabul edilir.
+  v_can_see_all_users_data := COALESCE(
+    v_perm->'visibility'->'can_see_all_users_data' = 'true'::jsonb,
+    false
+  );
 
-  -- Modül açıkça açık değilse: görünürlük dışında her şey deny.
-  IF NOT v_modul_acik THEN
-    RETURN QUERY SELECT
-      v_gorunur, false, false, false, false, false,
-      COALESCE((v_perm->'visibility'->>'can_see_all_users_data')::boolean, false);
-    RETURN;
-  END IF;
-
-  -- GÜNCEL FORMAT: level'dan türet.
-  IF v_level IS NOT NULL THEN
-    -- 🔒 AÇIK ALLOWLIST — FAIL-CLOSED.
-    -- Bilinmeyen bir level (yazım hatası, gelecekteki değer, bozuk kayıt)
-    -- allowlist DIŞINDA kalır ve TÜM yetenekler deny olur.
-    --
-    -- İSTEMCİDEN BİLİNÇLİ SAPMA: usePermissions `level !== 'view'` yazdığı için
-    -- bilinmeyen bir level'da can_create=TRUE üretiyor (fail-open). Sunucu bunu
-    -- ÇOĞALTMAZ. Canlı doğrulama (26 Tem): level değerleri yalnız
-    -- NULL(9) / edit_all(9) / edit_own(4) / view(2) -> allowlist dışı KAYIT YOK.
-    -- Bu nedenle SIFIR KULLANICI ETKİLİ güvenlik deltasıdır.
-    IF v_level NOT IN ('view', 'add', 'edit_own', 'edit_all') THEN
-      RETURN QUERY SELECT false, false, false, false, false, false, false;
+  -- level varsa JSON string ve açık allowlist olmak zorunda. Bilinmeyen level
+  -- can_see_all_users_data global bayrağını değiştirmez; diğer altı yetenek deny.
+  IF NOT v_legacy THEN
+    IF jsonb_typeof(v_level_json) IS DISTINCT FROM 'string' THEN
+      RETURN QUERY SELECT
+        false, false, false, false, false, false, v_can_see_all_users_data;
       RETURN;
     END IF;
 
+    v_level := v_perm->>'level';
+    IF v_level NOT IN ('view', 'add', 'edit_own', 'edit_all') THEN
+      RETURN QUERY SELECT
+        false, false, false, false, false, false, v_can_see_all_users_data;
+      RETURN;
+    END IF;
+  END IF;
+
+  -- Bütün boolean okumaları exact-jsonb karşılaştırmasıdır. PostgreSQL'in
+  -- `"yes"::boolean`, `"on"::boolean`, `"1"::boolean` gibi geniş metin cast'i
+  -- yetki çözümünde kullanılmaz; bozuk değer exception değil false üretir.
+  v_raw_modul_acik := COALESCE(v_mod->p_modul = 'true'::jsonb, false);
+  v_hesaplar_acik  := COALESCE(v_mod->'hesaplar' = 'true'::jsonb, false);
+  v_cariler_acik   := COALESCE(v_mod->'cariler' = 'true'::jsonb, false);
+  v_urunler_acik   := COALESCE(v_mod->'urunler' = 'true'::jsonb, false);
+  v_personel_acik  := COALESCE(v_mod->'personel' = 'true'::jsonb, false);
+  v_islem_kaynagi_acik :=
+    v_hesaplar_acik OR v_cariler_acik OR v_urunler_acik OR v_personel_acik;
+
+  -- deriveEffectiveModules ile aynı görünür/derived modül sözleşmesi.
+  -- Legacy notlar/birikim fallback'i yalnız anahtar gerçekten YOKSA uygulanır.
+  -- Eski kayıttaki eksik/null `modules` konteyneri de "anahtar yok" sayılır;
+  -- fakat mevcut null/string/number/object/array BAYRAĞI yetki vermez.
+  v_gorunur := CASE p_modul
+    WHEN 'dashboard' THEN true
+    WHEN 'hesaplar'  THEN v_hesaplar_acik
+    WHEN 'cariler'   THEN v_cariler_acik
+    WHEN 'urunler'   THEN v_urunler_acik
+    WHEN 'personel'  THEN v_personel_acik
+    WHEN 'raporlar'  THEN COALESCE(v_mod->'raporlar' = 'true'::jsonb, false)
+    WHEN 'notlar'    THEN
+      COALESCE(v_mod->'notlar' = 'true'::jsonb, false)
+      OR (
+        v_legacy
+        AND (
+          v_mod IS NULL
+          OR v_mod = 'null'::jsonb
+          OR (
+            jsonb_typeof(v_mod) = 'object'
+            AND NOT (v_mod ? 'notlar')
+          )
+        )
+      )
+    WHEN 'birikim'   THEN
+      v_hesaplar_acik
+      AND (
+        COALESCE(v_mod->'birikim' = 'true'::jsonb, false)
+        OR (
+          v_legacy
+          AND (
+            v_mod IS NULL
+            OR v_mod = 'null'::jsonb
+            OR (
+              jsonb_typeof(v_mod) = 'object'
+              AND NOT (v_mod ? 'birikim')
+            )
+          )
+        )
+      )
+    WHEN 'islemler'        THEN v_islem_kaynagi_acik
+    WHEN 'ileri_tarihli'   THEN v_islem_kaynagi_acik
+    WHEN 'arsiv'           THEN v_islem_kaynagi_acik
+    WHEN 'kategoriler'     THEN false
+    WHEN 'cekler'          THEN false
+    WHEN 'ayarlar'         THEN false
+    ELSE false
+  END;
+
+  -- canCreate/canUpdate/canDelete, etkin görünürlüğe ek olarak ilgili raw modül
+  -- bayrağının exact true olmasını ister. Derived/fallback görünürlük tek başına
+  -- hiçbir yazma hakkı üretmez.
+  IF NOT v_gorunur OR NOT v_raw_modul_acik THEN
     RETURN QUERY SELECT
-      v_gorunur,
-      (v_level IN ('add', 'edit_own', 'edit_all')),          -- can_create
-      (v_level IN ('edit_own', 'edit_all')),                 -- can_update_own
-      (v_level = 'edit_all'),                                -- can_update_all
-      (v_level IN ('edit_own', 'edit_all')),                 -- can_delete_own
-      (v_level = 'edit_all'),                                -- can_delete_all
-      COALESCE((v_perm->'visibility'->>'can_see_all_users_data')::boolean, false);
+      v_gorunur, false, false, false, false, false,
+      v_can_see_all_users_data;
     RETURN;
   END IF;
 
-  -- LEGACY FORMAT: actions[modul] BİREBİR. Collapse YOK.
+  -- GÜNCEL FORMAT: geçerli level'dan türet.
+  IF NOT v_legacy THEN
+    RETURN QUERY SELECT
+      v_gorunur,
+      (v_level IN ('add', 'edit_own', 'edit_all')),
+      (v_level IN ('edit_own', 'edit_all')),
+      (v_level = 'edit_all'),
+      (v_level IN ('edit_own', 'edit_all')),
+      (v_level = 'edit_all'),
+      v_can_see_all_users_data;
+    RETURN;
+  END IF;
+
+  -- LEGACY FORMAT: actions[modul] exact-jsonb boolean; collapse YOK.
   RETURN QUERY SELECT
     v_gorunur,
-    COALESCE((v_act->p_modul->>'can_create')::boolean, false),
-    COALESCE((v_act->p_modul->>'can_update_all')::boolean, false)
-      OR COALESCE((v_act->p_modul->>'can_update_own')::boolean, false),
-    COALESCE((v_act->p_modul->>'can_update_all')::boolean, false),
-    COALESCE((v_act->p_modul->>'can_delete_all')::boolean, false)
-      OR COALESCE((v_act->p_modul->>'can_delete_own')::boolean, false),
-    COALESCE((v_act->p_modul->>'can_delete_all')::boolean, false),
-    COALESCE((v_perm->'visibility'->>'can_see_all_users_data')::boolean, false);
+    COALESCE(v_act->p_modul->'can_create' = 'true'::jsonb, false),
+    COALESCE(v_act->p_modul->'can_update_all' = 'true'::jsonb, false)
+      OR COALESCE(v_act->p_modul->'can_update_own' = 'true'::jsonb, false),
+    COALESCE(v_act->p_modul->'can_update_all' = 'true'::jsonb, false),
+    COALESCE(v_act->p_modul->'can_delete_all' = 'true'::jsonb, false)
+      OR COALESCE(v_act->p_modul->'can_delete_own' = 'true'::jsonb, false),
+    COALESCE(v_act->p_modul->'can_delete_all' = 'true'::jsonb, false),
+    v_can_see_all_users_data;
 END;
 $fn$;
 
--- Grant hijyeni: PUBLIC'e açık doğmasın; yalnız authenticated, TAM İMZAYLA.
+-- İlk-pass grant hijyeni: yeni fonksiyonun default PUBLIC EXECUTE yetkisini ve
+-- API rollerindeki olası grantları kaldır. Resolver'ın tek explicit GRANT'ı,
+-- bütün fonksiyonları kapsayan final ACL sweep'ten SONRA migration sonunda verilir.
 -- RLS/Storage politikaları bu fonksiyonu authenticated bağlamında çağıracağı
 -- için EXECUTE ZORUNLUDUR. Koruma "yetki yok"tan değil, şemanın Data API'de
 -- expose EDİLMEMESİNDEN gelir.
-REVOKE EXECUTE ON FUNCTION internal.etkin_yetki(uuid, text) FROM PUBLIC, anon;
-GRANT  EXECUTE ON FUNCTION internal.etkin_yetki(uuid, text) TO authenticated;
+REVOKE EXECUTE ON FUNCTION internal.etkin_yetki(uuid, text)
+  FROM PUBLIC, anon, authenticated, service_role;
 
 
 -- ===========================================================================
 -- ② internal.bakiye_ops — SUNUCU-OTORİTER BAKİYE TÜRETME
 -- ===========================================================================
--- src/lib/islemBalanceOps.ts computeBalanceOps() ile BİREBİR.
+-- Geçerli sonlu numeric girdilerde src/lib/islemBalanceOps.ts computeBalanceOps()
+-- ile birebir. NaN kur sunucuda bilinçli fail-closed sertleştirmedir.
 -- Çapraz kur: src/lib/currency.ts calculateTargetAmount()
 --   • aynı para birimi                -> tutar
 --   • kaynak TRY, hedef yabancı       -> tutar / kur
@@ -260,7 +355,7 @@ GRANT  EXECUTE ON FUNCTION internal.etkin_yetki(uuid, text) TO authenticated;
 -- ⚠️ authenticated'a EXECUTE VERİLMEZ — RLS'ten çağrılması gerekmiyor;
 --    yalnız guard'lı RPC'ler kendi SECURITY DEFINER bağlamından çağırır.
 -- ---------------------------------------------------------------------------
--- calculateTargetAmount() ile BİREBİR:
+-- Geçerli sonlu numeric girdilerde calculateTargetAmount() ile BİREBİR:
 --   • aynı para birimi  -> tutar AYNEN (yuvarlama YOK, TS erken return ediyor)
 --   • kur NULL/<=0      -> HATA
 --   • kaynak TRY        -> tutar / kur      ] sonra roundCurrency(result)
@@ -282,28 +377,40 @@ IMMUTABLE
 SET search_path TO 'pg_catalog'
 AS $fn$
 BEGIN
-  -- TS: sourceCurrency === targetCurrency -> return amount (YUVARLAMA YOK)
-  IF COALESCE(p_source, 'TRY') = COALESCE(p_target, 'TRY') THEN
-    RETURN p_amount;
+  -- Derinlemesine tutar savunması EARLY RETURN'DEN ÖNCE çalışır. Böylece aynı
+  -- para biriminde doğrudan çağrı da NaN/sonsuz değeri aynen geri döndüremez.
+  IF p_amount IS NULL
+     OR p_amount = 'NaN'::numeric
+     OR p_amount =  'Infinity'::numeric
+     OR p_amount = '-Infinity'::numeric THEN
+    RAISE EXCEPTION 'Gecersiz tutar (bos/NaN/sonsuz): %', p_amount
+      USING ERRCODE = '22023';
   END IF;
 
-  -- TS: if (!exchangeRate || exchangeRate <= 0) throw
-  -- NaN/sonsuz ayrıca: PostgreSQL'de 'NaN' <= 0 FALSE'tur (bkz. bakiye_ops notu).
-  -- Bu fonksiyon bagimsiz cagrilabildigi icin savunma burada da TEKRARLANIR.
-  IF p_rate IS NULL
-     OR p_rate = 'NaN'::numeric
-     OR p_rate =  'Infinity'::numeric
-     OR p_rate = '-Infinity'::numeric
-     OR p_rate <= 0 THEN
+  -- Verilmiş bir kur, para birimleri aynı olsa bile güvenli numeric olmalıdır.
+  -- Bu, safeParseExchangeRate(NaN) değerinin bazı client yollarında null'a
+  -- düşebilmesine göre BİLİNÇLİ sunucu sertleştirmesidir. NULL kur aynı para
+  -- biriminde hâlâ geçerlidir; farklı para biriminde aşağıda reddedilir.
+  IF p_rate IS NOT NULL
+     AND (
+       p_rate = 'NaN'::numeric
+       OR p_rate =  'Infinity'::numeric
+       OR p_rate = '-Infinity'::numeric
+       OR p_rate <= 0
+     ) THEN
     RAISE EXCEPTION 'Gecersiz kur: % -> % (kur=%)', p_source, p_target, p_rate
       USING ERRCODE = '22023';
   END IF;
 
-  -- Tutar tarafi da NaN/sonsuz olmamali (cagiran zaten eliyor; derinlemesine savunma).
-  IF p_amount = 'NaN'::numeric
-     OR p_amount =  'Infinity'::numeric
-     OR p_amount = '-Infinity'::numeric THEN
-    RAISE EXCEPTION 'Gecersiz tutar (NaN/sonsuz): %', p_amount
+  -- TS: sourceCurrency === targetCurrency -> return amount (YUVARLAMA YOK).
+  -- Tutar ve verilmiş kur guard'ları bu erken dönüşten önce tamamlandı.
+  IF COALESCE(p_source, 'TRY') = COALESCE(p_target, 'TRY') THEN
+    RETURN p_amount;
+  END IF;
+
+  -- Farklı para biriminde kur zorunludur.
+  IF p_rate IS NULL THEN
+    RAISE EXCEPTION 'Gecersiz kur: % -> % (kur=%)', p_source, p_target, p_rate
       USING ERRCODE = '22023';
   END IF;
 
@@ -317,7 +424,8 @@ BEGIN
 END;
 $fn$;
 
-REVOKE EXECUTE ON FUNCTION internal.cevrilen_tutar(numeric, numeric, text, text) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION internal.cevrilen_tutar(numeric, numeric, text, text)
+  FROM PUBLIC, anon, authenticated, service_role;
 
 CREATE FUNCTION internal.bakiye_ops(p_islem jsonb)
 RETURNS TABLE (t text, entity_id uuid, d numeric)
@@ -426,5 +534,19 @@ BEGIN
 END;
 $fn$;
 
-REVOKE EXECUTE ON FUNCTION internal.bakiye_ops(jsonb) FROM PUBLIC, anon;
+REVOKE EXECUTE ON FUNCTION internal.bakiye_ops(jsonb)
+  FROM PUBLIC, anon, authenticated, service_role;
 -- authenticated'a GRANT YOK — bilinçli.
+
+
+-- ===========================================================================
+-- FINAL ACL SWEEP — BÜTÜN FONKSİYONLAR OLUŞTUKTAN SONRA
+-- ===========================================================================
+-- PG17'de CREATE FUNCTION global PUBLIC EXECUTE defaultuyla `proacl = NULL`
+-- doğabilir. Per-schema default REVOKE bunu önleyemez. Bu sweep mevcut dört
+-- fonksiyonun resultant ACL'ini tek noktada deny-by-default yapar.
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA internal
+  FROM PUBLIC, anon, authenticated, service_role;
+
+-- Sweep'ten sonra yalnız resolver authenticated'a açılır; owner yetkisi implicit.
+GRANT EXECUTE ON FUNCTION internal.etkin_yetki(uuid, text) TO authenticated;

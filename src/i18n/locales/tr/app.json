@@ -1,4 +1,5 @@
 {
   "CFBundleDisplayName": "İşletme Takip",
-  "CFBundleName": "İşletme Takip"
+  "CFBundleName": "İşletme Takip",
+  "NSContactsUsageDescription": "Yalnızca seçtiğiniz kişinin adını ve telefon numarasını cari veya personel formuna aktarmak için rehber kullanılır."
 }

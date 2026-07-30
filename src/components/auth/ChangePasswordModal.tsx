@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, type ReactNode } from 'react';
 import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { Lock, KeyRound, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -15,8 +15,31 @@ interface ChangePasswordModalProps {
   onClose?: () => void;
 }
 
-export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePasswordModalProps) {
+function PasswordModalLayout({ children }: { children: ReactNode }) {
+  // Hook Modal'ın alt ağacında çalışır; böylece persistent tab bar'a ait
+  // sayfa inset'i native modalın içine taşınmaz.
   const contentPaddingBottom = useContentBottomPadding();
+
+  return (
+    <Screen top>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+}
+
+export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePasswordModalProps) {
   const { t } = useTranslation(['auth', 'common', 'errors']);
 
   const [password, setPassword] = useState('');
@@ -125,16 +148,7 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
           useContentBottomPadding _layout'un bar'lı değerini alır ve modal içinde
           ~72px hayalet boşluk doğar (yeni kapatılan sınıf bu dosyada geri açılırdı). */}
       <ModalInsets>
-      <Screen top>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <ScrollView
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
+        <PasswordModalLayout>
             {/* Close button */}
             {onClose && (
               <View style={styles.closeRow}>
@@ -215,9 +229,7 @@ export function ChangePasswordModal({ visible, onSuccess, onClose }: ChangePassw
                 </Button>
               )}
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Screen>
+        </PasswordModalLayout>
       </ModalInsets>
     </Modal>
   );

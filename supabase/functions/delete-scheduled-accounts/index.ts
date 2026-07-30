@@ -3,17 +3,25 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withFnTelemetry } from "../_shared/telemetry.ts";
+import { guardServiceRoleWorkerRequest } from "../_shared/workerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-Deno.serve(withFnTelemetry({ name: "delete-scheduled-accounts" }, async (req) => {
+Deno.serve(withFnTelemetry({
+  name: "delete-scheduled-accounts",
+  // Telemetry must not read an untrusted chunked body before authorization.
+  largePayloadProne: true,
+}, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const authError = guardServiceRoleWorkerRequest(req, corsHeaders);
+  if (authError) return authError;
 
   try {
     // Admin client oluştur (service role key ile)

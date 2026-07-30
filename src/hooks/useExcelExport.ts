@@ -16,6 +16,10 @@ import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { LEAVE_TYPES, CARI_ISLEM_TYPES, PERSONEL_ISLEM_TYPES } from '@/constants/islemTypes';
 import { toErrorMessage } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
+import {
+  fetchHesapStatementTransactions,
+  filterHesapStatementPeriod,
+} from '@/lib/hesapStatementProjection';
 
 // Büyük veri uyarısı için eşik değer
 const LARGE_DATA_THRESHOLD = 2000;
@@ -39,7 +43,7 @@ interface UseExcelExportReturn {
 export function useExcelExport(options: UseExcelExportOptions): UseExcelExportReturn {
   const { entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch } = options;
   const { isletme } = useAuthContext();
-  const { canExportModule } = usePermissions();
+  const { canExportModule, isOwner } = usePermissions();
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
 
@@ -133,6 +137,66 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
           const endDateTime = new Date(endDate + 'T00:00:00');
           endDateTime.setDate(endDateTime.getDate() + 1);
           const endDateNextDay = formatDateForDB(endDateTime);
+
+          if (entityType === 'hesap' && !isOwner) {
+            const allTransactions = await fetchHesapStatementTransactions({
+              isletmeId: isletme.id,
+              hesapId: entityId,
+              hesapName: entityName,
+              hesapCurrency: entityCurrency,
+            });
+            const transactions = filterHesapStatementPeriod(
+              allTransactions,
+              startDate,
+              endDate,
+            );
+
+            if (transactions.length > LARGE_DATA_THRESHOLD) {
+              const confirmed = await new Promise<boolean>((resolve) => {
+                Alert.alert(
+                  t('common:export.largeDataWarning.title'),
+                  t('common:export.largeDataWarning.message', {
+                    count: transactions.length,
+                  }),
+                  [
+                    {
+                      text: t('common:buttons.cancel'),
+                      style: 'cancel',
+                      onPress: () => resolve(false),
+                    },
+                    {
+                      text: t('common:buttons.continue'),
+                      onPress: () => resolve(true),
+                    },
+                  ],
+                  { cancelable: false },
+                );
+              });
+              if (!confirmed) return;
+            }
+
+            await exportToExcel({
+              entityType,
+              entityId,
+              entityName,
+              entityCurrency,
+              isletmeName: isletme.name,
+              startDate,
+              endDate,
+              transactions,
+              allTransactions,
+              currentBalance,
+              cariType,
+              currentIsletmeId,
+              typeMismatch,
+              translations,
+            });
+            logEvent('export_completed', {
+              format: 'excel',
+              entity_type: entityType,
+            });
+            return;
+          }
 
           // Seçilen dönemdeki işlemleri getir (paginated - 1000 satır limitini aşmak için)
           const buildTransactionsQuery = () => {
@@ -237,6 +301,11 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
 
       // Önce satır sayısını kontrol et (sadece seçilen dönem için)
       try {
+        if (entityType === 'hesap' && !isOwner) {
+          await performExport();
+          return;
+        }
+
         const endDateTime = new Date(endDate + 'T00:00:00');
         endDateTime.setDate(endDateTime.getDate() + 1);
         const endDateNextDay = formatDateForDB(endDateTime);
@@ -291,7 +360,7 @@ export function useExcelExport(options: UseExcelExportOptions): UseExcelExportRe
         await performExport();
       }
     },
-    [entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch, isletme, t, canExportModule]
+    [entityType, entityId, entityName, entityCurrency, currentBalance, cariType, currentIsletmeId, typeMismatch, isletme, t, canExportModule, isOwner]
   );
 
   return {

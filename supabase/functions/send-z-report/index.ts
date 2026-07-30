@@ -19,6 +19,7 @@
 //   - Body { "dry_run": true }    -> SENKRON; hesaplar ama GÖNDERMEZ, ne gideceğini döner.
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { guardServiceRoleWorkerRequest } from "../_shared/workerAuth.ts";
 
 // Telemetri — ../_shared importu per-function deploy'da çözülemediği için INLINE
 // (deploy edilen sürümle birebir). Yalnız kullanılan iki yardımcı.
@@ -311,6 +312,9 @@ Deno.serve(
     if (req.method === "OPTIONS") {
       return new Response("ok", { headers: corsHeaders });
     }
+
+    const authError = guardServiceRoleWorkerRequest(req, corsHeaders);
+    if (authError) return authError;
 
     try {
       // Opsiyonel parametreler (test/dry-run). Body yoksa/boşsa cron modudur.

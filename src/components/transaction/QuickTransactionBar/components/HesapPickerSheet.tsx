@@ -14,8 +14,9 @@ import type { HesapPickerTarget, PendingModal } from '../types';
 interface Hesap {
   id: string;
   name: string;
-  balance: number;
+  balance?: number;
   currency?: string;
+  type?: string;
 }
 
 export interface HesapPickerSheetProps {
@@ -29,6 +30,8 @@ export interface HesapPickerSheetProps {
   // Sequential modal handling
   pendingModal?: PendingModal;
   onPendingModalHandled?: (modal: PendingModal) => void;
+  /** S-11 dar cari akisinda false: bakiye DOM/agacina hic girmez. */
+  showBalances?: boolean;
 }
 
 export function HesapPickerSheet({
@@ -41,6 +44,7 @@ export function HesapPickerSheet({
   excludeId,
   pendingModal,
   onPendingModalHandled,
+  showBalances = true,
 }: HesapPickerSheetProps) {
   const { t } = useTranslation(['accounts', 'transactions', 'common']);
   const insets = useSafeAreaInsets();
@@ -148,14 +152,33 @@ export function HesapPickerSheet({
                       >
                         {hesap.name}
                       </Text>
-                      <Text
-                        style={[
-                          styles.bottomSheetItemBalance,
-                          isSelected && { color: colors.primary },
-                        ]}
-                      >
-                        {formatCurrency(hesap.balance, hesap.currency)}
-                      </Text>
+                      {showBalances ? (
+                        <Text
+                          style={[
+                            styles.bottomSheetItemBalance,
+                            isSelected && { color: colors.primary },
+                          ]}
+                        >
+                          {formatCurrency(Number(hesap.balance ?? 0), hesap.currency)}
+                        </Text>
+                      ) : (
+                        <Text
+                          style={[
+                            styles.bottomSheetItemBalance,
+                            { color: colors.textMuted },
+                            isSelected && { color: colors.primary },
+                          ]}
+                        >
+                          {[
+                            hesap.type
+                              ? t(`accounts:typeLabels.${hesap.type}`, {
+                                  defaultValue: hesap.type,
+                                })
+                              : null,
+                            hesap.currency,
+                          ].filter(Boolean).join(' · ')}
+                        </Text>
+                      )}
                       {isSelected && (
                         <View style={[styles.checkIcon, { backgroundColor: colors.info }]}>
                           <Check size={14} color="#FFFFFF" />

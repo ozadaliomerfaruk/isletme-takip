@@ -4,16 +4,28 @@ import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { Building2, Users, TrendingUp, TrendingDown, ArrowRight, CalendarDays } from 'lucide-react-native';
-import { Cari, Personel, IslemWithRelations } from '@/types/database';
+import type { Cari, Personel, IslemWithRelations } from '@/types/database';
 import { formatCurrency, formatCurrencyWithSign, toNumber, getCrossCurrencyDisplay } from '@/lib/currency';
 import { useTranslation } from 'react-i18next';
+import {
+  isPersonelIslemListRow,
+  type PersonelIslemListRow,
+} from '@/lib/personelTransactionProjection';
+import {
+  isCariIslemListRow,
+  type CariIslemListRow,
+} from '@/lib/cariTransactionProjection';
 
 type EntityType = 'cari' | 'personel';
+type EntitySummaryTransaction =
+  | IslemWithRelations
+  | CariIslemListRow
+  | PersonelIslemListRow;
 
 interface EntitySummaryCardProps {
   type: EntityType;
   entity: Cari | Personel | null;
-  transactions: IslemWithRelations[];
+  transactions: EntitySummaryTransaction[];
   periodLabel: string;
   leaveCarryOver?: number;
 }
@@ -37,7 +49,18 @@ export function EntitySummaryCard({
    * (cari/personel) para birimindeki tutar → etiket ile sayı artık aynı şeyi söylüyor.
    * Çapraz-kur olmayan kalemlerde mainAmount = ham tutar (davranış değişmez).
    */
-  const txAmount = (tx: IslemWithRelations): number => getCrossCurrencyDisplay(tx).mainAmount;
+  const txAmount = (tx: EntitySummaryTransaction): number =>
+    getCrossCurrencyDisplay(
+      isPersonelIslemListRow(tx) || isCariIslemListRow(tx)
+        ? {
+            type: tx.type,
+            amount: tx.amount,
+            source_currency: tx.source_currency,
+            target_currency: tx.target_currency,
+            exchange_rate: tx.exchange_rate,
+          }
+        : tx,
+    ).mainAmount;
 
   // Metrikleri hesapla
   const metrics = useMemo(() => {

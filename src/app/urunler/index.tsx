@@ -1,11 +1,12 @@
 ﻿import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Animated, Pressable, Platform, RefreshControl, ListRenderItemInfo } from 'react-native';
+import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useRouter, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet } from 'lucide-react-native';
+import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet, BarChart3 } from 'lucide-react-native';
 import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, FloatingSearchBar, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen, SkeletonAccountList } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
 import { OzetModeToggle } from '@/components/urunlerPage/OzetModeToggle';
@@ -24,11 +25,14 @@ import { useArchivedUrunler, useUnarchiveUrun } from '@/hooks/useArchive';
 import { useToast } from '@/contexts/ToastContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
-import { useDonemUrunOzet } from '@/hooks/useUrunHareketler';
-import { useKategoriler } from '@/hooks/useKategoriler';
+import { useDonemUrunOzet, type DonemUrunOzet } from '@/hooks/useUrunHareketler';
+import { useKategoriSecimReferanslari } from '@/hooks/useKategoriSecimReferanslari';
+import { useTopAnchoredListSnapshot } from '@/hooks/useTopAnchoredListSnapshot';
 import { Urun, BirimType } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { searchMatchesTr, upperTr } from '@/lib/turkishTextUtils';
+import { compareEntityIdentity, compareMetricListItems } from '@/lib/listSorting';
+import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
 import { exportUrunListesiToExcel, UrunListeItem } from '@/lib/excelExport';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -36,6 +40,31 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 
 type PeriodType = 'yearly' | 'monthly' | 'weekly' | 'daily' | 'custom';
 type SortType = 'nameAZ' | 'nameZA' | 'purchaseMost' | 'purchaseLeast' | 'saleMost' | 'saleLeast';
+type MetricSortType = Extract<
+  SortType,
+  'purchaseMost' | 'purchaseLeast' | 'saleMost' | 'saleLeast'
+>;
+
+interface ProductPeriodSnapshot {
+  ready: boolean;
+  summary: DonemUrunOzet;
+}
+
+const EMPTY_PRODUCT_PERIOD_SNAPSHOT: ProductPeriodSnapshot = {
+  ready: false,
+  summary: {},
+};
+
+const METRIC_SORT_TYPES = new Set<MetricSortType>([
+  'purchaseMost',
+  'purchaseLeast',
+  'saleMost',
+  'saleLeast',
+]);
+
+function isMetricSortType(sort: SortType): sort is MetricSortType {
+  return METRIC_SORT_TYPES.has(sort as MetricSortType);
+}
 
 // Satırlar yapışık; ayrım 1px gri çizgi (cariler listesi dili). Satır sarmalayıcısı
 // yatay padding taşıdığından ayraç da aynı hizada başlar.
@@ -65,7 +94,7 @@ export default function UrunlerPage() {
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
   /** Cam header akıştan çıktığı için yer kaplamıyor → listenin üst boşluğu bu.
    *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
-  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
+  const initialHeaderH = insets.top + TAB_HEADER_ESTIMATED_HEIGHT;
   /** search: true → FLOATING_SEARCH_CLEARANCE'ı hook'un kendisi ekler. Alt boşluk
    *  tek kaynaktan geliyor; paylaşılan styles.flatListContent'teki sabit değer bu
    *  inline'ın altında kalıp ölü durduğu için oradan kaldırıldı. */
@@ -96,13 +125,13 @@ export default function UrunlerPage() {
 
   // DÃ¶nem seÃ§ici seÃ§enekleri
   // Dönem sekmeleri her daim BÜYÜK harf (kullanıcı tercihi)
-  const PERIOD_OPTIONS = [
+  const PERIOD_OPTIONS = useMemo(() => [
     { label: upperTr(t('products:period.yearly')), value: 'yearly' },
     { label: upperTr(t('products:period.monthly')), value: 'monthly' },
     { label: upperTr(t('products:period.weekly')), value: 'weekly' },
     { label: upperTr(t('products:period.daily')), value: 'daily' },
     { label: upperTr(t('products:period.custom')), value: 'custom' },
-  ];
+  ], [t]);
 
   // DÃ¶nem tarih aralÄ±ÄŸÄ±nÄ± hesapla
   const customRange = period === 'custom' ? {
@@ -129,10 +158,24 @@ export default function UrunlerPage() {
     return () => clearTimeout(handle);
   }, [searchQuery]);
 
-  const { isletme } = useAuthContext();
-  const { canUpdate, canDelete } = usePermissions();
+  const { isletme, user, currentPermissions } = useAuthContext();
+  const { canCreate, canUpdate, canDelete } = usePermissions();
+  const canCreateProduct = canCreate('urunler');
+
+  // Açık bir yazma yüzeyi varken rol `view` seviyesine düşerse modal/FAB aynı
+  // render döngüsünde fail-closed kapanır; eski görünür state yeniden kullanılamaz.
+  useEffect(() => {
+    if (canCreateProduct) return;
+    setQuickUrunVisible(false);
+    setSelectedUrun(null);
+    setFabMenuVisible(false);
+  }, [canCreateProduct]);
   const [isExporting, setIsExporting] = useState(false);
-  const { data: urunler, isLoading, refetch } = useUrunler();
+  const {
+    data: urunler,
+    isLoading,
+    refetch: refetchUrunler,
+  } = useUrunler();
   const { data: archivedUrunler, refetch: refetchArchived } = useArchivedUrunler();
   const archiveUrun = useArchiveUrun();
   const permanentDeleteUrun = usePermanentDeleteUrun();
@@ -140,21 +183,84 @@ export default function UrunlerPage() {
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const handleRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    try {
-      await Promise.all([refetch(), refetchArchived()]);
-    } finally { setIsRefreshing(false); }
-  }, [refetch, refetchArchived]);
-  const { data: kategoriler } = useKategoriler();
+  // Legacy urunler aktif gelir/gider kategorisine bagli olabildigi icin mevcut
+  // etiket/filtre davranisini koru; dar RPC'den tum aktif tipleri iste.
+  const { data: kategoriler } = useKategoriSecimReferanslari();
   const { showToast } = useToast();
 
   // DÃ¶nem bazlÄ± urun hareketleri Ã¶zeti
-  const { data: donemUrunOzet } = useDonemUrunOzet({ startDate, endDate });
+  const {
+    data: donemUrunOzet,
+    refetch: refetchDonemUrunOzet,
+  } = useDonemUrunOzet({ startDate, endDate });
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        refetchUrunler(),
+        refetchArchived(),
+        refetchDonemUrunOzet(),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [refetchUrunler, refetchArchived, refetchDonemUrunOzet]);
+  const livePeriodSnapshot = useMemo<ProductPeriodSnapshot | undefined>(
+    () => donemUrunOzet === undefined
+      ? undefined
+      : { ready: true, summary: donemUrunOzet },
+    [donemUrunOzet],
+  );
+  const periodSnapshotScope = [
+    isletme?.id ?? 'no-business',
+    user?.id ?? 'no-user',
+    permissionAccessSignature(currentPermissions),
+    startDate,
+    endDate,
+  ].join(':');
+  const {
+    stableAsyncMeta: stablePeriodSnapshot,
+    headerHeight: headerH,
+    onHeaderHeightChange,
+    onScroll: handleSnapshotScroll,
+    onScrollBeginDrag: handleScrollBeginDrag,
+    onScrollEndDrag: handleScrollEndDrag,
+    onMomentumScrollBegin: handleMomentumScrollBegin,
+    onMomentumScrollEnd: handleMomentumScrollEnd,
+  } = useTopAnchoredListSnapshot({
+    asyncMeta: livePeriodSnapshot,
+    emptyAsyncMeta: EMPTY_PRODUCT_PERIOD_SNAPSHOT,
+    initialHeaderHeight: initialHeaderH,
+    scopeKey: periodSnapshotScope,
+  });
+  const stableDonemUrunOzet = stablePeriodSnapshot.summary;
+  const areMetricSortOptionsDisabled =
+    !stablePeriodSnapshot.ready || donemUrunOzet === undefined;
+  const isMetricSortPending =
+    isMetricSortType(sortType)
+    && !stablePeriodSnapshot.ready;
+
+  const handleProductListScroll = useCallback((
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    handleTabScroll(event);
+    handleSnapshotScroll(event);
+  }, [handleSnapshotScroll, handleTabScroll]);
+
+  const scrollListToTop = useCallback(() => {
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, []);
 
   // Kategorisiz Ã¼rÃ¼n sayÄ±sÄ±
   const { pendingDeleteIds, requestDelete, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<Urun>({
     onCommitDelete: (id) => permanentDeleteUrun.mutateAsync(id),
+    onError: (error) => {
+      haptics.error();
+      showToast(
+        toErrorMessage(error, t('common:messages.operationFailed')),
+        'error',
+      );
+    },
   });
 
   // Kategori id -> ad map'i
@@ -278,28 +384,54 @@ export default function UrunlerPage() {
 
     // SÄ±ralama
     return [...filtered].sort((a, b) => {
-      const ozetA = donemUrunOzet?.[a.id];
-      const ozetB = donemUrunOzet?.[b.id];
+      const ozetA = stableDonemUrunOzet[a.id];
+      const ozetB = stableDonemUrunOzet[b.id];
       switch (sortType) {
         case 'nameAZ':
-          return a.ad.localeCompare(b.ad, 'tr');
+          return compareEntityIdentity(
+            { id: a.id, label: a.ad },
+            { id: b.id, label: b.ad },
+          );
         case 'nameZA':
-          return b.ad.localeCompare(a.ad, 'tr');
+          return compareEntityIdentity(
+            { id: a.id, label: a.ad },
+            { id: b.id, label: b.ad },
+            'desc',
+          );
         // TUTAR bazlı sıralama (kullanıcı bulgusu: adet bazlıydı — 'en fazla alış'
         // deyince en yüksek TUTARLI beklenir, en çok adetli değil)
         case 'purchaseMost':
-          return (ozetB?.girisTutar ?? 0) - (ozetA?.girisTutar ?? 0);
+          return compareMetricListItems(
+            { id: a.id, label: a.ad, metric: ozetA?.girisTutar ?? 0 },
+            { id: b.id, label: b.ad, metric: ozetB?.girisTutar ?? 0 },
+            'desc',
+          );
         case 'purchaseLeast':
-          return (ozetA?.girisTutar ?? 0) - (ozetB?.girisTutar ?? 0);
+          return compareMetricListItems(
+            { id: a.id, label: a.ad, metric: ozetA?.girisTutar ?? 0 },
+            { id: b.id, label: b.ad, metric: ozetB?.girisTutar ?? 0 },
+            'asc',
+          );
         case 'saleMost':
-          return (ozetB?.cikisTutar ?? 0) - (ozetA?.cikisTutar ?? 0);
+          return compareMetricListItems(
+            { id: a.id, label: a.ad, metric: ozetA?.cikisTutar ?? 0 },
+            { id: b.id, label: b.ad, metric: ozetB?.cikisTutar ?? 0 },
+            'desc',
+          );
         case 'saleLeast':
-          return (ozetA?.cikisTutar ?? 0) - (ozetB?.cikisTutar ?? 0);
+          return compareMetricListItems(
+            { id: a.id, label: a.ad, metric: ozetA?.cikisTutar ?? 0 },
+            { id: b.id, label: b.ad, metric: ozetB?.cikisTutar ?? 0 },
+            'asc',
+          );
         default:
-          return 0;
+          return compareEntityIdentity(
+            { id: a.id, label: a.ad },
+            { id: b.id, label: b.ad },
+          );
       }
     });
-  }, [urunler, debouncedSearch, categoryFilter, kategoriMap, sortType, donemUrunOzet, pendingDeleteIds, isUrunUncategorized]);
+  }, [urunler, debouncedSearch, categoryFilter, kategoriMap, sortType, stableDonemUrunOzet, pendingDeleteIds, isUrunUncategorized]);
 
   // ArÅŸivlenmiÅŸ Ã¼rÃ¼nler filtresi (arama)
   const filteredArchivedUrunler = useMemo(() => {
@@ -316,12 +448,6 @@ export default function UrunlerPage() {
 
   const archivedCount = archivedUrunler?.length ?? 0;
 
-  // Tab seÃ§enekleri
-  const TAB_OPTIONS = useMemo(() => [
-    { label: t('products:tabs.active'), value: 'active' },
-    { label: archivedCount > 0 ? `${t('products:tabs.archived')} (${archivedCount})` : t('products:tabs.archived'), value: 'archived' },
-  ], [t, archivedCount]);
-
   // SÄ±ralama seÃ§enekleri
   const sortOptions: ActionSheetOption[] = useMemo(() => {
     const options: { key: SortType; label: string }[] = [
@@ -334,12 +460,16 @@ export default function UrunlerPage() {
     ];
     return options.map(opt => ({
       label: opt.key === sortType ? `✓  ${opt.label}` : `    ${opt.label}`,
+      disabled:
+        isMetricSortType(opt.key)
+        && areMetricSortOptionsDisabled,
       onPress: () => {
+        scrollListToTop();
         setSortType(opt.key);
         haptics.light();
       },
     }));
-  }, [sortType, t, haptics]);
+  }, [sortType, t, haptics, areMetricSortOptionsDisabled, scrollListToTop]);
 
   // ActionSheet handlers
   const handleOpenActionSheet = useCallback((urun: Urun) => {
@@ -374,11 +504,16 @@ export default function UrunlerPage() {
         );
         return;
       }
-    } catch {
-      // Sayım hatası → yine de undo-delete'e düş (commit'teki mutation guard'ı yakalar)
+    } catch (error) {
+      haptics.error();
+      showToast(
+        toErrorMessage(error, t('common:messages.operationFailed')),
+        'error',
+      );
+      return;
     }
     requestDelete(actionSheetUrun.id, actionSheetUrun, actionSheetUrun.ad);
-  }, [actionSheetUrun, isletme, requestDelete, t]);
+  }, [actionSheetUrun, isletme, requestDelete, haptics, showToast, t]);
 
   const handleUnarchive = useCallback(async () => {
     if (!actionSheetUrun) return;
@@ -474,7 +609,7 @@ export default function UrunlerPage() {
   }, [actionSheetUrun, t, router, activeTab, handleArchive, handleDelete, handleUnarchive, handlePermanentDelete, canUpdate, canDelete]);
 
   // HÄ±zlÄ± dÃ¶nem seÃ§imi fonksiyonlarÄ±
-  const handlePeriodLabelPress = () => {
+  const handlePeriodLabelPress = useCallback(() => {
     switch (period) {
       case 'yearly':
         setShowYearPicker(true);
@@ -493,10 +628,11 @@ export default function UrunlerPage() {
         setShowDayPicker(true);
         break;
     }
-  };
+  }, [period, periodOffset]);
 
   const goToYear = (year: number) => {
     const currentYear = new Date().getFullYear();
+    scrollListToTop();
     setPeriodOffset(year - currentYear);
     setShowYearPicker(false);
   };
@@ -504,6 +640,7 @@ export default function UrunlerPage() {
   const goToMonth = (year: number, month: number) => {
     const now = new Date();
     const monthsDiff = (year - now.getFullYear()) * 12 + (month - now.getMonth());
+    scrollListToTop();
     setPeriodOffset(monthsDiff);
     setShowMonthYearPicker(false);
   };
@@ -513,6 +650,7 @@ export default function UrunlerPage() {
     const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dateMidnight = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const daysDiff = Math.round((dateMidnight.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
+    scrollListToTop();
     setPeriodOffset(daysDiff);
     setShowDayPicker(false);
   };
@@ -523,9 +661,20 @@ export default function UrunlerPage() {
     const firstDayOfMonth = new Date(year, month, 1);
     const daysDiff = Math.round((firstDayOfMonth.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
     const weeksDiff = Math.round(daysDiff / 7);
+    scrollListToTop();
     setPeriodOffset(weeksDiff);
     setShowMonthYearPicker(false);
   };
+
+  const handleCustomStartDateChange = useCallback((date: Date) => {
+    scrollListToTop();
+    setCustomStartDate(date);
+  }, [scrollListToTop]);
+
+  const handleCustomEndDateChange = useCallback((date: Date) => {
+    scrollListToTop();
+    setCustomEndDate(date);
+  }, [scrollListToTop]);
 
   const getBirimLabel = useCallback((birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -536,9 +685,10 @@ export default function UrunlerPage() {
   }, []);
 
   const handleNewTransaction = useCallback((urun: Urun) => {
+    if (!canCreateProduct) return;
     setSelectedUrun(urun);
     setQuickUrunVisible(true);
-  }, []);
+  }, [canCreateProduct]);
 
   const handleViewMovements = useCallback((urunId: string) => {
     router.push(`/urunler/${urunId}` as Href);
@@ -551,14 +701,19 @@ export default function UrunlerPage() {
       expanded={expandedId === urun.id}
       onToggle={handleToggle}
       onNewTransaction={handleNewTransaction}
+      canCreateTransaction={canCreateProduct}
+      canManage={
+        canUpdate('urunler', urun.created_by ?? null) ||
+        canDelete('urunler', urun.created_by ?? null)
+      }
       onViewMovements={handleViewMovements}
       onOpenActionSheet={handleOpenActionSheet}
-      urunOzet={donemUrunOzet?.[urun.id]}
+      urunOzet={stableDonemUrunOzet[urun.id]}
       kategoriAdi={urun.kategori_id ? kategoriMap.get(urun.kategori_id) : undefined}
       getBirimLabel={getBirimLabel}
       ozetMode={ozetMode}
     />
-  ), [expandedId, handleToggle, handleNewTransaction, handleViewMovements, handleOpenActionSheet, donemUrunOzet, kategoriMap, getBirimLabel, ozetMode]);
+  ), [expandedId, handleToggle, handleNewTransaction, canCreateProduct, canUpdate, canDelete, handleViewMovements, handleOpenActionSheet, stableDonemUrunOzet, kategoriMap, getBirimLabel, ozetMode]);
 
   // FlatList renderItem for archived products
   const renderArchivedItem = useCallback(({ item: urun }: ListRenderItemInfo<Urun>) => (
@@ -568,16 +723,20 @@ export default function UrunlerPage() {
       onToggle={handleToggle}
       onViewMovements={handleViewMovements}
       onOpenActionSheet={handleOpenActionSheet}
+      canManage={
+        canUpdate('urunler', urun.created_by ?? null) ||
+        canDelete('urunler', urun.created_by ?? null)
+      }
       getBirimLabel={getBirimLabel}
     />
-  ), [expandedId, handleToggle, handleViewMovements, handleOpenActionSheet, getBirimLabel]);
+  ), [expandedId, handleToggle, handleViewMovements, handleOpenActionSheet, canUpdate, canDelete, getBirimLabel]);
 
   const keyExtractor = useCallback((item: Urun) => item.id, []);
 
   // Stabil extraData — her render'da yeni obje literali FlatList'i gereksiz yeniden değerlendirtiyordu
   const listExtraData = useMemo(
-    () => ({ expandedId, donemUrunOzet, activeTab, ozetMode }),
-    [expandedId, donemUrunOzet, activeTab, ozetMode]
+    () => ({ expandedId, stableDonemUrunOzet, activeTab, ozetMode }),
+    [expandedId, stableDonemUrunOzet, activeTab, ozetMode]
   );
 
   // List header: search, tabs, period selector
@@ -596,6 +755,7 @@ export default function UrunlerPage() {
             options={PERIOD_OPTIONS}
             value={period}
             onChange={(value) => {
+              scrollListToTop();
               setPeriod(value as PeriodType);
               setPeriodOffset(0);
             }}
@@ -625,6 +785,7 @@ export default function UrunlerPage() {
                 <TouchableOpacity
                   onPress={() => {
                     haptics.light();
+                    scrollListToTop();
                     setPeriodOffset(periodOffset - 1);
                   }}
                   style={styles.periodNavButton}
@@ -638,6 +799,7 @@ export default function UrunlerPage() {
                 <TouchableOpacity
                   onPress={() => {
                     haptics.light();
+                    scrollListToTop();
                     setPeriodOffset(periodOffset + 1);
                   }}
                   style={styles.periodNavButton}
@@ -689,7 +851,7 @@ export default function UrunlerPage() {
         </View>
       )}
     </View>
-  ), [t, urunler, archivedCount, activeTab, TAB_OPTIONS, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, router, uncategorizedProductCount, categoryChips, categoryFilter, isFiltered, filteredUrunler, handleClearFilters, isExporting, ozetMode]);
+  ), [t, urunler, activeTab, period, PERIOD_OPTIONS, periodOffset, periodLabel, customStartDate, customEndDate, haptics, uncategorizedProductCount, categoryChips, categoryFilter, isFiltered, filteredUrunler, handleClearFilters, ozetMode, scrollListToTop, handlePeriodLabelPress]);
 
   // Empty component
   const listEmptyComponent = useMemo(() => {
@@ -697,7 +859,7 @@ export default function UrunlerPage() {
     // "Yükleniyor…" metnine dönüyordu; başlık, cam butonlar ve arama çubuğu kaybolup
     // veri gelince geri geldiği için sekmeler arası geçişte chrome sıçraması oluyordu).
     // Diğer üç ana sekmenin kalıbı bu: chrome durur, yalnız liste alanı iskelete döner.
-    if (isLoading) {
+    if (isLoading || isMetricSortPending) {
       return (
         <View style={styles.listSection}>
           <SkeletonAccountList count={5} />
@@ -726,9 +888,13 @@ export default function UrunlerPage() {
           <EmptyState
             icon={<Package size={48} color={colors.textMuted} />}
             title={t('products:empty.title')}
-            description={t('products:empty.description')}
-            actionLabel={t('products:addProduct')}
-            onAction={() => router.push('/urunler/ekle' as Href)}
+            description={canCreateProduct ? t('products:empty.description') : undefined}
+            actionLabel={canCreateProduct ? t('products:addProduct') : undefined}
+            onAction={
+              canCreateProduct
+                ? () => router.push('/urunler/ekle' as Href)
+                : undefined
+            }
           />
         </View>
       );
@@ -756,7 +922,7 @@ export default function UrunlerPage() {
         />
       </View>
     );
-  }, [activeTab, t, router, isFiltered, searchQuery, handleClearFilters, isLoading]);
+  }, [activeTab, t, router, isFiltered, searchQuery, handleClearFilters, isLoading, isMetricSortPending, canCreateProduct]);
 
   // Active list data
   const listData = activeTab === 'active' ? filteredUrunler : filteredArchivedUrunler;
@@ -770,9 +936,13 @@ export default function UrunlerPage() {
           (üstte boyansın) ve listenin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
       <FlatList
         ref={listRef}
-        onScroll={handleTabScroll}
+        onScroll={handleProductListScroll}
+        onScrollBeginDrag={handleScrollBeginDrag}
+        onScrollEndDrag={handleScrollEndDrag}
+        onMomentumScrollBegin={handleMomentumScrollBegin}
+        onMomentumScrollEnd={handleMomentumScrollEnd}
         scrollEventThrottle={16}
-        data={isLoading ? [] : listData}
+        data={isLoading || isMetricSortPending ? [] : listData}
         keyExtractor={keyExtractor}
         renderItem={activeTab === 'active' ? renderActiveItem : renderArchivedItem}
         ItemSeparatorComponent={UrunListSeparator}
@@ -795,10 +965,19 @@ export default function UrunlerPage() {
 
       <TabHeader
         glass
-        onHeightChange={setHeaderH}
+        onHeightChange={onHeaderHeightChange}
         title={t('products:title')}
         right={
           <>
+            <GlassIconButton
+              onPress={() => {
+                haptics.light();
+                router.push('/raporlar/alis-satis');
+              }}
+              accessibilityLabel={t('reports:titles.purchaseSales')}
+            >
+              <BarChart3 size={18} color={colors.info} />
+            </GlassIconButton>
             {/* accessibilityLabel ŞART: buton yalnız ikon taşıyor, metin çocuğu
                 olmadığı için ekran okuyucu adlandıramaz. */}
             {(urunler && urunler.length > 0) && (
@@ -829,14 +1008,14 @@ export default function UrunlerPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={t('products:search.placeholder')}
-          rightOffset={activeTab === 'active' ? FAB_SIZE + spacing.md : 0}
+          rightOffset={activeTab === 'active' && canCreateProduct ? FAB_SIZE + spacing.md : 0}
           onActiveChange={setSearchActive}
         />
       )}
 
       {/* QuickUrunBar */}
       <QuickUrunBar
-        visible={quickUrunVisible}
+        visible={canCreateProduct && quickUrunVisible}
         onDismiss={() => {
           setQuickUrunVisible(false);
           setSelectedUrun(null);
@@ -881,9 +1060,9 @@ export default function UrunlerPage() {
         showEndPicker={showEndPicker}
         setShowEndPicker={setShowEndPicker}
         customStartDate={customStartDate}
-        setCustomStartDate={setCustomStartDate}
+        setCustomStartDate={handleCustomStartDateChange}
         customEndDate={customEndDate}
-        setCustomEndDate={setCustomEndDate}
+        setCustomEndDate={handleCustomEndDateChange}
         goToYear={goToYear}
         goToMonth={goToMonth}
         goToDay={goToDay}
@@ -901,7 +1080,7 @@ export default function UrunlerPage() {
       />
 
       {/* FAB Backdrop */}
-      {activeTab === 'active' && fabMenuVisible && (
+      {canCreateProduct && activeTab === 'active' && fabMenuVisible && (
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setFabMenuVisible(false)}>
           <Animated.View
             style={[
@@ -913,7 +1092,7 @@ export default function UrunlerPage() {
       )}
 
       {/* FAB Menu Items */}
-      {activeTab === 'active' && fabMenuVisible && (
+      {canCreateProduct && activeTab === 'active' && fabMenuVisible && (
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
           style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
@@ -967,7 +1146,7 @@ export default function UrunlerPage() {
 
       {/* FAB Button — arama aktifken de çekilir: pill tam genişliğe açılıp FAB'ın
           altına girer ve kapatma X'ini (44px) tamamen örterdi. Süre X'lerle aynı (150ms). */}
-      {activeTab === 'active' && !searchActive && (
+      {canCreateProduct && activeTab === 'active' && !searchActive && (
         <ReAnimated.View
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
           entering={ZoomIn.duration(150)}

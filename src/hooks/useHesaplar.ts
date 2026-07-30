@@ -6,11 +6,13 @@ import { Hesap, HesapInsert, HesapUpdate } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import i18n from '@/i18n';
 import { usePermissions } from '@/hooks/usePermissions';
+import { reportEntityRowsToHesaplar } from '@/lib/reportPermissionProjection';
 
 export function useHesaplar(
   includePassive: boolean = false,
   includeArchived: boolean = false,
   enabled: boolean = true,
+  allowReportAccess: boolean = false,
 ) {
   const { isletme, isletmeLoading } = useAuthContext();
   const {
@@ -19,6 +21,12 @@ export function useHesaplar(
     canUseBirikim,
   } = usePermissions();
   const canSeeHesaplar = canAccessModule('hesaplar');
+  const hasReportAccess =
+    allowReportAccess && canAccessModule('raporlar');
+  const canReadHesaplar =
+    canSeeHesaplar
+    || hasReportAccess;
+  const canReadBirikim = hasReportAccess || canUseBirikim;
   const effectiveIncludePassive = includePassive && canSeePassiveRecords;
 
   const query = useQuery({
@@ -29,10 +37,12 @@ export function useHesaplar(
         includeArchived,
       ),
       'birikim',
-      canUseBirikim,
+      canReadBirikim,
+      'report-access',
+      allowReportAccess,
     ],
     queryFn: async () => {
-      if (!canSeeHesaplar || !isletme) return [];
+      if (!canReadHesaplar || !isletme) return [];
 
       let queryBuilder = supabase
         .from('hesaplar')
@@ -49,7 +59,7 @@ export function useHesaplar(
       if (!effectiveIncludePassive) {
         queryBuilder = queryBuilder.eq('is_active', true);
       }
-      if (!canUseBirikim) {
+      if (!canReadBirikim) {
         queryBuilder = queryBuilder.neq('type', 'birikim');
       }
 
@@ -58,7 +68,7 @@ export function useHesaplar(
       if (error) throw error;
       return data as Hesap[];
     },
-    enabled: enabled && canSeeHesaplar && !!isletme,
+    enabled: enabled && canReadHesaplar && !!isletme,
     staleTime: 10 * 60 * 1000, // 10 dk - mutation'lar zaten invalidate eder
     gcTime: 30 * 60 * 1000,    // 30 dk cache
     meta: { query_purpose: 'hesaplar:list' },
@@ -67,7 +77,69 @@ export function useHesaplar(
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...query,
-    isLoading: enabled && canSeeHesaplar && (query.isLoading || isletmeLoading),
+    isLoading: enabled && canReadHesaplar && (query.isLoading || isletmeLoading),
+  };
+}
+
+/**
+ * Rapor yüzeyindeki hesap referansları.
+ *
+ * Hesaplar modülü açıksa mevcut entity sorgusu korunur. Yalnız Raporlar açık
+ * profilde ise `hesaplar.*` RLS'i genişletilmez; ad/tip/para birimi/bakiyeden
+ * oluşan dar rapor projeksiyonu kullanılır.
+ */
+export function useReportHesaplar(enabled: boolean = true) {
+  const { isletme, user, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const canSeeReports = canAccessModule('raporlar');
+  const useReportProjection = canSeeReports && !canSeeHesaplar;
+  const canRead = canSeeHesaplar || canSeeReports;
+
+  const directQuery = useHesaplar(false, false, enabled, false);
+  const projectionQuery = useQuery({
+    queryKey: [
+      'reports',
+      'entity-references-v1',
+      isletme?.id ?? '',
+      user?.id ?? '',
+      'hesap',
+    ],
+    queryFn: async () => {
+      if (!useReportProjection || !isletme) return [];
+      const { data, error } = await supabase.rpc(
+        'get_rapor_varlik_referanslari_v1',
+        {
+          p_isletme_id: isletme.id,
+          p_kind: 'hesap',
+        },
+      );
+      if (error) throw error;
+      return reportEntityRowsToHesaplar(data, isletme.id);
+    },
+    enabled:
+      enabled
+      && useReportProjection
+      && !!isletme
+      && !!user?.id,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    meta: {
+      persist: false,
+      query_purpose: 'reports:entity-references-v1:hesap',
+    },
+  });
+
+  const selectedQuery = useReportProjection
+    ? projectionQuery
+    : directQuery;
+  return {
+    ...selectedQuery,
+    data: enabled && canRead ? selectedQuery.data ?? [] : [],
+    isLoading:
+      enabled
+      && canRead
+      && (selectedQuery.isLoading || isletmeLoading),
   };
 }
 
@@ -81,7 +153,15 @@ export function useHesap(id: string | undefined) {
   const canSeeHesaplar = canAccessModule('hesaplar');
 
   return useQuery({
-    queryKey: queryKeys.hesaplar.detail(id ?? '', isletme?.id ?? ''),
+    queryKey: [
+      ...queryKeys.hesaplar.detail(id ?? '', isletme?.id ?? ''),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeeHesaplar,
+      'birikim-scope',
+      canUseBirikim,
+    ],
     queryFn: async () => {
       if (!canSeeHesaplar || !id || !isletme) return null;
 
@@ -175,44 +255,38 @@ export function useDeleteHesap() {
       }
 
       // İşlem varsa silmeyi engelle - bakiye bozulmasını önle
-      const { count: islemCount } = await supabase
+      const { count: islemCount, error: islemCountError } = await supabase
         .from('islemler')
         .select('id', { count: 'exact', head: true })
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
+      if (islemCountError) throw islemCountError;
       if (islemCount && islemCount > 0) {
         throw new Error(i18n.t('errors:account.hasTransactions'));
       }
 
       // İleri tarihli işlem varsa silmeyi engelle
-      const { count: ileriCount } = await supabase
+      const { count: ileriCount, error: ileriCountError } = await supabase
         .from('ileri_tarihli_islemler')
         .select('id', { count: 'exact', head: true })
         .eq('isletme_id', isletme.id)
         .or(`hesap_id.eq.${id},hedef_hesap_id.eq.${id}`);
 
+      if (ileriCountError) throw ileriCountError;
       if (ileriCount && ileriCount > 0) {
         throw new Error(i18n.t('errors:account.hasFutureTransactions'));
       }
 
-      // Bu hesaba iliştirilmiş notları genel nota çevir (yetim not kalmasın)
-      const { error: notlarError } = await supabase
-        .from('notlar')
-        .update({ entity_type: 'genel', entity_id: null })
-        .eq('entity_id', id)
-        .eq('entity_type', 'hesap')
-        .eq('isletme_id', isletme.id);
-      if (notlarError && __DEV__) {
-        console.error('Not temizleme başarısız (yetim not kalabilir):', notlarError);
-      }
-
-      // İşlem/çek/avans yoksa güvenle sil
+      // Sunucu bağlı kayıtları yeniden doğrular, notları aynı DELETE transaction'ında
+      // genel nota çevirir ve tam bir silinen satır döndürür.
       const { error } = await supabase
         .from('hesaplar')
         .delete()
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },

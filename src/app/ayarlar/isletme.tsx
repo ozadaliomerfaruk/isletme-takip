@@ -1,5 +1,5 @@
 import { useState, useEffect, type ReactNode } from 'react';
-import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Pressable, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -38,7 +38,8 @@ function SheetBody({ children }: { children: ReactNode }) {
 }
 
 export default function IsletmeBilgileriPage() {
-  const contentPaddingBottom = useContentBottomPadding();
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['settings', 'common', 'errors', 'auth']);
@@ -209,12 +210,14 @@ export default function IsletmeBilgileriPage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* İşletme Icon */}
             <View style={styles.iconContainer}>
@@ -331,27 +334,27 @@ export default function IsletmeBilgileriPage() {
               </View>
             </TouchableOpacity>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updateIsletme.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.save')}
-              </Button>
-            </View>
           </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updateIsletme.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.save')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
 
         {/* Şifre Değiştirme Modal */}
@@ -500,11 +503,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.md,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

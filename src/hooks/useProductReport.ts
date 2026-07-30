@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -14,6 +14,14 @@ const PURCHASE_RETURN_TYPES = ['cari_alis_iade'];
 // Satış işlem tipleri
 const SALE_TYPES = ['cari_satis', 'personel_satis'];
 const SALE_RETURN_TYPES = ['cari_satis_iade'];
+
+const PRODUCT_REPORT_QUERY_META = {
+  persist: false,
+  query_purpose: 'reports:product-report-v2',
+} as const;
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type ProductReportDirection = 'alis' | 'satis';
 
@@ -50,6 +58,49 @@ interface UseProductReportOptions {
   endDate: string;
 }
 
+interface ProductReportRpcRow {
+  urun_id: string;
+  urun_adi: string;
+  urun_birim: string;
+  kategori_id: string | null;
+  kategori_adi: string | null;
+  toplam_miktar: number | string;
+  toplam_tutar: number | string;
+  toplam_tutar_kdvsiz: number | string;
+  islem_sayisi: number | string;
+}
+
+function isFiniteNumeric(value: unknown): value is number | string {
+  return (
+    (typeof value === 'number' || typeof value === 'string')
+    && value !== ''
+    && Number.isFinite(Number(value))
+  );
+}
+
+function isProductReportRpcRow(value: unknown): value is ProductReportRpcRow {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  return (
+    typeof row.urun_id === 'string'
+    && UUID_PATTERN.test(row.urun_id)
+    && typeof row.urun_adi === 'string'
+    && typeof row.urun_birim === 'string'
+    && (
+      row.kategori_id === null
+      || (
+        typeof row.kategori_id === 'string'
+        && UUID_PATTERN.test(row.kategori_id)
+      )
+    )
+    && (row.kategori_adi === null || typeof row.kategori_adi === 'string')
+    && isFiniteNumeric(row.toplam_miktar)
+    && isFiniteNumeric(row.toplam_tutar)
+    && isFiniteNumeric(row.toplam_tutar_kdvsiz)
+    && isFiniteNumeric(row.islem_sayisi)
+  );
+}
+
 function normalizeDateRange(startDate: string, endDate: string) {
   const startDateTime = startDate.includes('T') ? startDate : `${startDate}T00:00:00`;
   const endDateTime = endDate.includes('T') ? endDate : `${endDate}T23:59:59`;
@@ -60,10 +111,26 @@ export function useProductReport(
   direction: ProductReportDirection,
   options: UseProductReportOptions
 ): ProductReportResult {
-  const { isletme } = useAuthContext();
-  const { canAccessModule } = usePermissions();
+  const { isletme, user, isletmeLoading } = useAuthContext();
+  const {
+    isOwner,
+    canAccessModule,
+    canSeeAllUsersData,
+  } = usePermissions();
+  const canViewReports = canAccessModule('raporlar');
+  const canViewProducts = canAccessModule('urunler');
+  const canViewProductReport = canViewReports || canViewProducts;
   const reportsEnabled =
-    canAccessModule('raporlar') && canAccessModule('urunler');
+    !isletmeLoading
+    && !!isletme
+    && !!user
+    && canViewProductReport;
+  const permissionFingerprint = [
+    `o${Number(isOwner)}`,
+    `r${Number(canViewReports)}`,
+    `u${Number(canViewProducts)}`,
+    `a${Number(canSeeAllUsersData)}`,
+  ].join('');
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -74,18 +141,19 @@ export function useProductReport(
   const returnTypes = direction === 'alis' ? PURCHASE_RETURN_TYPES : SALE_RETURN_TYPES;
 
   // Ana sorgu: ürün bazlı kırılım
-  const {
-    data: mainData,
-    isLoading: mainLoading,
-    isFetching: mainFetching,
-    error: mainError,
-    refetch: refetchMain,
-  } = useQuery({
-    queryKey: queryKeys.reports.productReport(isletme?.id ?? '', direction, startDateTime, endDateTime),
+  const mainQuery = useQuery({
+    queryKey: queryKeys.reports.productReport(
+      isletme?.id ?? '',
+      user?.id ?? '',
+      permissionFingerprint,
+      direction,
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme) return [];
 
-      const { data, error } = await supabase.rpc('get_product_report', {
+      const { data, error } = await supabase.rpc('get_product_report_v2', {
         p_isletme_id: isletme.id,
         p_islem_types: islemTypes,
         p_start_date: startDateTime,
@@ -97,31 +165,27 @@ export function useProductReport(
         throw error;
       }
 
-      return (data || []) as Array<{
-        urun_id: string;
-        urun_adi: string;
-        urun_birim: string;
-        kategori_id: string | null;
-        kategori_adi: string | null;
-        toplam_miktar: number;
-        toplam_tutar: number;
-        toplam_tutar_kdvsiz: number;
-        islem_sayisi: number;
-      }>;
+      const rows: unknown[] = Array.isArray(data) ? data : [];
+      return rows.filter(isProductReportRpcRow);
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
+    meta: PRODUCT_REPORT_QUERY_META,
   });
 
   // İade sorgusu: toplam iade tutarı (net hesaplama için)
-  const {
-    data: returnData,
-    isLoading: returnLoading,
-  } = useQuery({
-    queryKey: queryKeys.reports.productReportReturns(isletme?.id ?? '', direction, startDateTime, endDateTime),
+  const returnQuery = useQuery({
+    queryKey: queryKeys.reports.productReportReturns(
+      isletme?.id ?? '',
+      user?.id ?? '',
+      permissionFingerprint,
+      direction,
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme) return 0;
 
-      const { data, error } = await supabase.rpc('get_product_report', {
+      const { data, error } = await supabase.rpc('get_product_report_v2', {
         p_isletme_id: isletme.id,
         p_islem_types: returnTypes,
         p_start_date: startDateTime,
@@ -130,14 +194,35 @@ export function useProductReport(
 
       if (error) {
         if (__DEV__) console.error('[useProductReport] returns RPC error:', error.message);
-        return 0;
+        throw error;
       }
 
-      return (data || []).reduce((sum: number, row: { toplam_tutar?: number | string }) =>
+      const rows: unknown[] = Array.isArray(data) ? data : [];
+      return rows.filter(isProductReportRpcRow).reduce((sum, row) =>
         sum + (Number(row.toplam_tutar) || 0), 0);
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
+    meta: PRODUCT_REPORT_QUERY_META,
   });
+
+  const hasUnsafeQueryState =
+    mainQuery.isError
+    || mainQuery.isRefetchError
+    || returnQuery.isError
+    || returnQuery.isRefetchError;
+  const mainData = useMemo(
+    () => (
+      reportsEnabled && !hasUnsafeQueryState
+        ? mainQuery.data ?? []
+        : []
+    ),
+    [hasUnsafeQueryState, mainQuery.data, reportsEnabled],
+  );
+  const returnData =
+    reportsEnabled
+    && !hasUnsafeQueryState
+      ? returnQuery.data ?? 0
+      : 0;
 
   const result = useMemo(() => {
     // RPC tutarları TRY cinsinden döner; ana para birimine çevir.
@@ -148,16 +233,17 @@ export function useProductReport(
     const converter = createRpcTotalConverter(baseCurrency, rates);
     const conv = converter.conv;
 
-    const returnTotal = conv(returnData || 0);
+    const returnTotal = conv(returnData);
 
-    if (!mainData || mainData.length === 0) {
+    if (mainData.length === 0) {
       return {
         items: [],
         totalAmount: 0,
         totalAmountKdvsiz: 0,
         returnTotal,
-        netAmount: -returnTotal,
+        netAmount: returnTotal === 0 ? 0 : -returnTotal,
         totalTransactions: 0,
+        conversionIncomplete: converter.conversionIncomplete,
       };
     }
 
@@ -195,11 +281,27 @@ export function useProductReport(
     };
   }, [mainData, returnData, baseCurrency, rates]);
 
+  const refetchMain = mainQuery.refetch;
+  const refetchReturns = returnQuery.refetch;
+  const refetch = useCallback(
+    async () => Promise.all([
+      refetchMain(),
+      refetchReturns(),
+    ]),
+    [refetchMain, refetchReturns],
+  );
+
   return {
     ...result,
-    isLoading: mainLoading || returnLoading,
-    isFetching: mainFetching,
-    refetch: refetchMain,
-    error: mainError,
+    isLoading:
+      reportsEnabled
+      && (mainQuery.isLoading || returnQuery.isLoading),
+    isFetching:
+      reportsEnabled
+      && (mainQuery.isFetching || returnQuery.isFetching),
+    refetch,
+    error: reportsEnabled
+      ? mainQuery.error || returnQuery.error
+      : null,
   };
 }

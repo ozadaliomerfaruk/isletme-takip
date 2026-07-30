@@ -13,6 +13,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
 import { tabBarCollapsed, resetTabBarCollapse, scrollTabToTop } from '@/lib/tabBarScroll';
 import { getActiveTab } from '@/lib/tabBarVisibility';
+import { canShowMainTab, type MainTabKey } from '@/lib/permissionNavigation';
 import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST, FALLBACK_BLUR_INTENSITY } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
 
@@ -134,7 +135,9 @@ export function PersistentTabBar() {
 
   const activeTab = getActiveTab(segments as string[]);
 
-  const visibleTabs = TABS.filter((tab) => !tab.module || canAccessModule(tab.module));
+  const visibleTabs = TABS.filter((tab) =>
+    canShowMainTab(tab.key as MainTabKey, canAccessModule)
+  );
   const n = visibleTabs.length;
   const activeIndex = Math.max(0, visibleTabs.findIndex((tab) => tab.key === activeTab));
 

@@ -16,23 +16,27 @@ import { colors } from '@/constants/colors';
 import { spacing, fontSize, fontWeight } from '@/constants/spacing';
 import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
 import { toNumber } from '@/lib/currency';
-import { useHesaplar } from '@/hooks/useHesaplar';
-import { useCariler } from '@/hooks/useCariler';
-import { usePersonelList } from '@/hooks/usePersonel';
+import { useReportHesaplar } from '@/hooks/useHesaplar';
+import { useReportCariler } from '@/hooks/useCariler';
+import { useReportPersonelList } from '@/hooks/usePersonel';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createConversionSum, formatConvertedHint } from '@/hooks/useExchangeRates';
 import type { TabContentProps } from './types';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export function GenelTabContent(_props: TabContentProps) {
   const router = useRouter();
   const segments = useSegments();
   const { t } = useTranslation(['reports', 'common']);
   const { currency: baseCurrency } = useSettings();
+  const { canAccessModule } = usePermissions();
+  const canOpenCariler = canAccessModule('cariler');
+  const canOpenPersonel = canAccessModule('personel');
 
-  const { data: hesaplar } = useHesaplar();
-  const { data: cariler } = useCariler();
-  const { data: personelList } = usePersonelList();
+  const { data: hesaplar } = useReportHesaplar();
+  const { data: cariler } = useReportCariler();
+  const { data: personelList } = useReportPersonelList();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
   const financialSummary = useFinancialSummary();
@@ -265,7 +269,15 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.clientStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => goToTab(router, segments, '/(tabs)/cariler')}>
+        <TouchableOpacity
+          activeOpacity={canOpenCariler ? 0.8 : 1}
+          disabled={!canOpenCariler}
+          onPress={
+            canOpenCariler
+              ? () => goToTab(router, segments, '/(tabs)/cariler')
+              : undefined
+          }
+        >
           <Card>
             <View style={styles.accountHeader}>
               <Building2 size={20} color={colors.warning} />
@@ -309,7 +321,15 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.personnelStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => goToTab(router, segments, '/(tabs)/personel')}>
+        <TouchableOpacity
+          activeOpacity={canOpenPersonel ? 0.8 : 1}
+          disabled={!canOpenPersonel}
+          onPress={
+            canOpenPersonel
+              ? () => goToTab(router, segments, '/(tabs)/personel')
+              : undefined
+          }
+        >
           <Card>
             <View style={styles.accountHeader}>
               <Users size={20} color={colors.info} />

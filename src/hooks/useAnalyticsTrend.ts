@@ -17,6 +17,8 @@ import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from './useSettings';
 import { useExchangeRates, createRpcTotalConverter, convertCurrency } from './useExchangeRates';
 import { usePermissions } from './usePermissions';
+import { buildCustomTrendPeriods } from '@/lib/reportTrendPeriods';
+import { parseReportTrendProjectionRows } from '@/lib/reportPermissionProjection';
 import type {
   AnalyticsTrend,
   AnalyticsPeriod,
@@ -80,15 +82,11 @@ export function useAnalyticsTrend(
   period: AnalyticsPeriod,
   filter?: TrendFilter | null,
   dateRange?: DateRange,
+  isCustomRange = false,
 ): AnalyticsTrend {
   const { isletme } = useAuthContext();
-  const { canAccessModule } = usePermissions();
-  const reportsEnabled =
-    canAccessModule('raporlar')
-    && canAccessModule('hesaplar')
-    && canAccessModule('cariler')
-    && canAccessModule('urunler')
-    && canAccessModule('personel');
+  const { canAccessModule, isOwner } = usePermissions();
+  const reportsEnabled = canAccessModule('raporlar');
   const { t } = useTranslation('common');
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
@@ -109,41 +107,58 @@ export function useAnalyticsTrend(
     // kurlar yüklendiğinde/güncellendiğinde trend yeniden hesaplanmalı.
     queryKey: [
       ...queryKeys.analytics.trend(isletme?.id ?? '', period, filter?.type || null, filter?.id || null, dateRange?.startDate, dateRange?.endDate),
+      isCustomRange ? 'custom-range' : 'standard-range',
       baseCurrency,
       ratesVersion,
     ],
     queryFn: async () => {
       if (!reportsEnabled || !isletme) return null;
 
-      // Calculate date ranges for 6 periods
-      const periods: Array<{
+      // Standart seçimde son altı takvim dönemi; özel seçimde ise yalnız seçilen
+      // aralığı kapsayan en fazla altı kesintisiz dilim gösterilir.
+      let periods: Array<{
         offset: number;
         startDate: string;
         endDate: string;
         label: string;
-      }> = [];
+      }>;
 
-      // Find the correct offset for the given dateRange
-      let currentOffset = 0;
-      if (dateRange) {
-        for (let testOffset = -50; testOffset <= 50; testOffset++) {
-          const testRange = getDateRange(period, testOffset);
-          if (testRange.startDate === dateRange.startDate) {
-            currentOffset = testOffset;
-            break;
+      if (isCustomRange && dateRange) {
+        periods = buildCustomTrendPeriods(dateRange);
+      } else {
+        periods = [];
+
+        // Find the correct offset for the given dateRange
+        let currentOffset = 0;
+        if (dateRange) {
+          for (let testOffset = -50; testOffset <= 50; testOffset++) {
+            const testRange = getDateRange(period, testOffset);
+            if (testRange.startDate === dateRange.startDate) {
+              currentOffset = testOffset;
+              break;
+            }
           }
+        }
+
+        for (let i = 0; i < 6; i++) {
+          const offset = currentOffset - 5 + i;
+          const range = getDateRange(period, offset);
+          periods.push({
+            offset: offset - currentOffset, // normalize so current = 0
+            startDate: range.startDate,
+            endDate: range.endDate,
+            label: getPeriodLabel(period, offset, monthsShort),
+          });
         }
       }
 
-      for (let i = 0; i < 6; i++) {
-        const offset = currentOffset - 5 + i;
-        const range = getDateRange(period, offset);
-        periods.push({
-          offset: offset - currentOffset, // normalize so current = 0
-          startDate: range.startDate,
-          endDate: range.endDate,
-          label: getPeriodLabel(period, offset, monthsShort),
-        });
+      if (periods.length === 0) {
+        return {
+          data: [],
+          totals: { income: 0, expense: 0, net: 0 },
+          averages: { income: 0, expense: 0, net: 0 },
+          conversionIncomplete: false,
+        };
       }
 
       const hasFilter = !!(filter?.type && filter?.id);
@@ -198,13 +213,71 @@ export function useAnalyticsTrend(
         });
         if (converter.conversionIncomplete) conversionIncomplete = true;
       } else {
-        // With filter: use fetchAllPages to bypass 1000-row limit
         const oldestStart = periods[0].startDate;
         const newestEnd = periods[periods.length - 1].endDate;
 
+        if (!isOwner) {
+          const { data, error } = await supabase.rpc(
+            'get_rapor_trend_ozeti_v1',
+            {
+              p_isletme_id: isletme.id,
+              p_filter_kind: filter!.type,
+              p_filter_id: filter!.id,
+              p_start_date: `${oldestStart}T00:00:00`,
+              p_end_date: `${newestEnd}T23:59:59`,
+            },
+          );
+          if (error) throw error;
+          const reportRows = parseReportTrendProjectionRows(data);
+
+          const toBaseAmount = (
+            amount: number,
+            currency: string,
+          ): number => {
+            if (currency === baseCurrency) return amount;
+            const converted = convertCurrency(
+              amount,
+              currency,
+              baseCurrency,
+              rates,
+            );
+            if (converted === null) {
+              conversionIncomplete = true;
+              return amount;
+            }
+            return converted;
+          };
+
+          trendData = periods.map((p) => {
+            const summary = calculateIncomeSummary(
+              reportRows
+                .filter(
+                  (row) =>
+                    row.report_date >= p.startDate
+                    && row.report_date <= p.endDate,
+                )
+                .map((row) => ({
+                  type: row.type,
+                  amount: toBaseAmount(
+                    row.total_amount,
+                    row.currency,
+                  ),
+                })),
+            );
+            return {
+              label: p.label,
+              income: summary.income,
+              expense: summary.expense,
+              net: summary.income - summary.expense,
+              isCurrentPeriod:
+                todayStr >= p.startDate && todayStr <= p.endDate,
+            };
+          });
+        } else {
+        // Owner filtered path: keep the existing direct, paginated query.
         type TrendEntity = { currency: string | null; is_active?: boolean | null };
         type TrendRow = {
-          type: string; amount: number; date: string;
+          id: string; type: string; amount: number; date: string;
           hesap: TrendEntity | TrendEntity[] | null;
           cari: TrendEntity | TrendEntity[] | null;
           personel: TrendEntity | TrendEntity[] | null;
@@ -235,10 +308,12 @@ export function useAnalyticsTrend(
         const data = await fetchAllPages<TrendRow>(() => {
           let q = supabase
             .from('islemler')
-            .select('type, amount, date, hesap:hesaplar!hesap_id(currency,is_active), cari:cariler(currency,is_active), personel:personel(currency,is_active)')
+            .select('id, type, amount, date, hesap:hesaplar!hesap_id(currency,is_active), cari:cariler(currency,is_active), personel:personel(currency,is_active)')
             .eq('isletme_id', isletme.id)
             .gte('date', `${oldestStart}T00:00:00`)
-            .lte('date', `${newestEnd}T23:59:59`);
+            .lte('date', `${newestEnd}T23:59:59`)
+            .order('date', { ascending: true })
+            .order('id', { ascending: true });
 
           switch (filter!.type) {
             case 'hesap':
@@ -277,6 +352,7 @@ export function useAnalyticsTrend(
             isCurrentPeriod: todayStr >= p.startDate && todayStr <= p.endDate,
           };
         });
+        }
       }
 
       // Calculate totals
@@ -308,10 +384,21 @@ export function useAnalyticsTrend(
     staleTime: 5 * 60 * 1000, // 5 dk
   });
 
+  const canShowTrend =
+    reportsEnabled
+    && !trendQuery.isError
+    && !trendQuery.isRefetchError;
   return {
-    data: trendQuery.data?.data || [],
-    totals: trendQuery.data?.totals || { income: 0, expense: 0, net: 0 },
-    averages: trendQuery.data?.averages || { income: 0, expense: 0, net: 0 },
+    data: canShowTrend ? trendQuery.data?.data || [] : [],
+    totals: canShowTrend
+      ? trendQuery.data?.totals || { income: 0, expense: 0, net: 0 }
+      : { income: 0, expense: 0, net: 0 },
+    averages: canShowTrend
+      ? trendQuery.data?.averages || { income: 0, expense: 0, net: 0 }
+      : { income: 0, expense: 0, net: 0 },
+    conversionIncomplete:
+      canShowTrend
+      && (trendQuery.data?.conversionIncomplete ?? false),
     isLoading: trendQuery.isLoading,
   };
 }

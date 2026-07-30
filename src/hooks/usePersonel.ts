@@ -8,25 +8,34 @@ import { toNumber } from '@/lib/currency';
 import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
 import { usePermissions } from '@/hooks/usePermissions';
+import { reportEntityRowsToPersonel } from '@/lib/reportPermissionProjection';
 
 export function usePersonelList(
   includePassive: boolean = false,
   includeArchived: boolean = false,
   enabled: boolean = true,
+  allowReportAccess: boolean = false,
 ) {
   const { isletme, isletmeLoading } = useAuthContext();
   const { canAccessModule, canSeePassiveRecords } = usePermissions();
   const canSeePersonel = canAccessModule('personel');
+  const canReadPersonel =
+    canSeePersonel
+    || (allowReportAccess && canAccessModule('raporlar'));
   const effectiveIncludePassive = includePassive && canSeePassiveRecords;
 
   const result = useQuery({
-    queryKey: queryKeys.personel.list(
-      isletme?.id ?? '',
-      effectiveIncludePassive,
-      includeArchived,
-    ),
+    queryKey: [
+      ...queryKeys.personel.list(
+        isletme?.id ?? '',
+        effectiveIncludePassive,
+        includeArchived,
+      ),
+      'report-access',
+      allowReportAccess,
+    ],
     queryFn: async () => {
-      if (!canSeePersonel || !isletme) return [];
+      if (!canReadPersonel || !isletme) return [];
 
       let query = supabase
         .from('personel')
@@ -49,7 +58,7 @@ export function usePersonelList(
       if (error) throw error;
       return data as Personel[];
     },
-    enabled: enabled && canSeePersonel && !!isletme,
+    enabled: enabled && canReadPersonel && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     meta: { query_purpose: 'personel:list' },
@@ -58,7 +67,73 @@ export function usePersonelList(
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...result,
-    isLoading: enabled && canSeePersonel && (result.isLoading || isletmeLoading),
+    isLoading: enabled && canReadPersonel && (result.isLoading || isletmeLoading),
+  };
+}
+
+/**
+ * Rapor yüzeyindeki personel referansları.
+ *
+ * Personel modülü kapalı reports-only profilde telefon/maaş/not gibi PII
+ * alanları yerine yalnız ad/soyad/para birimi/bakiye projeksiyonu indirilir.
+ */
+export function useReportPersonelList(enabled: boolean = true) {
+  const { isletme, user, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeReports = canAccessModule('raporlar');
+  const useReportProjection = canSeeReports && !canSeePersonel;
+  const canRead = canSeePersonel || canSeeReports;
+
+  const directQuery = usePersonelList(
+    false,
+    false,
+    enabled,
+    false,
+  );
+  const projectionQuery = useQuery({
+    queryKey: [
+      'reports',
+      'entity-references-v1',
+      isletme?.id ?? '',
+      user?.id ?? '',
+      'personel',
+    ],
+    queryFn: async () => {
+      if (!useReportProjection || !isletme) return [];
+      const { data, error } = await supabase.rpc(
+        'get_rapor_varlik_referanslari_v1',
+        {
+          p_isletme_id: isletme.id,
+          p_kind: 'personel',
+        },
+      );
+      if (error) throw error;
+      return reportEntityRowsToPersonel(data, isletme.id);
+    },
+    enabled:
+      enabled
+      && useReportProjection
+      && !!isletme
+      && !!user?.id,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    meta: {
+      persist: false,
+      query_purpose: 'reports:entity-references-v1:personel',
+    },
+  });
+
+  const selectedQuery = useReportProjection
+    ? projectionQuery
+    : directQuery;
+  return {
+    ...selectedQuery,
+    data: enabled && canRead ? selectedQuery.data ?? [] : [],
+    isLoading:
+      enabled
+      && canRead
+      && (selectedQuery.isLoading || isletmeLoading),
   };
 }
 
@@ -111,7 +186,13 @@ export function usePersonel(id: string | undefined) {
   const canSeePersonel = canAccessModule('personel');
 
   return useQuery({
-    queryKey: queryKeys.personel.detail(id ?? '', isletme?.id ?? ''),
+    queryKey: [
+      ...queryKeys.personel.detail(id ?? '', isletme?.id ?? ''),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeePersonel,
+    ],
     queryFn: async () => {
       if (!canSeePersonel || !id || !isletme) return null;
 
@@ -126,7 +207,7 @@ export function usePersonel(id: string | undefined) {
       if (error) throw error;
       return data as Personel;
     },
-    enabled: canSeePersonel && !!id,
+    enabled: canSeePersonel && !!id && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -207,44 +288,38 @@ export function useDeletePersonel() {
       }
 
       // Bağlı işlem kontrolü - varsa silmeyi engelle
-      const { count: islemCount } = await supabase
+      const { count: islemCount, error: islemCountError } = await supabase
         .from('islemler')
         .select('id', { count: 'exact', head: true })
         .eq('personel_id', id)
         .eq('isletme_id', isletme.id);
 
+      if (islemCountError) throw islemCountError;
       if (islemCount && islemCount > 0) {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedTransactions', { count: islemCount }));
       }
 
       // Bağlı ileri tarihli işlem kontrolü
-      const { count: scheduledCount } = await supabase
+      const { count: scheduledCount, error: scheduledCountError } = await supabase
         .from('ileri_tarihli_islemler')
         .select('id', { count: 'exact', head: true })
         .eq('personel_id', id)
         .eq('isletme_id', isletme.id);
 
+      if (scheduledCountError) throw scheduledCountError;
       if (scheduledCount && scheduledCount > 0) {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedScheduledTransactions', { count: scheduledCount }));
       }
 
-      // Bu personele iliştirilmiş notları (personel + izin notları) genel nota çevir (yetim not kalmasın)
-      const { error: notlarError } = await supabase
-        .from('notlar')
-        .update({ entity_type: 'genel', entity_id: null })
-        .eq('entity_id', id)
-        .in('entity_type', ['personel', 'personel_izin'])
-        .eq('isletme_id', isletme.id);
-      if (notlarError && __DEV__) {
-        console.error('Not temizleme başarısız (yetim not kalabilir):', notlarError);
-      }
-
-      // Personeli sil (bağlı kayıt yoksa güvenle silinebilir)
+      // Sunucu bağlı kayıtları yeniden doğrular; personel ve izin notlarını aynı
+      // DELETE transaction'ında genel nota çevirir ve tam bir satır döndürür.
       const { error } = await supabase
         .from('personel')
         .delete()
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },

@@ -5,7 +5,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import type * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { supabase, checkNetworkConnectivity } from '@/lib/supabase';
+import { supabase, checkBackendConnectivity } from '@/lib/supabase';
 import { wipePersistedCache } from '@/lib/queryClient';
 import { isPermissionNarrowing } from '@/lib/permissionCacheGuard';
 import { clearLastUsedSelections } from '@/lib/lastUsedSelections';
@@ -272,8 +272,8 @@ export function useAuth() {
         // storage + gerekirse refresh); (c) isletme fetch süresi (postgrest + token bekleme).
         const __t0 = Date.now();
         if (__DEV__) {
-          checkNetworkConnectivity()
-            .then((ok) => console.log(`[auth-debug] health-probe ok=${ok} · ${Date.now() - __t0}ms`))
+          checkBackendConnectivity()
+            .then((ok) => console.log(`[auth-debug] backend-health ok=${ok} · ${Date.now() - __t0}ms`))
             .catch((e) => console.log('[auth-debug] health-probe HATA:', String(e)));
           console.log('[auth-debug] getSession başlıyor');
         }

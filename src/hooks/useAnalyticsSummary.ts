@@ -11,9 +11,9 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { useFinancialSummary } from './useFinancialSummary';
-import { useHesaplar } from './useHesaplar';
-import { useCariler } from './useCariler';
-import { usePersonelList } from './usePersonel';
+import { useReportHesaplar } from './useHesaplar';
+import { useReportCariler } from './useCariler';
+import { useReportPersonelList } from './usePersonel';
 import { useSettings } from './useSettings';
 import { useExchangeRates, createRpcTotalConverter } from './useExchangeRates';
 import { getDateRange } from '@/lib/date';
@@ -48,21 +48,17 @@ export function useAnalyticsSummary(
 ): AnalyticsSummary {
   const { isletme } = useAuthContext();
   const { canAccessModule } = usePermissions();
-  const reportsEnabled =
-    canAccessModule('raporlar')
-    && canAccessModule('hesaplar')
-    && canAccessModule('cariler')
-    && canAccessModule('urunler')
-    && canAccessModule('personel');
+  const reportsEnabled = canAccessModule('raporlar');
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
 
   // Get instant metrics from existing hooks
   const financialSummary = useFinancialSummary(reportsEnabled);
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
-  const { data: cariler, isLoading: carilerLoading } = useCariler();
-  const { data: personelList, isLoading: personelLoading } = usePersonelList();
+  const { data: hesaplar, isLoading: hesaplarLoading } = useReportHesaplar();
+  const { data: cariler, isLoading: carilerLoading } = useReportCariler();
+  const { data: personelList, isLoading: personelLoading } =
+    useReportPersonelList();
 
   // Fetch current + previous period data via RPC (no 1000-row limit)
   const periodsQuery = useQuery({

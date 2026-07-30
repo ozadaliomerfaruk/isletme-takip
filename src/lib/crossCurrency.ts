@@ -100,13 +100,21 @@ export class CrossCurrencyRateRequiredError extends Error {
   readonly sourceCurrency: Currency;
   readonly targetCurrency: Currency;
   readonly sourceAmount: number;
+  /** İlk kur istemindeki finansal plan snapshot'ı; retry TOCTOU guardı. */
+  readonly completionToken: string | null;
 
-  constructor(sourceCurrency: Currency, targetCurrency: Currency, sourceAmount: number) {
+  constructor(
+    sourceCurrency: Currency,
+    targetCurrency: Currency,
+    sourceAmount: number,
+    completionToken: string | null = null
+  ) {
     super(`CROSS_CURRENCY_RATE_REQUIRED:${sourceCurrency}->${targetCurrency}`);
     this.name = 'CrossCurrencyRateRequiredError';
     this.sourceCurrency = sourceCurrency;
     this.targetCurrency = targetCurrency;
     this.sourceAmount = sourceAmount;
+    this.completionToken = completionToken;
   }
 }
 
@@ -114,4 +122,40 @@ export function isCrossCurrencyRateRequiredError(
   err: unknown
 ): err is CrossCurrencyRateRequiredError {
   return err instanceof CrossCurrencyRateRequiredError;
+}
+
+/**
+ * Atomik scheduled-completion RPC'sinin yazmadan döndürdüğü kur gereksinimini
+ * UI'ın kullandığı tipli hataya çevirir. PostgREST hataları Error instance'ı
+ * olmak zorunda değildir; bu yüzden yalnız güvenli `message` alanı okunur.
+ */
+export function parseCrossCurrencyRateRequiredError(
+  error: unknown
+): CrossCurrencyRateRequiredError | null {
+  const message =
+    error instanceof Error
+      ? error.message
+      : error !== null
+        && typeof error === 'object'
+        && 'message' in error
+        && typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : typeof error === 'string'
+          ? error
+          : '';
+
+  const match = message.match(
+    /CROSS_CURRENCY_RATE_REQUIRED:(TRY|USD|EUR|GBP|XAU|XAG)->(TRY|USD|EUR|GBP|XAU|XAG):([+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?)(?::([a-f0-9]{32}))?/i
+  );
+  if (!match) return null;
+
+  const amount = Number(match[3]);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+
+  return new CrossCurrencyRateRequiredError(
+    match[1].toUpperCase() as Currency,
+    match[2].toUpperCase() as Currency,
+    amount,
+    match[4]?.toLowerCase() ?? null
+  );
 }

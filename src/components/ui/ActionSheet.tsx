@@ -1,6 +1,13 @@
 import { Modal } from './Modal';
 import { useCallback, useEffect } from 'react';
-import { View, StyleSheet, Pressable, Dimensions, Platform } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  ScrollView,
+  Platform,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,14 +25,13 @@ import {
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
 import { BlurView } from 'expo-blur';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { Text } from './Text';
+import { useModalSafeAreaInsets } from './ModalInsets';
 
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const DISMISS_THRESHOLD = 80;
 
 const SPRING_OPEN = { damping: 28, stiffness: 220, mass: 0.8 };
@@ -125,12 +131,12 @@ function OptionRow({
               option.destructive && styles.destructiveLabel,
               option.disabled && styles.disabledLabel,
             ]}
-            numberOfLines={1}
+            numberOfLines={2}
           >
             {option.label}
           </Text>
           {option.description ? (
-            <Text style={styles.optionDescription} numberOfLines={2}>
+            <Text style={styles.optionDescription} numberOfLines={3}>
               {option.description}
             </Text>
           ) : null}
@@ -152,11 +158,17 @@ export function ActionSheet({
   cancelLabel,
 }: ActionSheetProps) {
   const { t } = useTranslation('common');
-  const insets = useSafeAreaInsets();
+  // Bu hook ActionSheet bileşeninde, döndürülen <ModalInsets> ağacının dışında
+  // çalışır. Ana tab bar payını değil yalnız gerçek cihaz safe-area'sını oku.
+  const insets = useModalSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const resolvedCancelLabel = cancelLabel ?? t('buttons.cancel');
+  // Sheet içerik kadar büyür; seçenekler küçük ekran/büyük yazıda bu sınırın
+  // içinde kayar. Üstte status bar/notch + bir nefes payı daima görünür kalır.
+  const sheetMaxHeight = Math.max(0, windowHeight - Math.max(0, insets.top) - spacing.lg);
 
   // Shared animation values
-  const sheetTranslateY = useSharedValue(SCREEN_HEIGHT);
+  const sheetTranslateY = useSharedValue(windowHeight);
   const backdropProgress = useSharedValue(0);
   const sheetProgress = useSharedValue(0);
   const cancelScale = useSharedValue(1);
@@ -171,14 +183,14 @@ export function ActionSheet({
   // Close animation
   const animateClose = useCallback((callback?: () => void) => {
     'worklet';
-    sheetTranslateY.value = withSpring(SCREEN_HEIGHT, SPRING_CLOSE, (finished) => {
+    sheetTranslateY.value = withSpring(windowHeight, SPRING_CLOSE, (finished) => {
       if (finished && callback) {
         runOnJS(callback)();
       }
     });
     backdropProgress.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.cubic) });
     sheetProgress.value = withTiming(0, { duration: 200 });
-  }, [sheetTranslateY, backdropProgress, sheetProgress]);
+  }, [sheetTranslateY, backdropProgress, sheetProgress, windowHeight]);
 
   // Handle visibility
   useEffect(() => {
@@ -211,7 +223,7 @@ export function ActionSheet({
       if (event.translationY > 0) {
         sheetTranslateY.value = event.translationY;
         // Fade backdrop as sheet drags down
-        const progress = 1 - Math.min(1, event.translationY / (SCREEN_HEIGHT * 0.4));
+        const progress = 1 - Math.min(1, event.translationY / (windowHeight * 0.4));
         backdropProgress.value = progress;
       }
     })
@@ -220,7 +232,7 @@ export function ActionSheet({
         if (Platform.OS !== 'web') {
           runOnJS(Haptics.impactAsync)(Haptics.ImpactFeedbackStyle.Light);
         }
-        sheetTranslateY.value = withSpring(SCREEN_HEIGHT, SPRING_CLOSE, (finished) => {
+        sheetTranslateY.value = withSpring(windowHeight, SPRING_CLOSE, (finished) => {
           if (finished) {
             runOnJS(onClose)();
           }
@@ -286,67 +298,79 @@ export function ActionSheet({
         </Pressable>
 
         {/* Sheet */}
-        <GestureDetector gesture={panGesture}>
-          <Animated.View
-            style={[
-              styles.sheet,
-              { paddingBottom: Math.max(insets.bottom, spacing.lg) },
-              sheetAnimatedStyle,
-            ]}
-          >
-            {/* Drag Handle */}
-            <View style={styles.handleContainer}>
-              <View style={styles.handle} />
-            </View>
-
-            {/* Title */}
-            {title && (
-              <View style={styles.titleContainer}>
-                <Text style={styles.title} numberOfLines={1}>
-                  {title}
-                </Text>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              maxHeight: sheetMaxHeight,
+              paddingBottom: Math.max(insets.bottom, spacing.lg),
+            },
+            sheetAnimatedStyle,
+          ]}
+        >
+          {/* Kaydırılabilir seçeneklerle çakışmaması için aşağı-sürükle hareketi
+              yalnız üst tutma alanında başlar. */}
+          <GestureDetector gesture={panGesture}>
+            <View collapsable={false}>
+              {/* Drag Handle */}
+              <View style={styles.handleContainer}>
+                <View style={styles.handle} />
               </View>
-            )}
 
-            {/* Options */}
-            <View style={styles.optionsContainer}>
-              {options.map((option, index) => (
-                <OptionRow
-                  key={option.label}
-                  option={option}
-                  index={index}
-                  isLast={index === options.length - 1}
-                  onPress={handleOptionPress}
-                  sheetProgress={sheetProgress}
-                />
-              ))}
+              {/* Title */}
+              {title && (
+                <View style={styles.titleContainer}>
+                  <Text style={styles.title} numberOfLines={2}>
+                    {title}
+                  </Text>
+                </View>
+              )}
             </View>
+          </GestureDetector>
 
-            {/* Separator */}
-            <View style={styles.separator} />
+          {/* Options — kısa içerikte doğal boy, uzun içerikte kalan alanda scroll. */}
+          <ScrollView
+            style={styles.optionsViewport}
+            contentContainerStyle={styles.optionsContainer}
+            showsVerticalScrollIndicator
+            bounces={false}
+          >
+            {options.map((option, index) => (
+              <OptionRow
+                key={option.label}
+                option={option}
+                index={index}
+                isLast={index === options.length - 1}
+                onPress={handleOptionPress}
+                sheetProgress={sheetProgress}
+              />
+            ))}
+          </ScrollView>
 
-            {/* Cancel */}
-            <Animated.View style={cancelAnimatedStyle}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.cancelButton,
-                  pressed && styles.cancelPressed,
-                ]}
-                onPress={handleClose}
-                onPressIn={() => {
-                  cancelScale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
-                }}
-                onPressOut={() => {
-                  cancelScale.value = withSpring(1, { damping: 15, stiffness: 400 });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={resolvedCancelLabel}
-              >
-                <Text style={styles.cancelLabel}>{resolvedCancelLabel}</Text>
-              </Pressable>
-            </Animated.View>
+          {/* Separator */}
+          <View style={styles.separator} />
+
+          {/* Cancel */}
+          <Animated.View style={cancelAnimatedStyle}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.cancelButton,
+                pressed && styles.cancelPressed,
+              ]}
+              onPress={handleClose}
+              onPressIn={() => {
+                cancelScale.value = withSpring(0.97, { damping: 15, stiffness: 400 });
+              }}
+              onPressOut={() => {
+                cancelScale.value = withSpring(1, { damping: 15, stiffness: 400 });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={resolvedCancelLabel}
+            >
+              <Text style={styles.cancelLabel}>{resolvedCancelLabel}</Text>
+            </Pressable>
           </Animated.View>
-        </GestureDetector>
+        </Animated.View>
       </GestureHandlerRootView>
     </Modal>
   );
@@ -408,6 +432,10 @@ const styles = StyleSheet.create({
   },
   optionsContainer: {
     gap: 2,
+  },
+  optionsViewport: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
   option: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import { View, StyleSheet, TextInput, TouchableOpacity, SectionList, Keyboard, Platform, ActivityIndicator, ScrollView } from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, Pressable, SectionList, Keyboard, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import type { StyleProp, TextStyle } from 'react-native';
 import { useRouter, Href } from 'expo-router';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -115,9 +115,9 @@ export default function AramaPage() {
   const canSearchPersonel = canAccessModule('personel');
   const canSearchProducts = canAccessModule('urunler');
   const canSearchNotes = canAccessModule('notlar');
-  // İşlem araması geniş `select *` + hesap/personel join'leri kullanıyor. Tip-bazlı
-  // server projeksiyonu gelene kadar shared kullanıcıda fail-closed kalır.
-  const canSearchTransactions = isOwner && canAccessModule('islemler');
+  // İşlem araması sunucudaki yetkili, bakiyesiz projeksiyondan gelir. Açık kaynak
+  // modüllerin satırları aranabilir; kapalı modüller sorgu sonucuna hiç girmez.
+  const canSearchTransactions = canAccessModule('islemler');
   const allowedTypeKeys = useMemo(() => {
     const keys: string[] = [];
     if (canSearchAccounts) keys.push('hesap');
@@ -431,12 +431,19 @@ export default function AramaPage() {
           break;
         case 'islem': {
           const islem = item.data;
-          if (islem.hesap_id) {
-            router.push({ pathname: `/hesaplar/[id]`, params: { id: islem.hesap_id, expandIslemId: islem.id } } as Href);
-          } else if (islem.cari_id) {
-            router.push({ pathname: `/cariler/[id]`, params: { id: islem.cari_id, expandIslemId: islem.id } } as Href);
-          } else if (islem.personel_id) {
-            router.push({ pathname: `/personel/[id]`, params: { id: islem.personel_id, expandIslemId: islem.id } } as Href);
+          if (islem.cari?.id && canSearchCariler) {
+            router.push({ pathname: `/cariler/[id]`, params: { id: islem.cari.id, expandIslemId: islem.id } } as Href);
+          } else if (islem.personel?.id && canSearchPersonel) {
+            router.push({ pathname: `/personel/[id]`, params: { id: islem.personel.id, expandIslemId: islem.id } } as Href);
+          } else if (canSearchAccounts) {
+            // Ham FK kapalı/pasif bir kaynağa ait olabilir. Yalnız RPC'nin
+            // gerçekten döndürdüğü açık hesap relation'ı navigasyon hedefidir;
+            // counterparty etiketi hiçbir zaman link hedefi yapılmaz.
+            const openAccountId =
+              islem.hesap?.id ?? islem.hedef_hesap?.id ?? null;
+            if (openAccountId) {
+              router.push({ pathname: `/hesaplar/[id]`, params: { id: openAccountId, expandIslemId: islem.id } } as Href);
+            }
           }
           break;
         }
@@ -632,6 +639,9 @@ export default function AramaPage() {
       const name = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
       if (name) return name;
     }
+    // Bağlı modül kapalıysa yalnız düz metin karşı-taraf etiketi gösterilir.
+    // Bu alanın ID'si yoktur ve handleItemPress tarafından route edilmez.
+    if (islem.counterparty_name) return islem.counterparty_name;
     if (islem.kategori?.name) return upperTr(islem.kategori.name); // kategori display-uppercase; cari/personel/hesap ADLARI değişmez
     if (islem.hesap?.name) return islem.hesap.name;
     return getShortTypeLabel(islem.type);
@@ -776,7 +786,10 @@ export default function AramaPage() {
       {/* Search Bar */}
       <View style={styles.searchBar}>
         <BackButton icon={ArrowLeft} style={styles.backBtn} />
-        <View style={styles.searchInputContainer}>
+        <Pressable
+          style={styles.searchInputContainer}
+          onPress={() => searchInputRef.current?.focus()}
+        >
           <Search size={18} color={colors.textMuted} />
           <TextInput
             ref={searchInputRef}
@@ -793,14 +806,18 @@ export default function AramaPage() {
           )}
           {query.length > 0 && !isSearching && (
             <TouchableOpacity
-              onPress={() => setQuery('')}
+              onPress={(event) => {
+                event.stopPropagation();
+                setQuery('');
+                searchInputRef.current?.focus();
+              }}
               hitSlop={HIT_SLOP.sm}
               style={styles.clearButton}
             >
               <X size={14} color={colors.textMuted} />
             </TouchableOpacity>
           )}
-        </View>
+        </Pressable>
         <TouchableOpacity
           onPress={() => setShowFilters(!showFilters)}
           hitSlop={HIT_SLOP.sm}

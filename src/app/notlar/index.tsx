@@ -28,8 +28,19 @@ import {
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask } from '@/hooks/useNotlar';
-import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
+import {
+  createNoteId,
+  useCreateNot,
+  useDeleteNot,
+  useMarkAsTask,
+  useNotlar,
+  useToggleNotCompletion,
+  useUpdateNot,
+} from '@/hooks/useNotlar';
+import {
+  removeNotePhotoBestEffort,
+  useUploadNotePhoto,
+} from '@/hooks/useNotePhoto';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -45,6 +56,10 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import {
+  classifyMutationError,
+  isPermissionDeniedError,
+} from '@/lib/errors';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
@@ -159,8 +174,13 @@ export default function NotlarPage() {
       const note = notlar?.find(n => n.id === id);
       await deleteNot.mutateAsync({ id, photo_path: note?.photo_path });
     },
-    onError: () => {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    onError: (error) => {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
     },
   });
   const toggleCompletion = useToggleNotCompletion();
@@ -232,51 +252,114 @@ export default function NotlarPage() {
   }, [notlar, debouncedSearch, filter, taskFilter, pendingDeleteIds]);
 
   const handleCreate = async (data: NoteFormData) => {
+    const noteId = createNoteId();
+    let uploadedPhotoPath: string | null = null;
+    let noteCreated = false;
+    let failedDuringPhotoUpload = false;
+    let reminderUpdateFailed = false;
+
     try {
+      if (data.photo_uri) {
+        if (!isletme) throw new Error('No isletme');
+        failedDuringPhotoUpload = true;
+        uploadedPhotoPath = await uploadNotePhoto.mutateAsync({
+          uri: data.photo_uri,
+          isletmeId: isletme.id,
+          noteId,
+          action: 'create',
+        });
+        failedDuringPhotoUpload = false;
+      }
+
       const result = await createNot.mutateAsync({
+        id: noteId,
         entity_type: 'genel',
         content: data.content,
         is_completed: data.is_completed,
         reminder_date: data.reminder_date,
+        photo_path: uploadedPhotoPath,
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
         assigned_to_personel: data.assigned_to_personel,
       });
-
-      if (data.photo_uri && isletme) {
-        try {
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: result.id,
-          });
-          await updateNot.mutateAsync({
-            id: result.id,
-            photo_path: photoPath,
-          });
-        } catch { /* photo upload failed but note was created */ }
-      }
+      noteCreated = true;
 
       if (data.reminder_date) {
-        await scheduleNoteReminder(
-          result.id,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: result.id, entity_type: 'genel' },
-        );
+        try {
+          await scheduleNoteReminder(
+            result.id,
+            t('common:notes.reminderNotification'),
+            t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+            new Date(data.reminder_date),
+            { type: 'note_reminder', note_id: result.id, entity_type: 'genel' },
+          );
+        } catch (error) {
+          console.warn('[Notes] reminder schedule failed after create:', error);
+          reminderUpdateFailed = true;
+        }
       }
 
       setModalVisible(false);
       showToast(t('common:notes.createSuccess'), 'success');
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+      if (reminderUpdateFailed) {
+        Alert.alert(
+          t('common:status.error'),
+          t('common:notes.reminderUpdateFailed'),
+        );
+      }
+    } catch (error) {
+      // Kesin INSERT reddinde yetim upload'i temizle. Ağ sonucu belirsizse
+      // INSERT commit olmuş olabileceğinden bağlı objeyi silme.
+      if (
+        uploadedPhotoPath
+        && !noteCreated
+        && classifyMutationError(error) !== 'network_unknown'
+      ) {
+        await removeNotePhotoBestEffort(uploadedPhotoPath);
+      }
+
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : failedDuringPhotoUpload
+            ? t('common:photo.uploadError')
+            : t('common:errors.genericError'),
+      );
     }
   };
 
   const handleUpdate = async (data: NoteFormData) => {
     if (!editingNote) return;
+    const isPhotoReplacement =
+      !!data.photo_uri && data.photo_uri !== editingNote.photo_path;
+    let uploadedPhotoPath: string | null = null;
+    let noteUpdated = false;
+    let failedDuringPhotoUpload = false;
+    let reminderUpdateFailed = false;
+
     try {
+      if (isPhotoReplacement && !isletme) {
+        throw new Error('No isletme');
+      }
+      if (isPhotoReplacement && isletme && data.photo_uri) {
+        failedDuringPhotoUpload = true;
+        uploadedPhotoPath = await uploadNotePhoto.mutateAsync({
+          uri: data.photo_uri,
+          isletmeId: isletme.id,
+          noteId: editingNote.id,
+          action: 'update',
+          createdBy: editingNote.created_by ?? null,
+        });
+        failedDuringPhotoUpload = false;
+      }
+
+      const nextPhotoPath = isPhotoReplacement
+        ? uploadedPhotoPath
+        : data.photo_uri
+          ? editingNote.photo_path
+          : null;
+
       await updateNot.mutateAsync({
         id: editingNote.id,
         content: data.content,
@@ -285,51 +368,58 @@ export default function NotlarPage() {
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
         assigned_to_personel: data.assigned_to_personel,
+        photo_path: nextPhotoPath,
       });
+      noteUpdated = true;
 
-      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
-        try {
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: editingNote.id,
-          });
-          await updateNot.mutateAsync({
-            id: editingNote.id,
-            photo_path: photoPath,
-          });
-          if (editingNote.photo_path) {
-            const { supabase } = await import('@/lib/supabase');
-            await supabase.storage
-              .from('islem-photos')
-              .remove([editingNote.photo_path]);
-          }
-        } catch { /* ignore */ }
-      } else if (!data.photo_uri && editingNote.photo_path) {
-        await updateNot.mutateAsync({
-          id: editingNote.id,
-          photo_path: null,
-        });
-        const { supabase } = await import('@/lib/supabase');
-        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
+      if (
+        editingNote.photo_path
+        && editingNote.photo_path !== nextPhotoPath
+      ) {
+        await removeNotePhotoBestEffort(editingNote.photo_path);
       }
 
-      if (data.reminder_date) {
-        await scheduleNoteReminder(
-          editingNote.id,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: editingNote.id, entity_type: editingNote.entity_type, entity_id: editingNote.entity_id ?? undefined },
-        );
-      } else {
-        await cancelNoteReminder(editingNote.id);
+      try {
+        if (data.reminder_date) {
+          await scheduleNoteReminder(
+            editingNote.id,
+            t('common:notes.reminderNotification'),
+            t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+            new Date(data.reminder_date),
+            { type: 'note_reminder', note_id: editingNote.id, entity_type: editingNote.entity_type, entity_id: editingNote.entity_id ?? undefined },
+          );
+        } else {
+          await cancelNoteReminder(editingNote.id);
+        }
+      } catch (error) {
+        console.warn('[Notes] reminder update failed after edit:', error);
+        reminderUpdateFailed = true;
       }
 
       setEditingNote(null);
       showToast(t('common:notes.updateSuccess'), 'success');
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+      if (reminderUpdateFailed) {
+        Alert.alert(
+          t('common:status.error'),
+          t('common:notes.reminderUpdateFailed'),
+        );
+      }
+    } catch (error) {
+      if (
+        uploadedPhotoPath
+        && !noteUpdated
+        && classifyMutationError(error) !== 'network_unknown'
+      ) {
+        await removeNotePhotoBestEffort(uploadedPhotoPath);
+      }
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : failedDuringPhotoUpload
+            ? t('common:photo.uploadError')
+            : t('common:errors.genericError'),
+      );
     }
   };
 
@@ -342,13 +432,34 @@ export default function NotlarPage() {
 
   const markAsTask = useMarkAsTask();
 
-  const handleToggleComplete = useCallback((noteId: string, done: boolean) => {
-    toggleCompletion.mutate({ id: noteId, done });
-  }, [toggleCompletion]);
+  const handleToggleComplete = useCallback(async (
+    noteId: string,
+    done: boolean,
+  ) => {
+    try {
+      await toggleCompletion.mutateAsync({ id: noteId, done });
+    } catch (error) {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
+    }
+  }, [t, toggleCompletion]);
 
-  const handleMarkAsTask = useCallback((noteId: string) => {
-    markAsTask.mutate(noteId);
-  }, [markAsTask]);
+  const handleMarkAsTask = useCallback(async (noteId: string) => {
+    try {
+      await markAsTask.mutateAsync(noteId);
+    } catch (error) {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
+    }
+  }, [markAsTask, t]);
 
   const renderNote = useCallback(({ item }: { item: Not }) => {
     const entityLabel = t(ENTITY_TYPE_LABEL_KEYS[item.entity_type]);
@@ -509,7 +620,10 @@ export default function NotlarPage() {
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSave={handleCreate}
-          loading={createNot.isPending || uploadNotePhoto.isPending}
+          loading={
+            createNot.isPending
+            || uploadNotePhoto.isPending
+          }
           entityType="genel"
           entityId=""
         />
@@ -529,7 +643,7 @@ export default function NotlarPage() {
             assigned_to_personel: editingNote.assigned_to_personel,
           } : undefined}
           isEditing
-          loading={updateNot.isPending}
+          loading={updateNot.isPending || uploadNotePhoto.isPending}
           entityType={editingNote?.entity_type ?? 'genel'}
           entityId={editingNote?.entity_id ?? ''}
           existingPhotoPath={editingNote?.photo_path}

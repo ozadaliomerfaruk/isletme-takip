@@ -22,6 +22,7 @@ import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Hesap tipi için ikon ve renk
 const getHesapTypeConfig = (type: HesapType) => {
@@ -47,6 +48,7 @@ export default function HesapDuzenlePage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: hesap, isLoading } = useHesap(id);
   usePagePermission({ module: 'hesaplar', action: 'update', createdBy: hesap?.created_by });
+  const { isOwner } = usePermissions();
   const updateHesap = useUpdateHesap();
   const insets = useSafeAreaInsets();
   const footerInset = useFooterBottomPadding();
@@ -93,7 +95,7 @@ export default function HesapDuzenlePage() {
         payment_due_day: hesap.type === 'kredi_karti' && paymentDueDay
           ? parseInt(paymentDueDay, 10)
           : null,
-        is_active: isActive,
+        ...(isOwner ? { is_active: isActive } : {}),
       });
 
       notifySaved(t('accounts:messages.updateSuccess'));
@@ -197,23 +199,25 @@ export default function HesapDuzenlePage() {
               />
             </View>
 
-            {/* Pasif Mod */}
-            <View style={styles.section}>
-              <View style={styles.passiveModeContainer}>
-                <View style={styles.passiveModeHeader}>
-                  <Text variant="body">{t('common:passiveMode.title')}</Text>
-                  <Switch
-                    value={!isActive}
-                    onValueChange={(value) => setIsActive(!value)}
-                    trackColor={{ false: colors.border, true: colors.warning }}
-                    thumbColor={colors.surface}
-                  />
+            {/* Pasif kayıt yönetimi yalnız işletme sahibine aittir. */}
+            {isOwner && (
+              <View style={styles.section}>
+                <View style={styles.passiveModeContainer}>
+                  <View style={styles.passiveModeHeader}>
+                    <Text variant="body">{t('common:passiveMode.title')}</Text>
+                    <Switch
+                      value={!isActive}
+                      onValueChange={(value) => setIsActive(!value)}
+                      trackColor={{ false: colors.border, true: colors.warning }}
+                      thumbColor={colors.surface}
+                    />
+                  </View>
+                  <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
+                    {t('common:passiveMode.description')}
+                  </Text>
                 </View>
-                <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
-                  {t('common:passiveMode.description')}
-                </Text>
               </View>
-            </View>
+            )}
 
           </ScrollView>
 

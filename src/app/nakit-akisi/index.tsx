@@ -8,6 +8,7 @@ import { Text, TabFilter, CategoryReportCard, Button, Screen } from '@/component
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCategory';
@@ -230,6 +231,9 @@ export default function NakitAkisiPage() {
                 </Text>
               </TouchableOpacity>
             </View>
+            <ConversionIncompleteWarning
+              visible={cashFlow.conversionIncomplete}
+            />
           </View>
 
           {/* Category List */}

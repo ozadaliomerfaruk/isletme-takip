@@ -28,6 +28,7 @@ import {
   HelpCircle,
   Heart,
   CalendarClock,
+  Clock3,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
@@ -45,6 +46,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 import { useReview } from '@/contexts/ReviewContext';
 import * as Notifications from 'expo-notifications';
 import { registerForPushNotificationsAsync, savePushToken, removePushToken } from '@/lib/notifications';
+import { isOwnerOrManagerRole } from '@/lib/permissionNavigation';
 
 const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
 
@@ -89,17 +91,27 @@ const languageOptions: { code: SupportedLanguage; label: string }[] = [
 export default function DahaPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { signOut, user, isletme, isOwner } = useAuthContext();
+  const {
+    signOut,
+    user,
+    isletme,
+    isOwner,
+    currentUserRole,
+  } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser', 'help', 'transactions']);
   const { canAccessModule } = usePermissions();
   const canSeeReports = canAccessModule('raporlar');
   const canSeeNotes = canAccessModule('notlar');
   const canSeeArchive = canAccessModule('arsiv');
-  // İşlem listesi ve taksit ekranı henüz tip-bazlı güvenli server projeksiyonuna
-  // geçmedi. Shared kullanıcıya göstermek kapalı hesap/personel satırlarını sızdırabilir.
-  const canUseUnprojectedTransactions = isOwner;
+  const canSeeTransactions = canAccessModule('islemler');
+  const canSeeCariTracking = canAccessModule('cariler');
+  const canManageCategories =
+    isOwnerOrManagerRole(isOwner, currentUserRole);
   const showTransactionSection =
-    canUseUnprojectedTransactions || canSeeReports || canSeeNotes;
+    canSeeTransactions
+    || canSeeCariTracking
+    || canSeeReports
+    || canSeeNotes;
   const { openWriteReview } = useReview();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
@@ -123,6 +135,10 @@ export default function DahaPage() {
   };
 
   const handleCurrencyChange = async (currencyCode: CurrencyCode) => {
+    if (!isOwner) {
+      setCurrencyModalVisible(false);
+      return;
+    }
     await setCurrency(currencyCode);
     // Invalidate all queries so dashboard and other screens re-render with new currency
     queryClient.invalidateQueries();
@@ -240,20 +256,32 @@ export default function DahaPage() {
         <SharedIsletmeBanner />
         {/* Profile Card */}
         <View style={styles.profileSection}>
-          <TouchableOpacity
-            style={styles.profileCard}
-            onPress={() => router.push('/ayarlar/isletme')}
-            activeOpacity={0.7}
-          >
-            <Avatar name={businessName} size={48} />
-            <View style={styles.profileInfo}>
-              <Text variant="h3" numberOfLines={1}>{businessName}</Text>
-              {userEmail ? (
-                <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
-              ) : null}
+          {isOwner ? (
+            <TouchableOpacity
+              style={styles.profileCard}
+              onPress={() => router.push('/ayarlar/isletme')}
+              activeOpacity={0.7}
+            >
+              <Avatar name={businessName} size={48} />
+              <View style={styles.profileInfo}>
+                <Text variant="h3" numberOfLines={1}>{businessName}</Text>
+                {userEmail ? (
+                  <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
+                ) : null}
+              </View>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.profileCard}>
+              <Avatar name={businessName} size={48} />
+              <View style={styles.profileInfo}>
+                <Text variant="h3" numberOfLines={1}>{businessName}</Text>
+                {userEmail ? (
+                  <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
+                ) : null}
+              </View>
             </View>
-            <ChevronRight size={20} color={colors.textMuted} />
-          </TouchableOpacity>
+          )}
         </View>
 
         {/* İşlemler & Raporlar */}
@@ -263,25 +291,38 @@ export default function DahaPage() {
             {t('settings:sections.transactionsReports')}
           </Text>
           <Card padding="none">
-            {canUseUnprojectedTransactions && (
+            {canSeeTransactions && (
               <>
-            <MenuItem
-              icon={<Receipt size={22} color={colors.primary} />}
-              label={t('navigation:menu.allTransactions')}
-              onPress={() => router.push('/islemler')}
-            />
-            <View style={styles.divider} />
-            {/* Faz 3: Taksit Takip */}
-            <MenuItem
-              icon={<CalendarClock size={22} color={colors.orange} />}
-              label={t('transactions:taksit.title')}
-              onPress={() => router.push('/taksit' as Href)}
-            />
+                <MenuItem
+                  icon={<Receipt size={22} color={colors.primary} />}
+                  label={t('navigation:menu.allTransactions')}
+                  onPress={() => router.push('/islemler')}
+                />
+              </>
+            )}
+            {canSeeTransactions && canSeeCariTracking && (
+              <View style={styles.divider} />
+            )}
+            {canSeeCariTracking && (
+              <>
+                <MenuItem
+                  icon={<CalendarClock size={22} color={colors.orange} />}
+                  label={t('transactions:taksit.title')}
+                  onPress={() => router.push('/taksit' as Href)}
+                />
+                <View style={styles.divider} />
+                <MenuItem
+                  icon={<Clock3 size={22} color={colors.warning} />}
+                  label={t('transactions:vade.cardTitle')}
+                  onPress={() => router.push('/vade' as Href)}
+                />
               </>
             )}
             {canSeeReports && (
               <>
-                {canUseUnprojectedTransactions && <View style={styles.divider} />}
+                {(canSeeTransactions || canSeeCariTracking) && (
+                  <View style={styles.divider} />
+                )}
                 <MenuItem
                   icon={<BarChart3 size={22} color={colors.info} />}
                   label={t('navigation:menu.reports')}
@@ -291,7 +332,9 @@ export default function DahaPage() {
             )}
             {canSeeNotes && (
               <>
-                {(canUseUnprojectedTransactions || canSeeReports) && <View style={styles.divider} />}
+                {(canSeeTransactions || canSeeCariTracking || canSeeReports) && (
+                  <View style={styles.divider} />
+                )}
                 <MenuItem
                   icon={<StickyNote size={22} color={colors.warning} />}
                   label={t('navigation:menu.notes')}
@@ -304,19 +347,22 @@ export default function DahaPage() {
         )}
 
         {/* Ayarlar */}
+        {(canManageCategories || isOwner || canSeeArchive) && (
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
             {t('settings:titles.settings').toUpperCase()}
           </Text>
           <Card padding="none">
+            {canManageCategories && (
+              <MenuItem
+                icon={<Tag size={22} color={colors.success} />}
+                label={t('navigation:menu.categories')}
+                onPress={() => router.push('/kategoriler')}
+              />
+            )}
             {isOwner && (
               <>
-            <MenuItem
-              icon={<Tag size={22} color={colors.success} />}
-              label={t('navigation:menu.categories')}
-              onPress={() => router.push('/kategoriler')}
-            />
-                <View style={styles.divider} />
+                {canManageCategories && <View style={styles.divider} />}
                 <MenuItem
                   icon={<Upload size={22} color={colors.primary} />}
                   label={t('navigation:menu.importData')}
@@ -326,7 +372,9 @@ export default function DahaPage() {
             )}
             {canSeeArchive && (
               <>
-                {isOwner && <View style={styles.divider} />}
+                {(canManageCategories || isOwner) && (
+                  <View style={styles.divider} />
+                )}
                 <MenuItem
                   icon={<Archive size={22} color={colors.textSecondary} />}
                   label={t('common:archive.title')}
@@ -336,6 +384,7 @@ export default function DahaPage() {
             )}
           </Card>
         </View>
+        )}
 
         {/* Çoklu Kullanıcı */}
         <View style={styles.section}>
@@ -374,13 +423,17 @@ export default function DahaPage() {
               onPress={() => setLanguageModalVisible(true)}
             />
             <View style={styles.divider} />
-            <MenuItem
-              icon={<Coins size={22} color={colors.success} />}
-              label={t('settings:currency.title')}
-              subtitle={t(`settings:currency.${currency}`)}
-              onPress={() => setCurrencyModalVisible(true)}
-            />
-            <View style={styles.divider} />
+            {isOwner && (
+              <>
+                <MenuItem
+                  icon={<Coins size={22} color={colors.success} />}
+                  label={t('settings:currency.title')}
+                  subtitle={t(`settings:currency.${currency}`)}
+                  onPress={() => setCurrencyModalVisible(true)}
+                />
+                <View style={styles.divider} />
+              </>
+            )}
             <View style={styles.menuItem}>
               <View style={styles.menuIcon}>
                 <Bell size={22} color={colors.primary} />
@@ -534,6 +587,7 @@ export default function DahaPage() {
       </Modal>
 
       {/* Currency Selection Modal */}
+      {isOwner && (
       <Modal
         visible={currencyModalVisible}
         transparent
@@ -576,6 +630,7 @@ export default function DahaPage() {
           </View>
         </TouchableOpacity>
       </Modal>
+      )}
 
     </Screen>
   );

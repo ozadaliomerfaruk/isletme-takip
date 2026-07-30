@@ -1,5 +1,15 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  Alert,
+  TouchableOpacity,
+  RefreshControl,
+  Platform,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
@@ -33,6 +43,7 @@ import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { formatDateMedium } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import { compareBalanceListItems } from '@/lib/listSorting';
 import { useSettings } from '@/hooks/useSettings';
 import {
   useExchangeRates,
@@ -40,7 +51,10 @@ import {
   createConversionSum,
 } from '@/hooks/useExchangeRates';
 import { useCariler, useDeleteCari } from '@/hooks/useCariler';
-import { useCariVadeRozet } from '@/hooks/useIslemTahsis';
+import {
+  useCariVadeRozet,
+  type CariVadeRozet,
+} from '@/hooks/useIslemTahsis';
 import { useArchiveCari } from '@/hooks/useArchive';
 import { Cari, CariType } from '@/types/database';
 import { AcceptCodeSheet } from '@/components/cariSharing/AcceptCodeSheet';
@@ -59,6 +73,8 @@ import { exportEntityListToPdf } from '@/lib/entityListPdf';
 import { ShareOptionsSheet, ListPdfPreviewSheet } from '@/components/export';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { hasTypeMismatch } from '@/lib/cariTransactionMapper';
+import { useTopAnchoredListSnapshot } from '@/hooks/useTopAnchoredListSnapshot';
+import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
 
 // Merged cari type: own cari + optional link metadata
 type MergedCari = Cari & {
@@ -68,6 +84,8 @@ type MergedCari = Cari & {
   linkPermission?: SharingPermission;
   linkId?: string;
 };
+
+const EMPTY_VADE_ROZET_MAP: Record<string, CariVadeRozet> = {};
 
 // Satırlar birbirine yapışık; aralarında yalnız 1px gri ayraç çizgisi (kart boşluğu yok)
 const ListSeparator = () => <View style={styles.separator} />;
@@ -106,6 +124,8 @@ export default function CarilerPage() {
   // QuickTransactionBar için state
   const [quickBarVisible, setQuickBarVisible] = useState(false);
   const [selectedCari, setSelectedCari] = useState<Cari | null>(null);
+  const selectedCariIsLinked =
+    (selectedCari as (Cari & { isLinked?: boolean }) | null)?.isLinked === true;
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -113,9 +133,6 @@ export default function CarilerPage() {
 
   // Sort ActionSheet
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
-  /** Cam header akıştan çıktığı için yer kaplamıyor → listenin üst boşluğu bu.
-   *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
-  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
   const sortSheetOptions: ActionSheetOption[] = [
     { label: t('common:sort.balanceHighLow'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceHigh' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceHigh') },
     { label: t('common:sort.balanceLowHigh'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceLow' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceLow') },
@@ -153,26 +170,73 @@ export default function CarilerPage() {
   const haptics = useHaptics();
 
   // Export için işletme + link metadata (detay ekranıyla aynı ekstre için)
-  const { isletme } = useAuthContext();
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const listGeometryScopeKey = [
+    isletme?.id ?? 'no-business',
+    user?.id ?? 'no-user',
+    permissionAccessSignature(currentPermissions),
+  ].join(':');
 
   // Permissions
   const {
+    canCreate,
     canUpdate,
     canDelete,
     canAccessModule,
-    isOwner,
+    canCreateTransactions,
+    canCreateTransactionType,
   } = usePermissions();
-  const canSeeReports = canAccessModule('raporlar');
-  // Cari ödeme/tahsilatta hesap bakiyesini döndürmeyen minimal hesap
-  // projeksiyonu henüz server tarafında devrede değil. O kapı gelene kadar
-  // shared kullanıcıda mevcut geniş QTB'yi açmak fail-open olur.
-  const canUseUnprojectedTransactions = isOwner;
+  const canCreateCari = canCreate('cariler');
+  const canCreateSameTenantCariTransactions =
+    canCreateTransactionType('cari_alis');
+  const canCreateCariTransactions =
+    canCreateTransactions || canCreateSameTenantCariTransactions;
+  const isCariMinimalTransactionMode =
+    canCreateSameTenantCariTransactions && !canAccessModule('hesaplar');
+  const canSelectCari = useCallback(
+    (cari: Pick<Cari, 'created_by'>): boolean =>
+      canUpdate('cariler', cari.created_by ?? null)
+      || canDelete('cariler', cari.created_by ?? null),
+    [canDelete, canUpdate],
+  );
+
+  useEffect(() => {
+    if (canCreateCariTransactions) return;
+    setQuickBarVisible(false);
+    setSelectedCari(null);
+  }, [canCreateCariTransactions]);
 
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   // Faz 2: cari-bazlı gecikmiş vade rozetleri (tek istek, işletme geneli)
-  const { data: vadeRozetMap, refetch: refetchVadeRozet } = useCariVadeRozet();
+  const vadeRozetQuery = useCariVadeRozet();
+  const {
+    stableAsyncMeta: vadeRozetMap,
+    headerHeight: headerH,
+    onHeaderHeightChange: handleHeaderHeightChange,
+    onScroll: handleGeometryScroll,
+    onScrollBeginDrag: handleListScrollBeginDrag,
+    onScrollEndDrag: handleListScrollEndDrag,
+    onMomentumScrollBegin: handleListMomentumScrollBegin,
+    onMomentumScrollEnd: handleListMomentumScrollEnd,
+  } = useTopAnchoredListSnapshot({
+    asyncMeta: vadeRozetQuery.data,
+    emptyAsyncMeta: EMPTY_VADE_ROZET_MAP,
+    initialHeaderHeight: insets.top + TAB_HEADER_ESTIMATED_HEIGHT,
+    scopeKey: listGeometryScopeKey,
+  });
+  const { refetch: refetchVadeRozet } = vadeRozetQuery;
+  const handleListScroll = useCallback((
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    handleTabScroll(event);
+    handleGeometryScroll(event);
+  }, [handleGeometryScroll, handleTabScroll]);
   const exchangeRates = exchangeRatesData?.rates;
 
   // Gerçek veriler - pasif carileri de dahil et
@@ -225,6 +289,11 @@ export default function CarilerPage() {
 
   const handleArchive = useCallback(async () => {
     if (!actionSheetCari) return;
+    if (!canUpdate('cariler', actionSheetCari.created_by ?? null)) {
+      haptics.error();
+      showToast(t('common:errors.permissionDenied'), 'error');
+      return;
+    }
     try {
       await archiveCari.mutateAsync(actionSheetCari.id);
       haptics.success();
@@ -233,10 +302,15 @@ export default function CarilerPage() {
       haptics.error();
       showToast(t('common:messages.operationFailed'), 'error');
     }
-  }, [actionSheetCari, archiveCari, haptics, showToast, t]);
+  }, [actionSheetCari, archiveCari, canUpdate, haptics, showToast, t]);
 
   const handleDelete = useCallback(() => {
     if (!actionSheetCari) return;
+    if (!canDelete('cariler', actionSheetCari.created_by ?? null)) {
+      haptics.error();
+      showToast(t('common:errors.permissionDenied'), 'error');
+      return;
+    }
     Alert.alert(
       t('common:confirm.deleteTitle'),
       t('common:confirm.deleteMessage', { item: actionSheetCari.name }),
@@ -246,6 +320,11 @@ export default function CarilerPage() {
           text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
+            if (!canDelete('cariler', actionSheetCari.created_by ?? null)) {
+              haptics.error();
+              showToast(t('common:errors.permissionDenied'), 'error');
+              return;
+            }
             try {
               await deleteCari.mutateAsync(actionSheetCari.id);
               haptics.success();
@@ -262,18 +341,23 @@ export default function CarilerPage() {
         },
       ]
     );
-  }, [actionSheetCari, deleteCari, haptics, showToast, t]);
+  }, [actionSheetCari, canDelete, deleteCari, haptics, showToast, t]);
 
   // Multi-select handlers
   const handleEnterSelectMode = useCallback(() => {
-    if (actionSheetCari) {
+    if (actionSheetCari && canSelectCari(actionSheetCari)) {
       setExpandedCariId(null); // Collapse expanded card to prevent layout jump
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetCari.id]));
     }
-  }, [actionSheetCari]);
+  }, [actionSheetCari, canSelectCari]);
 
   const toggleSelection = useCallback((id: string) => {
+    const cari = (cariler ?? []).find((item) => item.id === id);
+    if (!cari || !canSelectCari(cari)) {
+      showToast(t('common:errors.permissionDenied'), 'error');
+      return;
+    }
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -284,12 +368,15 @@ export default function CarilerPage() {
       return newSet;
     });
     haptics.selection();
-  }, [haptics]);
+  }, [canSelectCari, cariler, haptics, showToast, t]);
 
   const handleSelectAll = () => {
     if (filteredCariler) {
-      // Linked carileri hariç tut - sadece kendi carilerimiz seçilebilir
-      setSelectedIds(new Set(filteredCariler.filter(c => !c.isLinked).map(c => c.id)));
+      setSelectedIds(new Set(
+        filteredCariler
+          .filter((cari) => !cari.isLinked && canSelectCari(cari))
+          .map((cari) => cari.id),
+      ));
       haptics.selection();
     }
   };
@@ -315,9 +402,22 @@ export default function CarilerPage() {
           text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
+            const selectedRecords = (cariler ?? []).filter(
+              (cari) => selectedIds.has(cari.id),
+            );
+            if (
+              selectedRecords.length !== selectedIds.size
+              || !selectedRecords.every((cari) =>
+                canDelete('cariler', cari.created_by ?? null))
+            ) {
+              haptics.error();
+              showToast(t('common:errors.permissionDenied'), 'error');
+              return;
+            }
             try {
-              const promises = Array.from(selectedIds).map(id => deleteCari.mutateAsync(id));
-              await Promise.all(promises);
+              for (const cari of selectedRecords) {
+                await deleteCari.mutateAsync(cari.id);
+              }
               haptics.success();
               showToast(t('common:bulkSelect.deleteSuccess', { count }), 'success');
               handleCancelSelectMode();
@@ -345,9 +445,22 @@ export default function CarilerPage() {
         {
           text: t('common:archive.actions.archive'),
           onPress: async () => {
+            const selectedRecords = (cariler ?? []).filter(
+              (cari) => selectedIds.has(cari.id),
+            );
+            if (
+              selectedRecords.length !== selectedIds.size
+              || !selectedRecords.every((cari) =>
+                canUpdate('cariler', cari.created_by ?? null))
+            ) {
+              haptics.error();
+              showToast(t('common:errors.permissionDenied'), 'error');
+              return;
+            }
             try {
-              const promises = Array.from(selectedIds).map(id => archiveCari.mutateAsync(id));
-              await Promise.all(promises);
+              for (const cari of selectedRecords) {
+                await archiveCari.mutateAsync(cari.id);
+              }
               haptics.success();
               showToast(t('common:bulkSelect.archiveSuccess', { count }), 'success');
               handleCancelSelectMode();
@@ -410,13 +523,14 @@ export default function CarilerPage() {
     }
 
     // Own cari: full options + share (permission-filtered)
-    const options: ActionSheetOption[] = [
-      {
+    const options: ActionSheetOption[] = [];
+    if (canSelectCari(cari)) {
+      options.push({
         label: t('common:bulkSelect.select'),
         icon: <CheckSquare size={20} color={colors.info} />,
         onPress: handleEnterSelectMode,
-      },
-    ];
+      });
+    }
 
     if (canUpdate('cariler', cari.created_by ?? null)) {
       options.push({
@@ -458,14 +572,7 @@ export default function CarilerPage() {
     }
 
     return options;
-  }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, handleRemoveLink, canUpdate, canDelete]);
-
-  const actionSheetOptions = useMemo(() => {
-    if (!actionSheetCari) return [];
-    // Check if actionSheetCari is a linked cari
-    const mergedItem = mergedCariler?.find(c => c.id === actionSheetCari.id);
-    return getActionSheetOptions(mergedItem ?? (actionSheetCari as MergedCari));
-  }, [actionSheetCari, getActionSheetOptions]);
+  }, [actionSheetCari, t, router, handleEnterSelectMode, handleArchive, handleDelete, handleRemoveLink, canUpdate, canDelete, canSelectCari]);
 
   // Merge own cariler + linked cariler
   const mergedCariler = useMemo((): MergedCari[] => {
@@ -511,6 +618,14 @@ export default function CarilerPage() {
     return [...ownItems, ...linkedItems];
   }, [cariler, linkedCariler, sharedOwnCariIds]);
 
+  const actionSheetOptions = useMemo(() => {
+    if (!actionSheetCari) return [];
+    // Linked metadata yalnız birleşik listede bulunur; memo bu değer oluşturulduktan
+    // sonra çalışmalı ve bağımlılığı açıkça taşımalıdır.
+    const mergedItem = mergedCariler.find(c => c.id === actionSheetCari.id);
+    return getActionSheetOptions(mergedItem ?? (actionSheetCari as MergedCari));
+  }, [actionSheetCari, getActionSheetOptions, mergedCariler]);
+
   // Arama filtresi ve sıralama (aktif önce). A2: useMemo + debouncedSearch → her tuşta değil,
   // yalnız arama 250ms durunca (veya diğer girdiler değişince) filter+sort tekrar çalışır.
   const filteredCariler = useMemo(() => mergedCariler
@@ -532,28 +647,11 @@ export default function CarilerPage() {
         return a.is_active ? -1 : 1;
       }
       // Kullanıcı sıralama tercihi
-      if (sortBy === 'balanceHigh') {
-        const aVal = toNumber(a.balance);
-        const bVal = toNumber(b.balance);
-        // Borçlarımız (negatif) önce, alacaklarımız (pozitif) sonra, sıfır en sonda
-        const aGroup = aVal < 0 ? 0 : aVal > 0 ? 1 : 2;
-        const bGroup = bVal < 0 ? 0 : bVal > 0 ? 1 : 2;
-        if (aGroup !== bGroup) return aGroup - bGroup;
-        // Aynı grup içinde mutlak değere göre büyükten küçüğe
-        return Math.abs(bVal) - Math.abs(aVal);
-      }
-      if (sortBy === 'balanceLow') {
-        const aVal = toNumber(a.balance);
-        const bVal = toNumber(b.balance);
-        // Alacaklarımız (pozitif) önce, borçlarımız (negatif) sonra, sıfır en sonda
-        const aGroup = aVal > 0 ? 0 : aVal < 0 ? 1 : 2;
-        const bGroup = bVal > 0 ? 0 : bVal < 0 ? 1 : 2;
-        if (aGroup !== bGroup) return aGroup - bGroup;
-        // Aynı grup içinde mutlak değere göre küçükten büyüğe
-        return Math.abs(aVal) - Math.abs(bVal);
-      }
-      // Default: alphabetical
-      return a.name.localeCompare(b.name, 'tr');
+      return compareBalanceListItems(
+        { id: a.id, label: a.name, balance: toNumber(a.balance) },
+        { id: b.id, label: b.name, balance: toNumber(b.balance) },
+        sortBy,
+      );
     }),
   [mergedCariler, filter, debouncedSearch, sortBy]);
 
@@ -673,9 +771,23 @@ export default function CarilerPage() {
   // değişince selectedIds bayat id'ler tutabiliyor; saf sayı karşılaştırması yanlış
   // etiket gösteriyordu. Görünür (linked olmayan) tüm carilerin seçili olup olmadığına bak.
   const selectableVisibleIds = useMemo(
-    () => filteredCariler.filter((c) => !c.isLinked).map((c) => c.id),
-    [filteredCariler]
+    () => filteredCariler
+      .filter((cari) => !cari.isLinked && canSelectCari(cari))
+      .map((cari) => cari.id),
+    [canSelectCari, filteredCariler]
   );
+  const selectedOwnCariler = useMemo(
+    () => (cariler ?? []).filter((cari) => selectedIds.has(cari.id)),
+    [cariler, selectedIds],
+  );
+  const canBulkArchiveSelected = selectedIds.size > 0
+    && selectedOwnCariler.length === selectedIds.size
+    && selectedOwnCariler.every((cari) =>
+      canUpdate('cariler', cari.created_by ?? null));
+  const canBulkDeleteSelected = selectedIds.size > 0
+    && selectedOwnCariler.length === selectedIds.size
+    && selectedOwnCariler.every((cari) =>
+      canDelete('cariler', cari.created_by ?? null));
   const allVisibleSelected = selectableVisibleIds.length > 0
     && selectableVisibleIds.every((id) => selectedIds.has(id));
 
@@ -732,7 +844,7 @@ export default function CarilerPage() {
     return (
       <AnimatedListItem index={index}>
       <View style={[!cari.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
-        {isSelectMode && !cari.isLinked ? (
+        {isSelectMode && !cari.isLinked && canSelectCari(cari) ? (
           <TouchableOpacity
             style={styles.selectableCard}
             onPress={() => toggleSelection(cari.id)}
@@ -875,8 +987,12 @@ export default function CarilerPage() {
           >
             <View style={styles.actionButtons}>
               {/* BUG 7: View-only linkli carilerde İşlem Yap butonu gizle */}
-              {canUseUnprojectedTransactions
-                && !(cari.isLinked && cari.linkPermission === 'view') && (
+              {canCreateCariTransactions
+                && (
+                  canCreateTransactions
+                    ? !(cari.isLinked && cari.linkPermission === 'view')
+                    : !cari.isLinked
+                ) && (
                 <Button
                   variant="primary"
                   size="sm"
@@ -905,7 +1021,7 @@ export default function CarilerPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap, canUseUnprojectedTransactions]);
+  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap, canCreateTransactions, canCreateCariTransactions, canSelectCari]);
 
   // FlatList ListHeaderComponent - header, mini-dashboard, filtre
   const ListHeader = useMemo(() => (
@@ -917,9 +1033,8 @@ export default function CarilerPage() {
         borcumuz={cariSummary.payables}
         alacagimiz={cariSummary.receivables}
         baseCurrency={baseCurrency}
-        // K3: cari özeti Cariler'e aittir; rapor giriş noktası ise Raporlar
-        // kapalıyken hiç çizilmemelidir. onPress verilmezse kart yalnız özettir.
-        onGenelPress={canSeeReports ? () => router.push('/raporlar/cari') : undefined}
+        // Cari modülü bu bağlamsal rapora erişmek için yeterlidir.
+        onGenelPress={() => router.push('/raporlar/cari')}
         // Vade kartı artık listeye chip filtresi değil, Vade Takibi SAYFASINA gider
         onVadePress={() => router.push('/vade' as Href)}
         onTaksitPress={() => router.push('/taksit')}
@@ -933,7 +1048,7 @@ export default function CarilerPage() {
       {/* Loading state */}
       {isLoading && <SkeletonAccountList count={5} />}
     </>
-  ), [t, router, cariSummary.payables, cariSummary.receivables, canSeeReports, filterOptions, filter, isLoading, baseCurrency]);
+  ), [t, router, cariSummary.payables, cariSummary.receivables, filterOptions, filter, isLoading, baseCurrency]);
 
   // FlatList ListEmptyComponent
   const ListEmpty = useMemo(() => {
@@ -947,13 +1062,26 @@ export default function CarilerPage() {
         description={
           filtered
             ? t('common:search.tryDifferent')
-            : t('clients:messages.addFirstClient')
+            : canCreateCari
+              ? t('clients:messages.addFirstClient')
+              : undefined
         }
-        actionLabel={filtered ? undefined : t('clients:titles.addClient')}
-        onAction={filtered ? undefined : () => router.push('/cariler/ekle')}
+        actionLabel={
+          filtered || !canCreateCari ? undefined : t('clients:titles.addClient')
+        }
+        onAction={
+          filtered || !canCreateCari
+            ? undefined
+            : () => router.push('/cariler/ekle')
+        }
       />
     );
-  }, [isLoading, debouncedSearch, t, router]);
+  }, [isLoading, debouncedSearch, t, router, canCreateCari]);
+
+  const listExtraData = useMemo(
+    () => ({ selectedIds, isSelectMode, sortBy, expandedCariId }),
+    [selectedIds, isSelectMode, sortBy, expandedCariId],
+  );
 
   return (
     // Screen'e `top` VERİLMİYOR — cam modda üst safe-area boşluğunu TabHeader
@@ -965,7 +1093,11 @@ export default function CarilerPage() {
       <FlatList
         ref={listRef}
         style={styles.scrollView}
-        onScroll={handleTabScroll}
+        onScroll={handleListScroll}
+        onScrollBeginDrag={handleListScrollBeginDrag}
+        onScrollEndDrag={handleListScrollEndDrag}
+        onMomentumScrollBegin={handleListMomentumScrollBegin}
+        onMomentumScrollEnd={handleListMomentumScrollEnd}
         scrollEventThrottle={16}
         data={isLoading ? [] : filteredCariler}
         keyExtractor={(item) => item.id}
@@ -984,15 +1116,15 @@ export default function CarilerPage() {
         initialNumToRender={10}
         maxToRenderPerBatch={10}
         windowSize={5}
-        removeClippedSubviews={true}
+        removeClippedSubviews={Platform.OS === 'android'}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, isSelectMode, sortBy, expandedCariId }}
+        extraData={listExtraData}
         contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: contentPaddingBottom }]}
       />
 
       <TabHeader
         glass
-        onHeightChange={setHeaderH}
+        onHeightChange={handleHeaderHeightChange}
         title={t('clients:titles.clients')}
         right={
           <>
@@ -1046,9 +1178,13 @@ export default function CarilerPage() {
         })()}
         gecikmisCurrency={previewCari ? vadeRozetMap?.[previewCari.id]?.currency : undefined}
         onIslemYap={
-          canUseUnprojectedTransactions
+          canCreateCariTransactions
             && previewCari
-            && !(previewCari.isLinked && previewCari.linkPermission === 'view')
+            && (
+              canCreateTransactions
+                ? !(previewCari.isLinked && previewCari.linkPermission === 'view')
+                : !previewCari.isLinked
+            )
             ? (c) => {
                 setSelectedCari(c);
                 setQuickBarVisible(true);
@@ -1064,7 +1200,7 @@ export default function CarilerPage() {
       />
 
       {/* Quick Transaction Bar */}
-      {canUseUnprojectedTransactions && (
+      {canCreateCariTransactions && selectedCari && (
       <QuickTransactionBar
         visible={quickBarVisible}
         onDismiss={() => {
@@ -1073,6 +1209,12 @@ export default function CarilerPage() {
         }}
         defaultCariId={selectedCari?.id}
         defaultCariType={selectedCari?.type}
+        createScope={selectedCariIsLinked ? undefined : 'cari'}
+        minimalAccountReferenceMode={
+          isCariMinimalTransactionMode && !selectedCariIsLinked
+            ? 'cari'
+            : undefined
+        }
         onSuccess={() => {
           setQuickBarVisible(false);
           setSelectedCari(null);
@@ -1203,20 +1345,20 @@ export default function CarilerPage() {
             <TouchableOpacity
               style={[styles.bulkActionButton, styles.bulkActionArchive]}
               onPress={handleBulkArchive}
-              disabled={selectedIds.size === 0}
+              disabled={!canBulkArchiveSelected}
             >
-              <Archive size={20} color={selectedIds.size === 0 ? colors.textMuted : colors.warning} />
-              <Text variant="caption" style={{ color: selectedIds.size === 0 ? colors.textMuted : colors.warning }}>
+              <Archive size={20} color={!canBulkArchiveSelected ? colors.textMuted : colors.warning} />
+              <Text variant="caption" style={{ color: !canBulkArchiveSelected ? colors.textMuted : colors.warning }}>
                 {t('common:archive.actions.archive')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.bulkActionButton, styles.bulkActionDelete]}
               onPress={handleBulkDelete}
-              disabled={selectedIds.size === 0}
+              disabled={!canBulkDeleteSelected}
             >
-              <Trash2 size={20} color={selectedIds.size === 0 ? colors.textMuted : colors.error} />
-              <Text variant="caption" style={{ color: selectedIds.size === 0 ? colors.textMuted : colors.error }}>
+              <Trash2 size={20} color={!canBulkDeleteSelected ? colors.textMuted : colors.error} />
+              <Text variant="caption" style={{ color: !canBulkDeleteSelected ? colors.textMuted : colors.error }}>
                 {t('common:buttons.delete')}
               </Text>
             </TouchableOpacity>

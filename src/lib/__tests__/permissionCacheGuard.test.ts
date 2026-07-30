@@ -209,6 +209,7 @@ describe('permission cache narrowing guard', () => {
 
   it('eski notlar/birikim alanı yokken açıkça kapatılması daralmadır', () => {
     const previous = permissions();
+    delete previous.level;
     delete (previous.modules as Partial<Record<ModuleName, boolean>>).notlar;
     delete (previous.modules as Partial<Record<ModuleName, boolean>>).birikim;
 
@@ -217,5 +218,43 @@ describe('permission cache narrowing guard', () => {
     });
 
     expect(isPermissionNarrowing(previous, next)).toBe(true);
+  });
+
+  it('explicit level varken eksik notlar/birikim deny-by-default yorumlanır', () => {
+    const missing = permissions();
+    delete (missing.modules as Partial<Record<ModuleName, boolean>>).notlar;
+    delete (missing.modules as Partial<Record<ModuleName, boolean>>).birikim;
+    const explicitFalse = permissions({
+      modules: { notlar: false, birikim: false },
+    });
+
+    expect(permissionAccessSignature(missing)).toBe(
+      permissionAccessSignature(explicitFalse),
+    );
+    expect(isPermissionNarrowing(missing, explicitFalse)).toBe(false);
+  });
+
+  it('explicit level kaydinda açık notlar/birikim anahtarları kaybolursa cache temizlenir', () => {
+    const previous = permissions({
+      modules: { notlar: true, birikim: true },
+    });
+    const next = permissions();
+    delete (next.modules as Partial<Record<ModuleName, boolean>>).notlar;
+    delete (next.modules as Partial<Record<ModuleName, boolean>>).birikim;
+
+    expect(isPermissionNarrowing(previous, next)).toBe(true);
+  });
+
+  it('gecersiz ama acikca yazilmis level eksik modulleri legacy true yapmaz', () => {
+    const invalid = permissions();
+    invalid.level = 'root' as Permissions['level'];
+    delete (invalid.modules as Partial<Record<ModuleName, boolean>>).notlar;
+    delete (invalid.modules as Partial<Record<ModuleName, boolean>>).birikim;
+
+    const signature = JSON.parse(
+      permissionAccessSignature(invalid),
+    ) as { modules: Record<string, boolean> };
+    expect(signature.modules.notlar).toBe(false);
+    expect(signature.modules.birikim).toBe(false);
   });
 });

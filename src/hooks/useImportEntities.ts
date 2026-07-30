@@ -6,6 +6,7 @@
 import { useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import i18n from '@/i18n';
 import {
   AccountMapping,
   ParsedTransaction,
@@ -91,7 +92,7 @@ export function useExistingEntities() {
  * Kategorileri import et
  */
 export function useImportCategories() {
-  const { isletme } = useAuthContext();
+  const { isletme, isOwner } = useAuthContext();
 
   return useCallback(async (
     categories: string[],
@@ -102,6 +103,7 @@ export function useImportCategories() {
     userCategoryMappings?: Record<string, 'gelir' | 'gider'>
   ): Promise<{ map: Map<string, string>; createdIds: string[]; reactivatedIds: string[] }> => {
     if (!isletme) return { map: existingMap, createdIds: [], reactivatedIds: [] };
+    if (!isOwner) throw new Error(i18n.t('common:errors.permissionDenied'));
 
     const resultMap = new Map(existingMap);
     const newCategories: KategoriInsert[] = [];
@@ -190,7 +192,7 @@ export function useImportCategories() {
     }
 
     return { map: resultMap, createdIds, reactivatedIds: categoriesToReactivate };
-  }, [isletme]);
+  }, [isletme, isOwner]);
 }
 
 /**

@@ -248,6 +248,7 @@ export default function TopluCikisPage() {
               hareket_tipi: 'cikis',
               miktar: parseQuantity(row.miktar),
               birim_fiyat: parseCurrency(row.birimFiyat) || null,
+              kdv_orani: row.kdvOrani,
               aciklama: null,
               created_at: formatDateTimeForDB(date),
             }).then(() => row.id)
@@ -304,6 +305,7 @@ export default function TopluCikisPage() {
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.flex}

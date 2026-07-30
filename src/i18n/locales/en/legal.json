@@ -127,16 +127,16 @@
         },
         "userContent": {
           "title": "1.2 User-Entered Content",
-          "intro": "The following information is entered entirely at user's discretion and manually:",
+          "intro": "The following information is entered manually at the user's discretion or transferred to a form after the user's explicit selection on their device:",
           "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information (name, position, salary, leave details)\nProduct and inventory information (product name, code, price, stock quantity)\nNotes and task content (including reminders, photos, and assignments)\nDescriptions and similar content"
         },
         "optional": {
           "title": "1.3 Optional Information",
-          "content": "Tax number, phone number, and similar fields are not mandatory and are entered optionally by users."
+          "content": "Tax number, phone number, and similar fields are optional; users can enter them manually or transfer them from a device contact they explicitly select."
         },
         "deviceAccess": {
           "title": "1.4 Device Access",
-          "content": "Camera and Photo Library: Access is requested only when the user wants to attach photos (receipts, invoices, etc.) to transactions or notes.\nFile System: Access is requested during Excel file import and export operations.\nNotifications: Push notification permission may be requested for scheduled transaction and note reminders."
+          "content": "Camera and Photo Library: Access is requested only when the user wants to attach photos (receipts, invoices, etc.) to transactions or notes.\nFile System: Access is requested during Excel file import and export operations.\nNotifications: Push notification permission may be requested for scheduled transaction and note reminders.\nDevice Contacts: Access is requested only after the user taps “Choose from contacts.” The app does not retrieve or upload the entire address book; only the selected person's name and phone number are copied into the form. This information is not sent to the server until the user taps “Save.”"
         }
       },
       "dataUsage": {

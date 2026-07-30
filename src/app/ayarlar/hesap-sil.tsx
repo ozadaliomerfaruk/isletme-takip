@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { View, StyleSheet, Alert, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Trash2, AlertTriangle } from 'lucide-react-native';
 import { Text, Button, Input, Card, Screen } from '@/components/ui';
-import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useRequireOwner } from '@/hooks/usePagePermission';
 
 export default function HesapSilPage() {
-  const contentPaddingBottom = useContentBottomPadding();
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { t } = useTranslation(['settings', 'common', 'errors']);
   useRequireOwner();
@@ -62,12 +64,14 @@ export default function HesapSilPage() {
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
         {/* Onay kutusu zorunlu olduğu için klavye mutlaka açılıyor: kaydırılabilir
             olmazsa "Hesabı Sil" satırı klavyenin altında kalıp erişilemez oluyordu */}
         <ScrollView
-          contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+          contentContainerStyle={[styles.content, { paddingBottom: spacing.lg + footerInset }]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.iconContainer}>

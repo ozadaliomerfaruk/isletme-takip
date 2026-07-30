@@ -3,6 +3,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
+import { guardServiceRoleWorkerRequest } from "../_shared/workerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,11 +148,18 @@ async function sendPushNotification(
   }
 }
 
-Deno.serve(withFnTelemetry({ name: "process-scheduled-transactions" }, async (req) => {
+Deno.serve(withFnTelemetry({
+  name: "process-scheduled-transactions",
+  // Telemetry must not read an untrusted chunked body before authorization.
+  largePayloadProne: true,
+}, async (req) => {
   // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
+
+  const authError = guardServiceRoleWorkerRequest(req, corsHeaders);
+  if (authError) return authError;
 
   try {
     // Admin client oluştur (service role key ile)

@@ -8,8 +8,8 @@ interface PendingDelete<T> {
   description: string;
 }
 
-interface UseUndoDeleteOptions {
-  onCommitDelete: (id: string) => Promise<void>;
+interface UseUndoDeleteOptions<T> {
+  onCommitDelete: (id: string, item: T) => Promise<void>;
   onError?: (error: unknown) => void;
 }
 
@@ -29,7 +29,7 @@ interface UseUndoDeleteResult<T> {
   };
 }
 
-export function useUndoDelete<T>(options: UseUndoDeleteOptions): UseUndoDeleteResult<T> {
+export function useUndoDelete<T>(options: UseUndoDeleteOptions<T>): UseUndoDeleteResult<T> {
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
   const [snackbarVisible, setSnackbarVisible] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -53,7 +53,7 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions): UseUndoDeleteRe
     setSnackbarVisible(false);
 
     try {
-      await onCommitDeleteRef.current(pending.id);
+      await onCommitDeleteRef.current(pending.id, pending.item);
     } catch (error) {
       // Delete failed - restore item to UI
       setPendingDeleteIds(prev => {
@@ -75,7 +75,7 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions): UseUndoDeleteRe
       pendingRef.current = null;
 
       // Commit previous delete in background
-      onCommitDeleteRef.current(prevPending.id).catch((error: unknown) => {
+      onCommitDeleteRef.current(prevPending.id, prevPending.item).catch((error: unknown) => {
         setPendingDeleteIds(prev => {
           const next = new Set(prev);
           next.delete(prevPending.id);
@@ -92,7 +92,10 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions): UseUndoDeleteRe
       next.add(id);
       return next;
     });
-    setSnackbarMessage(`"${description}" silindi`);
+    // DB silme işlemi 5 saniyelik geri-al penceresinden SONRA çalışır. Daha önce
+    // henüz server sonucu yokken "silindi" deniyor; yetki reddinde satır geri gelince
+    // kullanıcı uygulamanın kendi kendine düzeldiğini sanıyordu.
+    setSnackbarMessage(`"${description}" silinecek`);
     setSnackbarVisible(true);
 
     // Start 5s timer
@@ -143,7 +146,7 @@ export function useUndoDelete<T>(options: UseUndoDeleteOptions): UseUndoDeleteRe
         const pending = pendingRef.current;
         pendingRef.current = null;
         if (pending) {
-          onCommitDeleteRef.current(pending.id).catch((error: unknown) => {
+          onCommitDeleteRef.current(pending.id, pending.item).catch((error: unknown) => {
             if (__DEV__) console.error('[useUndoDelete] unmount commit hatası:', error);
             onErrorRef.current?.(error);
           });

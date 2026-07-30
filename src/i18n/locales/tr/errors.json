@@ -20,7 +20,7 @@
     "serverError": "Sunucu hatası",
     "serviceUnavailable": "Servis kullanılamıyor",
     "connectionLost": "Bağlantı kesildi",
-    "serverUnavailable": "Sunucu kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+    "serverUnavailable": "Sunucuya şu anda ulaşılamıyor. Lütfen tekrar deneyin.",
     "requestFailed": "İstek başarısız oldu"
   },
   "auth": {

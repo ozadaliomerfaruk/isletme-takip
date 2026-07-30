@@ -13,7 +13,7 @@ interface PermissionEditorProps {
 }
 
 // Sade model: modüller iki grupta, her biri tek aç/kapa toggle.
-// (dashboard her zaman açık, ayarlar owner-only, arsiv modüle bağlı → gösterilmez.)
+// (dashboard Raporlar'a, arşiv iş modüllerine bağlı; ayarlar owner-only.)
 const MODULE_GROUPS: {
   headerKey: string;
   headerDefault: string;
@@ -129,7 +129,7 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
       {noModuleOn && (
         <Text variant="caption" color="muted" style={styles.noModuleWarning}>
           {t('multiUser:permissions.noModuleWarning', {
-            defaultValue: 'Hiçbir modül seçili değil — bu kullanıcı yalnızca ana ekranı görebilir.',
+            defaultValue: 'Hiçbir modül seçili değil — bu kullanıcı işletmenin iş ekranlarını göremez.',
           })}
         </Text>
       )}
@@ -141,7 +141,7 @@ export function PermissionEditor({ value, onChange }: PermissionEditorProps) {
         </Text>
         <Text variant="caption" color="muted" style={styles.levelHelp}>
           {t('multiUser:permissions.levelHelp', {
-            defaultValue: 'Açık modüllerde kayıtlar görünür ve Excel/PDF dışa aktarılabilir; Cariler açıksa public ekstre bağlantısı paylaşılabilir. Ekleme/düzenleme/silme aşağıdaki seçime göredir.',
+            defaultValue: 'Açık modüllerde kimin eklediğine bakılmadan bütün kayıtlar görünür ve Excel/PDF dışa aktarılabilir; Cariler açıksa public ekstre bağlantısı paylaşılabilir. Ekleme/düzenleme/silme aşağıdaki seçime göredir.',
           })}
         </Text>
         <View style={styles.card}>

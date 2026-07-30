@@ -9,7 +9,8 @@ import { Text, Input, Button, Card, Screen, Modal } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
-import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
+import { usePersonelById, usePersonelList, useUpdatePersonel } from '@/hooks/usePersonel';
+import { useCariler } from '@/hooks/useCariler';
 import { formatDateForDB, parseDateFromDB, ensureValidDate } from '@/lib/date';
 import { parseCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -18,6 +19,14 @@ import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
+import { DeviceContactPickerButton } from '@/components/contacts/DeviceContactPickerButton';
+import {
+  findPhoneDuplicateMatches,
+  getPhoneDuplicateWarningCopy,
+  getPhoneValidationMessageKey,
+  preparePhoneForSave,
+} from '@/lib/phone';
 
 /**
  * Tarih seçici alt sayfası — AYRI BİLEŞEN, çünkü güvenli alan Modal'ın İÇİNDE
@@ -64,7 +73,10 @@ export default function PersonelDuzenlePage() {
 
   const { data: personel, isLoading } = usePersonelById(id);
   usePagePermission({ module: 'personel', action: 'update', createdBy: personel?.created_by });
+  const { isOwner } = usePermissions();
   const updatePersonel = useUpdatePersonel();
+  const { data: visibleCariler } = useCariler(undefined, true, true);
+  const { data: visiblePersoneller } = usePersonelList(true, true);
   const insets = useSafeAreaInsets();
   const footerInset = useFooterBottomPadding();
 
@@ -80,7 +92,7 @@ export default function PersonelDuzenlePage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isActive, setIsActive] = useState(true);
-  const [errors, setErrors] = useState<{ firstName?: string }>({});
+  const [errors, setErrors] = useState<{ firstName?: string; phone?: string }>({});
 
   useEffect(() => {
     if (personel) {
@@ -98,31 +110,37 @@ export default function PersonelDuzenlePage() {
   }, [personel]);
 
   const validate = () => {
-    const newErrors: { firstName?: string } = {};
+    const newErrors: { firstName?: string; phone?: string } = {};
+    const phoneResult = preparePhoneForSave(phone, personel?.phone);
 
     if (!firstName.trim()) {
       newErrors.firstName = t('staff:validation.firstNameRequired');
     }
+    if (!phoneResult.ok) {
+      newErrors.phone = t(`common:${getPhoneValidationMessageKey(phoneResult.reason)}`);
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      normalizedPhone: phoneResult.ok ? phoneResult.value : null,
+    };
   };
 
-  const handleSubmit = async () => {
-    if (!validate() || !id) return;
-
+  const persistPersonel = async (normalizedPhone: string | null) => {
+    if (!id) return;
     try {
       await updatePersonel.mutateAsync({
         id,
         first_name: firstName.trim(),
         last_name: lastName.trim() || '',
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         position: position.trim() || null,
         salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
         end_date: endDate ? formatDateForDB(endDate) : null,
         notes: notes.trim() || null,
-        is_active: isActive,
+        ...(isOwner ? { is_active: isActive } : {}),
       });
 
       notifySaved(t('staff:messages.updateSuccess'));
@@ -130,6 +148,32 @@ export default function PersonelDuzenlePage() {
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:personel.updateFailed'));
     }
+  };
+
+  const handleSubmit = async () => {
+    const validation = validate();
+    if (!validation.isValid || !id) return;
+
+    const duplicateMatches = phone === (personel?.phone ?? '')
+      ? []
+      : findPhoneDuplicateMatches(validation.normalizedPhone, {
+          cariler: visibleCariler,
+          personeller: visiblePersoneller,
+          exclude: { entityType: 'personel', id },
+        });
+    if (duplicateMatches.length > 0) {
+      const warning = getPhoneDuplicateWarningCopy(duplicateMatches, i18n.language);
+      Alert.alert(warning.title, warning.message, [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: warning.confirmLabel,
+          onPress: () => void persistPersonel(validation.normalizedPhone),
+        },
+      ]);
+      return;
+    }
+
+    await persistPersonel(validation.normalizedPhone);
   };
 
   if (isLoading) {
@@ -212,6 +256,12 @@ export default function PersonelDuzenlePage() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                error={errors.phone}
+                rightIcon={(
+                  <DeviceContactPickerButton
+                    onSelect={(selection) => setPhone(selection.phone)}
+                  />
+                )}
               />
 
               <Input
@@ -389,23 +439,25 @@ export default function PersonelDuzenlePage() {
               )}
             </View>
 
-            {/* Pasif Mod */}
-            <View style={styles.section}>
-              <View style={styles.passiveModeContainer}>
-                <View style={styles.passiveModeHeader}>
-                  <Text variant="body">{t('common:passiveMode.title')}</Text>
-                  <Switch
-                    value={!isActive}
-                    onValueChange={(value) => setIsActive(!value)}
-                    trackColor={{ false: colors.border, true: colors.warning }}
-                    thumbColor={colors.surface}
-                  />
+            {/* Pasif kayıt yönetimi yalnız işletme sahibine aittir. */}
+            {isOwner && (
+              <View style={styles.section}>
+                <View style={styles.passiveModeContainer}>
+                  <View style={styles.passiveModeHeader}>
+                    <Text variant="body">{t('common:passiveMode.title')}</Text>
+                    <Switch
+                      value={!isActive}
+                      onValueChange={(value) => setIsActive(!value)}
+                      trackColor={{ false: colors.border, true: colors.warning }}
+                      thumbColor={colors.surface}
+                    />
+                  </View>
+                  <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
+                    {t('common:passiveMode.description')}
+                  </Text>
                 </View>
-                <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
-                  {t('common:passiveMode.description')}
-                </Text>
               </View>
-            </View>
+            )}
 
           </ScrollView>
 

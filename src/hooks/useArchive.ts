@@ -19,7 +19,13 @@ export function useArchivedHesaplar(enabled: boolean = true) {
   const canSeeHesaplar = canAccessModule('hesaplar');
 
   return useQuery({
-    queryKey: queryKeys.hesaplar.archived(isletme?.id ?? ''),
+    queryKey: [
+      ...queryKeys.hesaplar.archived(isletme?.id ?? ''),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeeHesaplar,
+    ],
     queryFn: async () => {
       if (!canSeeHesaplar || !isletme) return [];
 
@@ -51,7 +57,13 @@ export function useArchivedCariler(type?: CariType, enabled: boolean = true) {
   const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
-    queryKey: queryKeys.cariler.archived(isletme?.id ?? '', type),
+    queryKey: [
+      ...queryKeys.cariler.archived(isletme?.id ?? '', type),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeeCariler,
+    ],
     queryFn: async () => {
       if (!canSeeCariler || !isletme) return [];
 
@@ -87,7 +99,13 @@ export function useArchivedPersonel(enabled: boolean = true) {
   const canSeePersonel = canAccessModule('personel');
 
   return useQuery({
-    queryKey: queryKeys.personel.archived(isletme?.id ?? ''),
+    queryKey: [
+      ...queryKeys.personel.archived(isletme?.id ?? ''),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeePersonel,
+    ],
     queryFn: async () => {
       if (!canSeePersonel || !isletme) return [];
 
@@ -118,7 +136,13 @@ export function useArchivedUrunler(enabled: boolean = true) {
   const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
-    queryKey: queryKeys.urunler.archived(isletme?.id ?? ''),
+    queryKey: [
+      ...queryKeys.urunler.archived(isletme?.id ?? ''),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeeUrunler,
+    ],
     queryFn: async () => {
       if (!canSeeUrunler || !isletme) return [];
 
@@ -343,7 +367,16 @@ export function useArchiveCounts() {
   const canSeeArchive = canAccessModule('arsiv');
 
   return useQuery({
-    queryKey: queryKeys.archive.counts(isletme?.id ?? ''),
+    queryKey: [
+      ...queryKeys.archive.counts(isletme?.id ?? ''),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeeHesaplar,
+      canSeeCariler,
+      canSeePersonel,
+      canSeeUrunler,
+    ],
     queryFn: async () => {
       if (!canSeeArchive || !isletme) {
         return { hesaplar: 0, tedarikci: 0, musteri: 0, personel: 0, urunler: 0 };

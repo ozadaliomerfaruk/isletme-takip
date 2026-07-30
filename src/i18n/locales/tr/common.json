@@ -34,6 +34,23 @@
     "ara": "Ara",
     "whatsapp": "WhatsApp"
   },
+  "contactPicker": {
+    "accessibilityLabel": "Rehberden seç",
+    "accessibilityHint": "Telefonun kişi seçicisini açar",
+    "chooseNumber": "Telefon numarasını seçin",
+    "phoneOption": "Telefon {{index}}",
+    "noPhoneTitle": "Telefon bulunamadı",
+    "noPhoneMessage": "Seçtiğiniz kişide kayıtlı telefon numarası yok. Numarayı manuel girebilirsiniz.",
+    "permissionTitle": "Rehber izni gerekli",
+    "permissionDenied": "Rehber izni verilmedi. Numarayı manuel girebilir veya telefonun Ayarlar bölümünden izin verebilirsiniz.",
+    "unavailableTitle": "Rehber açılamadı",
+    "unavailableMessage": "Telefonun kişi seçicisi şu anda kullanılamıyor. Numarayı manuel girebilirsiniz.",
+    "errors": {
+      "extension": "Telefon numarasında dahili veya bekletme işareti var. Dahiliyi kaldırıp numarayı kontrol edin.",
+      "invalid": "Geçerli bir telefon numarası girin. Yalnızca baştaki +, rakamlar ve yaygın ayraçlar kullanılabilir.",
+      "tooLong": "Telefon numarası 20 karakter sınırını aşıyor. Numarayı kısaltıp tekrar deneyin."
+    }
+  },
   "buttons": {
     "save": "Kaydet",
     "cancel": "İptal",
@@ -656,6 +673,7 @@
     "hasLinkedRecords": "Bu kaydı silmek için önce bağlı kayıtları silmeniz gerekiyor.",
     "hasLinkedProductMovements": "Bu ürünü kalıcı silmek için önce bağlı işlemleri silmeniz gerekiyor. {{count}} adet işleme bağlı hareketi var. Bunun yerine ürünü arşivleyebilirsiniz.",
     "hasSharedCari": "Bu cari paylaşımda olduğu için silinemez. Önce paylaşımı kaldırın; aksi halde paylaştığınız taraf erişimini kaybeder.",
+    "noteContextServerManaged": "Bu notun bağlı olduğu kayıt doğrudan değiştirilemez.",
     "cannotDeleteTitle": "Silinemez"
   },
   "notes": {
@@ -692,6 +710,7 @@
     "removeReminder": "Hatırlatıcıyı Kaldır",
     "reminderSet": "Hatırlatıcı ayarlandı",
     "reminderRemoved": "Hatırlatıcı kaldırıldı",
+    "reminderUpdateFailed": "Not kaydedildi ancak hatırlatıcı güncellenemedi.",
     "addPhoto": "Fotoğraf Ekle",
     "removePhoto": "Fotoğrafı Kaldır",
     "takePhoto": "Fotoğraf Çek",

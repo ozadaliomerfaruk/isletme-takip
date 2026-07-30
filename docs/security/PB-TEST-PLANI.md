@@ -1,11 +1,37 @@
 # P-B TEST PLANI — test ortamı adımları ve kabul kriterleri
 
-**Durum:** 🔒 Yerel dosyalar hazır · **üretime uygulanmadı** · onay bekliyor
-**Kapsam:** `20260726140000_pb_internal_yetki_altyapisi.sql`
+**Durum:** ✅ 29 Temmuz güvenlik re-auditi, geri alınan üretim ön kontrolü,
+bağımsız denetim ve canlı son kontroller tamamlandı.
+**Canlı migration:** `20260729064915_pb_internal_yetki_altyapisi`
+**Kapsam:** `20260729064915_pb_internal_yetki_altyapisi.sql`
 
 ---
 
-# ✅ SONUÇ — TEST ORTAMI TURU TAMAMLANDI (26 Tem)
+# 29 TEMMUZ 2026 — GÜNCEL KAPI
+
+- Resolver artık 14 modülün görünür/derived sözleşmesini, `birikim = hesaplar AND
+  birikim`, bilinmeyen level fail-closed ve bağımsız exact global visibility
+  semantiğini uygular.
+- Permissions boolean'larında yalnız JSON `true` yetki verir; string/number/null/
+  object/array deny olur ve text→boolean cast exception'ı yoktur.
+- Dört fonksiyon oluşturulduktan sonra final schema-wide ACL sweep çalışır;
+  yalnız resolver authenticated'a sweep'ten sonra yeniden grant edilir.
+- PG17'de per-schema default REVOKE global PUBLIC EXECUTE defaultunu kaldıramaz.
+  Bu yüzden test yalnız mevcut dört resultant ACL'i kanıtlar; gelecekteki her
+  `internal` fonksiyon migrationı kendi final sweep'ini yapmak zorundadır.
+- `cevrilen_tutar` NaN/Infinity guard'ları same-currency early return'den öncedir.
+- Jest sözleşme/parite testleri gerekli ama tek başına yeterli değildir.
+- Gerçek motor kapısı üretimde public tablo DML'i yapmayan `BEGIN/ROLLBACK`
+  preflight ile tamamlandı; derleme, resultant ACL, owner/aktif üye/cross-tenant,
+  tip, kur ve bakiye assertleri geçti.
+- `docs/security/taslak/PB-POSTGRES-DAVRANIS-TESTI.sql` bozuk JSON fixture'ı için
+  geçici `UPDATE` yaptığı için yalnız izole staging'de kullanılacak ek derinlik
+  testidir; üretimde çalıştırılmadı.
+
+# TARİHSEL SONUÇ — ESKİ SQL HASH'İYLE TEST ORTAMI TURU (26 Tem)
+
+> Aşağıdaki 87/87 sonucu 29 Temmuzda değiştirilen SQL'i doğrulamaz; yalnız tarihsel
+> kanıttır. Güncel migration için gerçek PostgreSQL turu yeniden çalıştırılmalıdır.
 
 **Ortam:** `scratchpad/pa-pb-izolasyon-harness` · yerel Supabase · **PostgreSQL 17.6**
 **Kapsam:** bootstrap + minimal baseline + **P-A** + **P-B** *(4 migration)*
@@ -20,7 +46,7 @@
 | P-A gerçek davranış (PA-1…PA-5, S-1…S-3) | ✅ **8/8** |
 | Data API + N-R erişim modeli | ✅ **8/8** |
 | Sekiz resolver profili (R1…R8) | ✅ **9/9** |
-| **864 hücre SQL ↔ TS** | ✅ **SAPMA 0** *(istisnasız)* |
+| **864 hücre SQL ↔ TS** | ✅ **SAPMA 0** *(tarihsel, 6 modül)* |
 | L1–L5 level senaryoları | ✅ **5/5** |
 | 16 tip × kur yönleri (32 op) | ✅ **sayısal tam eşitlik, sapma 0** |
 | Y1–Y10 yuvarlama/kur | ✅ **10/10** |
@@ -44,11 +70,11 @@ hücre hücre karşılaştırıldı → **sıfır sapma**.
 **Fallback:** `authenticated` erişimi kapandı, **4 nesne ve şema yerinde kaldı** (DROP yok),
 `postgres` hâlâ çağırabiliyor. En sona bırakıldı.
 
-### Bilinen sapmalar — hepsi sıfır kullanıcı etkili
+### Tarihsel sapmalar
 
 | Sapma | Doğrulama |
 |---|---|
-| Bilinmeyen `level` → SQL fail-**closed**, TS fail-open | Üretimde allowlist dışı `level` **yok** *(24/24)* |
+| Bilinmeyen `level` | 29 Temmuz güncel client ve SQL artık ikisi de fail-closed |
 | `NaN` kur + aynı para birimi → SQL hata, TS geçer | Üretimde **67.548 işlemde 0** NaN/Inf/≤0 |
 | `pg_net` yerel **0.20.3** ↔ üretim **0.19.5** | P-A/P-B **aktif HTTP kullanmıyor** → bu turu bloke etmez. **Storage/webhook paketlerinde yeniden değerlendirilmeli** |
 
@@ -68,12 +94,12 @@ kendi guard'ıyla reddediyor, ama **tablo seviyesinde açık duruyor** → ayrı
 
 ### 🛑 Bu sonuç üretim onayı DEĞİLDİR
 
-P-A için üretim öncesi hâlâ zorunlu: **canlı gövde hash'i** (`638fc810…`) · **tam yedek** ·
-**ayrı P-A onayı**. P-B ayrı yedek ve ayrı açık onayla, P-A'dan **bağımsız** uygulanacak.
+P-A kendi ayrı onay hattındadır. P-B additive/no-DML'dir; kullanıcı 27 Temmuz
+yedeğini teyit ettiğinden tekrar yedek kapısı yoktur. P-B, P-A'dan bağımsızdır.
 
 ---
 
-## 0. 🛑 BLOKAJ — izole test ortamı YOK
+## 0. TARİHSEL BLOKAJ (26 Temmuz) — izole test ortamı yoktu
 
 İzole test ortamı onayı verildi, fakat **çalıştırılacak ortam mevcut değil.**
 Kanıt *(26 Tem)*:
@@ -87,9 +113,10 @@ Kanıt *(26 Tem)*:
 | Yerel PostgreSQL (`psql`) | ❌ **Yok** |
 | Supabase branch listesi | ❌ Hata döndü — branching kullanılamıyor |
 
-> **Ön koşul karşılanamıyor:** *"hedef project ref/host'un üretimden farklı olduğunu
+> **26 Temmuz tarihsel sonucu:** *"hedef project ref/host'un üretimden farklı olduğunu
 > açıkça göster."* Farklı bir ref **yok**. Bu migration'ı `ulohxpkhesxozwnlnonb`
-> üzerinde çalıştırmak **üretimde çalıştırmak** demektir — onaylı değil, yapılmadı.
+> üzerinde çalıştırmak **üretimde çalıştırmak** demekti; o tarihte onaylı değildi ve
+> yapılmadı.
 
 ### 0.1 Seçenekler *(karar ürün sahibinin)*
 
@@ -104,7 +131,10 @@ Kanıt *(26 Tem)*:
 > test planının tamamını karşılıyor. Advisor kontrolleri üretim uygulaması sırasında
 > ayrıca çalıştırılabilir *(salt-okunur)*.
 
-**Bu blokaj çözülene kadar §2 çalıştırılamaz; üretim onayı da istenemez.**
+**29 Temmuz sonucu:** Kullanıcının additive/veri-silmeyen migration yetkisi ve
+27 Temmuz yedek teyidi kapsamında önce üretimde tamamen geri alınan, public veri
+DML'i içermeyen preflight çalıştırıldı; bağımsız denetimden sonra migration canlıya
+alındı. İzole DML'li adversarial script staging kalemi olarak açık bırakıldı.
 
 ---
 
@@ -112,17 +142,18 @@ Kanıt *(26 Tem)*:
 
 | Süit | Test | Sonuç |
 |---|---|---|
-| `permissionResolverParity` | **864 hücre** parite + S1…S12 sentetik | ✅ 19/19 |
-| `pbMigrationContract` | Şema/grant hijyeni · resolver semantiği · allowlist · bakiye paritesi · fallback | ✅ 30/30 |
+| `permissionResolverParity` | **2016 hücre** · gerçek `usePermissions` karşılaştırması · S1…S17 | ✅ 29/29 |
+| `pbMigrationContract` | Exact JSONB · bütün modüller · final ACL sweep · guard sırası · gerçek-PG script sözleşmesi | ✅ 51/51 |
 | `cleanupAuditLogAclMigration` | P-A sözleşmesi | ✅ 10/10 |
 
-**Toplam 59/59** *(tüm süit: 474/474 · tsc temiz · eslint temiz)*.
+**29 Temmuz hedef turu:** PB iki süit + `islemBalanceOps` = **97/97** ·
+tsc temiz · hedef eslint temiz.
 
 > 🛑 **BUNLAR DOSYA-İÇERİK SÖZLEŞMESİ TESTLERİDİR — SQL'İN ÇALIŞMA SONUCUNU
 > KANITLAMAZLAR.**
 >
-> **ÜRETİM ONAYI, §2 gerçek PostgreSQL/Supabase ortamında çalıştırılmadan
-> İSTENMEYECEKTİR.** Jest'in yeşil olması bu kapıyı geçmez.
+> Jest tek başına kabul edilmedi. Gerçek PostgreSQL derleme/ACL/davranış preflight'ı,
+> bağımsız audit ve canlı son kontrol birlikte tamamlandı.
 
 ---
 
@@ -167,7 +198,7 @@ Kanıt *(26 Tem)*:
 
 | # | Profil | Beklenen |
 |---|---|---|
-| R1 | Owner | 6 modülde tüm yetenekler `true` |
+| R1 | Owner | 14 modülde tüm yetenekler `true` |
 | R2 | `uye-01` *(legacy, cariler c/uo/ua)* | `cariler`: create ✅ update_all ✅ delete ❌ · `personel`: hepsi ❌ |
 | R3 | `uye-03` *(legacy, tüm actions false)* | Modüller görünür, **hiçbir yazma yok** |
 | R4 | `uye-08` *(`csaud=false`)* | `can_see_all_users_data` = **false** |
@@ -180,17 +211,17 @@ Kanıt *(26 Tem)*:
 
 ### 2.4-b 🔬 Resolver SQL çıktısı ↔ TS referansı — **doğrudan SQL karşılaştırması**
 
-> Jest'teki 864 hücre, TS referansını TS modeliyle karşılaştırıyor. Burada
+> Jest'teki 2016 hücre ve gerçek hook karşılaştırması SQL'i çalıştırmaz. Burada
 > **gerçek SQL çıktısı** TS referansıyla karşılaştırılır.
 
 | Adım | İçerik |
 |---|---|
 | 1 | Fixture'daki 24 profil test ortamında **sentetik üyelik** olarak kurulur |
-| 2 | Her profil için, o kullanıcının JWT'siyle `internal.etkin_yetki(isletme_id, modul)` **6 modül** için çağrılır |
+| 2 | Her profil için, o kullanıcının JWT'siyle `internal.etkin_yetki(isletme_id, modul)` **14 modül** için çağrılır |
 | 3 | Çıktı, `permissionResolver.reference.ts` çıktısıyla **hücre hücre** karşılaştırılır |
 | 4 | Karşılaştırma **makine tarafından** yapılır (elle göz kontrolü değil); sapma listesi dosyaya yazılır |
 
-**Kabul:** 864 hücrede **sıfır sapma**.
+**Kabul:** 2016 hücrede **sıfır sapma**.
 **Tek beklenen istisna yok** — allowlist dışı `level` fixture'da bulunmuyor
 (§2.3-b ile ayrıca test edilir).
 
@@ -316,7 +347,7 @@ TS ile SQL arasında **daha önce ayrışmıştı**; bu vakalar eşitlemeyi kan�
 ## 5. Kabul kapısı
 
 ```
-59/59 yerel jest  ✅  (tamamlandı — AMA TEK BAŞINA YETMEZ)
+97/97 hedef yerel jest  ✅  (tamamlandı — AMA TEK BAŞINA YETMEZ)
         +
 §2.1  üç noktalı Data API kapısı
         +
@@ -324,7 +355,7 @@ TS ile SQL arasında **daha önce ayrışmıştı**; bu vakalar eşitlemeyi kan�
         +
 §2.3  N-R1…N-R6 erişim modeli
         +
-§2.4-b GERÇEK SQL çıktısı ↔ TS referansı — 864 hücre, sıfır sapma
+§2.4-b GERÇEK SQL çıktısı ↔ TS referansı — 2016 hücre, sıfır sapma
         +
 §2.4-c bilinmeyen level L1…L5 — fail-closed
         +

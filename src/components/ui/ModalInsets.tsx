@@ -1,11 +1,25 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import { SafeAreaInsetsContext, type EdgeInsets } from 'react-native-safe-area-context';
+import {
+  SafeAreaInsetsContext,
+  useSafeAreaInsets,
+  type EdgeInsets,
+} from 'react-native-safe-area-context';
 
 /**
  * _layout'un yayınladığı GERÇEK (override'sız) safe-area değerleri.
  * Yalnız ModalInsets tüketir; ekranlar override'lı olanı kullanmaya devam eder.
  */
 export const RealInsetsContext = createContext<EdgeInsets | null>(null);
+
+/**
+ * Modalı döndüren bileşenin kendi hook'ları ModalInsets sağlayıcısının DIŞINDA
+ * çalışır. Bu nedenle sheet yüksekliğini/padding'ini aynı bileşende hesaplayan
+ * yüzeyler gerçek kök inset'ini doğrudan bu hook ile okumalıdır.
+ */
+export function useModalSafeAreaInsets(): EdgeInsets {
+  const inherited = useSafeAreaInsets();
+  return useContext(RealInsetsContext) ?? inherited;
+}
 
 /**
  * MODAL İÇİ ALT BOŞLUK DÜZELTMESİ — her `<Modal>`'ın içeriği bununla sarılır.

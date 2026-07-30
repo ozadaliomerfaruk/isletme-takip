@@ -68,11 +68,12 @@ interface MissingInOursRowProps {
   /** Kuyruktan/dokunuştan eklendi mi (eklendiyse satır pasifleşir) */
   added: boolean;
   skipped: boolean;
+  canCreateTransactions: boolean;
   onPress: () => void;
 }
 
 export const MissingInOursRow = memo(function MissingInOursRow({
-  item, yon, cariType, currency, formatDate, added, skipped, onPress,
+  item, yon, cariType, currency, formatDate, added, skipped, canCreateTransactions, onPress,
 }: MissingInOursRowProps) {
   const { t } = useTranslation('mutabakat');
   const mirror = mirrorOf(item.satir, yon);
@@ -84,12 +85,12 @@ export const MissingInOursRow = memo(function MissingInOursRow({
 
   return (
     <TouchableOpacity
-      style={[styles.row, styles.rowTappable, added && styles.rowAdded]}
-      onPress={onPress}
-      disabled={added}
-      activeOpacity={0.6}
-      accessibilityRole="button"
-      accessibilityState={{ disabled: added }}
+      style={[styles.row, canCreateTransactions && styles.rowTappable, added && styles.rowAdded]}
+      onPress={canCreateTransactions ? onPress : undefined}
+      disabled={!canCreateTransactions || added}
+      activeOpacity={canCreateTransactions ? 0.6 : 1}
+      accessibilityRole={canCreateTransactions ? 'button' : undefined}
+      accessibilityState={{ disabled: !canCreateTransactions || added }}
     >
       <View style={styles.rowMain}>
         <View style={styles.rowLeft}>
@@ -111,14 +112,14 @@ export const MissingInOursRow = memo(function MissingInOursRow({
                 {t('queue.added')}
               </Text>
             </View>
-          ) : (
+          ) : canCreateTransactions ? (
             <View style={styles.addHint}>
               <PlusCircle size={14} color={colors.primary} />
               <Text variant="bodySmall" style={{ color: colors.primary }}>
                 {skipped ? t('queue.skipped') : t('rowTap.add')}
               </Text>
             </View>
-          )}
+          ) : null}
         </View>
       </View>
       <Badges rozetler={item.rozetler} />

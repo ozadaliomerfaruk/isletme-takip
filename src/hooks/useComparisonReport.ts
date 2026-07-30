@@ -74,12 +74,9 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
   const { t } = useTranslation(['reports', 'common']);
   const { isletme } = useAuthContext();
   const { canAccessModule } = usePermissions();
-  const reportsEnabled =
-    canAccessModule('raporlar')
-    && canAccessModule('hesaplar')
-    && canAccessModule('cariler')
-    && canAccessModule('urunler')
-    && canAccessModule('personel');
+  // Karşılaştırma işletme-geneli bir rapordur. Raporlar izni tek başına
+  // aggregate RPC'yi ve aynı aggregate veriden üretilen PDF'i açar.
+  const reportsEnabled = canAccessModule('raporlar');
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const rates = exchangeRatesData?.rates;

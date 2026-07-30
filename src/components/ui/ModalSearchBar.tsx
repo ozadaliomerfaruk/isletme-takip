@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
 import { GlassSurface, GLASS_TINT_CONTROL } from './GlassSurface';
@@ -47,7 +47,10 @@ export function ModalSearchBar({ value, onChangeText, placeholder, autoFocusDela
         fallbackStyle={styles.pillFallback}
         tintColor={GLASS_TINT_CONTROL}
       >
-        <View style={styles.pillInner}>
+        <Pressable
+          style={styles.pillInner}
+          onPress={() => inputRef.current?.focus()}
+        >
           <Search size={20} color={colors.textMuted} />
           <TextInput
             ref={inputRef}
@@ -60,14 +63,18 @@ export function ModalSearchBar({ value, onChangeText, placeholder, autoFocusDela
           />
           {value.length > 0 && (
             <TouchableOpacity
-              onPress={() => onChangeText('')}
+              onPress={(event) => {
+                event.stopPropagation();
+                onChangeText('');
+                inputRef.current?.focus();
+              }}
               hitSlop={HIT_SLOP.sm}
               style={styles.clearButton}
             >
               <X size={16} color={colors.textMuted} />
             </TouchableOpacity>
           )}
-        </View>
+        </Pressable>
       </GlassSurface>
     </View>
   );

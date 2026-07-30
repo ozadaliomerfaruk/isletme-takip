@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 
 const KOK = path.resolve(__dirname, '../../..');
-const MIGRATION = path.join(KOK, 'supabase/migrations/20260726130000_cleanup_audit_log_acl.sql');
+const MIGRATION = path.join(KOK, 'supabase/migrations/20260729035553_cleanup_audit_log_acl.sql');
 const FALLBACK = path.join(KOK, 'docs/security/taslak/cleanup_audit_log_acl-FALLBACK.sql');
 const SNAPSHOT = path.join(
   KOK,

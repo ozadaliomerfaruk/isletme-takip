@@ -13,6 +13,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { parseDateFromDB } from '@/lib/date';
 import { formatCurrency } from '@/lib/currency';
 import type { IslemAuditLog } from '@/types/multiUser';
+import { OwnerRouteGuard } from '@/components/permissions/ModuleRouteGuard';
 
 type TabType = 'deleted' | 'edited';
 type ModuleFilterKey = 'all' | 'hesaplar' | 'cariler' | 'personel' | 'urunler';
@@ -28,6 +29,14 @@ const MODULE_FILTERS: { key: ModuleFilterKey; labelKey: string }[] = [
 ];
 
 export default function IslemGecmisiPage() {
+  return (
+    <OwnerRouteGuard>
+      <IslemGecmisiContent />
+    </OwnerRouteGuard>
+  );
+}
+
+function IslemGecmisiContent() {
   const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['multiUser', 'common', 'transactions']);
   const { formatDateNative } = useDateFormat();

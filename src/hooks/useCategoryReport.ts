@@ -3,25 +3,81 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
-import { Kategori, KategoriType, HesapType } from '@/types/database';
+import {
+  Kategori,
+  KategoriType,
+  HesapType,
+  IslemWithRelations,
+} from '@/types/database';
 import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES, CASH_INFLOW_TYPES, CASH_OUTFLOW_TYPES } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
 import { usePermissions } from '@/hooks/usePermissions';
+import {
+  parseCategoryReportTransactionRows,
+  reportCategoryRowsToKategoriler,
+} from '@/lib/reportPermissionProjection';
 
 const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger'];
 
-function useReportsEnabled(): boolean {
-  const { canAccessModule } = usePermissions();
-  // Mevcut kategori RPC'leri bütün işletmenin işlemlerini toplar. Sunucu tarafında
-  // kaynak-modül kesişimi eklenene kadar kısmi modül setinde çağırmak kapalı
-  // modüllerin toplamını sızdırır; bu yüzden güvenli biçimde eksik gösterilir.
-  return canAccessModule('raporlar')
-    && canAccessModule('hesaplar')
-    && canAccessModule('cariler')
-    && canAccessModule('urunler')
-    && canAccessModule('personel');
+const CATEGORY_REPORT_QUERY_META = {
+  persist: false,
+  query_purpose: 'reports:category-v2',
+} as const;
+
+const CATEGORY_REPORT_METADATA_QUERY_META = {
+  persist: false,
+  query_purpose: 'reports:category-metadata-v1',
+} as const;
+
+const CATEGORY_REPORT_DRILLDOWN_QUERY_META = {
+  persist: false,
+  query_purpose: 'reports:category-drilldown-v1',
+} as const;
+
+function useCategoryReportAccess() {
+  const { user, isletmeLoading } = useAuthContext();
+  const {
+    isOwner,
+    canAccessModule,
+    canSeeAllUsersData,
+  } = usePermissions();
+  const canViewReports = canAccessModule('raporlar');
+  const canViewAccounts = canAccessModule('hesaplar');
+  const canViewCariler = canAccessModule('cariler');
+  const canViewProducts = canAccessModule('urunler');
+  const canViewPersonnel = canAccessModule('personel');
+
+  // Raporlar modülü işletmenin bütün rapor verisini açar; kaynak modüllerinin
+  // ayrıca açılması gerekmez. Sunucu projeksiyonu tenant/yetki sınırını uygular.
+  const enabled =
+    !isletmeLoading
+    && !!user?.id
+    && canViewReports;
+
+  // V2 sonucu hem kaynak modüllerine hem de "tüm kullanıcıların verisini gör"
+  // yetkisine bağlıdır. Her daralmada farklı key oluşur; eski aggregate aynı render'da
+  // yeni yetki bağlamına taşınamaz.
+  const permissionFingerprint = [
+    `o${Number(isOwner)}`,
+    `r${Number(canViewReports)}`,
+    `h${Number(canViewAccounts)}`,
+    `c${Number(canViewCariler)}`,
+    `u${Number(canViewProducts)}`,
+    `p${Number(canViewPersonnel)}`,
+    `a${Number(canSeeAllUsersData)}`,
+  ].join('');
+
+  return {
+    enabled,
+    // Raporlar izni sayfanın bütün satırlarını salt-okunur açar. Shared kullanıcı
+    // aşağıdaki dar RPC'ye, owner ise mevcut direct yola gider.
+    drilldownEnabled: enabled,
+    isOwner,
+    userId: user?.id ?? '',
+    permissionFingerprint,
+  };
 }
 
 /**
@@ -105,6 +161,91 @@ function normalizeDateRange(startDate: string | undefined, endDate: string | und
   return { startDateTime, endDateTime };
 }
 
+const CATEGORY_REPORT_TRANSACTION_PAGE_SIZE = 100;
+const CATEGORY_REPORT_TRANSACTION_MAX_PAGES = 1000;
+
+async function fetchReportCategoryReferences(
+  isletmeId: string,
+  type: KategoriType,
+): Promise<Kategori[]> {
+  if (type === 'urun') return [];
+  const { data, error } = await supabase.rpc(
+    'get_rapor_kategori_referanslari_v1',
+    {
+      p_isletme_id: isletmeId,
+      p_type: type,
+    },
+  );
+  if (error) throw error;
+  return reportCategoryRowsToKategoriler(data, isletmeId);
+}
+
+async function fetchSharedCategoryReportTransactions(params: {
+  isletmeId: string;
+  kategoriIds: string[];
+  includeUncategorized: boolean;
+  direction: Extract<KategoriType, 'gelir' | 'gider'>;
+  source?: string;
+  includeReturns: boolean;
+  startDateTime: string;
+  endDateTime: string;
+}): Promise<IslemWithRelations[]> {
+  const rows: IslemWithRelations[] = [];
+  const seenIds = new Set<string>();
+  let beforeDate: string | null = null;
+  let beforeId: string | null = null;
+
+  for (
+    let pageIndex = 0;
+    pageIndex < CATEGORY_REPORT_TRANSACTION_MAX_PAGES;
+    pageIndex += 1
+  ) {
+    const { data, error } = await supabase.rpc(
+      'get_kategori_rapor_islem_satirlari_v1',
+      {
+        p_isletme_id: params.isletmeId,
+        p_kategori_ids: params.kategoriIds,
+        p_include_uncategorized: params.includeUncategorized,
+        p_direction: params.direction,
+        p_source:
+          params.source === 'cash-flow'
+            ? 'cash-flow'
+            : 'income-expense',
+        p_include_returns: params.includeReturns,
+        p_start_date: params.startDateTime,
+        p_end_date: params.endDateTime,
+        p_limit: CATEGORY_REPORT_TRANSACTION_PAGE_SIZE,
+        p_before_date: beforeDate,
+        p_before_id: beforeId,
+      },
+    );
+    if (error) throw error;
+
+    const page = parseCategoryReportTransactionRows(
+      data,
+      params.isletmeId,
+    );
+    page.forEach((row) => {
+      if (seenIds.has(row.id)) return;
+      seenIds.add(row.id);
+      rows.push(row);
+    });
+
+    if (page.length < CATEGORY_REPORT_TRANSACTION_PAGE_SIZE) {
+      return rows;
+    }
+
+    const lastRow = page[page.length - 1];
+    if (beforeDate === lastRow.date && beforeId === lastRow.id) {
+      throw new Error('Category report transaction cursor did not advance');
+    }
+    beforeDate = lastRow.date;
+    beforeId = lastRow.id;
+  }
+
+  throw new Error('Category report transaction page limit exceeded');
+}
+
 /**
  * Pasif (is_active=false) hesap/cari/personel/hedef-hesap içeren işlemleri drill-down
  * işlem listelerinden çıkarır — get_category_report toplamıyla TUTARLI olsun (toplamda
@@ -130,7 +271,8 @@ export function useCategoryReport(
   options: UseCategoryReportOptions
 ): CategoryReportResult {
   const { isletme } = useAuthContext();
-  const reportsEnabled = useReportsEnabled();
+  const reportAccess = useCategoryReportAccess();
+  const reportsEnabled = reportAccess.enabled;
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -145,13 +287,23 @@ export function useCategoryReport(
 
   // Tüm kategorileri çek (parent bilgisi için) - sadece aktif kategoriler
   const {
-    data: allKategoriler,
+    data: rawAllKategoriler,
     isLoading: kategorilerLoading,
     error: kategorilerError,
+    isError: kategorilerIsError,
+    isRefetchError: kategorilerIsRefetchError,
   } = useQuery({
-    queryKey: queryKeys.reports.allKategoriler(isletme?.id ?? '', type),
+    queryKey: queryKeys.reports.allKategoriler(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      type,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme) return [];
+      if (!reportAccess.isOwner) {
+        return fetchReportCategoryReferences(isletme.id, type);
+      }
 
       const { data, error } = await supabase
         .from('kategoriler')
@@ -164,22 +316,48 @@ export function useCategoryReport(
       return data as Kategori[];
     },
     enabled: reportsEnabled && !!isletme,
+    meta: CATEGORY_REPORT_METADATA_QUERY_META,
   });
+  const allKategoriler = useMemo(
+    () => (
+      reportsEnabled
+      && !kategorilerIsError
+      && !kategorilerIsRefetchError
+        ? rawAllKategoriler
+        : []
+    ),
+    [
+      kategorilerIsError,
+      kategorilerIsRefetchError,
+      rawAllKategoriler,
+      reportsEnabled,
+    ],
+  );
 
   // Server-side aggregation: Supabase max_rows sınırından etkilenmez
   // Kategori başına 1 satır döner (binlerce satır yerine ~50 satır)
   const {
-    data: islemler,
+    data: rawIslemler,
     isLoading: islemlerLoading,
     isFetching: islemlerFetching,
     error: islemlerError,
+    isError: islemlerIsError,
+    isRefetchError: islemlerIsRefetchError,
     refetch: refetchIslemler,
   } = useQuery({
-    queryKey: queryKeys.reports.categoryReport(isletme?.id ?? '', type, source ?? '', startDateTime, endDateTime),
+    queryKey: queryKeys.reports.categoryReport(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      type,
+      source ?? '',
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme) return [];
 
-      const { data, error } = await supabase.rpc('get_category_report', {
+      const { data, error } = await supabase.rpc('get_category_report_v2', {
         p_isletme_id: isletme.id,
         p_types: islemTypes as string[],
         p_start_date: startDateTime,
@@ -203,19 +381,30 @@ export function useCategoryReport(
       }>;
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
+    meta: CATEGORY_REPORT_QUERY_META,
   });
 
   // İade işlemlerini KATEGORİ bazlı çek (per-kategori net'leme + toplam İade satırı).
   // Gelir: cari_satis_iade, Gider: cari_alis_iade → ilgili kategoriden düşülür.
   const {
-    data: returnRows,
+    data: rawReturnRows,
     isLoading: returnLoading,
+    error: returnRowsError,
+    isError: returnRowsIsError,
+    isRefetchError: returnRowsIsRefetchError,
   } = useQuery({
-    queryKey: queryKeys.reports.categoryReportReturns(isletme?.id ?? '', type, startDateTime, endDateTime),
+    queryKey: queryKeys.reports.categoryReportReturns(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      type,
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme || returnTypes.length === 0) return [] as Array<{ kategori_id: string | null; parent_id: string | null; total_amount: number }>;
 
-      const { data, error } = await supabase.rpc('get_category_report', {
+      const { data, error } = await supabase.rpc('get_category_report_v2', {
         p_isletme_id: isletme.id,
         p_types: returnTypes as string[],
         p_start_date: startDateTime,
@@ -224,12 +413,28 @@ export function useCategoryReport(
 
       if (error) {
         if (__DEV__) console.error('[useCategoryReport] returns RPC error:', error.message);
-        return [];
+        throw error;
       }
       return (data || []) as Array<{ kategori_id: string | null; parent_id: string | null; total_amount: number }>;
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate && returnTypes.length > 0,
+    meta: CATEGORY_REPORT_QUERY_META,
   });
+
+  const canShowAggregate =
+    reportsEnabled
+    && !islemlerIsError
+    && !islemlerIsRefetchError
+    && !returnRowsIsError
+    && !returnRowsIsRefetchError;
+  const islemler = useMemo(
+    () => (canShowAggregate ? rawIslemler : []),
+    [canShowAggregate, rawIslemler],
+  );
+  const returnRows = useMemo(
+    () => (canShowAggregate ? rawReturnRows : []),
+    [canShowAggregate, rawReturnRows],
+  );
 
   // Kategori bazlı gruplama ve hesaplama (alt kategoriler ana kategoriye dahil)
   // RPC zaten kategori bazlı aggregate döndürüyor, burada sadece parent gruplama yapıyoruz
@@ -397,7 +602,9 @@ export function useCategoryReport(
   }, [islemler, allKategoriler, returnRows, options.percentageReferenceTotal, baseCurrency, rates]);
 
   // Combine errors - prefer islemler error as it's more critical
-  const combinedError = islemlerError || kategorilerError;
+  const combinedError = reportsEnabled
+    ? islemlerError || returnRowsError || kategorilerError
+    : null;
 
   return {
     ...result,
@@ -414,7 +621,8 @@ export function useHierarchicalCategoryReport(
   options: UseCategoryReportOptions
 ): HierarchicalCategoryReportResult {
   const { isletme } = useAuthContext();
-  const reportsEnabled = useReportsEnabled();
+  const reportAccess = useCategoryReportAccess();
+  const reportsEnabled = reportAccess.enabled;
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -429,15 +637,25 @@ export function useHierarchicalCategoryReport(
 
   // Server-side aggregation: Supabase max_rows sınırından etkilenmez
   const {
-    data: islemler,
+    data: rawIslemler,
     isLoading: islemlerLoading,
     error: islemlerError,
+    isError: islemlerIsError,
+    isRefetchError: islemlerIsRefetchError,
   } = useQuery({
-    queryKey: queryKeys.reports.hierarchicalCategoryReport(isletme?.id ?? '', type, source ?? '', startDateTime, endDateTime),
+    queryKey: queryKeys.reports.hierarchicalCategoryReport(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      type,
+      source ?? '',
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme) return [];
 
-      const { data, error } = await supabase.rpc('get_category_report', {
+      const { data, error } = await supabase.rpc('get_category_report_v2', {
         p_isletme_id: isletme.id,
         p_types: islemTypes as string[],
         p_start_date: startDateTime,
@@ -461,18 +679,29 @@ export function useHierarchicalCategoryReport(
       }>;
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
+    meta: CATEGORY_REPORT_QUERY_META,
   });
 
   // İade işlemlerinin toplamını çek (dashboard ile tutarlılık için)
   const {
-    data: returnTotal,
+    data: rawReturnTotal,
     isLoading: returnLoading,
+    error: returnTotalError,
+    isError: returnTotalIsError,
+    isRefetchError: returnTotalIsRefetchError,
   } = useQuery({
-    queryKey: queryKeys.reports.hierarchicalCategoryReportReturns(isletme?.id ?? '', type, startDateTime, endDateTime),
+    queryKey: queryKeys.reports.hierarchicalCategoryReportReturns(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      type,
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme || returnTypes.length === 0) return 0;
 
-      const { data, error } = await supabase.rpc('get_category_report', {
+      const { data, error } = await supabase.rpc('get_category_report_v2', {
         p_isletme_id: isletme.id,
         p_types: returnTypes as string[],
         p_start_date: startDateTime,
@@ -481,14 +710,27 @@ export function useHierarchicalCategoryReport(
 
       if (error) {
         if (__DEV__) console.error('[useHierarchicalCategoryReport] returns RPC error:', error.message);
-        return 0;
+        throw error;
       }
 
       return (data || []).reduce((sum: number, row: { total_amount?: number | string }) =>
         sum + (Number(row.total_amount) || 0), 0);
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate && returnTypes.length > 0,
+    meta: CATEGORY_REPORT_QUERY_META,
   });
+
+  const canShowAggregate =
+    reportsEnabled
+    && !islemlerIsError
+    && !islemlerIsRefetchError
+    && !returnTotalIsError
+    && !returnTotalIsRefetchError;
+  const islemler = useMemo(
+    () => (canShowAggregate ? rawIslemler : []),
+    [canShowAggregate, rawIslemler],
+  );
+  const returnTotal = canShowAggregate ? rawReturnTotal : 0;
 
   // Hiyerarşik gruplama (RPC aggregate verisi üzerinden)
   const result = useMemo(() => {
@@ -671,7 +913,7 @@ export function useHierarchicalCategoryReport(
   return {
     ...result,
     isLoading: islemlerLoading || returnLoading,
-    error: islemlerError as Error | null,
+    error: (reportsEnabled ? islemlerError || returnTotalError : null) as Error | null,
   };
 }
 
@@ -685,17 +927,45 @@ export function useCategoryTransactions(
   options: UseCategoryReportOptions
 ) {
   const { isletme } = useAuthContext();
-  const reportsEnabled = useReportsEnabled();
+  const reportAccess = useCategoryReportAccess();
+  const drilldownEnabled = reportAccess.drilldownEnabled;
   const { startDate, endDate, source, includeReturns = false } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle (source'a göre) — includeReturns ise iadeler de dahil
   const islemTypes = getIslemTypes(type, source, includeReturns);
 
-  return useQuery({
-    queryKey: queryKeys.reports.categoryTransactions(isletme?.id ?? '', kategoriId ?? '', type, source ?? '', startDateTime, endDateTime, includeReturns),
+  const query = useQuery({
+    queryKey: queryKeys.reports.categoryTransactions(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      kategoriId ?? '',
+      type,
+      source ?? '',
+      startDateTime,
+      endDateTime,
+      includeReturns,
+    ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme) return [];
+      if (!drilldownEnabled || !isletme) return [];
+      if (!reportAccess.isOwner) {
+        if (type === 'urun') return [];
+        return fetchSharedCategoryReportTransactions({
+          isletmeId: isletme.id,
+          kategoriIds:
+            kategoriId && kategoriId !== 'uncategorized'
+              ? [kategoriId]
+              : [],
+          includeUncategorized:
+            kategoriId === null || kategoriId === 'uncategorized',
+          direction: type,
+          source,
+          includeReturns,
+          startDateTime,
+          endDateTime,
+        });
+      }
 
       // 0. Mapping: Bu kategori bir gelir/gider kategorisi ise, ona eşlenmiş ürün kategorilerini bul
       // Böylece eşlenmiş ürün kategorilerindeki ürünlerin işlemleri de dahil edilir
@@ -872,9 +1142,30 @@ export function useCategoryTransactions(
 
       return combined;
     },
-    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
-    meta: { query_purpose: 'islemler:report-period' },
+    enabled: drilldownEnabled && !!isletme && !!startDate && !!endDate,
+    meta: CATEGORY_REPORT_DRILLDOWN_QUERY_META,
   });
+
+  const data = useMemo(
+    () => (
+      drilldownEnabled
+      && !query.isError
+      && !query.isRefetchError
+        ? query.data ?? []
+        : []
+    ),
+    [
+      drilldownEnabled,
+      query.data,
+      query.isError,
+      query.isRefetchError,
+    ],
+  );
+
+  return {
+    ...query,
+    data,
+  };
 }
 
 // Birden fazla kategori için işlemleri getir (checkbox filtresi için)
@@ -885,17 +1176,45 @@ export function useMultiCategoryTransactions(
   options: UseCategoryReportOptions
 ) {
   const { isletme } = useAuthContext();
-  const reportsEnabled = useReportsEnabled();
+  const reportAccess = useCategoryReportAccess();
+  const drilldownEnabled = reportAccess.drilldownEnabled;
   const { startDate, endDate, source, includeReturns = false } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
+  const kategoriIdsKey = useMemo(
+    () => [...kategoriIds].sort().join(','),
+    [kategoriIds],
+  );
 
   // İşlem tiplerini belirle (source'a göre) — includeReturns ise iadeler de dahil
   const islemTypes = getIslemTypes(type, source, includeReturns);
 
-  return useQuery({
-    queryKey: queryKeys.reports.multiCategoryTransactions(isletme?.id ?? '', kategoriIds.sort().join(','), type, source ?? '', startDateTime, endDateTime, includeReturns),
+  const query = useQuery({
+    queryKey: queryKeys.reports.multiCategoryTransactions(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      kategoriIdsKey,
+      type,
+      source ?? '',
+      startDateTime,
+      endDateTime,
+      includeReturns,
+    ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme || kategoriIds.length === 0) return [];
+      if (!drilldownEnabled || !isletme || kategoriIds.length === 0) return [];
+      if (!reportAccess.isOwner) {
+        if (type === 'urun') return [];
+        return fetchSharedCategoryReportTransactions({
+          isletmeId: isletme.id,
+          kategoriIds,
+          includeUncategorized: false,
+          direction: type,
+          source,
+          includeReturns,
+          startDateTime,
+          endDateTime,
+        });
+      }
 
       // 0. Mapping: Eşlenmiş ürün kategorilerini bul
       // Seçilen gelir/gider kategorilerine eşlenmiş ürün kategorileri de dahil edilir
@@ -1029,8 +1348,30 @@ export function useMultiCategoryTransactions(
       // kategori toplamı (get_category_report) zaten dışlıyor; liste de tutarlı olsun.
       return combined.filter((row) => !rowHasPassiveEntity(row));
     },
-    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate && kategoriIds.length > 0,
+    enabled: drilldownEnabled && !!isletme && !!startDate && !!endDate && kategoriIds.length > 0,
+    meta: CATEGORY_REPORT_DRILLDOWN_QUERY_META,
   });
+
+  const data = useMemo(
+    () => (
+      drilldownEnabled
+      && !query.isError
+      && !query.isRefetchError
+        ? query.data ?? []
+        : []
+    ),
+    [
+      drilldownEnabled,
+      query.data,
+      query.isError,
+      query.isRefetchError,
+    ],
+  );
+
+  return {
+    ...query,
+    data,
+  };
 }
 
 // Alt kategori raporu - bir ana kategorinin alt kategorilerini getir
@@ -1064,7 +1405,8 @@ export function useSubCategoryReport(
   const parentKategoriId =
     parentKategoriIdRaw && parentKategoriIdRaw !== 'skip' ? parentKategoriIdRaw : null;
   const { isletme } = useAuthContext();
-  const reportsEnabled = useReportsEnabled();
+  const reportAccess = useCategoryReportAccess();
+  const reportsEnabled = reportAccess.enabled;
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -1078,19 +1420,42 @@ export function useSubCategoryReport(
 
   // Ana kategoriyi ve alt kategorileri çek
   const {
-    data: kategoriler,
+    data: rawKategoriler,
     isLoading: kategorilerLoading,
     error: kategorilerError,
+    isError: kategorilerIsError,
+    isRefetchError: kategorilerIsRefetchError,
   } = useQuery({
-    queryKey: queryKeys.reports.subCategories(isletme?.id ?? '', parentKategoriId ?? '', type),
+    queryKey: queryKeys.reports.subCategories(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      parentKategoriId ?? '',
+      type,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme || !parentKategoriId) return { parent: null, children: [] };
+      if (!reportAccess.isOwner) {
+        const references = await fetchReportCategoryReferences(
+          isletme.id,
+          type,
+        );
+        return {
+          parent:
+            references.find((category) => category.id === parentKategoriId)
+            ?? null,
+          children: references
+            .filter((category) => category.parent_id === parentKategoriId)
+            .sort((a, b) => a.name.localeCompare(b.name, 'tr')),
+        };
+      }
 
       // Ana kategoriyi çek
       const { data: parentData, error: parentError } = await supabase
         .from('kategoriler')
         .select('*')
         .eq('id', parentKategoriId)
+        .eq('isletme_id', isletme.id)
         .single();
 
       if (parentError) throw parentError;
@@ -1099,6 +1464,7 @@ export function useSubCategoryReport(
       const { data: childrenData, error: childrenError } = await supabase
         .from('kategoriler')
         .select('*')
+        .eq('isletme_id', isletme.id)
         .eq('parent_id', parentKategoriId)
         .eq('type', type)
         .order('name');
@@ -1111,7 +1477,23 @@ export function useSubCategoryReport(
       };
     },
     enabled: reportsEnabled && !!isletme && !!parentKategoriId,
+    meta: CATEGORY_REPORT_METADATA_QUERY_META,
   });
+  const kategoriler = useMemo(
+    () => (
+      reportsEnabled
+      && !kategorilerIsError
+      && !kategorilerIsRefetchError
+        ? rawKategoriler
+        : undefined
+    ),
+    [
+      kategorilerIsError,
+      kategorilerIsRefetchError,
+      rawKategoriler,
+      reportsEnabled,
+    ],
+  );
 
   // Tüm ilgili kategorilerin işlemlerini çek
   const allKategoriIds = useMemo(() => {
@@ -1122,18 +1504,33 @@ export function useSubCategoryReport(
     }
     return ids;
   }, [parentKategoriId, kategoriler]);
+  const kategoriIdsKey = useMemo(
+    () => [...allKategoriIds].sort().join(','),
+    [allKategoriIds],
+  );
 
   // RPC-based aggregate data for this parent category and its children
   const {
-    data: rpcData,
+    data: rawRpcData,
     isLoading: rpcLoading,
     error: rpcError,
+    isError: rpcIsError,
+    isRefetchError: rpcIsRefetchError,
   } = useQuery({
-    queryKey: queryKeys.reports.subCategoryReportRpc(isletme?.id ?? '', allKategoriIds.sort().join(','), type, source ?? '', startDateTime, endDateTime),
+    queryKey: queryKeys.reports.subCategoryReportRpc(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      kategoriIdsKey,
+      type,
+      source ?? '',
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme || allKategoriIds.length === 0) return [];
 
-      const { data, error } = await supabase.rpc('get_category_report', {
+      const { data, error } = await supabase.rpc('get_category_report_v2', {
         p_isletme_id: isletme.id,
         p_types: islemTypes as string[],
         p_start_date: startDateTime,
@@ -1155,19 +1552,31 @@ export function useSubCategoryReport(
       }>).filter(row => row.kategori_id && idSet.has(row.kategori_id));
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
+    meta: CATEGORY_REPORT_QUERY_META,
   });
 
   // İADE aggregate: includeReturns ise bu kategorilere düşen iadeler (aynı get_category_report,
   // iade tipleriyle) → memo'da ilgili kategoriden DÜŞÜLÜR (özet toplam liste ile tutarlı olsun).
   const {
-    data: returnsData,
+    data: rawReturnsData,
     isLoading: returnsLoading,
+    error: returnsError,
+    isError: returnsIsError,
+    isRefetchError: returnsIsRefetchError,
   } = useQuery({
-    queryKey: queryKeys.reports.subCategoryReportReturns(isletme?.id ?? '', allKategoriIds.sort().join(','), type, startDateTime, endDateTime),
+    queryKey: queryKeys.reports.subCategoryReportReturns(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      kategoriIdsKey,
+      type,
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme || allKategoriIds.length === 0) return [];
 
-      const { data, error } = await supabase.rpc('get_category_report', {
+      const { data, error } = await supabase.rpc('get_category_report_v2', {
         p_isletme_id: isletme.id,
         p_types: getReturnTypes(type) as string[],
         p_start_date: startDateTime,
@@ -1184,7 +1593,19 @@ export function useSubCategoryReport(
       }>).filter(row => row.kategori_id && idSet.has(row.kategori_id));
     },
     enabled: reportsEnabled && returnsEnabled && !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
+    meta: CATEGORY_REPORT_QUERY_META,
   });
+
+  const canShowAggregate =
+    reportsEnabled
+    && !rpcIsError
+    && !rpcIsRefetchError
+    && (!returnsEnabled || (!returnsIsError && !returnsIsRefetchError));
+  const rpcData = canShowAggregate ? rawRpcData : undefined;
+  const returnsData = useMemo(
+    () => (canShowAggregate && returnsEnabled ? rawReturnsData : []),
+    [canShowAggregate, rawReturnsData, returnsEnabled],
+  );
 
   // Sonuçları hesapla (RPC aggregate verisinden)
   const result = useMemo(() => {
@@ -1278,7 +1699,9 @@ export function useSubCategoryReport(
   }, [kategoriler, rpcData, returnsData, parentKategoriId, baseCurrency, rates]);
 
   // Combine errors - prefer rpc error as it's more critical
-  const combinedError = rpcError || kategorilerError;
+  const combinedError = reportsEnabled
+    ? rpcError || returnsError || kategorilerError
+    : null;
 
   return {
     ...result,

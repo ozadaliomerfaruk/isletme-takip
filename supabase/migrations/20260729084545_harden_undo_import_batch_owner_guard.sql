@@ -1,7 +1,8 @@
+-- CANONICAL CURRENT-TIMESTAMP PACKAGE; do not restore the old 20260726120000 path.
 -- =============================================================================
 -- undo_import_batch — OWNER GUARD + TENANT KAPSAMI + YETKİ TEMİZLİĞİ
 --
--- ⚠️ HENÜZ ÜRETİME UYGULANMADI. Uygulama için ayrı onay gerekir.
+-- CANLIYA HAZIR: yalnız güncel canlı snapshot guard'ı geçerse uygulanır.
 --
 -- SORUN (P0): fonksiyon SECURITY DEFINER, HİÇBİR erişim kontrolü yapmıyordu ve
 -- EXECUTE yetkisi anon + public dahil herkesteydi (canlı katalogdan doğrulandı).
@@ -20,7 +21,7 @@
 --   • imza      : undo_import_batch(p_transaction_ids uuid[])
 --   • dönüş     : json  →  {"deleted_transactions": N}   ← istemci bu anahtarı okuyor
 --                 (src/hooks/useImportHistory.ts: data?.deleted_transactions)
---   • SECURITY DEFINER ve SET search_path TO 'public'
+--   • SECURITY DEFINER; search_path boş ve bütün domain tabloları şema-nitelikli
 --   • Bakiye geri alma matematiği BİREBİR (çapraz-kur dalları dahil) — dokunulmadı
 --
 -- =============================================================================
@@ -50,19 +51,66 @@
 -- Amaç isabet değil, kaza ve kötüye kullanım yüzeyini sınırlamak.
 -- =============================================================================
 
+-- Canlı gövde bu dosya hazırlanırken alınan snapshot'tan farklıysa üzerine yazma.
+-- Böylece arada yapılan bir production düzeltmesi sessizce kaybolmaz.
+DO $guard$
+DECLARE
+  v_live_hash text;
+  v_live_owner text;
+  v_live_result text;
+  v_live_acl text;
+  v_live_security_definer boolean;
+  v_live_volatility "char";
+  v_live_config text[];
+BEGIN
+  SELECT
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(p.oid)),
+    pg_catalog.pg_get_userbyid(p.proowner),
+    pg_catalog.pg_get_function_result(p.oid),
+    p.proacl::text,
+    p.prosecdef,
+    p.provolatile,
+    p.proconfig
+    INTO
+      v_live_hash,
+      v_live_owner,
+      v_live_result,
+      v_live_acl,
+      v_live_security_definer,
+      v_live_volatility,
+      v_live_config
+    FROM pg_catalog.pg_proc p
+   WHERE p.oid = pg_catalog.to_regprocedure('public.undo_import_batch(uuid[])');
+
+  IF v_live_hash IS DISTINCT FROM 'd276147891f458fd7cc74cc632e1b43c'
+     OR v_live_owner IS DISTINCT FROM 'postgres'
+     OR v_live_result IS DISTINCT FROM 'json'
+     OR v_live_acl IS DISTINCT FROM
+       '{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+     OR v_live_security_definer IS DISTINCT FROM true
+     OR v_live_volatility IS DISTINCT FROM 'v'
+     OR v_live_config IS DISTINCT FROM ARRAY['search_path=public']::text[] THEN
+    RAISE EXCEPTION
+      'undo_import_batch: beklenmeyen canlı fonksiyon hash''i (beklenen %, bulunan %)',
+      'd276147891f458fd7cc74cc632e1b43c',
+      COALESCE(v_live_hash, '<fonksiyon yok>')
+      USING ERRCODE = '55000';
+  END IF;
+END;
+$guard$;
+
 CREATE OR REPLACE FUNCTION public.undo_import_batch(p_transaction_ids uuid[])
  RETURNS json
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path TO ''
 AS $function$
 DECLARE
   deleted_count   INT;
   v_isletme_id    uuid;
   v_input_count   INT;
   v_distinct_in   INT;
-  v_found_count   INT;
-  v_tenant_count  INT;
+  v_locked_count  INT;
   -- Bkz. başlıktaki gerekçe: gerçek tavan 35.606, sınır onun üstünde.
   c_max_batch CONSTANT INT := 50000;
 BEGIN
@@ -100,46 +148,49 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  -- (e) HEPSİ VAR MI + KAÇ FARKLI İŞLETMEDEN
-  --     NOT: min(uuid) aggregate'i Postgres'te YOKTUR — isletme_id ayrı
-  --     sorguyla alınır (canlı katalogda doğrulandı).
-  SELECT count(*), count(DISTINCT i.isletme_id)
-    INTO v_found_count, v_tenant_count
-    FROM islemler i
-   WHERE i.id = ANY(p_transaction_ids);
-
-  IF v_found_count <> v_input_count THEN
-    RAISE EXCEPTION 'undo_import_batch: bazi islemler bulunamadi (istenen %, bulunan %)',
-      v_input_count, v_found_count USING ERRCODE = '22023';
-  END IF;
-
-  -- (f) Karışık tenant = saldırı imzası. Kısmi işlem YOK, tamamı reddedilir.
-  IF v_tenant_count <> 1 THEN
-    RAISE EXCEPTION 'undo_import_batch: islemler tek isletmeye ait olmali'
-      USING ERRCODE = '42501';
-  END IF;
+  -- (e) ADAY TENANT + ORACLE'SIZ OWNER KAPISI
+  -- Aday tenant yalniz ilk UUID'den bulunur. Kayit yoksa ve kayit var fakat
+  -- cagiran owner degilse AYNI generic 42501 doner; UUID existence oracle yok.
 
   SELECT i.isletme_id INTO v_isletme_id
-    FROM islemler i
-   WHERE i.id = ANY(p_transaction_ids)
-   LIMIT 1;
+    FROM public.islemler i
+   WHERE i.id = p_transaction_ids[1];
 
-  -- (g) YALNIZ İŞLETME SAHİBİ. Aktif üye yetmez — bkz. başlıktaki gerekçe.
-  IF NOT EXISTS (
-    SELECT 1 FROM isletmeler
-     WHERE id = v_isletme_id
-       AND user_id = auth.uid()
-  ) THEN
-    RAISE EXCEPTION 'undo_import_batch: bu islemi yalnizca isletme sahibi yapabilir'
+  IF v_isletme_id IS NULL THEN
+    RAISE EXCEPTION 'undo_import_batch: bu islem icin yetkiniz yok'
       USING ERRCODE = '42501';
   END IF;
 
-  -- (h) YARIŞ PENCERESİNİ KAPAT: kontroller ile silme arasında satırlar
+  -- (f) YALNIZ İŞLETME SAHİBİ. Aktif üye yetmez — bkz. başlıktaki gerekçe.
+  -- Owner satiri, kontrol ile yazma arasinda sahiplik transferi olmasin diye
+  -- transaction satirlarindan ONCE kilitlenir.
+  PERFORM isletme.id
+    FROM public.isletmeler AS isletme
+   WHERE isletme.id = v_isletme_id
+     AND isletme.user_id = auth.uid()
+   FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'undo_import_batch: bu islem icin yetkiniz yok'
+      USING ERRCODE = '42501';
+  END IF;
+
+  -- (g) YARIŞ PENCERESİNİ KAPAT: kontroller ile silme arasında satırlar
   --     değişmesin/silinmesin diye hedef satırlar kilitlenir.
-  PERFORM 1 FROM islemler
-   WHERE id = ANY(p_transaction_ids)
-     AND isletme_id = v_isletme_id
+  PERFORM i.id FROM public.islemler i
+   WHERE i.id = ANY(p_transaction_ids)
+     AND i.isletme_id = v_isletme_id
+   ORDER BY i.id
      FOR UPDATE;
+  GET DIAGNOSTICS v_locked_count = ROW_COUNT;
+
+  -- Ön kontrolden sonra başka bir oturum hedeflerden birini silmiş/değiştirmişse
+  -- kısmi başarıya devam etme. İkinci çağrı 0 başarı dönmek yerine bütünüyle reddedilir.
+  IF v_locked_count <> v_input_count THEN
+    RAISE EXCEPTION
+      'undo_import_batch: islem listesi gecersiz veya farkli isletmeye ait (istenen %, kilitlenen %)',
+      v_input_count, v_locked_count USING ERRCODE = '22023';
+  END IF;
 
   -- ==========================================================================
   -- BURADAN SONRASI CANLI GÖVDENİN AYNISI — tek fark: her sorguya
@@ -148,7 +199,7 @@ BEGIN
   -- ==========================================================================
 
   -- 1. Hesap bakiyelerini geri al (aggregate + tek UPDATE)
-  UPDATE hesaplar h
+  UPDATE public.hesaplar h
   SET balance = h.balance + agg.delta, updated_at = NOW()
   FROM (
     SELECT entity_id, SUM(delta) as delta FROM (
@@ -159,7 +210,7 @@ BEGIN
           WHEN type = 'transfer' THEN amount
           ELSE 0
         END as delta
-      FROM islemler
+      FROM public.islemler
       WHERE id = ANY(p_transaction_ids) AND isletme_id = v_isletme_id AND hesap_id IS NOT NULL
       UNION ALL
       SELECT hedef_hesap_id as entity_id,
@@ -173,7 +224,7 @@ BEGIN
             END
           ELSE amount
         END) as delta
-      FROM islemler
+      FROM public.islemler
       WHERE id = ANY(p_transaction_ids) AND isletme_id = v_isletme_id
         AND type = 'transfer' AND hedef_hesap_id IS NOT NULL
     ) sub GROUP BY entity_id
@@ -181,7 +232,7 @@ BEGIN
   WHERE h.id = agg.entity_id AND h.isletme_id = v_isletme_id;
 
   -- 2. Cari bakiyelerini geri al - CROSS-CURRENCY AWARE
-  UPDATE cariler c
+  UPDATE public.cariler c
   SET balance = c.balance + agg.delta, updated_at = NOW()
   FROM (
     SELECT cari_id as entity_id, SUM(
@@ -213,14 +264,14 @@ BEGIN
         ELSE 0
       END
     ) as delta
-    FROM islemler
+    FROM public.islemler
     WHERE id = ANY(p_transaction_ids) AND isletme_id = v_isletme_id AND cari_id IS NOT NULL
     GROUP BY cari_id
   ) agg
   WHERE c.id = agg.entity_id AND c.isletme_id = v_isletme_id;
 
   -- 3. Personel bakiyelerini geri al - CROSS-CURRENCY AWARE
-  UPDATE personel p
+  UPDATE public.personel p
   SET balance = p.balance + agg.delta, updated_at = NOW()
   FROM (
     SELECT personel_id as entity_id, SUM(
@@ -252,14 +303,14 @@ BEGIN
         ELSE 0
       END
     ) as delta
-    FROM islemler
+    FROM public.islemler
     WHERE id = ANY(p_transaction_ids) AND isletme_id = v_isletme_id AND personel_id IS NOT NULL
     GROUP BY personel_id
   ) agg
   WHERE p.id = agg.entity_id AND p.isletme_id = v_isletme_id;
 
   -- 4. Islemleri sil (tenant kapsamlı)
-  DELETE FROM islemler
+  DELETE FROM public.islemler
    WHERE id = ANY(p_transaction_ids)
      AND isletme_id = v_isletme_id;
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
@@ -274,8 +325,11 @@ $function$;
 -- YETKİ TEMİZLİĞİ — anon ve PUBLIC çalıştıramaz
 -- Canlı durum (26 Tem): EXECUTE = anon, authenticated, public, service_role
 -- =============================================================================
-REVOKE EXECUTE ON FUNCTION public.undo_import_batch(uuid[]) FROM PUBLIC, anon;
-GRANT  EXECUTE ON FUNCTION public.undo_import_batch(uuid[]) TO authenticated;
+ALTER FUNCTION public.undo_import_batch(uuid[]) OWNER TO postgres;
+
+REVOKE ALL ON FUNCTION public.undo_import_batch(uuid[])
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.undo_import_batch(uuid[]) TO authenticated;
 
 
 -- =============================================================================
@@ -299,8 +353,8 @@ GRANT  EXECUTE ON FUNCTION public.undo_import_batch(uuid[]) TO authenticated;
 --    Bu bir DÜZELTMEdir ama davranış değişikliğidir — kısmi geri alma ile
 --    oluşan bakiye tutarsızlıkları da böylece imkânsızlaşır.
 --
--- 5) Aynı anda iki geri alma: FOR UPDATE kilidi sayesinde ikincisi bekler,
---    sonra "bazi islemler bulunamadi" ile reddedilir (çifte geri alma yok).
+-- 5) Aynı anda iki geri alma: FOR UPDATE kilidi sayesinde ikincisi bekler;
+--    kilit sonrası adet kontrolü 22023 ile tamamını reddeder (çifte/kısmi geri alma yok).
 --
 -- VERİ SİLİNMİYOR/DEĞİŞTİRİLMİYOR: bu migration yalnız fonksiyon gövdesini ve
 -- EXECUTE yetkisini değiştirir. Tablo/kolon/satır düşürülmez.

@@ -273,6 +273,7 @@ interface OdemeHedefTypePickerProps {
   onDismiss: () => void;
   odemeHedefType: OdemeHedefType;
   onSelect: (type: OdemeHedefType) => void;
+  allowedTypes?: readonly OdemeHedefType[];
   t: (key: string) => string;
 }
 
@@ -281,6 +282,7 @@ export function OdemeHedefTypePicker({
   onDismiss,
   odemeHedefType,
   onSelect,
+  allowedTypes = ['tedarikci', 'staff'],
   t,
 }: OdemeHedefTypePickerProps) {
   const insets = useSafeAreaInsets();
@@ -301,6 +303,7 @@ export function OdemeHedefTypePicker({
               </View>
 
               <View style={styles.bottomSheetListContent}>
+                {allowedTypes.includes('tedarikci') && (
                 <TouchableOpacity
                   style={[styles.odemeTypeItem, odemeHedefType === 'tedarikci' && styles.odemeTypeItemSelected]}
                   onPress={() => onSelect('tedarikci')}
@@ -320,7 +323,9 @@ export function OdemeHedefTypePicker({
                     </View>
                   )}
                 </TouchableOpacity>
+                )}
 
+                {allowedTypes.includes('staff') && (
                 <TouchableOpacity
                   style={[styles.odemeTypeItem, odemeHedefType === 'staff' && styles.odemeTypeItemSelected]}
                   onPress={() => onSelect('staff')}
@@ -340,6 +345,7 @@ export function OdemeHedefTypePicker({
                     </View>
                   )}
                 </TouchableOpacity>
+                )}
               </View>
             </View>
           </TouchableWithoutFeedback>

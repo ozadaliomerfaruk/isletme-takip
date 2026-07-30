@@ -34,8 +34,8 @@
     "scopeAll": "All entries",
     "moduleNotlar": "Notes",
     "showSavings": "Show savings accounts",
-    "levelHelp": "Records in enabled modules can be viewed and exported to Excel/PDF; when Clients is enabled, a public statement link can be shared. Add/edit/delete follows the selection below.",
-    "noModuleWarning": "No module selected — this user will only see the home screen."
+    "levelHelp": "All records in enabled modules are visible regardless of who created them and can be exported to Excel/PDF; when Clients is enabled, a public statement link can be shared. Add/edit/delete follows the selection below.",
+    "noModuleWarning": "No module selected — this user cannot access the business work screens."
   },
   "users": {
     "title": "Users",

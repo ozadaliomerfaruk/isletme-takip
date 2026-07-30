@@ -176,7 +176,7 @@ export function useReportPeriod() {
   } : undefined;
 
   const { startDate, endDate, label: periodLabel } = getDateRangeLabel(
-    period === 'custom' ? 'monthly' : period,
+    period,
     period === 'custom' ? 0 : periodOffset,
     customRange,
   );

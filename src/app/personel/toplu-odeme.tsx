@@ -11,6 +11,10 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useHesaplar } from '@/hooks/useHesaplar';
+import {
+  useTransactionAccountRefs,
+  type TransactionAccountRef,
+} from '@/hooks/useCariPaymentAccountRefs';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
@@ -20,7 +24,10 @@ import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
 import type { Hesap } from '@/types/database';
+
+type PaymentAccount = TransactionAccountRef & Partial<Pick<Hesap, 'balance'>>;
 
 /**
  * Hesap seçici alt sayfası — AYRI BİLEŞEN, çünkü insets Modal'ın İÇİNDE okunmalı.
@@ -33,12 +40,14 @@ function HesapPickerSheet({
   hesaplar,
   selectedId,
   title,
+  showBalances,
   onSelect,
   onClose,
 }: {
-  hesaplar: Hesap[];
+  hesaplar: PaymentAccount[];
   selectedId: string | null;
   title: string;
+  showBalances: boolean;
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
@@ -66,7 +75,11 @@ function HesapPickerSheet({
                   <Wallet size={20} color={colors.primary} />
                   <View style={styles.bottomSheetItemContent}>
                     <Text style={styles.bottomSheetItemText}>{hesap.name}</Text>
-                    <Text style={styles.bottomSheetItemBalance}>{formatCurrency(toNumber(hesap.balance), hesap.currency)}</Text>
+                    {showBalances && (
+                      <Text style={styles.bottomSheetItemBalance}>
+                        {formatCurrency(toNumber(hesap.balance), hesap.currency)}
+                      </Text>
+                    )}
                   </View>
                   {hesap.id === selectedId && <Check size={20} color={colors.primary} />}
                 </TouchableOpacity>
@@ -84,10 +97,16 @@ export default function TopluOdemePage() {
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['staff', 'common', 'transactions', 'accounts']);
   const footerInset = useFooterBottomPadding();
-  usePagePermission({ module: 'personel', action: 'create' });
+  usePagePermission({
+    module: 'personel',
+    action: 'create',
+    transactionType: 'personel_odeme',
+  });
   const createIslem = useCreateIslem();
   const insets = useSafeAreaInsets();
   const { locale, formatDateMedium } = useDateFormat();
+  const { canAccessModule } = usePermissions();
+  const canSeeAccountBalances = canAccessModule('hesaplar');
 
   // Varsayılan tarih: Bu ayın son günü 23:59
   const getDefaultDate = () => {
@@ -110,16 +129,27 @@ export default function TopluOdemePage() {
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: personelList, isLoading } = usePersonelList();
-  const { data: hesaplar } = useHesaplar();
+  const { data: personelList } = usePersonelList();
+  const { data: fullHesaplar = [] } = useHesaplar(
+    false,
+    false,
+    canSeeAccountBalances,
+  );
+  const { data: minimalHesaplar = [] } = useTransactionAccountRefs(
+    'personel',
+    !canSeeAccountBalances,
+  );
+  const hesaplar: PaymentAccount[] = canSeeAccountBalances
+    ? fullHesaplar
+    : minimalHesaplar;
 
   // Kredi kartı hariç hesaplar (ödeme için)
   const availableHesaplar = useMemo(() => {
-    return hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
+    return hesaplar.filter(h => h.type !== 'kredi_karti');
   }, [hesaplar]);
 
   // Seçili hesap
-  const selectedHesap = hesaplar?.find(h => h.id === hesapId);
+  const selectedHesap = hesaplar.find(h => h.id === hesapId);
 
   // Aktif personel listesi (A-Z sıralı)
   const activePersonel = useMemo(() => {
@@ -536,6 +566,7 @@ export default function TopluOdemePage() {
               hesaplar={availableHesaplar}
               selectedId={hesapId}
               title={t('accounts:titles.selectAccount')}
+              showBalances={canSeeAccountBalances}
               onSelect={(id) => {
                 setHesapId(id);
                 setShowHesapPicker(false);

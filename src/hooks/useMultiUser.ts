@@ -67,24 +67,15 @@ export function useCreateInvite() {
       email?: string;
       memberLabel?: string;
     }) => {
-      const { data, error } = await supabase.rpc('create_isletme_invite', {
+      const { data, error } = await supabase.rpc('create_isletme_invite_v2', {
         p_isletme_id: isletme!.id,
         p_role: params.role,
         p_role_label: params.roleLabel ?? null,
         p_permissions: params.permissions ?? null,
         p_invited_email: params.email ?? null,
+        p_member_label: params.memberLabel?.trim() || null,
       });
       if (error) throw error;
-      // Görünen ad (member_label) davet satırına yazılır — owner'ın RLS update
-      // yetkisi var. Best-effort: yazılamazsa davet yine geçerli kalır.
-      if (params.memberLabel && typeof data === 'string') {
-        const { error: lblErr } = await supabase
-          .from('isletme_invites')
-          .update({ member_label: params.memberLabel })
-          .eq('invite_code', data)
-          .eq('isletme_id', isletme!.id);
-        if (lblErr) console.warn('member_label yazılamadı:', lblErr.message);
-      }
       return data as string; // invite_code
     },
     onSuccess: (_data, variables) => {
@@ -104,7 +95,14 @@ export function useAcceptInvite() {
         p_code: code,
       });
       if (error) throw error;
-      return data as string; // isletme_id
+      // Sunucu geçersiz/süresi dolmuş ve hız sınırına takılan kodlarda NULL
+      // döndürür. Bu sayede deneme sayacı rollback olmadan yazılabilir. NULL'u
+      // başarı kabul etmek eski istemcide yanıltıcı "Davet kabul edildi" uyarısı
+      // üretirdi; yalnız gerçek işletme kimliği başarıdır.
+      if (typeof data !== 'string' || data.length === 0) {
+        throw new Error(i18n.t('multiUser:errors.invalidCode'));
+      }
+      return data; // isletme_id
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'isletmeUser');

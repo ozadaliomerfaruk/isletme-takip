@@ -3,6 +3,13 @@ import { processLock } from '@supabase/auth-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform, AppState } from 'react-native';
 import { withTelemetrySafe } from './supabaseTelemetry';
+import { probeBackendHealth } from './backendHealth';
+import {
+  beginBackendRequest,
+  isDeviceDisconnected,
+  reportBackendFailure,
+  reportBackendSuccess,
+} from './networkStatus';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 /** Faz 4 web-ekstre: public edge function URL'leri için taban adres. */
@@ -38,15 +45,44 @@ const SupabaseStorageAdapter = {
 // verir ve OTURUMU KORUR (ağ hatası oturumu silmez) → kullanıcı çıkış yaptırılmaz,
 // ağ geri gelince veri normal yüklenir.
 const FETCH_TIMEOUT_MS = 15000;
-const fetchWithTimeout: typeof fetch = (input, init) => {
+const fetchWithTimeout: typeof fetch = async (input, init) => {
+  // Bu bir ağ isteği değildir: cihaz kesin çevrimdışıysa yazıyı TanStack
+  // kuyruğunda bekletmek yerine anında reddeder. Form verisi ekranda kalır ve
+  // bağlantı gelince kullanıcının haberi olmadan finansal kayıt gönderilmez.
+  if (isDeviceDisconnected()) {
+    throw new TypeError('Network request skipped because the device is offline');
+  }
+
+  const backendRequestId = beginBackendRequest();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   const external = init?.signal;
+  const abortFromExternalSignal = () => controller.abort();
+
   if (external) {
     if (external.aborted) controller.abort();
-    else external.addEventListener('abort', () => controller.abort(), { once: true });
+    else external.addEventListener('abort', abortFromExternalSignal, { once: true });
   }
-  return fetch(input, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+
+  try {
+    const response = await fetch(input, { ...init, signal: controller.signal });
+    if (response.status >= 500) {
+      reportBackendFailure(backendRequestId);
+    } else {
+      // 4xx dahil bir HTTP cevabı, servise ağ seviyesinde ulaşıldığını kanıtlar.
+      reportBackendSuccess(backendRequestId);
+    }
+    return response;
+  } catch (error) {
+    // Kullanıcı/caller isteği bilerek iptal ettiyse bunu servis kesintisi sayma.
+    if (!external?.aborted) {
+      reportBackendFailure(backendRequestId);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    external?.removeEventListener('abort', abortFromExternalSignal);
+  }
 };
 
 export const supabase = withTelemetrySafe(
@@ -96,21 +132,29 @@ if (Platform.OS !== 'web') {
   }
 }
 
-export async function checkNetworkConnectivity(): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    // /rest/v1/ kök path'i legacy JWT anon key ile 401 (UNAUTHORIZED_INVALID_API_KEY_TYPE)
-    // döndürüyor; auth health endpoint'i GET+apikey ile 200 döner ve log gürültüsü yaratmaz
-    // (HEAD bu endpoint'te 405 döndürdüğü için GET kullanılıyor).
-    await fetch(`${supabaseUrl}/auth/v1/health`, {
-      method: 'GET',
-      signal: controller.signal,
-      headers: { apikey: supabaseAnonKey },
-    });
-    clearTimeout(timeout);
-    return true;
-  } catch {
-    return false;
+/**
+ * Supabase servis sağlığı/socket ısıtma probu.
+ *
+ * Bu sonuç cihazın internet durumu DEĞİLDİR ve finansal kayıt öncesinde blocking
+ * preflight olarak kullanılmamalıdır. Cihaz bağlantısının tek kaynağı expo-network'tür.
+ */
+export async function checkBackendConnectivity(): Promise<boolean> {
+  if (isDeviceDisconnected()) return false;
+
+  const backendRequestId = beginBackendRequest();
+  // /rest/v1/ kök path'i legacy JWT anon key ile 401 (UNAUTHORIZED_INVALID_API_KEY_TYPE)
+  // döndürüyor; auth health endpoint'i GET+apikey ile 200 döner ve log gürültüsü yaratmaz
+  // (HEAD bu endpoint'te 405 döndürdüğü için GET kullanılıyor).
+  const result = await probeBackendHealth({
+    url: `${supabaseUrl}/auth/v1/health`,
+    headers: { apikey: supabaseAnonKey },
+  });
+
+  if (result.available) {
+    reportBackendSuccess(backendRequestId);
+  } else {
+    reportBackendFailure(backendRequestId);
   }
+
+  return result.healthy;
 }

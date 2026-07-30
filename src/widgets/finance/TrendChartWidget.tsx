@@ -16,6 +16,7 @@ import { Text } from '@/components/ui';
 import { useAnalyticsTrend } from '@/hooks/useAnalyticsTrend';
 import { useSettings } from '@/hooks/useSettings';
 import { TrendFilterModal } from '@/components/reports';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 import { formatCurrency, formatCurrencyCompact } from '@/lib/currency';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -23,9 +24,17 @@ import type { WidgetProps, TrendFilter } from '@/types/analytics';
 
 type MetricType = 'income' | 'expense' | 'net';
 
+interface TrendChartWidgetProps extends WidgetProps {
+  isCustomRange?: boolean;
+}
+
 // React.memo: dashboard'da İLGİSİZ bir re-render (başka widget'ın verisi değişince parent yeniden
 // render) bu SVG bar-grafiği yeniden çizmesin. Kendi verisi (useAnalyticsTrend) değişirse yine güncellenir.
-export const TrendChartWidget = React.memo(function TrendChartWidget({ period, dateRange }: WidgetProps) {
+export const TrendChartWidget = React.memo(function TrendChartWidget({
+  period,
+  dateRange,
+  isCustomRange = false,
+}: TrendChartWidgetProps) {
   const { t } = useTranslation('analytics');
   const { currency } = useSettings();
 
@@ -34,7 +43,12 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Pass filter and dateRange to hook
-  const trend = useAnalyticsTrend(period, activeFilter, dateRange);
+  const trend = useAnalyticsTrend(
+    period,
+    activeFilter,
+    dateRange,
+    isCustomRange,
+  );
 
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('net');
 
@@ -211,6 +225,8 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
           }}
         />
       </View>
+
+      <ConversionIncompleteWarning visible={trend.conversionIncomplete} />
 
       {/* Summary Row */}
       <View style={styles.summaryRow}>

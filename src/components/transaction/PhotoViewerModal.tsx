@@ -116,7 +116,6 @@ export function PhotoViewerModal({
 
       getPhotoUrl.mutate(photoPath, {
         onSuccess: (url) => {
-          console.log('[PhotoViewer] Got signed URL:', url);
           setImageUrl(url);
         },
         onError: (error) => {
@@ -155,6 +154,7 @@ export function PhotoViewerModal({
   const handleShare = async () => {
     if (!imageUrl) return;
 
+    let temporaryShareUri: string | null = null;
     setIsSharing(true);
     try {
       const isAvailable = await Sharing.isAvailableAsync();
@@ -170,9 +170,12 @@ export function PhotoViewerModal({
       const filename = photoPath?.split('/').pop() || 'photo.webp';
       const localUri = `${FileSystem.cacheDirectory}${filename}`;
 
+      // downloadAsync hata verse veya 200 dışı dönse bile kısmi cache dosyasını finally temizle.
+      temporaryShareUri = localUri;
       const downloadResult = await FileSystem.downloadAsync(imageUrl, localUri);
 
       if (downloadResult.status === 200) {
+        temporaryShareUri = downloadResult.uri;
         await Sharing.shareAsync(downloadResult.uri, {
           mimeType: 'image/webp',
           dialogTitle: t('photo.shareTitle'),
@@ -191,6 +194,13 @@ export function PhotoViewerModal({
         Alert.alert(t('status.error'), t('photo.shareError'));
       }
     } finally {
+      if (temporaryShareUri) {
+        try {
+          await FileSystem.deleteAsync(temporaryShareUri, { idempotent: true });
+        } catch {
+          // Paylaşım tamamlandı; cache temizliği kullanıcı akışını başarısız göstermemeli.
+        }
+      }
       setIsSharing(false);
     }
   };

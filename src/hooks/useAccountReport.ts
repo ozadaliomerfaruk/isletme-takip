@@ -12,12 +12,27 @@ import { usePermissions } from '@/hooks/usePermissions';
 
 type ReportSourceModule = 'hesaplar' | 'cariler' | 'urunler' | 'personel';
 
+const INCOME_SOURCE_REPORT_QUERY_META = {
+  persist: false,
+  query_purpose: 'reports:income-source-v2',
+} as const;
+
+const INCOME_SOURCE_DRILLDOWN_QUERY_META = {
+  persist: false,
+  query_purpose: 'reports:income-source-transactions-scoped-v3',
+} as const;
+
+const INCOME_SOURCE_DRILLDOWN_PAGE_SIZE = 100;
+
 function useReportsEnabled(
   requiredModules: readonly ReportSourceModule[] = [],
 ): boolean {
   const { canAccessModule } = usePermissions();
-  return canAccessModule('raporlar')
-    && requiredModules.every((module) => canAccessModule(module));
+  if (canAccessModule('raporlar')) return true;
+  return (
+    requiredModules.length > 0
+    && requiredModules.every((module) => canAccessModule(module))
+  );
 }
 
 /**
@@ -221,6 +236,141 @@ export function useAccountTransactions(
 
 export type IncomeSourceKind = 'hesap' | 'cari' | 'personel';
 
+function parseIncomeSourceTransactionRows(
+  value: unknown,
+): IslemWithRelations[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.map((candidate) => {
+    if (
+      !candidate
+      || typeof candidate !== 'object'
+      || typeof (candidate as { id?: unknown }).id !== 'string'
+      || typeof (candidate as { type?: unknown }).type !== 'string'
+      || typeof (candidate as { date?: unknown }).date !== 'string'
+      || !Number.isFinite(Number((candidate as { amount?: unknown }).amount))
+    ) {
+      throw new Error('Invalid income source transaction projection row');
+    }
+
+    return {
+      ...candidate,
+      amount: Number((candidate as { amount: unknown }).amount),
+    } as IslemWithRelations;
+  });
+}
+
+async function fetchSharedIncomeSourceTransactions(params: {
+  isletmeId: string;
+  kind: IncomeSourceKind;
+  sourceId: string;
+  startDateTime: string;
+  endDateTime: string;
+}): Promise<IslemWithRelations[]> {
+  const rows: IslemWithRelations[] = [];
+  let beforeDate: string | null = null;
+  let beforeId: string | null = null;
+  const seenCursors = new Set<string>();
+
+  while (true) {
+    const { data, error } = await supabase.rpc(
+      'get_gelir_kaynagi_islem_satirlari_v1',
+      {
+        p_isletme_id: params.isletmeId,
+        p_kind: params.kind,
+        p_source_id: params.sourceId,
+        p_start_date: params.startDateTime,
+        p_end_date: params.endDateTime,
+        p_limit: INCOME_SOURCE_DRILLDOWN_PAGE_SIZE,
+        p_before_date: beforeDate,
+        p_before_id: beforeId,
+      },
+    );
+
+    if (error) throw error;
+
+    const page = parseIncomeSourceTransactionRows(data);
+    rows.push(...page);
+
+    if (page.length < INCOME_SOURCE_DRILLDOWN_PAGE_SIZE) {
+      break;
+    }
+
+    const last = page[page.length - 1];
+    const nextCursor = `${last.date}:${last.id}`;
+    if (seenCursors.has(nextCursor)) {
+      throw new Error('Income source transaction cursor did not advance');
+    }
+    seenCursors.add(nextCursor);
+    beforeDate = last.date;
+    beforeId = last.id;
+  }
+
+  return rows;
+}
+
+export function isIncomeSourceKind(value: unknown): value is IncomeSourceKind {
+  return value === 'hesap' || value === 'cari' || value === 'personel';
+}
+
+function useIncomeSourceReportAccess(kind?: IncomeSourceKind | null) {
+  const { user, isletmeLoading } = useAuthContext();
+  const {
+    isOwner,
+    canAccessModule,
+    canSeeAllUsersData,
+    canUseBirikim,
+  } = usePermissions();
+  const canViewReports = canAccessModule('raporlar');
+  const canViewAccounts = canAccessModule('hesaplar');
+  const canViewCariler = canAccessModule('cariler');
+  const canViewPersonnel = canAccessModule('personel');
+  const canViewAccountsInReport = canViewReports || canViewAccounts;
+  const canViewCarilerInReport = canViewReports || canViewCariler;
+  const canViewPersonnelInReport = canViewReports || canViewPersonnel;
+  const canViewSavingsInReport = canViewReports || canUseBirikim;
+  const hasAnySource =
+    canViewAccountsInReport
+    || canViewCarilerInReport
+    || canViewPersonnelInReport;
+  const canViewRequestedSource =
+    kind === undefined
+      ? hasAnySource
+      : kind === 'hesap'
+        ? canViewAccountsInReport
+        : kind === 'cari'
+          ? canViewCarilerInReport
+          : kind === 'personel'
+            ? canViewPersonnelInReport
+            : false;
+  const enabled =
+    !isletmeLoading
+    && !!user?.id
+    && canViewRequestedSource;
+  const permissionFingerprint = [
+    `o${Number(isOwner)}`,
+    `r${Number(canViewReports)}`,
+    `h${Number(canViewAccounts)}`,
+    `b${Number(canViewSavingsInReport)}`,
+    `c${Number(canViewCariler)}`,
+    `p${Number(canViewPersonnel)}`,
+    `a${Number(canSeeAllUsersData)}`,
+  ].join('');
+
+  return {
+    enabled,
+    isOwner,
+    userId: user?.id ?? '',
+    permissionFingerprint,
+    canUseBirikim: canViewSavingsInReport,
+    allowedKinds: {
+      hesap: canViewAccountsInReport,
+      cari: canViewCarilerInReport,
+      personel: canViewPersonnelInReport,
+    } satisfies Record<IncomeSourceKind, boolean>,
+  };
+}
+
 export interface IncomeSourceItem {
   kind: IncomeSourceKind;
   type: string; // hesap.type (banka/nakit/...) ya da 'cari' / 'personel'
@@ -245,6 +395,10 @@ export interface IncomeSourceResult {
   groups: IncomeSourceGroup[];
   totalAmount: number;
   totalCount: number;
+  /** Kur bulunamadığı için bazı TRY-canonical tutarlar çevrilemedi. */
+  conversionIncomplete?: boolean;
+  /** Dar satır projeksiyonu gelene kadar geniş doğrudan sorgu yalnız owner'dadır. */
+  canOpenDetails: boolean;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => Promise<unknown>;
@@ -259,18 +413,25 @@ export interface IncomeSourceResult {
  */
 export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeSourceResult {
   const { isletme } = useAuthContext();
-  const reportsEnabled = useReportsEnabled(['hesaplar', 'cariler', 'personel']);
+  const reportAccess = useIncomeSourceReportAccess();
+  const reportsEnabled = reportAccess.enabled;
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
   const { startDate, endDate } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
-  const { data, isLoading, isFetching, error, refetch } = useQuery({
-    queryKey: queryKeys.reports.incomeBySource(isletme?.id ?? '', startDateTime, endDateTime),
+  const query = useQuery({
+    queryKey: queryKeys.reports.incomeBySource(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
       if (!reportsEnabled || !isletme) return [];
-      const { data, error } = await supabase.rpc('get_income_by_source', {
+      const { data, error } = await supabase.rpc('get_income_by_source_v2', {
         p_isletme_id: isletme.id,
         p_start_date: startDateTime,
         p_end_date: endDateTime,
@@ -279,7 +440,23 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
         if (__DEV__) console.error('[useIncomeSourceReport] RPC error:', error.message, error.code);
         throw error;
       }
-      return (data || []) as Array<{
+      if (!Array.isArray(data)) return [];
+      return data.filter((row) => {
+        if (!row || typeof row !== 'object') return false;
+        const candidate = row as {
+          source_kind?: unknown;
+          source_type?: unknown;
+        };
+        const kind = candidate.source_kind;
+        if (!isIncomeSourceKind(kind) || !reportAccess.allowedKinds[kind]) {
+          return false;
+        }
+        return !(
+          kind === 'hesap'
+          && candidate.source_type === 'birikim'
+          && !reportAccess.canUseBirikim
+        );
+      }) as Array<{
         source_kind: string;
         source_type: string;
         source_id: string;
@@ -291,8 +468,14 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
       }>;
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
-    meta: { query_purpose: 'reports:income-source' },
+    meta: INCOME_SOURCE_REPORT_QUERY_META,
   });
+  const data =
+    reportsEnabled
+    && !query.isError
+    && !query.isRefetchError
+      ? query.data
+      : undefined;
 
   const result = useMemo(() => {
     // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
@@ -351,7 +534,14 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
     return { groups, totalAmount, totalCount, conversionIncomplete: converter.conversionIncomplete };
   }, [data, baseCurrency, rates]);
 
-  return { ...result, isLoading, isFetching, refetch, error: error as Error | null };
+  return {
+    ...result,
+    canOpenDetails: reportAccess.enabled,
+    isLoading: query.isLoading,
+    isFetching: query.isFetching,
+    refetch: query.refetch,
+    error: reportsEnabled ? query.error as Error | null : null,
+  };
 }
 
 /**
@@ -359,14 +549,15 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
  * hesap→'gelir'/hesap_id, cari→'cari_satis'/cari_id, personel→'personel_satis'/personel_id.
  */
 export function useIncomeSourceTransactions(
-  kind: IncomeSourceKind,
+  kind: IncomeSourceKind | null,
   sourceId: string,
   options: UseAccountReportOptions
 ) {
   const { isletme } = useAuthContext();
-  const reportsEnabled = useReportsEnabled([
-    kind === 'hesap' ? 'hesaplar' : kind === 'cari' ? 'cariler' : 'personel',
-  ]);
+  const reportAccess = useIncomeSourceReportAccess(kind);
+  // Bu sorgu geniş `islemler.*` ve ilişki kolonları indirir. K1'e uygun dar
+  // projeksiyon RPC'si eklenene kadar shared kullanıcıya açılmaz.
+  const reportsEnabled = reportAccess.enabled && kind !== null;
   const { startDate, endDate } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
@@ -376,12 +567,33 @@ export function useIncomeSourceTransactions(
       ? { islemTypes: ['cari_satis', 'cari_satis_iade'], field: 'cari_id' }
       : kind === 'personel'
       ? { islemTypes: ['personel_satis'], field: 'personel_id' }
-      : { islemTypes: ['gelir'], field: 'hesap_id' };
+      : kind === 'hesap'
+      ? { islemTypes: ['gelir'], field: 'hesap_id' }
+      : null;
 
-  return useQuery({
-    queryKey: queryKeys.reports.incomeSourceTransactions(isletme?.id ?? '', kind, sourceId, startDateTime, endDateTime),
+  const query = useQuery({
+    queryKey: queryKeys.reports.incomeSourceTransactions(
+      isletme?.id ?? '',
+      reportAccess.userId,
+      reportAccess.permissionFingerprint,
+      kind ?? '',
+      sourceId,
+      startDateTime,
+      endDateTime,
+    ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme || !sourceId) return [] as IslemWithRelations[];
+      if (!reportsEnabled || !isletme || !sourceId || !config || kind === null) {
+        return [] as IslemWithRelations[];
+      }
+      if (!reportAccess.isOwner) {
+        return fetchSharedIncomeSourceTransactions({
+          isletmeId: isletme.id,
+          kind,
+          sourceId,
+          startDateTime,
+          endDateTime,
+        });
+      }
       // SAYFALAMA ŞART: PostgREST varsayılan tavanı 1000. Sayfalanmadığı için
       // 1000. satırdan sonrası SESSİZCE kırpılıyordu; üstelik bu ekranda toplam
       // ekrandan değil İNEN SATIRLARDAN hesaplandığı için kullanıcının az önce
@@ -408,7 +620,25 @@ export function useIncomeSourceTransactions(
           .order('id', { ascending: false })
       )) as unknown as IslemWithRelations[];
     },
-    enabled: reportsEnabled && !!isletme && !!sourceId && !!startDate && !!endDate,
-    meta: { query_purpose: 'reports:income-source-transactions' },
+    enabled:
+      reportsEnabled
+      && !!isletme
+      && !!sourceId
+      && !!config
+      && !!startDate
+      && !!endDate,
+    meta: INCOME_SOURCE_DRILLDOWN_QUERY_META,
   });
+  const data =
+    reportsEnabled
+    && !query.isError
+    && !query.isRefetchError
+      ? query.data ?? []
+      : [];
+
+  return {
+    ...query,
+    data,
+    error: reportsEnabled ? query.error : null,
+  };
 }

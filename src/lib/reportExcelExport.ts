@@ -6,8 +6,9 @@
 import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, toNumber, formatPercent, getIslemCurrency, signedCurrencyText } from './currency';
+import { formatDateShort, formatDateTime, parseDateFromDB } from './date';
+import { toNumber, getIslemCurrency } from './currency';
+import { getCurrencySymbol } from '@/constants/currencies';
 import { createConversionSum } from '@/hooks/useExchangeRates';
 import { isReturnType } from '@/constants/islemTypes';
 import { IslemWithRelations } from '@/types/database';
@@ -94,6 +95,68 @@ const categoryCurrencyStyle = {
   alignment: { horizontal: 'right', vertical: 'center' },
   border: thinBorder,
 };
+
+function currencyNumberFormat(currency: string): string {
+  const symbol = getCurrencySymbol(currency).replace(/"/g, '""');
+  return `"${symbol}"#,##0.00`;
+}
+
+// Excel'de sıralama, formül ve grafik çalışabilsin: tutar/metrikler metin değil
+// gerçek sayı; para birimi ve yüzde yalnız hücre biçimidir.
+export function excelMoneyCell(
+  amount: number,
+  currency: string,
+  style: object,
+) {
+  return {
+    v: amount,
+    t: 'n' as const,
+    z: currencyNumberFormat(currency),
+    s: style,
+  };
+}
+
+export function excelPercentCell(percentage: number, style: object) {
+  return {
+    v: percentage / 100,
+    t: 'n' as const,
+    z: '0.00%',
+    s: style,
+  };
+}
+
+export function excelCountCell(value: number, style: object) {
+  return { v: value, t: 'n' as const, z: '0', s: style };
+}
+
+export function excelDateCell(value: string, style: object) {
+  const date = parseDateFromDB(value);
+  if (Number.isNaN(date.getTime())) {
+    return { v: value, t: 's' as const, s: style };
+  }
+  return {
+    v: date,
+    t: 'd' as const,
+    z: 'yyyy-mm-dd',
+    s: style,
+  };
+}
+
+function calculateConvertedNet(
+  transactions: IslemWithRelations[],
+  reportCurrency: string,
+  rates: Record<string, number> | null | undefined,
+): number {
+  const sum = createConversionSum(reportCurrency, rates);
+  transactions.forEach((transaction) => {
+    sum.add(
+      toNumber(transaction.amount),
+      getIslemCurrency(transaction) || reportCurrency,
+      isReturnType(transaction.type) ? -1 : 1,
+    );
+  });
+  return sum.total;
+}
 
 // ============================================================================
 // TYPES
@@ -292,15 +355,15 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   let rowIdx = 10;
   categories.forEach((cat) => {
     ws[`A${rowIdx}`] = { v: cat.name, s: cellStyle };
-    ws[`B${rowIdx}`] = { v: cat.count.toString(), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
-    ws[`C${rowIdx}`] = { v: formatCurrency(cat.total, reportCurrency), s: currencyCellStyle };
+    ws[`B${rowIdx}`] = excelCountCell(cat.count, { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } });
+    ws[`C${rowIdx}`] = excelMoneyCell(cat.total, reportCurrency, currencyCellStyle);
     rowIdx++;
   });
 
   // Category total row
   ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
-  ws[`B${rowIdx}`] = { v: sorted.length.toString(), s: { ...totalCurrencyStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
-  ws[`C${rowIdx}`] = { v: formatCurrency(grandTotal, reportCurrency), s: totalCurrencyStyle };
+  ws[`B${rowIdx}`] = excelCountCell(sorted.length, { ...totalCurrencyStyle, alignment: { horizontal: 'center', vertical: 'center' } });
+  ws[`C${rowIdx}`] = excelMoneyCell(grandTotal, reportCurrency, totalCurrencyStyle);
   rowIdx += 2;
 
   // ============ TRANSACTION LIST ============
@@ -325,20 +388,20 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
 
   // Sort category groups by total amount (descending)
   const sortedGroups = Array.from(catGroups.entries()).sort((a, b) => {
-    const totalA = a[1].reduce((sum, i) => sum + toNumber(i.amount), 0);
-    const totalB = b[1].reduce((sum, i) => sum + toNumber(i.amount), 0);
+    const totalA = calculateConvertedNet(a[1], reportCurrency, exchangeRates);
+    const totalB = calculateConvertedNet(b[1], reportCurrency, exchangeRates);
     return totalB - totalA;
   });
 
   sortedGroups.forEach(([catName, items]) => {
     // Category group header
-    const catTotal = items.reduce((sum, i) => sum + toNumber(i.amount), 0);
+    const catTotal = calculateConvertedNet(items, reportCurrency, exchangeRates);
     ws[`A${rowIdx}`] = { v: catName, s: categoryHeaderStyle };
     ws[`B${rowIdx}`] = { v: '', s: categoryHeaderStyle };
     ws[`C${rowIdx}`] = { v: '', s: categoryHeaderStyle };
     ws[`D${rowIdx}`] = { v: '', s: categoryHeaderStyle };
     ws[`E${rowIdx}`] = { v: '', s: categoryHeaderStyle };
-    ws[`F${rowIdx}`] = { v: formatCurrency(catTotal, reportCurrency), s: categoryCurrencyStyle };
+    ws[`F${rowIdx}`] = excelMoneyCell(catTotal, reportCurrency, categoryCurrencyStyle);
     rowIdx++;
 
     // Individual transactions
@@ -351,12 +414,19 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
       } else if (islem.personel) {
         entityName = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
       }
-      ws[`A${rowIdx}`] = { v: formatDateShort(islem.date), s: cellStyle };
+      const transactionCurrency = getIslemCurrency(islem) || reportCurrency;
+      const transactionAmount =
+        (isReturnType(islem.type) ? -1 : 1) * toNumber(islem.amount);
+      ws[`A${rowIdx}`] = excelDateCell(islem.date, cellStyle);
       ws[`B${rowIdx}`] = { v: islem.description || '', s: cellStyle };
       ws[`C${rowIdx}`] = { v: islem.kategori?.name || '-', s: cellStyle };
       ws[`D${rowIdx}`] = { v: accountName, s: cellStyle };
       ws[`E${rowIdx}`] = { v: entityName, s: cellStyle };
-      ws[`F${rowIdx}`] = { v: formatCurrency(toNumber(islem.amount), islem.hesap?.currency || reportCurrency), s: currencyCellStyle };
+      ws[`F${rowIdx}`] = excelMoneyCell(
+        transactionAmount,
+        transactionCurrency,
+        currencyCellStyle,
+      );
       rowIdx++;
     });
   });
@@ -367,7 +437,7 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   ws[`C${rowIdx}`] = { v: '', s: totalRowStyle };
   ws[`D${rowIdx}`] = { v: '', s: totalRowStyle };
   ws[`E${rowIdx}`] = { v: t.total, s: totalRowStyle };
-  ws[`F${rowIdx}`] = { v: formatCurrency(grandTotal, reportCurrency), s: totalCurrencyStyle };
+  ws[`F${rowIdx}`] = excelMoneyCell(grandTotal, reportCurrency, totalCurrencyStyle);
 
   // Set worksheet range
   ws['!ref'] = `A1:F${rowIdx}`;
@@ -504,6 +574,8 @@ export interface ProductExportOptions {
   saleTransactions?: IslemWithRelations[];
   /** Ana/gösterim para birimi - karışık para birimli toplamlar için fallback (varsayılan TRY) */
   baseCurrency?: string;
+  /** Detay satırlarının kategori toplamlarını ana para birimine çevirmek için güncel kur tablosu. */
+  exchangeRates?: Record<string, number> | null;
   translations: ProductExcelTranslations;
 }
 
@@ -514,6 +586,7 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
     saleItems, saleTotal, saleReturnTotal, saleNet,
     purchaseTransactions, saleTransactions,
     baseCurrency = 'TRY',
+    exchangeRates,
     translations: t,
   } = options;
 
@@ -553,11 +626,11 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
 
     // Summary: Total / Returns / Net
     ws[`A${rowIdx}`] = { v: t.total, s: metaLabelStyle };
-    ws[`B${rowIdx}`] = { v: formatCurrency(total, baseCurrency), s: metaValueStyle };
+    ws[`B${rowIdx}`] = excelMoneyCell(total, baseCurrency, metaValueStyle);
     ws[`C${rowIdx}`] = { v: t.returns, s: metaLabelStyle };
-    ws[`D${rowIdx}`] = { v: formatCurrency(returnTotal, baseCurrency), s: metaValueStyle };
+    ws[`D${rowIdx}`] = excelMoneyCell(returnTotal, baseCurrency, metaValueStyle);
     ws[`E${rowIdx}`] = { v: t.net, s: metaLabelStyle };
-    ws[`F${rowIdx}`] = { v: formatCurrency(net, baseCurrency), s: { ...businessNameStyle } };
+    ws[`F${rowIdx}`] = excelMoneyCell(net, baseCurrency, { ...businessNameStyle });
     rowIdx += 2;
 
     // Product summary headers
@@ -571,10 +644,15 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
     items.forEach((item) => {
       ws[`A${rowIdx}`] = { v: item.urunAdi, s: cellStyle };
       ws[`B${rowIdx}`] = { v: item.urunBirim, s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
-      ws[`C${rowIdx}`] = { v: item.toplamMiktar.toString(), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
+      ws[`C${rowIdx}`] = {
+        v: item.toplamMiktar,
+        t: 'n',
+        z: '0.###',
+        s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } },
+      };
       ws[`D${rowIdx}`] = { v: item.kategoriAdi || '-', s: cellStyle };
-      ws[`E${rowIdx}`] = { v: formatCurrency(item.toplamTutar, baseCurrency), s: currencyCellStyle };
-      ws[`F${rowIdx}`] = { v: formatPercent(item.percentage), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
+      ws[`E${rowIdx}`] = excelMoneyCell(item.toplamTutar, baseCurrency, currencyCellStyle);
+      ws[`F${rowIdx}`] = excelPercentCell(item.percentage, { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } });
       rowIdx++;
     });
 
@@ -583,7 +661,7 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
     ws[`B${rowIdx}`] = { v: '', s: totalRowStyle };
     ws[`C${rowIdx}`] = { v: '', s: totalRowStyle };
     ws[`D${rowIdx}`] = { v: '', s: totalRowStyle };
-    ws[`E${rowIdx}`] = { v: formatCurrency(total, baseCurrency), s: totalCurrencyStyle };
+    ws[`E${rowIdx}`] = excelMoneyCell(total, baseCurrency, totalCurrencyStyle);
     ws[`F${rowIdx}`] = { v: '', s: totalRowStyle };
     rowIdx += 2;
 
@@ -604,8 +682,8 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
 
       // Sort by total amount descending
       const sortedGroups = Array.from(catGroups.entries()).sort((a, b) => {
-        const totalA = a[1].reduce((sum, i) => sum + toNumber(i.amount), 0);
-        const totalB = b[1].reduce((sum, i) => sum + toNumber(i.amount), 0);
+        const totalA = calculateConvertedNet(a[1], reportCurrency, exchangeRates);
+        const totalB = calculateConvertedNet(b[1], reportCurrency, exchangeRates);
         return totalB - totalA;
       });
 
@@ -617,14 +695,14 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
       rowIdx++;
 
       sortedGroups.forEach(([catName, catItems]) => {
-        const catTotal = catItems.reduce((sum, i) => sum + toNumber(i.amount), 0);
+        const catTotal = calculateConvertedNet(catItems, reportCurrency, exchangeRates);
         // Category group header
         ws[`A${rowIdx}`] = { v: catName, s: categoryHeaderStyle };
         ws[`B${rowIdx}`] = { v: '', s: categoryHeaderStyle };
         ws[`C${rowIdx}`] = { v: '', s: categoryHeaderStyle };
         ws[`D${rowIdx}`] = { v: '', s: categoryHeaderStyle };
         ws[`E${rowIdx}`] = { v: '', s: categoryHeaderStyle };
-        ws[`F${rowIdx}`] = { v: formatCurrency(catTotal, reportCurrency), s: categoryCurrencyStyle };
+        ws[`F${rowIdx}`] = excelMoneyCell(catTotal, reportCurrency, categoryCurrencyStyle);
         rowIdx++;
 
         // Individual transactions
@@ -636,24 +714,31 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
           } else if (islem.personel) {
             entityName = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
           }
-          ws[`A${rowIdx}`] = { v: formatDateShort(islem.date), s: cellStyle };
+          const transactionCurrency = getIslemCurrency(islem) || reportCurrency;
+          const transactionAmount =
+            (isReturnType(islem.type) ? -1 : 1) * toNumber(islem.amount);
+          ws[`A${rowIdx}`] = excelDateCell(islem.date, cellStyle);
           ws[`B${rowIdx}`] = { v: islem.description || '', s: cellStyle };
           ws[`C${rowIdx}`] = { v: islem.kategori?.name || '-', s: cellStyle };
           ws[`D${rowIdx}`] = { v: accountName, s: cellStyle };
           ws[`E${rowIdx}`] = { v: entityName, s: cellStyle };
-          ws[`F${rowIdx}`] = { v: formatCurrency(toNumber(islem.amount), islem.hesap?.currency || reportCurrency), s: currencyCellStyle };
+          ws[`F${rowIdx}`] = excelMoneyCell(
+            transactionAmount,
+            transactionCurrency,
+            currencyCellStyle,
+          );
           rowIdx++;
         });
       });
 
       // Grand total row for transactions
-      const txnTotal = sorted.reduce((sum, i) => sum + toNumber(i.amount), 0);
       ws[`A${rowIdx}`] = { v: '', s: totalRowStyle };
       ws[`B${rowIdx}`] = { v: '', s: totalRowStyle };
       ws[`C${rowIdx}`] = { v: '', s: totalRowStyle };
       ws[`D${rowIdx}`] = { v: '', s: totalRowStyle };
       ws[`E${rowIdx}`] = { v: t.total, s: totalRowStyle };
-      ws[`F${rowIdx}`] = { v: formatCurrency(txnTotal, reportCurrency), s: totalCurrencyStyle };
+      // Özet RPC toplamı zaten ana para birimine çevrilmiş ve iadeler düşülmüş net değerdir.
+      ws[`F${rowIdx}`] = excelMoneyCell(net, baseCurrency, totalCurrencyStyle);
       rowIdx += 2;
     }
   };
@@ -743,12 +828,12 @@ export async function exportCashFlowToExcel(options: CashFlowExportOptions): Pro
 
   // Summary
   ws[`A${rowIdx}`] = { v: t.inflow, s: { ...metaLabelStyle, font: { bold: true, sz: 11, color: { rgb: '22C55E' } } } };
-  ws[`B${rowIdx}`] = { v: formatCurrency(totalInflow, baseCurrency), s: { ...metaValueStyle, font: { bold: true, sz: 11, color: { rgb: '22C55E' } } } };
+  ws[`B${rowIdx}`] = excelMoneyCell(totalInflow, baseCurrency, { ...metaValueStyle, font: { bold: true, sz: 11, color: { rgb: '22C55E' } } });
   ws[`C${rowIdx}`] = { v: t.outflow, s: { ...metaLabelStyle, font: { bold: true, sz: 11, color: { rgb: 'EF4444' } } } };
-  ws[`D${rowIdx}`] = { v: formatCurrency(totalOutflow, baseCurrency), s: { ...metaValueStyle, font: { bold: true, sz: 11, color: { rgb: 'EF4444' } } } };
+  ws[`D${rowIdx}`] = excelMoneyCell(totalOutflow, baseCurrency, { ...metaValueStyle, font: { bold: true, sz: 11, color: { rgb: 'EF4444' } } });
   rowIdx++;
   ws[`A${rowIdx}`] = { v: t.netCashFlow, s: metaLabelStyle };
-  ws[`B${rowIdx}`] = { v: formatCurrency(netCashFlow, baseCurrency), s: { ...businessNameStyle, font: { bold: true, sz: 12, color: { rgb: netCashFlow >= 0 ? '22C55E' : 'EF4444' } } } };
+  ws[`B${rowIdx}`] = excelMoneyCell(netCashFlow, baseCurrency, { ...businessNameStyle, font: { bold: true, sz: 12, color: { rgb: netCashFlow >= 0 ? '22C55E' : 'EF4444' } } });
   rowIdx += 2;
 
   // Helper to write a flow section
@@ -765,16 +850,16 @@ export async function exportCashFlowToExcel(options: CashFlowExportOptions): Pro
 
     items.forEach((item) => {
       ws[`A${rowIdx}`] = { v: item.kategori?.name || '-', s: cellStyle };
-      ws[`B${rowIdx}`] = { v: item.count.toString(), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
-      ws[`C${rowIdx}`] = { v: formatCurrency(item.total, baseCurrency), s: currencyCellStyle };
-      ws[`D${rowIdx}`] = { v: formatPercent(item.percentage), s: { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } } };
+      ws[`B${rowIdx}`] = excelCountCell(item.count, { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } });
+      ws[`C${rowIdx}`] = excelMoneyCell(item.total, baseCurrency, currencyCellStyle);
+      ws[`D${rowIdx}`] = excelPercentCell(item.percentage, { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } });
       rowIdx++;
     });
 
     // Total row
     ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
     ws[`B${rowIdx}`] = { v: '', s: totalRowStyle };
-    ws[`C${rowIdx}`] = { v: formatCurrency(total, baseCurrency), s: totalCurrencyStyle };
+    ws[`C${rowIdx}`] = excelMoneyCell(total, baseCurrency, totalCurrencyStyle);
     ws[`D${rowIdx}`] = { v: '', s: totalRowStyle };
     rowIdx += 2;
   };
@@ -890,10 +975,10 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
   ws[`D${rowIdx}`] = { v: t.payables, s: headerStyle };
   rowIdx++;
 
-  ws[`A${rowIdx}`] = { v: signedCurrencyText(netValue, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 11, color: { rgb: netValue >= 0 ? '22C55E' : 'EF4444' } } } };
-  ws[`B${rowIdx}`] = { v: formatCurrency(totalAccounts, baseCurrency), s: currencyCellStyle };
-  ws[`C${rowIdx}`] = { v: formatCurrency(totalReceivables, baseCurrency), s: currencyCellStyle };
-  ws[`D${rowIdx}`] = { v: formatCurrency(totalPayables, baseCurrency), s: currencyCellStyle };
+  ws[`A${rowIdx}`] = excelMoneyCell(netValue, baseCurrency, { ...currencyCellStyle, font: { bold: true, sz: 11, color: { rgb: netValue >= 0 ? '22C55E' : 'EF4444' } } });
+  ws[`B${rowIdx}`] = excelMoneyCell(totalAccounts, baseCurrency, currencyCellStyle);
+  ws[`C${rowIdx}`] = excelMoneyCell(totalReceivables, baseCurrency, currencyCellStyle);
+  ws[`D${rowIdx}`] = excelMoneyCell(totalPayables, baseCurrency, currencyCellStyle);
   rowIdx += 2;
 
   // ---- Account Balances ----
@@ -906,12 +991,12 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
 
   normalHesaplar.forEach((h) => {
     ws[`A${rowIdx}`] = { v: h.name, s: cellStyle };
-    ws[`B${rowIdx}`] = { v: formatCurrency(h.balance, h.currency || baseCurrency), s: currencyCellStyle };
+    ws[`B${rowIdx}`] = excelMoneyCell(h.balance, h.currency || baseCurrency, currencyCellStyle);
     rowIdx++;
   });
 
   ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
-  ws[`B${rowIdx}`] = { v: formatCurrency(normalHesaplarToplam, baseCurrency), s: totalCurrencyStyle };
+  ws[`B${rowIdx}`] = excelMoneyCell(normalHesaplarToplam, baseCurrency, totalCurrencyStyle);
   rowIdx += 2;
 
   // ---- Credit Card Balances ----
@@ -925,12 +1010,12 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
 
     krediKartiHesaplar.forEach((h) => {
       ws[`A${rowIdx}`] = { v: h.name, s: cellStyle };
-      ws[`B${rowIdx}`] = { v: formatCurrency(Math.abs(h.balance), h.currency || baseCurrency), s: currencyCellStyle };
+      ws[`B${rowIdx}`] = excelMoneyCell(Math.abs(h.balance), h.currency || baseCurrency, currencyCellStyle);
       rowIdx++;
     });
 
     ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
-    ws[`B${rowIdx}`] = { v: formatCurrency(Math.abs(krediKartiToplam), baseCurrency), s: totalCurrencyStyle };
+    ws[`B${rowIdx}`] = excelMoneyCell(Math.abs(krediKartiToplam), baseCurrency, totalCurrencyStyle);
     rowIdx += 2;
   }
 
@@ -943,10 +1028,10 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
   ws[`C${rowIdx}`] = { v: t.netStatus, s: headerStyle };
   rowIdx++;
 
-  ws[`A${rowIdx}`] = { v: formatCurrency(cariReceivables, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: '22C55E' } } } };
-  ws[`B${rowIdx}`] = { v: formatCurrency(cariPayables, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: 'EF4444' } } } };
+  ws[`A${rowIdx}`] = excelMoneyCell(cariReceivables, baseCurrency, { ...currencyCellStyle, font: { sz: 10, color: { rgb: '22C55E' } } });
+  ws[`B${rowIdx}`] = excelMoneyCell(cariPayables, baseCurrency, { ...currencyCellStyle, font: { sz: 10, color: { rgb: 'EF4444' } } });
   const cariNet = cariReceivables - cariPayables;
-  ws[`C${rowIdx}`] = { v: signedCurrencyText(cariNet, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: cariNet >= 0 ? '22C55E' : 'EF4444' } } } };
+  ws[`C${rowIdx}`] = excelMoneyCell(cariNet, baseCurrency, { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: cariNet >= 0 ? '22C55E' : 'EF4444' } } });
   rowIdx += 2;
 
   // ---- Personnel Status ----
@@ -958,10 +1043,10 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
   ws[`C${rowIdx}`] = { v: t.netStatus, s: headerStyle };
   rowIdx++;
 
-  ws[`A${rowIdx}`] = { v: formatCurrency(personelReceivables, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: '22C55E' } } } };
-  ws[`B${rowIdx}`] = { v: formatCurrency(personelDebt, baseCurrency), s: { ...currencyCellStyle, font: { sz: 10, color: { rgb: 'EF4444' } } } };
+  ws[`A${rowIdx}`] = excelMoneyCell(personelReceivables, baseCurrency, { ...currencyCellStyle, font: { sz: 10, color: { rgb: '22C55E' } } });
+  ws[`B${rowIdx}`] = excelMoneyCell(personelDebt, baseCurrency, { ...currencyCellStyle, font: { sz: 10, color: { rgb: 'EF4444' } } });
   const personelNet = personelReceivables - personelDebt;
-  ws[`C${rowIdx}`] = { v: signedCurrencyText(personelNet, baseCurrency), s: { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: personelNet >= 0 ? '22C55E' : 'EF4444' } } } };
+  ws[`C${rowIdx}`] = excelMoneyCell(personelNet, baseCurrency, { ...currencyCellStyle, font: { bold: true, sz: 10, color: { rgb: personelNet >= 0 ? '22C55E' : 'EF4444' } } });
 
   ws['!ref'] = `A1:D${rowIdx}`;
   ws['!cols'] = [

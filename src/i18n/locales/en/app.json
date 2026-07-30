@@ -1,4 +1,5 @@
 {
   "CFBundleDisplayName": "Small Business Finance",
-  "CFBundleName": "Small Business Finance"
+  "CFBundleName": "Small Business Finance",
+  "NSContactsUsageDescription": "Contacts are used only to copy the selected person's name and phone number into a contact or staff form."
 }

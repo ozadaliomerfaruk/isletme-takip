@@ -14,7 +14,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 interface LeaveQuotaCardProps {
   hakEdilenGun: number;
   kullanilanGun: number;
-  onAddLeave: () => void;
+  onAddLeave?: () => void;
   onCardPress?: () => void;
 }
 
@@ -45,16 +45,21 @@ export function LeaveQuotaCard({ hakEdilenGun, kullanilanGun, onAddLeave, onCard
   }, [hasData]);
 
   const handleAddLeave = useCallback(() => {
-    onAddLeave();
+    onAddLeave?.();
   }, [onAddLeave]);
 
   if (!hasData) {
+    const EmptyWrapper = onAddLeave ? TouchableOpacity : View;
+    const emptyWrapperProps = onAddLeave
+      ? { onPress: handleAddLeave, activeOpacity: 0.7 }
+      : {};
+
     return (
-      <TouchableOpacity style={styles.emptyCard} onPress={handleAddLeave} activeOpacity={0.7}>
+      <EmptyWrapper style={styles.emptyCard} {...emptyWrapperProps}>
         <CalendarDays size={18} color={colors.textMuted} />
         <Text style={styles.emptyText}>{t('leave.noLeaveData')}</Text>
-        <Plus size={16} color={colors.primary} />
-      </TouchableOpacity>
+        {onAddLeave && <Plus size={16} color={colors.primary} />}
+      </EmptyWrapper>
     );
   }
 
@@ -69,10 +74,12 @@ export function LeaveQuotaCard({ hakEdilenGun, kullanilanGun, onAddLeave, onCard
           <Text style={styles.title}>{t('leave.leaveStatus')}</Text>
           {onCardPress && <ChevronRight size={14} color={colors.textMuted} />}
         </View>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddLeave} activeOpacity={0.7}>
-          <Plus size={14} color={colors.primary} />
-          <Text style={styles.addButtonText}>{t('leave.addLeave')}</Text>
-        </TouchableOpacity>
+        {onAddLeave && (
+          <TouchableOpacity style={styles.addButton} onPress={handleAddLeave} activeOpacity={0.7}>
+            <Plus size={14} color={colors.primary} />
+            <Text style={styles.addButtonText}>{t('leave.addLeave')}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       <View style={styles.statsRow}>

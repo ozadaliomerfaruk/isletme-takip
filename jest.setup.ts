@@ -27,11 +27,13 @@ jest.mock('expo-localization', () => ({
 // Mock expo-crypto
 jest.mock('expo-crypto', () => ({
   digestStringAsync: jest.fn().mockResolvedValue('mocked-sha256-hash'),
+  randomUUID: jest.fn().mockReturnValue('00000000-0000-4000-8000-000000000001'),
   CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
 }));
 
 // Mock supabase client
 jest.mock('@/lib/supabase', () => ({
+  checkBackendConnectivity: jest.fn().mockResolvedValue(true),
   supabase: {
     from: jest.fn(() => ({
       select: jest.fn().mockReturnThis(),

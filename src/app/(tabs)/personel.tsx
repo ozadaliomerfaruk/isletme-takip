@@ -1,5 +1,17 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, Animated, Alert, RefreshControl, Pressable } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Animated,
+  Alert,
+  RefreshControl,
+  Pressable,
+  Platform,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
@@ -36,6 +48,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import { compareBalanceListItems } from '@/lib/listSorting';
 import { useSettings } from '@/hooks/useSettings';
 import {
   useExchangeRates,
@@ -44,7 +57,10 @@ import {
 } from '@/hooks/useExchangeRates';
 import { usePersonelList, useDeletePersonel } from '@/hooks/usePersonel';
 import { useNotlar } from '@/hooks/useNotlar';
-import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
+import {
+  usePersonelLeaveQuotas,
+  type LeaveQuotaMap,
+} from '@/hooks/usePersonelLeaveQuotas';
 import { useArchivePersonel } from '@/hooks/useArchive';
 import type { Personel } from '@/types/database';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
@@ -55,9 +71,12 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { exportEntityListToExcel, type EntityListCell, type EntityListSummaryLine, type EntityListExportOptions } from '@/lib/excelExport';
 import { exportEntityListToPdf } from '@/lib/entityListPdf';
 import { ShareOptionsSheet, ListPdfPreviewSheet } from '@/components/export';
+import { useTopAnchoredListSnapshot } from '@/hooks/useTopAnchoredListSnapshot';
+import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
 
 // Satırlar birbirine yapışık; aralarında yalnız 1px gri ayraç (cariler listesi dili)
 const PersonelListSeparator = () => <View style={styles.separator} />;
+const EMPTY_LEAVE_QUOTA_MAP: LeaveQuotaMap = {};
 
 export default function PersonelPage() {
   const router = useRouter();
@@ -101,24 +120,61 @@ export default function PersonelPage() {
   // Toast ve Haptics
   const { showToast } = useToast();
   const haptics = useHaptics();
-  const { isletme } = useAuthContext();
+  const {
+    isletme,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const listGeometryScopeKey = [
+    isletme?.id ?? 'no-business',
+    user?.id ?? 'no-user',
+    permissionAccessSignature(currentPermissions),
+  ].join(':');
 
   // Gerçek veriler - pasif personeli de dahil et
   const { data: personelList, isLoading, refetch } = usePersonelList(true);
   const { data: summaryPersonel } = usePersonelList();
-  const { data: leaveQuotas } = usePersonelLeaveQuotas();
+  const leaveQuotaQuery = usePersonelLeaveQuotas();
+  const { refetch: refetchLeaveQuotas } = leaveQuotaQuery;
+  const readyLeaveQuotas =
+    leaveQuotaQuery.isError || leaveQuotaQuery.isRefetchError
+      ? EMPTY_LEAVE_QUOTA_MAP
+      : leaveQuotaQuery.dataUpdatedAt === 0
+        ? undefined
+        : leaveQuotaQuery.data;
+  const {
+    stableAsyncMeta: leaveQuotas,
+    headerHeight: headerH,
+    onHeaderHeightChange: handleHeaderHeightChange,
+    onScroll: handleGeometryScroll,
+    onScrollBeginDrag: handleListScrollBeginDrag,
+    onScrollEndDrag: handleListScrollEndDrag,
+    onMomentumScrollBegin: handleListMomentumScrollBegin,
+    onMomentumScrollEnd: handleListMomentumScrollEnd,
+  } = useTopAnchoredListSnapshot({
+    asyncMeta: readyLeaveQuotas,
+    emptyAsyncMeta: EMPTY_LEAVE_QUOTA_MAP,
+    initialHeaderHeight: insets.top + TAB_HEADER_ESTIMATED_HEIGHT,
+    scopeKey: listGeometryScopeKey,
+  });
+  const handleListScroll = useCallback((
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    handleTabScroll(event);
+    handleGeometryScroll(event);
+  }, [handleGeometryScroll, handleTabScroll]);
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await refetch();
+      await Promise.all([refetch(), refetchLeaveQuotas()]);
       haptics.success();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetch, haptics]);
+  }, [refetch, refetchLeaveQuotas, haptics]);
 
   // ActionSheet için state
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
@@ -129,11 +185,31 @@ export default function PersonelPage() {
   const deletePersonel = useDeletePersonel();
 
   // Permissions
-  const { canUpdate, canDelete, isOwner } = usePermissions();
-  // Personel ödeme/tahsilat satırları bugün geniş QTB ve temel işlem yollarını
-  // kullanıyor. Tip-bazlı server kapısı tamamlanana kadar shared kullanıcıda
-  // bu geçici fail-closed sınır korunur.
-  const canUseUnprojectedTransactions = isOwner;
+  const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canCreateTransactionType,
+    canCreatePersonelMinimalTransactions,
+  } = usePermissions();
+  const canCreatePersonnel = canCreate('personel');
+  const canCreatePersonelTransactions =
+    canCreateTransactionType('personel_gider');
+  const canCreatePersonelPayments =
+    canCreateTransactionType('personel_odeme');
+  const canSelectPersonel = useCallback(
+    (personel: Pick<Personel, 'created_by'>): boolean =>
+      canUpdate('personel', personel.created_by ?? null)
+      || canDelete('personel', personel.created_by ?? null),
+    [canDelete, canUpdate],
+  );
+
+  useEffect(() => {
+    if (canCreatePersonelTransactions) return;
+    setQuickBarVisible(false);
+    setSelectedPersonelId(null);
+    setFabMenuVisible(false);
+  }, [canCreatePersonelTransactions]);
 
   // Settings ve döviz kurları
   const { currency: baseCurrency } = useSettings();
@@ -160,9 +236,6 @@ export default function PersonelPage() {
 
   // Sort ActionSheet
   const [sortSheetVisible, setSortSheetVisible] = useState(false);
-  /** Cam header akıştan çıktığı için yer kaplamıyor → listenin üst boşluğu bu.
-   *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
-  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
   const sortSheetOptions: ActionSheetOption[] = [
     { label: t('common:sort.balanceHighLow'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceHigh' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceHigh') },
     { label: t('common:sort.balanceLowHigh'), icon: <ArrowUpDown size={20} color={sortBy === 'balanceLow' ? colors.primary : colors.text} />, onPress: () => setSortBy('balanceLow') },
@@ -177,6 +250,11 @@ export default function PersonelPage() {
 
   const handleArchive = useCallback(async () => {
     if (!actionSheetPersonel) return;
+    if (!canUpdate('personel', actionSheetPersonel.created_by ?? null)) {
+      haptics.error();
+      showToast(t('common:errors.permissionDenied'), 'error');
+      return;
+    }
     try {
       await archivePersonel.mutateAsync(actionSheetPersonel.id);
       haptics.success();
@@ -185,10 +263,15 @@ export default function PersonelPage() {
       haptics.error();
       showToast(t('common:messages.operationFailed'), 'error');
     }
-  }, [actionSheetPersonel, archivePersonel, haptics, showToast, t]);
+  }, [actionSheetPersonel, archivePersonel, canUpdate, haptics, showToast, t]);
 
   const handleDelete = useCallback(() => {
     if (!actionSheetPersonel) return;
+    if (!canDelete('personel', actionSheetPersonel.created_by ?? null)) {
+      haptics.error();
+      showToast(t('common:errors.permissionDenied'), 'error');
+      return;
+    }
     const name = `${actionSheetPersonel.first_name} ${actionSheetPersonel.last_name}`;
     Alert.alert(
       t('common:confirm.deleteTitle'),
@@ -199,6 +282,11 @@ export default function PersonelPage() {
           text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
+            if (!canDelete('personel', actionSheetPersonel.created_by ?? null)) {
+              haptics.error();
+              showToast(t('common:errors.permissionDenied'), 'error');
+              return;
+            }
             try {
               await deletePersonel.mutateAsync(actionSheetPersonel.id);
               haptics.success();
@@ -215,18 +303,23 @@ export default function PersonelPage() {
         },
       ]
     );
-  }, [actionSheetPersonel, deletePersonel, haptics, showToast, t]);
+  }, [actionSheetPersonel, canDelete, deletePersonel, haptics, showToast, t]);
 
   // Multi-select handlers
   const handleEnterSelectMode = useCallback(() => {
-    if (actionSheetPersonel) {
+    if (actionSheetPersonel && canSelectPersonel(actionSheetPersonel)) {
       setExpandedPersonelId(null); // Collapse expanded card to prevent layout jump
       setIsSelectMode(true);
       setSelectedIds(new Set([actionSheetPersonel.id]));
     }
-  }, [actionSheetPersonel]);
+  }, [actionSheetPersonel, canSelectPersonel]);
 
   const toggleSelection = useCallback((id: string) => {
+    const personel = (personelList ?? []).find((item) => item.id === id);
+    if (!personel || !canSelectPersonel(personel)) {
+      showToast(t('common:errors.permissionDenied'), 'error');
+      return;
+    }
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -237,11 +330,15 @@ export default function PersonelPage() {
       return newSet;
     });
     haptics.selection();
-  }, [haptics]);
+  }, [canSelectPersonel, haptics, personelList, showToast, t]);
 
   const handleSelectAll = () => {
     if (filteredPersonel) {
-      setSelectedIds(new Set(filteredPersonel.map(p => p.id)));
+      setSelectedIds(new Set(
+        filteredPersonel
+          .filter(canSelectPersonel)
+          .map((personel) => personel.id),
+      ));
       haptics.selection();
     }
   };
@@ -267,9 +364,22 @@ export default function PersonelPage() {
           text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
+            const selectedRecords = (personelList ?? []).filter(
+              (personel) => selectedIds.has(personel.id),
+            );
+            if (
+              selectedRecords.length !== selectedIds.size
+              || !selectedRecords.every((personel) =>
+                canDelete('personel', personel.created_by ?? null))
+            ) {
+              haptics.error();
+              showToast(t('common:errors.permissionDenied'), 'error');
+              return;
+            }
             try {
-              const promises = Array.from(selectedIds).map(id => deletePersonel.mutateAsync(id));
-              await Promise.all(promises);
+              for (const personel of selectedRecords) {
+                await deletePersonel.mutateAsync(personel.id);
+              }
               haptics.success();
               showToast(t('common:bulkSelect.deleteSuccess', { count }), 'success');
               handleCancelSelectMode();
@@ -297,9 +407,22 @@ export default function PersonelPage() {
         {
           text: t('common:archive.actions.archive'),
           onPress: async () => {
+            const selectedRecords = (personelList ?? []).filter(
+              (personel) => selectedIds.has(personel.id),
+            );
+            if (
+              selectedRecords.length !== selectedIds.size
+              || !selectedRecords.every((personel) =>
+                canUpdate('personel', personel.created_by ?? null))
+            ) {
+              haptics.error();
+              showToast(t('common:errors.permissionDenied'), 'error');
+              return;
+            }
             try {
-              const promises = Array.from(selectedIds).map(id => archivePersonel.mutateAsync(id));
-              await Promise.all(promises);
+              for (const personel of selectedRecords) {
+                await archivePersonel.mutateAsync(personel.id);
+              }
               haptics.success();
               showToast(t('common:bulkSelect.archiveSuccess', { count }), 'success');
               handleCancelSelectMode();
@@ -314,13 +437,14 @@ export default function PersonelPage() {
   };
 
   const actionSheetOptions: ActionSheetOption[] = useMemo(() => {
-    const options: ActionSheetOption[] = [
-      {
+    const options: ActionSheetOption[] = [];
+    if (actionSheetPersonel && canSelectPersonel(actionSheetPersonel)) {
+      options.push({
         label: t('common:bulkSelect.select'),
         icon: <CheckSquare size={20} color={colors.info} />,
         onPress: handleEnterSelectMode,
-      },
-    ];
+      });
+    }
 
     if (actionSheetPersonel && canUpdate('personel', actionSheetPersonel.created_by ?? null)) {
       options.push({
@@ -349,7 +473,7 @@ export default function PersonelPage() {
     }
 
     return options;
-  }, [actionSheetPersonel, t, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete, router]);
+  }, [actionSheetPersonel, t, handleEnterSelectMode, handleArchive, handleDelete, canUpdate, canDelete, canSelectPersonel, router]);
 
   // Arama iki not kaynağını da tarar: (1) personelin kendi `notes` kolonu (satırda
   // gösterilen, cariler dili) ve (2) Notlar modülünden personele iliştirilen notlar.
@@ -375,29 +499,19 @@ export default function PersonelPage() {
       if (a.is_active !== b.is_active) {
         return a.is_active ? -1 : 1;
       }
-      // Kullanıcı sıralama tercihi
-      if (sortBy === 'balanceHigh') {
-        const aVal = toNumber(a.balance);
-        const bVal = toNumber(b.balance);
-        // Borçlarımız (negatif) önce, alacaklarımız (pozitif) sonra, sıfır en sonda
-        const aGroup = aVal < 0 ? 0 : aVal > 0 ? 1 : 2;
-        const bGroup = bVal < 0 ? 0 : bVal > 0 ? 1 : 2;
-        if (aGroup !== bGroup) return aGroup - bGroup;
-        // Aynı grup içinde mutlak değere göre büyükten küçüğe
-        return Math.abs(bVal) - Math.abs(aVal);
-      }
-      if (sortBy === 'balanceLow') {
-        const aVal = toNumber(a.balance);
-        const bVal = toNumber(b.balance);
-        // Alacaklarımız (pozitif) önce, borçlarımız (negatif) sonra, sıfır en sonda
-        const aGroup = aVal > 0 ? 0 : aVal < 0 ? 1 : 2;
-        const bGroup = bVal > 0 ? 0 : bVal < 0 ? 1 : 2;
-        if (aGroup !== bGroup) return aGroup - bGroup;
-        // Aynı grup içinde mutlak değere göre küçükten büyüğe
-        return Math.abs(aVal) - Math.abs(bVal);
-      }
-      // Default: alphabetical
-      return a.first_name.localeCompare(b.first_name, 'tr');
+      return compareBalanceListItems(
+        {
+          id: a.id,
+          label: `${a.first_name} ${a.last_name ?? ''}`.trim(),
+          balance: toNumber(a.balance),
+        },
+        {
+          id: b.id,
+          label: `${b.first_name} ${b.last_name ?? ''}`.trim(),
+          balance: toNumber(b.balance),
+        },
+        sortBy,
+      );
     }),
   [personelList, debouncedSearch, sortBy, personelNotMap]);
 
@@ -508,9 +622,24 @@ export default function PersonelPage() {
   // #11: "Tümünü seç" durumunu sayı eşitliği yerine ÜYELİK ile belirle + filtre/arama
   // değişince bayat seçimleri buda (yanlış etiket / hayalet seçim önlenir).
   const visiblePersonelIds = useMemo(
-    () => filteredPersonel.map((p) => p.id),
-    [filteredPersonel]
+    () => filteredPersonel
+      .filter(canSelectPersonel)
+      .map((personel) => personel.id),
+    [canSelectPersonel, filteredPersonel]
   );
+  const selectedPersonelRecords = useMemo(
+    () => (personelList ?? []).filter((personel) =>
+      selectedIds.has(personel.id)),
+    [personelList, selectedIds],
+  );
+  const canBulkArchiveSelected = selectedIds.size > 0
+    && selectedPersonelRecords.length === selectedIds.size
+    && selectedPersonelRecords.every((personel) =>
+      canUpdate('personel', personel.created_by ?? null));
+  const canBulkDeleteSelected = selectedIds.size > 0
+    && selectedPersonelRecords.length === selectedIds.size
+    && selectedPersonelRecords.every((personel) =>
+      canDelete('personel', personel.created_by ?? null));
   const allVisibleSelected = visiblePersonelIds.length > 0
     && visiblePersonelIds.every((id) => selectedIds.has(id));
 
@@ -552,7 +681,7 @@ export default function PersonelPage() {
     return (
       <AnimatedListItem index={index}>
       <View style={[!personel.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
-        {isSelectMode ? (
+        {isSelectMode && canSelectPersonel(personel) ? (
           <TouchableOpacity
             style={styles.selectableCard}
             onPress={() => toggleSelection(personel.id)}
@@ -676,7 +805,7 @@ export default function PersonelPage() {
             }
           >
             <View style={styles.actionButtons}>
-              {canUseUnprojectedTransactions && (
+              {canCreatePersonelTransactions && (
               <Button
                 variant="primary"
                 size="sm"
@@ -705,7 +834,7 @@ export default function PersonelPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas, canUseUnprojectedTransactions]);
+  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas, canCreatePersonelTransactions, canSelectPersonel]);
 
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (
@@ -739,13 +868,28 @@ export default function PersonelPage() {
         description={
           debouncedSearch
             ? t('common:search.tryDifferent')
-            : t('staff:messages.addFirstPersonnel')
+            : canCreatePersonnel
+              ? t('staff:messages.addFirstPersonnel')
+              : undefined
         }
-        actionLabel={debouncedSearch ? undefined : t('staff:titles.addPersonnel')}
-        onAction={debouncedSearch ? undefined : () => router.push('/personel/ekle')}
+        actionLabel={
+          debouncedSearch || !canCreatePersonnel
+            ? undefined
+            : t('staff:titles.addPersonnel')
+        }
+        onAction={
+          debouncedSearch || !canCreatePersonnel
+            ? undefined
+            : () => router.push('/personel/ekle')
+        }
       />
     );
-  }, [isLoading, debouncedSearch, t, router]);
+  }, [isLoading, debouncedSearch, t, router, canCreatePersonnel]);
+
+  const listExtraData = useMemo(
+    () => ({ selectedIds, isSelectMode, sortBy, expandedPersonelId }),
+    [selectedIds, isSelectMode, sortBy, expandedPersonelId],
+  );
 
   return (
     // Screen'e `top` VERİLMİYOR — bilinçli: cam modda üst safe-area boşluğunu
@@ -758,7 +902,11 @@ export default function PersonelPage() {
       <FlatList
         ref={listRef}
         style={styles.scrollView}
-        onScroll={handleTabScroll}
+        onScroll={handleListScroll}
+        onScrollBeginDrag={handleListScrollBeginDrag}
+        onScrollEndDrag={handleListScrollEndDrag}
+        onMomentumScrollBegin={handleListMomentumScrollBegin}
+        onMomentumScrollEnd={handleListMomentumScrollEnd}
         scrollEventThrottle={16}
         data={isLoading ? [] : filteredPersonel}
         keyExtractor={(item) => item.id}
@@ -777,17 +925,23 @@ export default function PersonelPage() {
         initialNumToRender={10}
         maxToRenderPerBatch={10}
         windowSize={5}
-        removeClippedSubviews={true}
+        removeClippedSubviews={Platform.OS === 'android'}
         // Extra data for re-renders when these change
-        extraData={{ selectedIds, isSelectMode, sortBy, expandedPersonelId }}
+        extraData={listExtraData}
         contentContainerStyle={[styles.listContainer, { paddingTop: headerH, paddingBottom: contentPaddingBottom }]}
       />
 
       <TabHeader
         glass
-        onHeightChange={setHeaderH}
+        onHeightChange={handleHeaderHeightChange}
         title={t('staff:titles.personnel')}
-        subtitle={personelList && personelList.length > 0 ? t('staff:messages.personnelCount', { count: personelList.length }) : undefined}
+        // İlk kareden bir subtitle satırı rezerve edilir; veri gelince header
+        // yüksekliği değişmez, yalnız boş metin gerçek sayaçla yer değiştirir.
+        subtitle={
+          personelList && personelList.length > 0
+            ? t('staff:messages.personnelCount', { count: personelList.length })
+            : '\u00A0'
+        }
         right={
           <>
             {/* accessibilityLabel ŞART: buton yalnız ikon taşıyor, metin çocuğu
@@ -820,7 +974,7 @@ export default function PersonelPage() {
       />
 
       {/* FAB Backdrop */}
-      {canUseUnprojectedTransactions && fabMenuVisible && (
+      {canCreatePersonelTransactions && fabMenuVisible && (
         <Pressable style={StyleSheet.absoluteFill} onPress={() => setFabMenuVisible(false)}>
           <Animated.View
             style={[
@@ -832,13 +986,13 @@ export default function PersonelPage() {
       )}
 
       {/* FAB Menu Items */}
-      {canUseUnprojectedTransactions && !isSelectMode && fabMenuVisible && (
+      {canCreatePersonelTransactions && !isSelectMode && fabMenuVisible && (
         <GlassContainer
           spacing={GLASS_MERGE_SPACING}
           style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
         >
           {[
-            {
+            ...(canCreatePersonelPayments ? [{
               label: t('staff:bulkActions.addPayment'),
               icon: <Banknote size={18} color={colors.success} />,
               onPress: () => {
@@ -847,7 +1001,7 @@ export default function PersonelPage() {
                 router.push('/personel/toplu-odeme');
               },
               index: 1,
-            },
+            }] : []),
             {
               label: t('staff:bulkActions.addExpense'),
               icon: <MinusCircle size={18} color={colors.error} />,
@@ -886,7 +1040,7 @@ export default function PersonelPage() {
 
       {/* FAB Button — arama aktifken de çekilir: pill tam genişliğe açılıp FAB'ın
           altına girer ve kapatma X'ini (44px) tamamen örterdi. Süre X'lerle aynı (150ms). */}
-      {canUseUnprojectedTransactions && !isSelectMode && !searchActive && (
+      {canCreatePersonelTransactions && !isSelectMode && !searchActive && (
         <ReAnimated.View
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
           entering={ZoomIn.duration(150)}
@@ -914,7 +1068,7 @@ export default function PersonelPage() {
       )}
 
       {/* Quick Transaction Bar */}
-      {canUseUnprojectedTransactions && (
+      {canCreatePersonelTransactions && (
       <QuickTransactionBar
         visible={quickBarVisible}
         onDismiss={() => {
@@ -922,6 +1076,10 @@ export default function PersonelPage() {
           setSelectedPersonelId(null);
         }}
         defaultPersonelId={selectedPersonelId || undefined}
+        createScope="personel"
+        minimalAccountReferenceMode={
+          canCreatePersonelMinimalTransactions ? 'personel' : undefined
+        }
         onSuccess={() => {
           setQuickBarVisible(false);
           setSelectedPersonelId(null);
@@ -991,20 +1149,20 @@ export default function PersonelPage() {
             <TouchableOpacity
               style={[styles.bulkActionButton, styles.bulkActionArchive]}
               onPress={handleBulkArchive}
-              disabled={selectedIds.size === 0}
+              disabled={!canBulkArchiveSelected}
             >
-              <Archive size={20} color={selectedIds.size === 0 ? colors.textMuted : colors.warning} />
-              <Text variant="caption" style={{ color: selectedIds.size === 0 ? colors.textMuted : colors.warning }}>
+              <Archive size={20} color={!canBulkArchiveSelected ? colors.textMuted : colors.warning} />
+              <Text variant="caption" style={{ color: !canBulkArchiveSelected ? colors.textMuted : colors.warning }}>
                 {t('common:archive.actions.archive')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.bulkActionButton, styles.bulkActionDelete]}
               onPress={handleBulkDelete}
-              disabled={selectedIds.size === 0}
+              disabled={!canBulkDeleteSelected}
             >
-              <Trash2 size={20} color={selectedIds.size === 0 ? colors.textMuted : colors.error} />
-              <Text variant="caption" style={{ color: selectedIds.size === 0 ? colors.textMuted : colors.error }}>
+              <Trash2 size={20} color={!canBulkDeleteSelected ? colors.textMuted : colors.error} />
+              <Text variant="caption" style={{ color: !canBulkDeleteSelected ? colors.textMuted : colors.error }}>
                 {t('common:buttons.delete')}
               </Text>
             </TouchableOpacity>

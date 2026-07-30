@@ -1,13 +1,165 @@
-# YETKİ SÖZLEŞMESİ — v3
+# YETKİ SÖZLEŞMESİ — v4
 
-**Durum (28 Temmuz 2026):** Ürün kararları onaylandı; istemci savunma katmanı
-uygulandı ve yerel kontrollerden geçti. Sunucu güvenlik sınırı henüz tamamlanmadı.
+**Son ürün kararı:** 30 Temmuz 2026
+**Bu bölüm yetkilidir:** Aşağıdaki v4 kararları, bu dosyanın devamındaki v1–v3
+notlarıyla çeliştiğinde v4 geçerlidir. Eski gövde karar geçmişi ve negatif test
+bağlamı olarak korunmuştur.
+
+## v4 — kesin özel rol sözleşmesi
+
+### Ortak seviye ve sahiplik kuralları
+
+- Bir modülün açık olması, o modüldeki bütün aktif kayıtları ve detaylarını
+  okuyabilmek demektir. Okuma, kaydı kimin oluşturduğuna göre daraltılmaz.
+- `view`: salt okunur kullanım. Bağlamsal not istisnası aşağıdadır.
+- `add`: yeni kayıt/işlem oluşturma.
+- `edit_own`: bütün kayıtları okur; yalnız `created_by = auth.uid()` olan kaydı
+  düzenler, siler, arşivler veya arşivden çıkarır.
+- `edit_all`: oluşturan kullanıcıdan bağımsız olarak bütün kayıtları düzenler,
+  siler, arşivler veya arşivden çıkarır. `created_by IS NULL` eski kayıtları da
+  kapsar.
+- Kapalı modülün tam verisi başka bir açık modül üzerinden açılmaz. İş akışını
+  anlaşılır kılmak için gereken bağlı kayıt adı, bakiye ve kişisel alan olmadan
+  düz metin olarak gösterilebilir; bu metinden kapalı modül detayına gidilmez.
+- Özel rolde bütün kutular açılsa bile kullanıcı sistem yöneticisi sayılmaz.
+
+### Owner ve yöneticiye özel sınırlar
+
+- Pasif Hesap, Cari, Personel ve Ürün kayıtlarını yalnız işletme sahibi görür,
+  pasifleştirir veya yeniden aktifleştirir. Yönetici dahil diğer roller göremez.
+- Ana/gösterim para birimini yalnız işletme sahibi değiştirir.
+- İşlem/audit geçmişini yalnız işletme sahibi görür.
+- Kategori oluşturma, düzenleme ve silme yalnız işletme sahibi ile gerçek sistem
+  yöneticisine açıktır. Özel rol `edit_all` bu hakkı vermez.
+- İşlem yapabilen ortak kullanıcı var olan aktif kategoriyi seçebilir.
+
+### Navigasyon, ana sayfa ve raporlar
+
+- Ana Sayfa yalnız `hesaplar`, `birikim` veya `raporlar` açıksa görünür. Bunların
+  hiçbiri açık değilse ilk açık ana modüle yönlendirilir; boş beyaz Ana Sayfa
+  gösterilmez.
+- `raporlar` tek başına açıksa Dashboard, Raporlar merkezi ve işletmenin tüm rapor
+  verisi açılır.
+- `raporlar` kapalıysa Dashboard ve genel Raporlar merkezi hiçbir zaman görünmez.
+  Buna rağmen açık modül kendi bağlamsal raporuna gidebilir: Hesap, Cari, Personel
+  ve Ürün alış/satış raporları.
+- Daha menüsü, global arama, Arşiv ve Tüm İşlemler yalnız açık modüllerin
+  kapsamını gösterir. Arşivde modül bazlı kayıt türleri; Tüm İşlemler'de kaynak
+  modül bazlı satırlar yer alır.
+- Cariler açıksa Taksit Takip ve Vade Takip görünür.
+- Notlar merkezi yalnız `notlar` modülü açıksa görünür.
+
+### Hesaplar, Cariler, Personel ve Ürünler
+
+- Hesaplar açıksa liste, bakiye, detay, hesap hareketleri ve bağlamsal Hesap
+  raporu okunur. Hesap hareketinde kapalı Cari/Personel tarafının yalnız adı
+  gösterilebilir.
+- Cari açıksa cari listesi, bakiye, detay, bütün cari işlemleri, ürünlü işlemin
+  ürün kalemleri, ekstre ve mutabakat sonucu okunur. Ürünler kapalıyken mevcut
+  ürün kalemleri salt okunur; yeni ürünlü işlem oluşturulamaz veya düzenlenemez.
+- Cari `add` ile alış, satış, iadeler, ödeme ve tahsilat oluşturulur. Ödeme veya
+  tahsilatta Hesaplar kapalıysa aktif hesap adları seçicide görünür, bakiyeler
+  görünmez; Hesaplar açıksa bakiyeler de görünür.
+- Cari mutabakatı `view` ile okunur/paylaşılır; mutabakat sonucundan işlem
+  oluşturmak `add` ister. Cari ekstresi `view` ile görüntülenir ve paylaşılır.
+- Personel açıksa personel listesi, maaş/izin/bakiye, detay ve bağlamsal Personel
+  raporu okunur.
+- Personel `add` ile gider, satış, ödeme, tahsilat, izin hakkı ve izin kullanımı
+  girilir. Hesaplar kapalıysa ödeme/tahsilat hesabı adı seçilebilir fakat bakiye
+  görünmez.
+- Ürünler açıksa ürün, stok ve hareketler okunur. Ürün-only `add/edit` doğrudan
+  stok giriş, çıkış ve düzeltme yapabilir; Cari bakiyesini etkileyemez.
+- Ürün hareketine bağlı Cari adı, Cariler kapalıyken düz metin gösterilebilir;
+  Cari detayına gidilemez. Ürün ekstresi `view` ile paylaşılabilir.
+- Cari + Ürün yazma kapsamı birlikte varsa ürünlü cari işlemi oluşturulabilir veya
+  sahiplik seviyesine göre düzenlenebilir.
+
+### İşlem satırları ve QTB
+
+- Açık bir kaynak modülün işlem satırı, oluşturan kişiden bağımsız okunur ve
+  dokunularak salt-okunur detay/ürün listesi açılabilir.
+- Düzenleme ve silme kararı işlem satırını oluşturan kullanıcı ile ilgili modülün
+  `edit_own/edit_all` seviyesinden çözülür. Ürünlü işlem mutasyonu ayrıca Ürünler
+  yazma yetkisi ister.
+- Cari-only ve Personel-only QTB, ilgili modülün bütün izinli sekmelerini gösterir;
+  yalnız bağlı Hesap bakiyesini saklar.
+- Hesap seçicinin bu dar kullanımı Hesaplar modülünü açmaz ve hesap detayına geçiş
+  vermez.
+- Kategori seçici, işlem oluşturma yetkisi bulunan QTB akışlarında görünür.
+- Ürün-only akışının bağlı Cari adı yalnız açıklayıcı etikettir; cari işlemi
+  oluşturma veya Cari bakiyesi değiştirme yetkisi değildir.
+
+### Notlar ve fotoğraflar
+
+- Erişilebilir Hesap, Cari, Personel veya Ürün detayında Notlar modülü kapalı olsa
+  bile bağlamsal notlar okunabilir ve yeni bağlamsal not/fotoğraf eklenebilir.
+- Kullanıcı kendi bağlamsal notunu düzenleyip silebilir. Başkasının bağlamsal
+  notunu düzenleme/silme, notun bağlı olduğu bütün modüllerde `edit_all` ister.
+- Bu bağlamsal istisna parent modül `view` seviyesindeyken de geçerlidir.
+- Serbest notlar normal Notlar seviyesiyle çalışır: `view` okur, `add` oluşturur,
+  `edit_own/edit_all` sahiplik kapsamına göre değiştirir veya siler.
+- `assigned_to_user` notun görünür kitlesini daraltır; varlık bağlamı üretmez.
+  Yetkili kullanıcı notu aynı işletmedeki başka bir aktif üyeye atayabilir.
+- Notlar merkezi yalnız Notlar modülü açıksa serbest notları ve kullanıcının
+  yetkili olduğu modüllere bağlı notları toplu gösterir.
+
+### Sunucu ve veri güvenliği
+
+- İstemci görünürlüğü tek başına güvenlik sınırı değildir. Aynı sözleşme RLS,
+  dar kolonlu `SECURITY DEFINER` RPC'ler, Storage kuralları ve atomik mutasyon
+  uçlarında yeniden uygulanır.
+- Rapor-only ve çapraz modül istisnaları geniş tablo `SELECT *` izni vermez; yalnız
+  ilgili ekrana gereken alanları döndüren dar projeksiyonlar kullanılır.
+- Migration mevcut satırlara `UPDATE/DELETE`, backfill, kolon silme/yeniden
+  adlandırma veya tip değiştirme yapmaz. Mevcut kullanıcı ve işlem verisi korunur.
+- 1.5.x istemcilerin bildiği public RPC imzaları kaldırılmaz. Eski istemci yeni dar
+  seçicileri ve v2/v3 atomik uçları kullanmaz; güvenlik politikaları nedeniyle
+  artık yetkisiz satırda boş sonuç veya yetki hatası görür, veri kaybı yaşamaz.
+
+### Canlı uygulama durumu — 30 Temmuz 2026
+
+- v4'ün final sunucu kapanışı üretimde
+  `20260730080658_permission_contract_v2_server` migration kaydıyla aktiftir.
+  Kaynak dosya
+  `supabase/migrations/20260730153000_permission_contract_v2_server.sql`,
+  exact SHA-256 değeri
+  `bc151c9946f8f37375b01f25b25ac04728abff0e0bf5be2f3601fe8083f493ac`
+  değeridir.
+- Final payload kullanıcı/işlem satırlarına top-level DML, backfill, kolon
+  silme/yeniden adlandırma/tip değiştirme, tablo silme veya veri taşıma yapmaz.
+- Exact SQL üretimde önce tek transaction içinde uygulanıp geri alındı; iki
+  bağımsız incelemede P0/P1 bulgu çıkmadı. Uygulama sonrasında migration,
+  trigger, policy, fonksiyon imzası/sonuç tipi, ACL ve `search_path`
+  postcondition'ları doğrulandı.
+- Uygulama öncesi/sonrası kullanıcı verisi sayımlarında azalma olmadı. Yeni
+  internal context tabloları uygulama sonrasında boştu.
+- Ana oturum doğrulaması TypeScript, ESLint (`0 hata`), `131 suite / 1.773`
+  Jest testi ve `4.103` modüllük iOS Metro bundle ile tamamlandı. Cihaz kabul
+  turu, görsel ve rol-geçişi doğrulamasının son kapısıdır.
+- Eski 1.5.x istemcinin public RPC imzaları korunur. Bağlı ürünün eski istemciden
+  kalıcı silinmesi güvenli biçimde reddedilir; yarım ürün/stok silinmesine izin
+  verilmez. Güncel istemci ürün ve işlem mutasyonlarında tek-transaction atomik
+  uçları kullanır.
+
+---
+
+## v1–v3 karar geçmişi
+
+> Bu bölüm tarihsel 29 Temmuz fotoğrafıdır. Uygulama durumunda yukarıdaki v4
+> canlı kapanış kaydı yetkilidir.
+
+**Durum (29 Temmuz 2026):** Ürün kararları onaylandı; istemci savunma katmanı
+uygulandı ve yerel kontrollerden geçti. P-B kanonik resolver canlıdır. P-D'nin dar
+kategori seçim ve creator-label projeksiyon tüketicileri canlıya alınmıştır; geniş
+sunucu güvenlik sınırı henüz tamamlanmadı.
 **İlk taslak tarihi:** 26 Temmuz 2026 · **Baz commit:** `5f04873`
 
 > **YAYIN BLOKAJI:** Aşağıdaki istemci değişiklikleri tek başına güvenlik tamamlandı
 > anlamına gelmez. RLS/RPC/Storage/Edge ve kolon projeksiyonu paketleri
 > uygulanıp negatif test matrisi geçmeden kısıtlı kullanıcı modeli üretime hazır
-> sayılamaz. Bu oturumda üretime bağlanılmadı ve migration uygulanmadı.
+> sayılamaz. 29 Temmuz'da aşağıda açıkça belirtilen additive veya mevcut imzayı
+> koruyan erişim-daraltıcı, veri-silmeyen paketler üretimde rollback preflight ve son
+> kontrollerden geçti; bu kısmi ilerleme bütün sınırların kapandığı anlamına gelmez.
 
 ### Uygulama fotoğrafı — 28 Temmuz 2026
 
@@ -889,9 +1041,21 @@ Sözleşmenin 3. Temel Kuralı budur: UI'da gizlemek kanıt değildir.
 
 ## 6. UYGULAMA SINIRI
 
+> **Tarihsel v1–v3 planı:** Bu bölüm ve aşağıdaki §7 tablosundaki “bağlamsal not
+> salt-okunur”, “pasif owner + manager”, “kategori owner-only” ve “audit owner +
+> manager” kararları v4 ile değiştirilmiştir. Güncel davranış ve canlı durum için
+> dosyanın en üstündeki v4 sözleşmesi geçerlidir.
+
 - İstemci savunma-derinliği uygulanmaktadır; bu tek başına RLS/RPC/Storage
   sunucu sınırlarının tamamlandığı anlamına gelmez.
-- Hazırlanan migration ve kanıt dosyaları **üretime uygulanmadı**.
+- P-B kanonik resolver altyapısı `20260729064915` ile canlıdır.
+- P-D kısmen canlıdır:
+  `20260729071904_add_kategori_secim_referanslari_rpc` exact dört alanlı dar kategori
+  seçim ucunu; `20260729073717_restrict_transaction_creator_labels_visibility`
+  creator etiketi için tip×kaynak AND ve sahiplik filtresini uygular.
+- Temel tablo SELECT/RLS yolları, diğer işlem/rapor projeksiyonları ile P-C/P-F/P-I
+  tüketicileri henüz tamamlanmadı. İki dar P-D ucunun canlı olması tek başına bütün
+  sunucu sınırlarını kapatmaz.
 - `undo_import_batch` owner guard bağımsız P0'dır ve kendi test + onay hattını izler.
 - Cihaz turu yapılmadan UI davranışı tamamlanmış sayılmaz.
 

@@ -34,6 +34,23 @@
     "ara": "Call",
     "whatsapp": "WhatsApp"
   },
+  "contactPicker": {
+    "accessibilityLabel": "Choose from contacts",
+    "accessibilityHint": "Opens the phone's contact picker",
+    "chooseNumber": "Choose a phone number",
+    "phoneOption": "Phone {{index}}",
+    "noPhoneTitle": "No phone number",
+    "noPhoneMessage": "The selected contact has no phone number. You can enter it manually.",
+    "permissionTitle": "Contacts permission required",
+    "permissionDenied": "Contacts permission was not granted. You can enter the number manually or allow access in your phone's Settings.",
+    "unavailableTitle": "Contacts unavailable",
+    "unavailableMessage": "The system contact picker is currently unavailable. You can enter the number manually.",
+    "errors": {
+      "extension": "This phone number contains an extension or pause. Remove it and check the number.",
+      "invalid": "Enter a valid phone number using only a leading +, digits, and common separators.",
+      "tooLong": "The phone number exceeds the 20-character limit. Shorten it and try again."
+    }
+  },
   "buttons": {
     "save": "Save",
     "cancel": "Cancel",
@@ -656,6 +673,7 @@
     "hasLinkedRecords": "You need to delete linked records before deleting this record.",
     "hasLinkedProductMovements": "To permanently delete this product, first delete its linked transactions. It has {{count}} transaction-linked movement(s). You can archive the product instead.",
     "hasSharedCari": "This client is shared and can't be deleted. Remove the share first; otherwise the party you shared with will lose access.",
+    "noteContextServerManaged": "The record linked to this note cannot be changed directly.",
     "cannotDeleteTitle": "Cannot Delete"
   },
   "notes": {
@@ -692,6 +710,7 @@
     "removeReminder": "Remove Reminder",
     "reminderSet": "Reminder set",
     "reminderRemoved": "Reminder removed",
+    "reminderUpdateFailed": "The note was saved, but its reminder could not be updated.",
     "addPhoto": "Add Photo",
     "removePhoto": "Remove Photo",
     "takePhoto": "Take Photo",

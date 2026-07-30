@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import { useCariler } from './useCariler';
-import { usePersonelList } from './usePersonel';
-import { useHesaplar } from './useHesaplar';
+import { useReportCariler } from './useCariler';
+import { useReportPersonelList } from './usePersonel';
+import { useReportHesaplar } from './useHesaplar';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import { toNumber, roundCurrency } from '@/lib/currency';
@@ -70,11 +70,11 @@ export function useFinancialSummary(enabled: boolean = true): FinancialSummary {
   // includePassive: false - pasif hesaplar hariç
   // includeArchived: false - arşivlenmiş hesaplar hariç
   const { data: hesaplar, isLoading: hesaplarLoading } =
-    useHesaplar(false, false, reportsEnabled);
+    useReportHesaplar(reportsEnabled);
   const { data: cariler, isLoading: carilerLoading } =
-    useCariler(undefined, false, false, reportsEnabled);
+    useReportCariler(reportsEnabled);
   const { data: personelList, isLoading: personelLoading } =
-    usePersonelList(false, false, reportsEnabled);
+    useReportPersonelList(reportsEnabled);
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData, isLoading: exchangeRatesLoading } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;

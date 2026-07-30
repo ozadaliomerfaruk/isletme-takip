@@ -127,16 +127,16 @@
         },
         "userContent": {
           "title": "1.2 Kullanıcı Tarafından Girilen İçerikler",
-          "intro": "Aşağıdaki bilgiler tamamen kullanıcının isteğiyle ve manuel olarak girilir:",
+          "intro": "Aşağıdaki bilgiler tamamen kullanıcının isteğiyle manuel olarak girilir veya kullanıcının açık seçimiyle cihazından forma aktarılır:",
           "content": "Finansal kayıtlar (banka hesapları, kasa, gelir-gider kayıtları)\nCari hesap bilgileri (müşteri ve tedarikçi bilgileri)\nPersonel bilgileri (ad, pozisyon, maaş, izin bilgileri)\nÜrün ve stok bilgileri (ürün adı, kodu, fiyat, stok miktarı)\nNot ve görev içerikleri (hatırlatıcılar, fotoğraflar, atamalar dahil)\nAçıklamalar ve benzeri içerikler"
         },
         "optional": {
           "title": "1.3 Opsiyonel Bilgiler",
-          "content": "Vergi numarası, telefon numarası ve benzeri alanlar zorunlu değildir ve kullanıcı tarafından isteğe bağlı olarak girilir."
+          "content": "Vergi numarası, telefon numarası ve benzeri alanlar zorunlu değildir; kullanıcı tarafından isteğe bağlı olarak girilir veya açıkça seçilen cihaz kişisinden forma aktarılır."
         },
         "deviceAccess": {
           "title": "1.4 Cihaz Erişimleri",
-          "content": "Kamera ve Fotoğraf Galerisi: Yalnızca kullanıcı işlemlere veya notlara fotoğraf (fiş, fatura vb.) eklemek istediğinde erişim talep edilir.\nDosya Sistemi: Excel dosyası içe aktarma ve dışa aktarma işlemleri sırasında erişim talep edilir.\nBildirimler: İleri tarihli işlem ve not hatırlatmaları için push bildirim izni talep edilebilir."
+          "content": "Kamera ve Fotoğraf Galerisi: Yalnızca kullanıcı işlemlere veya notlara fotoğraf (fiş, fatura vb.) eklemek istediğinde erişim talep edilir.\nDosya Sistemi: Excel dosyası içe aktarma ve dışa aktarma işlemleri sırasında erişim talep edilir.\nBildirimler: İleri tarihli işlem ve not hatırlatmaları için push bildirim izni talep edilebilir.\nCihaz Rehberi: Erişim yalnızca kullanıcı “Rehberden seç” düğmesine bastığında istenir. Uygulama tüm rehberi topluca çekmez veya sunucuya yüklemez; yalnızca sistem seçicisinde seçilen kişinin adı ve telefon numarası forma aktarılır. Bu bilgiler kullanıcı “Kaydet” düğmesine basmadan sunucuya gönderilmez."
         }
       },
       "dataUsage": {

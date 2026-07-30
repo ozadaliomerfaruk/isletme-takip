@@ -8,27 +8,36 @@ import { calculateBalanceSummary } from '@/lib/currency';
 import { LinkedRecordsError } from '@/lib/errors';
 import i18n from '@/i18n';
 import { usePermissions } from '@/hooks/usePermissions';
+import { reportEntityRowsToCariler } from '@/lib/reportPermissionProjection';
 
 export function useCariler(
   type?: CariType,
   includePassive: boolean = false,
   includeArchived: boolean = false,
   enabled: boolean = true,
+  allowReportAccess: boolean = false,
 ) {
   const { isletme, isletmeLoading } = useAuthContext();
   const { canAccessModule, canSeePassiveRecords } = usePermissions();
   const canSeeCariler = canAccessModule('cariler');
+  const canReadCariler =
+    canSeeCariler
+    || (allowReportAccess && canAccessModule('raporlar'));
   const effectiveIncludePassive = includePassive && canSeePassiveRecords;
 
   const result = useQuery({
-    queryKey: queryKeys.cariler.list(
-      isletme?.id ?? '',
-      type,
-      effectiveIncludePassive,
-      includeArchived,
-    ),
+    queryKey: [
+      ...queryKeys.cariler.list(
+        isletme?.id ?? '',
+        type,
+        effectiveIncludePassive,
+        includeArchived,
+      ),
+      'report-access',
+      allowReportAccess,
+    ],
     queryFn: async () => {
-      if (!canSeeCariler || !isletme) return [];
+      if (!canReadCariler || !isletme) return [];
 
       let query = supabase
         .from('cariler')
@@ -55,7 +64,7 @@ export function useCariler(
       if (error) throw error;
       return data as Cari[];
     },
-    enabled: enabled && canSeeCariler && !!isletme,
+    enabled: enabled && canReadCariler && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     meta: { query_purpose: 'cariler:list' },
@@ -64,7 +73,75 @@ export function useCariler(
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...result,
-    isLoading: enabled && canSeeCariler && (result.isLoading || isletmeLoading),
+    isLoading: enabled && canReadCariler && (result.isLoading || isletmeLoading),
+  };
+}
+
+/**
+ * Rapor yüzeyindeki cari referansları.
+ *
+ * Cariler modülü kapalı reports-only profilde telefon/e-posta/adres/not gibi
+ * entity PII alanları indirilmez; yalnız raporda gereken ad/tip/para
+ * birimi/bakiye projeksiyonu kullanılır.
+ */
+export function useReportCariler(enabled: boolean = true) {
+  const { isletme, user, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeeReports = canAccessModule('raporlar');
+  const useReportProjection = canSeeReports && !canSeeCariler;
+  const canRead = canSeeCariler || canSeeReports;
+
+  const directQuery = useCariler(
+    undefined,
+    false,
+    false,
+    enabled,
+    false,
+  );
+  const projectionQuery = useQuery({
+    queryKey: [
+      'reports',
+      'entity-references-v1',
+      isletme?.id ?? '',
+      user?.id ?? '',
+      'cari',
+    ],
+    queryFn: async () => {
+      if (!useReportProjection || !isletme) return [];
+      const { data, error } = await supabase.rpc(
+        'get_rapor_varlik_referanslari_v1',
+        {
+          p_isletme_id: isletme.id,
+          p_kind: 'cari',
+        },
+      );
+      if (error) throw error;
+      return reportEntityRowsToCariler(data, isletme.id);
+    },
+    enabled:
+      enabled
+      && useReportProjection
+      && !!isletme
+      && !!user?.id,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    meta: {
+      persist: false,
+      query_purpose: 'reports:entity-references-v1:cari',
+    },
+  });
+
+  const selectedQuery = useReportProjection
+    ? projectionQuery
+    : directQuery;
+  return {
+    ...selectedQuery,
+    data: enabled && canRead ? selectedQuery.data ?? [] : [],
+    isLoading:
+      enabled
+      && canRead
+      && (selectedQuery.isLoading || isletmeLoading),
   };
 }
 
@@ -74,7 +151,13 @@ export function useCari(id: string | undefined) {
   const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
-    queryKey: queryKeys.cariler.detail(id ?? '', isletme?.id ?? ''),
+    queryKey: [
+      ...queryKeys.cariler.detail(id ?? '', isletme?.id ?? ''),
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeeCariler,
+    ],
     queryFn: async () => {
       if (!canSeeCariler || !id || !isletme) return null;
 
@@ -89,7 +172,7 @@ export function useCari(id: string | undefined) {
       if (error) throw error;
       return data as Cari;
     },
-    enabled: canSeeCariler && !!id,
+    enabled: canSeeCariler && !!id && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     meta: { query_purpose: 'cariler:detail' },
@@ -168,23 +251,25 @@ export function useDeleteCari() {
       }
 
       // Bağlı işlem kontrolü - varsa silmeyi engelle
-      const { count: islemCount } = await supabase
+      const { count: islemCount, error: islemCountError } = await supabase
         .from('islemler')
         .select('id', { count: 'exact', head: true })
         .eq('cari_id', id)
         .eq('isletme_id', isletme.id);
 
+      if (islemCountError) throw islemCountError;
       if (islemCount && islemCount > 0) {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedTransactions', { count: islemCount }));
       }
 
       // Bağlı ileri tarihli işlem kontrolü
-      const { count: scheduledCount } = await supabase
+      const { count: scheduledCount, error: scheduledCountError } = await supabase
         .from('ileri_tarihli_islemler')
         .select('id', { count: 'exact', head: true })
         .eq('cari_id', id)
         .eq('isletme_id', isletme.id);
 
+      if (scheduledCountError) throw scheduledCountError;
       if (scheduledCount && scheduledCount > 0) {
         throw new LinkedRecordsError(i18n.t('common:errors.hasLinkedScheduledTransactions', { count: scheduledCount }));
       }
@@ -192,33 +277,26 @@ export function useDeleteCari() {
       // Bağlı paylaşım kontrolü: bu cari başka bir işletmeyle paylaşılmışsa (cari_links),
       // silinince FK CASCADE ile paylaşım kalkar ve karşı (viewer) taraf erişimini SESSİZCE
       // kaybeder. Silmeyi engelle; kullanıcı önce paylaşımı kaldırmalı.
-      const { count: sharedCount } = await supabase
+      const { count: sharedCount, error: sharedCountError } = await supabase
         .from('cari_links')
         .select('id', { count: 'exact', head: true })
         .eq('cari_id', id)
         .eq('owner_isletme_id', isletme.id);
 
+      if (sharedCountError) throw sharedCountError;
       if (sharedCount && sharedCount > 0) {
         throw new LinkedRecordsError(i18n.t('common:errors.hasSharedCari'));
       }
 
-      // Bu cariye iliştirilmiş notları genel nota çevir (yetim not kalmasın)
-      const { error: notlarError } = await supabase
-        .from('notlar')
-        .update({ entity_type: 'genel', entity_id: null })
-        .eq('entity_id', id)
-        .eq('entity_type', 'cari')
-        .eq('isletme_id', isletme.id);
-      if (notlarError && __DEV__) {
-        console.error('Not temizleme başarısız (yetim not kalabilir):', notlarError);
-      }
-
-      // Cariyi sil (bağlı kayıt yoksa güvenle silinebilir)
+      // Sunucu bağlı kayıtları yeniden doğrular, notları aynı DELETE transaction'ında
+      // genel nota çevirir ve tam bir silinen satır döndürür.
       const { error } = await supabase
         .from('cariler')
         .delete()
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },

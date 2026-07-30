@@ -14,6 +14,7 @@ import { getCurrentCurrency } from '@/hooks/useSettings';
 import { useMonthSummary, type PeriodType } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
 import { useDateFormat } from '@/hooks/useDateFormat';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 
 const PERIOD_OPTIONS: Exclude<PeriodType, 'custom'>[] = ['yearly', 'monthly', 'weekly', 'daily'];
 
@@ -53,7 +54,12 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
 
   // Data hooks
   const { data: monthSummary } = useMonthSummary(period, periodOffset);
-  const { totalInflow, totalOutflow, netCashFlow } = useCashFlowByCategory({ startDate, endDate });
+  const {
+    totalInflow,
+    totalOutflow,
+    netCashFlow,
+    conversionIncomplete: cashFlowConversionIncomplete,
+  } = useCashFlowByCategory({ startDate, endDate });
 
   const income = monthSummary?.income ?? 0;
   const expense = monthSummary?.expense ?? 0;
@@ -264,6 +270,9 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
                 </TouchableOpacity>
               </View>
 
+              <ConversionIncompleteWarning
+                visible={cashFlowConversionIncomplete}
+              />
               <Text style={styles.description}>{t('common:dashboard.cashFlowDescription')}</Text>
             </View>
           </>

@@ -6,6 +6,7 @@ import {
   canSharePublicCariStatement,
   deriveEffectiveModules,
   deriveLevel,
+  hasFullTransactionSourceAccess,
   rolePresetPermissions,
 } from '../permissions';
 
@@ -25,7 +26,7 @@ describe('istemci yetki çekirdeği — deny by default', () => {
     );
 
     expect(permissions.modules).toMatchObject({
-      dashboard: true,
+      dashboard: false,
       cariler: true,
       urunler: true,
       hesaplar: false,
@@ -85,7 +86,7 @@ describe('istemci yetki çekirdeği — deny by default', () => {
       cekler: true,
     });
 
-    expect(modules.dashboard).toBe(true);
+    expect(modules.dashboard).toBe(false);
     expect(modules.islemler).toBe(false);
     expect(modules.ileri_tarihli).toBe(false);
     expect(modules.arsiv).toBe(false);
@@ -103,6 +104,30 @@ describe('istemci yetki çekirdeği — deny by default', () => {
       expect(effective.arsiv).toBe(true);
     },
   );
+
+  it('geniş işlem bağlamını yalnız dört kaynak modülün tamamında açar', () => {
+    const full = buildPermissions(
+      visibleSelection(['hesaplar', 'cariler', 'urunler', 'personel']),
+      'edit_all',
+    );
+    const missingProduct = buildPermissions(
+      visibleSelection(['hesaplar', 'cariler', 'personel']),
+      'edit_all',
+    );
+
+    expect(hasFullTransactionSourceAccess(full)).toBe(true);
+    expect(hasFullTransactionSourceAccess(missingProduct)).toBe(false);
+  });
+
+  it('geniş işlem bağlamı görünürlük yeteneğidir; view seviyesinde de güvenle okunabilir', () => {
+    const permissions = buildPermissions(
+      visibleSelection(['hesaplar', 'cariler', 'urunler', 'personel']),
+      'view',
+    );
+
+    expect(hasFullTransactionSourceAccess(permissions)).toBe(true);
+    expect(permissions.actions.islemler?.can_create).toBe(false);
+  });
 
   it.each<ModuleName>(['raporlar', 'notlar'])(
     '%s tek başına finansal işlem veya arşiv yüzeyi açmaz',
@@ -136,7 +161,7 @@ describe('istemci yetki çekirdeği — deny by default', () => {
     const permissions = buildPermissions({ cariler: true }, invalidLevel);
 
     expect(permissions.level).toBe('view');
-    expect(permissions.modules.dashboard).toBe(true);
+    expect(permissions.modules.dashboard).toBe(false);
     expect(permissions.modules.cariler).toBe(false);
     expect(permissions.modules.islemler).toBe(false);
     expect(permissions.actions.cariler).toBeUndefined();
@@ -174,9 +199,15 @@ describe('istemci yetki çekirdeği — deny by default', () => {
     expect(canAccessPermissionModule(legacyWithoutAccounts, 'birikim')).toBe(false);
   });
 
-  it('pasif kayit gorunurlugunu yalniz manager presetine verir', () => {
-    expect(rolePresetPermissions('manager').visibility.can_see_passive).toBe(true);
+  it('pasif kayit gorunurlugunu owner disindaki hicbir role vermez', () => {
+    expect(rolePresetPermissions('manager').visibility.can_see_passive).toBe(false);
     expect(rolePresetPermissions('operator').visibility.can_see_passive).toBe(false);
     expect(rolePresetPermissions('custom').visibility.can_see_passive).toBe(false);
+  });
+
+  it('dashboard yalniz Raporlar modülünden türetilir', () => {
+    expect(deriveEffectiveModules({ cariler: true }).dashboard).toBe(false);
+    expect(deriveEffectiveModules({ hesaplar: true }).dashboard).toBe(false);
+    expect(deriveEffectiveModules({ raporlar: true }).dashboard).toBe(true);
   });
 });

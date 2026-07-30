@@ -49,10 +49,13 @@ export interface AmountInputSectionProps {
   type: TransactionType;
   onTypeChange: (type: TransactionType) => void;
   tabMode: TransactionTabMode;
+  allowedTypes?: readonly TransactionType[];
   // Urun
   showUrunButton?: boolean;
   urunItemCount?: number;
   onUrunButtonPress?: () => void;
+  /** S-11 dar cari RPC foto storage/yazimini desteklemez. */
+  showPhotoButton?: boolean;
 }
 
 export function AmountInputSection({
@@ -82,9 +85,11 @@ export function AmountInputSection({
   type,
   onTypeChange,
   tabMode,
+  allowedTypes,
   showUrunButton,
   urunItemCount = 0,
   onUrunButtonPress,
+  showPhotoButton = true,
 }: AmountInputSectionProps) {
   const { t } = useTranslation(['common', 'transactions']);
   const localAmountRef = useRef<TextInput>(null);
@@ -230,17 +235,19 @@ export function AmountInputSection({
         />
 
         <View style={localStyles.noteActions}>
-          <PhotoButton
-            hasPhoto={hasPhoto}
-            onPickImage={onPickImage}
-            onTakePhoto={onTakePhoto}
-            onRemovePhoto={onRemovePhoto}
-            onViewPhoto={onViewPhoto}
-            loading={photoLoading}
-            disabled={isSaving}
-            size="medium"
-            style={localStyles.photoBtn}
-          />
+          {showPhotoButton && (
+            <PhotoButton
+              hasPhoto={hasPhoto}
+              onPickImage={onPickImage}
+              onTakePhoto={onTakePhoto}
+              onRemovePhoto={onRemovePhoto}
+              onViewPhoto={onViewPhoto}
+              loading={photoLoading}
+              disabled={isSaving}
+              size="medium"
+              style={localStyles.photoBtn}
+            />
+          )}
 
           {/* Ürün butonu — sadece alış/satış türlerinde; ikon-only (kutu + adet rozeti) */}
           {showUrunButton && onUrunButtonPress && (
@@ -307,7 +314,12 @@ export function AmountInputSection({
       </View>
 
       {/* Type Tabs */}
-      <TransactionTypeTabs value={type} onChange={onTypeChange} mode={tabMode} />
+      <TransactionTypeTabs
+        value={type}
+        onChange={onTypeChange}
+        mode={tabMode}
+        allowedTypes={allowedTypes}
+      />
 
       {/* Hızlı hesap makinesi operatör satırı (ikonla açılır) — tutar üzerinde zincirleme işlem */}
       {calcOpen && (

@@ -37,7 +37,11 @@ export default function GelirGiderRaporPage() {
   // Gider tarafında her zaman kategori (hesap kırılımına ihtiyaç yok).
   const [gelirGroupBy, setGelirGroupBy] = useState<'kategori' | 'hesap'>('kategori');
 
-  const { isExporting, exportReport } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
+  const {
+    isExporting,
+    canExport,
+    exportReport,
+  } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 
   const PERIOD_OPTIONS = [
     { label: upperTr(t('reports:period.yearly')), value: 'yearly' },
@@ -131,13 +135,13 @@ export default function GelirGiderRaporPage() {
           title: t('reports:titles.categoryDistribution'),
           headerBackVisible: true,
           gestureEnabled: true,
-          headerRight: () => (
-            <ReportExportButton
-              onPress={handleExport}
-              isExporting={isExporting}
-              accessibilityLabel={t('reports:export.exportExcel')}
-            />
-          ),
+          headerRight: () => canExport ? (
+              <ReportExportButton
+                onPress={handleExport}
+                isExporting={isExporting}
+                accessibilityLabel={t('reports:export.exportExcel')}
+              />
+            ) : null,
         }}
       />
       <Screen>
@@ -154,7 +158,13 @@ export default function GelirGiderRaporPage() {
           }
         >
           {/* Kur bulunamadıysa toplamlar eksik/çevrilmemiş — sessiz kalmıyor */}
-          <ConversionIncompleteWarning visible={catReport.conversionIncomplete} />
+          <ConversionIncompleteWarning
+            visible={
+              showAccounts
+                ? kaynakRaporu.conversionIncomplete
+                : catReport.conversionIncomplete
+            }
+          />
 
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
@@ -214,7 +224,11 @@ export default function GelirGiderRaporPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {signedCurrencyText(gelirRaporu.totalAmount)}
+                  {signedCurrencyText(
+                    showAccounts
+                      ? kaynakRaporu.totalAmount
+                      : gelirRaporu.totalAmount
+                  )}
                 </Text>
               </TouchableOpacity>
 
@@ -320,7 +334,11 @@ export default function GelirGiderRaporPage() {
                           <IncomeSourceCard
                             key={`${item.kind}-${item.id}`}
                             item={item}
-                            onPress={() => handleSourcePress(item)}
+                            onPress={
+                              kaynakRaporu.canOpenDetails
+                                ? () => handleSourcePress(item)
+                                : undefined
+                            }
                           />
                         ))}
                       </View>

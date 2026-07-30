@@ -66,7 +66,7 @@ function renderSkipReason(reason: SkipReason | undefined, fallbackCode: string):
 }
 
 export function useDataImport() {
-  const { isletme } = useAuthContext();
+  const { isletme, isOwner } = useAuthContext();
   const queryClient = useQueryClient();
 
   const translationsRef = useRef<ProgressTranslations>(DEFAULT_TRANSLATIONS);
@@ -512,13 +512,18 @@ export function useDataImport() {
     options: ImportOptions = {}
   ): Promise<ImportResult> => {
     if (options.translations) translationsRef.current = options.translations;
-    if (options.dryRun) return simulateImport(preview, accountMappings);
 
     if (!isletme) {
       const errorResult = { ...EMPTY_IMPORT_RESULT, errors: [i18n.t('common:errors.businessNotFound')] };
       setResult(errorResult);
       return errorResult;
     }
+    if (!isOwner) {
+      const errorResult = { ...EMPTY_IMPORT_RESULT, errors: [i18n.t('common:errors.permissionDenied')] };
+      setResult(errorResult);
+      return errorResult;
+    }
+    if (options.dryRun) return simulateImport(preview, accountMappings);
 
     try {
       setProgress({
@@ -723,7 +728,7 @@ export function useDataImport() {
       return errorResult;
     }
   }, [
-    isletme, queryClient, duplicates,
+    isletme, isOwner, queryClient, duplicates,
     getExistingCategories, getExistingAccounts, getExistingClients, getExistingPersonel,
     importCategories, importAccounts, importClients, importPersonel,
     importTransactions, simulateImport,

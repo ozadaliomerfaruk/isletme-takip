@@ -2,7 +2,7 @@ import XLSX from 'xlsx-js-style';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, formatPercent } from './currency';
+import { getCurrencySymbol } from '@/constants/currencies';
 
 const thinBorder = {
   top: { style: 'thin', color: { rgb: 'CCCCCC' } },
@@ -58,6 +58,25 @@ const totalNumberStyle = {
   alignment: { horizontal: 'right', vertical: 'center' },
   border: thinBorder,
 };
+
+function moneyCell(value: number, currency: string, style: object) {
+  const symbol = getCurrencySymbol(currency).replace(/"/g, '""');
+  return {
+    v: value,
+    t: 'n' as const,
+    z: `"${symbol}"#,##0.00`,
+    s: style,
+  };
+}
+
+function percentCell(value: number, style: object) {
+  return {
+    v: value / 100,
+    t: 'n' as const,
+    z: '0.00%',
+    s: style,
+  };
+}
 
 async function writeAndShare(wb: XLSX.WorkBook, fileName: string, dialogTitle: string) {
   const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
@@ -182,6 +201,10 @@ export interface CategoryDetailExportOptions {
     percentage: number;
     transactionCount: number;
   }>;
+  /** Doğrudan ana kategoriye bağlı (alt kategorisiz) işlemlerin toplamı. */
+  parentAmount: number;
+  /** Doğrudan ana kategoriye bağlı işlem sayısı. */
+  parentTransactionCount: number;
   totalAmount: number;
   /** Ana/gösterim para birimi (varsayılan TRY) */
   currency?: string;
@@ -202,10 +225,48 @@ export interface CategoryDetailExportOptions {
   };
 }
 
+export function buildCategoryDetailRows(
+  categoryName: string,
+  subCategories: CategoryDetailExportOptions['subCategories'],
+  parentAmount: number,
+  parentTransactionCount: number,
+  totalAmount: number,
+) {
+  return parentTransactionCount > 0
+    ? [
+        {
+          name: categoryName,
+          amount: parentAmount,
+          percentage: totalAmount > 0 ? (parentAmount / totalAmount) * 100 : 0,
+          transactionCount: parentTransactionCount,
+        },
+        ...subCategories,
+      ]
+    : subCategories;
+}
+
 export async function exportCategoryDetail(opts: CategoryDetailExportOptions) {
-  const { categoryName, isletmeName, startDate, endDate, subCategories, totalAmount, currency = 'TRY', t } = opts;
+  const {
+    categoryName,
+    isletmeName,
+    startDate,
+    endDate,
+    subCategories,
+    parentAmount,
+    parentTransactionCount,
+    totalAmount,
+    currency = 'TRY',
+    t,
+  } = opts;
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
+  const rows = buildCategoryDetailRows(
+    categoryName,
+    subCategories,
+    parentAmount,
+    parentTransactionCount,
+    totalAmount,
+  );
 
   ws['A1'] = { v: t.title, s: titleStyle };
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
@@ -225,20 +286,30 @@ export async function exportCategoryDetail(opts: CategoryDetailExportOptions) {
     ws[XLSX.utils.encode_cell({ r: hRow - 1, c: i })] = { v: h, s: headerStyle };
   });
 
-  subCategories.forEach((sc, i) => {
+  rows.forEach((sc, i) => {
     const r = hRow + i;
     ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: sc.name, s: cellStyle };
-    ws[XLSX.utils.encode_cell({ r, c: 1 })] = { v: formatCurrency(sc.amount, currency), s: numberCellStyle };
-    ws[XLSX.utils.encode_cell({ r, c: 2 })] = { v: formatPercent(sc.percentage), s: numberCellStyle };
-    ws[XLSX.utils.encode_cell({ r, c: 3 })] = { v: sc.transactionCount, s: numberCellStyle };
+    ws[XLSX.utils.encode_cell({ r, c: 1 })] = moneyCell(sc.amount, currency, numberCellStyle);
+    ws[XLSX.utils.encode_cell({ r, c: 2 })] = percentCell(sc.percentage, numberCellStyle);
+    ws[XLSX.utils.encode_cell({ r, c: 3 })] = {
+      v: sc.transactionCount,
+      t: 'n',
+      z: '0',
+      s: numberCellStyle,
+    };
   });
 
-  const totalRow = hRow + subCategories.length;
+  const totalRow = hRow + rows.length;
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 0 })] = { v: t.total, s: totalRowStyle };
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 1 })] = { v: formatCurrency(totalAmount, currency), s: totalNumberStyle };
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 2 })] = { v: formatPercent(100), s: totalNumberStyle };
-  const totalTx = subCategories.reduce((s, sc) => s + sc.transactionCount, 0);
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 3 })] = { v: totalTx, s: totalNumberStyle };
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 1 })] = moneyCell(totalAmount, currency, totalNumberStyle);
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 2 })] = percentCell(100, totalNumberStyle);
+  const totalTx = rows.reduce((sum, row) => sum + row.transactionCount, 0);
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 3 })] = {
+    v: totalTx,
+    t: 'n',
+    z: '0',
+    s: totalNumberStyle,
+  };
 
   ws['!ref'] = `A1:D${totalRow + 1}`;
   ws['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 12 }, { wch: 14 }];

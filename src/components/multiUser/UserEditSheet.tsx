@@ -36,7 +36,9 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
   // Reset form when user changes
   useEffect(() => {
     if (user) {
-      setRole(user.role);
+      // Kaldırılmış legacy `purchaser` rolünün bugünkü karşılığı, mevcut dar
+      // permissions JSON'u korunarak düzenlenebilen `custom` roldür.
+      setRole(user.role === 'purchaser' ? 'custom' : user.role);
       setPermissions(user.permissions ?? rolePresetPermissions('custom'));
       setMemberLabel(user.member_label ?? '');
     }
@@ -139,6 +141,7 @@ export function UserEditSheet({ user, visible, onClose }: UserEditSheetProps) {
               user.profile?.display_name ?? user.profile?.email ?? t('multiUser:users.displayNamePlaceholder')
             }
             autoCapitalize="words"
+            maxLength={100}
           />
           <Text variant="caption" color="muted" style={styles.helpText}>
             {t('multiUser:users.displayNameHelp')}

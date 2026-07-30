@@ -411,7 +411,14 @@ export interface IslemWithRelations extends Islem {
   kategori?: Kategori | null;
   cari?: Cari | null;
   personel?: Personel | null;
-  creator?: { display_name: string | null; email: string } | null;
+  creator?: { display_name: string | null } | null;
+  /**
+   * Dar yetkili işlem projeksiyonunda, bağlı modül kapalıyken yalnızca
+   * salt-okunur karşı taraf etiketi taşınır. Entity kimliği/relation bilinçli
+   * olarak dönmez; bu alanlar navigasyon veya mutation yetkisi değildir.
+   */
+  counterparty_kind?: 'hesap' | 'cari' | 'personel' | null;
+  counterparty_name?: string | null;
 }
 
 // Dashboard özet

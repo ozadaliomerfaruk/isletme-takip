@@ -8,12 +8,14 @@ import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { PersonelTabContent } from '@/components/reports/tabs';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { colors } from '@/constants/colors';
-import { usePagePermission } from '@/hooks/usePagePermission';
 import { useQueryClient } from '@tanstack/react-query';
 
 export default function PersonelRaporPage() {
+  return <PersonelRaporContent />;
+}
+
+function PersonelRaporContent() {
   const contentPaddingBottom = useContentBottomPadding();
-  usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'personel' }); }, []);
   const { personelId } = useLocalSearchParams<{ personelId?: string }>();
   const state = useReportRouteState();
