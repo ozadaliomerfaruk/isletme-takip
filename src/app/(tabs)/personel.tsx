@@ -73,6 +73,7 @@ import { exportEntityListToPdf } from '@/lib/entityListPdf';
 import { ShareOptionsSheet, ListPdfPreviewSheet } from '@/components/export';
 import { useTopAnchoredListSnapshot } from '@/hooks/useTopAnchoredListSnapshot';
 import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
+import { getListEdgePosition, getListEdgeStyle } from '@/components/ui/listEdgeStyles';
 
 // Satırlar birbirine yapışık; aralarında yalnız 1px gri ayraç (cariler listesi dili)
 const PersonelListSeparator = () => <View style={styles.separator} />;
@@ -675,12 +676,15 @@ export default function PersonelPage() {
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
   const renderPersonelItem = useCallback(({ item: personel, index }: { item: Personel; index: number }) => {
     const isSelected = selectedIds.has(personel.id);
+    const edgeStyle = getListEdgeStyle(
+      getListEdgePosition(index, filteredPersonel.length),
+    );
     const lq = leaveQuotas?.[personel.id];
     const hasLeave = !!lq && (lq.hakEdilen > 0 || lq.kullanilan > 0);
     const hasMeta = !!personel.position || !!personel.phone || hasLeave;
     return (
       <AnimatedListItem index={index}>
-      <View style={[!personel.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
+      <View style={[edgeStyle, !personel.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
         {isSelectMode && canSelectPersonel(personel) ? (
           <TouchableOpacity
             style={styles.selectableCard}
@@ -834,7 +838,7 @@ export default function PersonelPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas, canCreatePersonelTransactions, canSelectPersonel]);
+  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas, canCreatePersonelTransactions, canSelectPersonel, filteredPersonel.length]);
 
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (

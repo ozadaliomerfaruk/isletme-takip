@@ -64,6 +64,7 @@ import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
+import { getListEdgePosition, getListEdgeStyle } from '@/components/ui/listEdgeStyles';
 
 // Hareket satırları yapışık; ayrım 1px gri çizgi (cariler listesi dili)
 const HareketSeparator = () => (
@@ -324,7 +325,12 @@ export default function UrunDetayPage() {
 
   // Hareket satırı (FlatList renderItem) — .map'teki ExpandableCard JSX birebir korunuyor.
   // Yatay padding orijinaldeki styles.section ile aynı (paddingHorizontal: spacing.lg).
-  const renderHareket = useCallback(({ item: hareket }: ListRenderItemInfo<UrunHareketWithSource>) => {
+  const visibleHareketler = useMemo(
+    () => hareketler?.filter((hareket) => !pendingDeleteIds.has(hareket.id)) ?? [],
+    [hareketler, pendingDeleteIds],
+  );
+
+  const renderHareket = useCallback(({ item: hareket, index }: ListRenderItemInfo<UrunHareketWithSource>) => {
     // Finansal yön (stok yönünden bağımsız): iadeler doğru aileye/etikete gider.
     // Alış iadesi stok ÇIKIŞIdır ama "satış" DEĞİL; satış iadesi stok GİRİŞİdir ama "alış" DEĞİL.
     const yon = urunHareketYon(hareket.hareket_tipi, hareket.islemType);
@@ -352,7 +358,10 @@ export default function UrunDetayPage() {
     <View style={{ paddingHorizontal: spacing.lg }}>
       {/* Yapışık düz-liste görünümü (cariler dili) — ayrım FlatList ayracından */}
       <ExpandableCard
-        style={{ borderRadius: 0, marginBottom: 0 }}
+        style={[
+          { borderRadius: 0, marginBottom: 0 },
+          getListEdgeStyle(getListEdgePosition(index, visibleHareketler.length)),
+        ]}
         showChevron={false}
         expanded={expandedHareketId === hareket.id}
         onToggle={() => setExpandedHareketId(expandedHareketId === hareket.id ? null : hareket.id)}
@@ -573,6 +582,7 @@ export default function UrunDetayPage() {
     t,
     i18n,
     ozetMode,
+    visibleHareketler.length,
   ]);
 
   if (urunLoading) {
@@ -636,7 +646,7 @@ export default function UrunDetayPage() {
         <FlatList
           contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           style={styles.scrollView}
-          data={hareketlerLoading ? [] : (hareketler?.filter(h => !pendingDeleteIds.has(h.id)) ?? [])}
+          data={hareketlerLoading ? [] : visibleHareketler}
           keyExtractor={(h) => h.id}
           renderItem={renderHareket}
           ItemSeparatorComponent={HareketSeparator}

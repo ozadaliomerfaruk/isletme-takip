@@ -47,6 +47,10 @@ import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constan
 import { formatCurrency, parseCurrency, toNumber, calculateTargetAmount, roundCurrency, getCrossCurrencyDisplay } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
+import {
+  getGroupedListEdgePosition,
+  type ListEdgePosition,
+} from '@/components/ui/listEdgeStyles';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -123,6 +127,7 @@ interface CariTransactionItemProps {
   /** Yürüyen bakiye satırı ("Bakiye X") + borç yönü (kırmızı). */
   runningBalanceText?: string | null;
   runningBalanceNegative?: boolean;
+  listPosition: ListEdgePosition;
 }
 
 function getCariHareketLabelKey(type: string): string {
@@ -210,6 +215,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   tahsilLabel,
   runningBalanceText,
   runningBalanceNegative,
+  listPosition,
 }: CariTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -260,6 +266,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
         paidStamp={paidStamp}
         runningBalanceText={runningBalanceText}
         runningBalanceNegative={runningBalanceNegative}
+        listPosition={listPosition}
         hasPhoto={!!islem.photo_path}
         hasUrunler={(urunItems?.length ?? 0) > 0}
         urunCount={urunItems?.length ?? 0}
@@ -296,7 +303,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
     // sorgusu geç yüklenince) → closure'ın tazelenmesi için ayrıca karşılaştır.
     && prev.tahsilAmount === next.tahsilAmount
     && prev.runningBalanceText === next.runningBalanceText
-    && prev.runningBalanceNegative === next.runningBalanceNegative;
+    && prev.runningBalanceNegative === next.runningBalanceNegative
+    && prev.listPosition === next.listPosition;
 });
 
 // ============================================================================
@@ -1158,8 +1166,10 @@ export default function CariHareketleriPage() {
 
   const renderTransactionItem = useCallback(({
     item,
+    index,
   }: {
     item: TransactionListItem<CariIslemListRow>;
+    index: number;
   }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -1361,9 +1371,10 @@ export default function CariHareketleriPage() {
         tahsilAmount={itemTahsilAmount}
         runningBalanceText={itemRunningBalanceText}
         runningBalanceNegative={itemRunningBalanceNegative}
+        listPosition={getGroupedListEdgePosition(groupedData, index)}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, setEditingNoteId, t, deleteLabel, copyLabel, cari?.currency, canAccessModule, canCopyTransactions, canDelete, canDeleteTransactionRecord, canCreateCariTransactions, canMutateCariTransactions, resolveCreatorLabel, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, islemKalanMap, isViewer, taksitliSet, taksitBirimleri, runningBalanceMap]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, setEditingNoteId, t, deleteLabel, copyLabel, cari?.currency, canAccessModule, canCopyTransactions, canDelete, canDeleteTransactionRecord, canCreateCariTransactions, canMutateCariTransactions, resolveCreatorLabel, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, islemKalanMap, isViewer, taksitliSet, taksitBirimleri, runningBalanceMap, groupedData]);
 
   const keyExtractor = useCallback(
     (item: TransactionListItem<CariIslemListRow>) => item.key,

@@ -39,6 +39,11 @@ import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constan
 import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay, roundCurrency, calculateTargetAmount } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem, MilestoneItem } from '@/lib/transactionGrouping';
+import {
+  getGroupedListEdgePosition,
+  getListEdgeStyle,
+  type ListEdgePosition,
+} from '@/components/ui/listEdgeStyles';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -133,6 +138,7 @@ interface PersonelTransactionItemProps {
   runningBalanceText?: string | null;
   runningBalanceNegative?: boolean;
   urunItems?: UrunKalemOzet[];
+  listPosition: ListEdgePosition;
 }
 
 /**
@@ -183,6 +189,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   runningBalanceText,
   runningBalanceNegative,
   urunItems,
+  listPosition,
 }: PersonelTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -249,6 +256,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         hasUrunler={(urunItems?.length ?? 0) > 0}
         urunCount={urunItems?.length ?? 0}
         urunItems={urunItems}
+        listPosition={listPosition}
         onPress={onPress}
       />
     </SwipeableRow>
@@ -261,7 +269,8 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
     && prev.creatorText === next.creatorText
     && prev.runningBalanceText === next.runningBalanceText
     && prev.runningBalanceNegative === next.runningBalanceNegative
-    && prev.urunItems === next.urunItems;
+    && prev.urunItems === next.urunItems
+    && prev.listPosition === next.listPosition;
 });
 
 // ============================================================================
@@ -889,9 +898,12 @@ export default function PersonelHareketleriPage() {
 
   const renderTransactionItem = useCallback(({
     item,
+    index,
   }: {
     item: TransactionListItem<PersonelTransactionRow>;
+    index: number;
   }) => {
+    const listPosition = getGroupedListEdgePosition(groupedData, index);
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
     }
@@ -899,7 +911,7 @@ export default function PersonelHareketleriPage() {
       const MilestoneIcon = item.color === 'success' ? CalendarCheck : CalendarX2;
       const milestoneColor = item.color === 'success' ? colors.success : colors.error;
       return (
-        <View style={styles.milestoneRow}>
+        <View style={[styles.milestoneRow, getListEdgeStyle(listPosition)]}>
           <View style={[styles.milestoneBar, { backgroundColor: milestoneColor }]} />
           <MilestoneIcon size={18} color={milestoneColor} />
           <Text style={[styles.milestoneText, { color: milestoneColor }]}>
@@ -948,9 +960,10 @@ export default function PersonelHareketleriPage() {
         runningBalanceText={itemRunningBalanceText}
         runningBalanceNegative={itemRunningBalanceNegative}
         urunItems={getUrunItems(islem.id)}
+        listPosition={listPosition}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, setEditingNoteId, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransactionRecord, resolvePersonelCreatorLabel, runningBalanceMap, getUrunItems]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, setEditingNoteId, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransactionRecord, resolvePersonelCreatorLabel, runningBalanceMap, getUrunItems, groupedData]);
 
   const keyExtractor = useCallback(
     (item: TransactionListItem<PersonelTransactionRow>) => item.key,

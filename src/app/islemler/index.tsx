@@ -39,6 +39,10 @@ import {
   toErrorMessage,
 } from '@/lib/errors';
 import { preprocessTransactionsByDate, getIslemlerItemType, TransactionListItem } from '@/lib/transactionGrouping';
+import {
+  getGroupedListEdgePosition,
+  type ListEdgePosition,
+} from '@/components/ui/listEdgeStyles';
 import { IslemWithRelations } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useTransactionCreatorLabelResolver } from '@/hooks/useTransactionCreatorLabels';
@@ -99,6 +103,7 @@ interface IslemlerTransactionItemProps {
   canCopy?: boolean;
   creatorText?: string | null;
   urunItems?: UrunKalemOzet[];
+  listPosition: ListEdgePosition;
 }
 
 const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
@@ -115,6 +120,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
   canCopy = true,
   creatorText,
   urunItems,
+  listPosition,
 }: IslemlerTransactionItemProps) {
   const handleDelete = useCallback(
     () => onDelete(islem.id, islem.description || t(`transactions:types.${islem.type}`)),
@@ -155,6 +161,7 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
         tertiaryText={noteText}
         subAmount={xc.subText}
         currency={xc.mainCurrency}
+        listPosition={listPosition}
         urunItems={urunItems}
         hasUrunler={(urunItems?.length ?? 0) > 0}
         urunCount={urunItems?.length ?? 0}
@@ -175,7 +182,8 @@ const IslemlerTransactionItem = memo(function IslemlerTransactionItem({
     && prev.canDelete === next.canDelete
     && prev.canCopy === next.canCopy
     && prev.creatorText === next.creatorText
-    && prev.urunItems === next.urunItems;
+    && prev.urunItems === next.urunItems
+    && prev.listPosition === next.listPosition;
 });
 
 // ============================================================================
@@ -569,7 +577,7 @@ export default function IslemlerPage() {
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
 
-  const renderItem = useCallback(({ item }: { item: TransactionListItem }) => {
+  const renderItem = useCallback(({ item, index }: { item: TransactionListItem; index: number }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
     }
@@ -602,9 +610,10 @@ export default function IslemlerPage() {
         canCopy={canCopyItem}
         creatorText={resolveCreatorLabel(islem)}
         urunItems={urunItems}
+        listPosition={getGroupedListEdgePosition(groupedData, index)}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canCreateTransactionType, resolveCreatorLabel, getMutationDecision, getUrunItems, productItemsSettled]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, t, deleteLabel, copyLabel, canCreateTransactionType, resolveCreatorLabel, getMutationDecision, getUrunItems, productItemsSettled, groupedData]);
 
   const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
 

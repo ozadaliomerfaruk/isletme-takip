@@ -8,6 +8,10 @@ import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import type { Urun, BirimType } from '@/types/database';
+import {
+  getListEdgeStyle,
+  type ListEdgePosition,
+} from '@/components/ui/listEdgeStyles';
 
 interface DonemOzet { giris: number; cikis: number; girisTutar: number; cikisTutar: number }
 
@@ -25,12 +29,14 @@ interface ProductRowProps {
   getBirimLabel: (birim: BirimType) => string;
   /** Dönem özeti pill'leri miktar mı tutar mı gösterecek (varsayılan miktar). */
   ozetMode?: 'miktar' | 'tutar';
+  listPosition?: ListEdgePosition;
 }
 
 export const ProductRow = memo(function ProductRow({
   urun, expanded, onToggle, onNewTransaction, canCreateTransaction, canManage,
   onViewMovements, onOpenActionSheet,
   urunOzet, kategoriAdi, getBirimLabel, ozetMode = 'miktar',
+  listPosition = 'middle',
 }: ProductRowProps) {
   const { t } = useTranslation(['products', 'common']);
   const hasMovements = urunOzet && (urunOzet.giris > 0 || urunOzet.cikis > 0);
@@ -46,7 +52,7 @@ export const ProductRow = memo(function ProductRow({
   return (
     <View style={rowStyles.wrapper}>
       <ExpandableCard
-        style={rowStyles.flatCard}
+        style={[rowStyles.flatCard, getListEdgeStyle(listPosition)]}
         showChevron={false}
         expanded={expanded}
         onToggle={handleToggle}
@@ -153,11 +159,12 @@ interface ArchivedProductRowProps {
   onOpenActionSheet: (urun: Urun) => void;
   canManage: boolean;
   getBirimLabel: (birim: BirimType) => string;
+  listPosition?: ListEdgePosition;
 }
 
 export const ArchivedProductRow = memo(function ArchivedProductRow({
   urun, expanded, onToggle, onViewMovements, onOpenActionSheet, canManage,
-  getBirimLabel,
+  getBirimLabel, listPosition = 'middle',
 }: ArchivedProductRowProps) {
   const { t } = useTranslation(['products', 'common']);
 
@@ -171,7 +178,7 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
   return (
     <View style={rowStyles.wrapper}>
       <ExpandableCard
-        style={rowStyles.flatCard}
+        style={[rowStyles.flatCard, getListEdgeStyle(listPosition)]}
         showChevron={false}
         expanded={expanded}
         onToggle={handleToggle}

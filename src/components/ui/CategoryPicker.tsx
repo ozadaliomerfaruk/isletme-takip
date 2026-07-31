@@ -41,6 +41,7 @@ import {
 import { usePermissions } from '@/hooks/usePermissions';
 import { KategoriType } from '@/types/database';
 import { searchMatchesTr, upperTr } from '@/lib/turkishTextUtils';
+import { getListEdgePosition, getListEdgeStyle } from './listEdgeStyles';
 
 /**
  * Kategori adını EKRAN için büyütür (display-only; stored isim değişmez).
@@ -176,6 +177,9 @@ export function CategoryPicker({
     if (!flatList || !searchQuery.trim()) return flatList;
     return flatList.filter(c => searchMatchesTr(c.name, searchQuery));
   }, [flatList, searchQuery]);
+  const showNoCategoryOption = optional && !searchQuery.trim();
+  const visibleOptionCount =
+    (showNoCategoryOption ? 1 : 0) + (filteredList?.length ?? 0);
 
   const handleSelect = (categoryId: string | null) => {
     onChange(categoryId);
@@ -318,10 +322,11 @@ export function CategoryPicker({
               keyboardDismissMode="on-drag"
             >
               {/* Kategori yok seçeneği - arama yokken göster */}
-              {optional && !searchQuery.trim() && (
+              {showNoCategoryOption && (
                 <TouchableOpacity
                   style={[
                     styles.categoryItem,
+                    getListEdgeStyle(getListEdgePosition(0, visibleOptionCount)),
                     value === null && styles.categoryItemSelected,
                   ]}
                   onPress={() => handleSelect(null)}
@@ -336,24 +341,28 @@ export function CategoryPicker({
                     </Text>
                   </View>
                   {value === null && (
-                    <View style={[styles.checkIcon, { backgroundColor: colors.primary }]}>
-                      <Check size={14} color={colors.white} />
+                    <View style={[styles.checkIcon, { backgroundColor: colors.primaryLight }]}>
+                      <Check size={14} color={colors.primary} />
                     </View>
                   )}
                 </TouchableOpacity>
               )}
 
               {/* Kategoriler listesi */}
-              {filteredList?.map((category) => {
+              {filteredList?.map((category, index) => {
                 const isSelected = value === category.id;
                 const categoryColor = category.color || colors.primary;
                 const isSubcategory = category.level > 0;
+                const optionIndex = (showNoCategoryOption ? 1 : 0) + index;
 
                 return (
                   <TouchableOpacity
                     key={category.id}
                     style={[
                       styles.categoryItem,
+                      getListEdgeStyle(
+                        getListEdgePosition(optionIndex, visibleOptionCount),
+                      ),
                       isSelected && styles.categoryItemSelected,
                       isSubcategory && styles.subcategoryItem,
                     ]}
@@ -385,8 +394,8 @@ export function CategoryPicker({
                       </View>
                     </View>
                     {isSelected && (
-                      <View style={[styles.checkIcon, { backgroundColor: categoryColor }]}>
-                        <Check size={14} color={colors.white} />
+                      <View style={[styles.checkIcon, { backgroundColor: `${categoryColor}18` }]}>
+                        <Check size={14} color={categoryColor} />
                       </View>
                     )}
                   </TouchableOpacity>
@@ -511,17 +520,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: spacing.md,
-    backgroundColor: colors.surfaceLighter,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.sm,
+    backgroundColor: colors.surface,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   categoryItemSelected: {
-    backgroundColor: colors.primaryLight + '30',
-    borderWidth: 1,
-    borderColor: colors.primary,
+    backgroundColor: colors.primaryLight,
   },
   subcategoryItem: {
-    marginLeft: spacing.lg,
+    paddingLeft: spacing.md + spacing.lg,
   },
   subcategoryIndicator: {
     marginRight: spacing.xs,

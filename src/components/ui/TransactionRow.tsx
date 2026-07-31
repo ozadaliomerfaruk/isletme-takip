@@ -10,6 +10,7 @@ import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColo
 import { upperTr } from '@/lib/turkishTextUtils';
 import { isLeaveType } from '@/constants/islemTypes';
 import type { IslemType } from '@/types/database';
+import { getListEdgeStyle, type ListEdgePosition } from './listEdgeStyles';
 
 // ============================================================================
 // TRANSACTION ROW — Presentational Component (sol accent-bar tasarımı)
@@ -73,6 +74,7 @@ export interface TransactionRowProps {
   runningBalanceText?: string | null;
   /** Yürüyen bakiye borç yönünde mi (negatif) → kırmızı vurgusu. */
   runningBalanceNegative?: boolean;
+  listPosition?: ListEdgePosition;
   onPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   onPhotoPress?: (id: string) => void;
@@ -104,6 +106,7 @@ export const TransactionRow = memo(function TransactionRow({
   paidStamp,
   runningBalanceText,
   runningBalanceNegative,
+  listPosition = 'middle',
   onPress,
   onLongPress,
   onPhotoPress,
@@ -144,7 +147,7 @@ export const TransactionRow = memo(function TransactionRow({
 
   return (
     <TouchableOpacity
-      style={styles.container}
+      style={[styles.container, getListEdgeStyle(listPosition)]}
       onPress={handlePress}
       onLongPress={handleLongPress}
       activeOpacity={0.7}
@@ -314,7 +317,8 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.vadeState === next.vadeState
     && prev.paidStamp === next.paidStamp
     && prev.runningBalanceText === next.runningBalanceText
-    && prev.runningBalanceNegative === next.runningBalanceNegative;
+    && prev.runningBalanceNegative === next.runningBalanceNegative
+    && prev.listPosition === next.listPosition;
 });
 
 // ============================================================================

@@ -39,6 +39,10 @@ import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { usePermissions } from '@/hooks/usePermissions';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, TransactionListItem } from '@/lib/transactionGrouping';
+import {
+  getGroupedListEdgePosition,
+  getListEdgeStyle,
+} from '@/components/ui/listEdgeStyles';
 import { getTransactionColor, getTransactionPrefix, showAccentBar } from '@/lib/transactionColors';
 import {
   classifyMutationError,
@@ -540,8 +544,10 @@ export default function LeaveHistoryPage() {
   const renderItem = useCallback(
     ({
       item,
+      index,
     }: {
       item: TransactionListItem<PersonelTransactionRow>;
+      index: number;
     }) => {
       if (item.type === 'header') {
         return <DateSectionHeader title={item.title} />;
@@ -597,7 +603,12 @@ export default function LeaveHistoryPage() {
             activeOpacity={0.7}
             onPress={() => handleEditIslem(islem.id)}
           >
-            <View style={styles.txContainer}>
+            <View
+              style={[
+                styles.txContainer,
+                getListEdgeStyle(getGroupedListEdgePosition(groupedData, index)),
+              ]}
+            >
               {/* Accent Bar */}
               {hasBar ? (
                 <View style={[styles.accentBar, { backgroundColor: txColor }]} />
@@ -641,7 +652,7 @@ export default function LeaveHistoryPage() {
         </SwipeableRow>
       );
     },
-    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, deleteLabel, copyLabel, isOwner, canDeleteTransactionRecord, canCreateTransactions]
+    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, deleteLabel, copyLabel, isOwner, canDeleteTransactionRecord, canCreateTransactions, groupedData]
   );
 
   const keyExtractor = useCallback(

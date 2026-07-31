@@ -39,6 +39,11 @@ import type { Hesap, Cari, Personel, Urun } from '@/types/database';
 import { usePermissions } from '@/hooks/usePermissions';
 import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import {
+  getListEdgePosition,
+  getListEdgeStyle,
+  type ListEdgePosition,
+} from '@/components/ui/listEdgeStyles';
 
 type TabType = 'hepsi' | 'hesaplar' | 'tedarikci' | 'musteri' | 'personel' | 'urunler';
 type ArchiveKind = 'hesap' | 'cari' | 'personel' | 'urun';
@@ -53,6 +58,7 @@ type ArchiveRow =
 type RowCallbacks = {
   onOpen: (kind: ArchiveKind, id: string) => void;
   onMore: (id: string, type: TabType, name: string, created_by?: string | null) => void;
+  listPosition: ListEdgePosition;
 };
 
 // ============================================================================
@@ -61,11 +67,11 @@ type RowCallbacks = {
 // satırların gereksiz yeniden render'ını da keser (data referansı RQ cache'inden stabil).
 // ============================================================================
 
-const HesapRow = memo(function HesapRow({ data, onOpen, onMore }: { data: Hesap } & RowCallbacks) {
+const HesapRow = memo(function HesapRow({ data, onOpen, onMore, listPosition }: { data: Hesap } & RowCallbacks) {
   const { t } = useTranslation(['accounts']);
   const isPassive = data.is_active === false;
   return (
-    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+    <Card style={[styles.itemCard, getListEdgeStyle(listPosition), isPassive && styles.itemCardPassive]}>
       <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('hesap', data.id)} activeOpacity={0.7}>
         <View style={[styles.itemIcon, isPassive && styles.itemIconPassive]}>
           <Wallet size={20} color={isPassive ? colors.textMuted : colors.primary} />
@@ -100,12 +106,13 @@ const CariRow = memo(function CariRow({
   cariType,
   onOpen,
   onMore,
+  listPosition,
 }: { data: Cari; cariType: 'tedarikci' | 'musteri' } & RowCallbacks) {
   const isPassive = data.is_active === false;
   const iconColor = cariType === 'tedarikci' ? colors.warning : colors.success;
   const iconBgColor = cariType === 'tedarikci' ? colors.warningLight : colors.successLight;
   return (
-    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+    <Card style={[styles.itemCard, getListEdgeStyle(listPosition), isPassive && styles.itemCardPassive]}>
       <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('cari', data.id)} activeOpacity={0.7}>
         <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : iconBgColor }, isPassive && styles.itemIconPassive]}>
           {cariType === 'tedarikci' ? (
@@ -141,11 +148,11 @@ const CariRow = memo(function CariRow({
   );
 });
 
-const PersonelRow = memo(function PersonelRow({ data, onOpen, onMore }: { data: Personel } & RowCallbacks) {
+const PersonelRow = memo(function PersonelRow({ data, onOpen, onMore, listPosition }: { data: Personel } & RowCallbacks) {
   const isPassive = data.is_active === false;
   const fullName = `${data.first_name} ${data.last_name ?? ''}`;
   return (
-    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+    <Card style={[styles.itemCard, getListEdgeStyle(listPosition), isPassive && styles.itemCardPassive]}>
       <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('personel', data.id)} activeOpacity={0.7}>
         <View style={[styles.avatar, isPassive && styles.avatarPassive]}>
           <Text variant="caption" style={{ color: isPassive ? colors.textMuted : colors.primary }}>
@@ -181,11 +188,11 @@ const PersonelRow = memo(function PersonelRow({ data, onOpen, onMore }: { data: 
   );
 });
 
-const UrunRow = memo(function UrunRow({ data, onOpen, onMore }: { data: Urun } & RowCallbacks) {
+const UrunRow = memo(function UrunRow({ data, onOpen, onMore, listPosition }: { data: Urun } & RowCallbacks) {
   const { t } = useTranslation(['products']);
   const isPassive = data.is_active === false;
   return (
-    <Card style={[styles.itemCard, isPassive && styles.itemCardPassive]}>
+    <Card style={[styles.itemCard, getListEdgeStyle(listPosition), isPassive && styles.itemCardPassive]}>
       <TouchableOpacity style={styles.itemContent} onPress={() => onOpen('urun', data.id)} activeOpacity={0.7}>
         <View style={[styles.itemIcon, { backgroundColor: isPassive ? colors.surfaceLight : colors.primaryLight }, isPassive && styles.itemIconPassive]}>
           <Package size={20} color={isPassive ? colors.textMuted : colors.primary} />
@@ -501,19 +508,20 @@ export default function ArsivPage() {
   const getItemType = useCallback((item: ArchiveRow) => item.kind, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: ArchiveRow }) => {
+    ({ item, index }: { item: ArchiveRow; index: number }) => {
+      const listPosition = getListEdgePosition(index, listData.length);
       switch (item.kind) {
         case 'hesap':
-          return <HesapRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} />;
+          return <HesapRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} listPosition={listPosition} />;
         case 'cari':
-          return <CariRow data={item.data} cariType={item.cariType} onOpen={handleOpen} onMore={handleItemPress} />;
+          return <CariRow data={item.data} cariType={item.cariType} onOpen={handleOpen} onMore={handleItemPress} listPosition={listPosition} />;
         case 'personel':
-          return <PersonelRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} />;
+          return <PersonelRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} listPosition={listPosition} />;
         case 'urun':
-          return <UrunRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} />;
+          return <UrunRow data={item.data} onOpen={handleOpen} onMore={handleItemPress} listPosition={listPosition} />;
       }
     },
-    [handleOpen, handleItemPress]
+    [handleOpen, handleItemPress, listData.length]
   );
 
   // Header (arama + sekmeler) — memoize'lı ELEMENT (islemler deseni): aynı tip aynı konumda

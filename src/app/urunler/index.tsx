@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { Plus, Package, Search, TrendingUp, TrendingDown, ChevronLeft, ChevronRight, Calendar, Edit3, Archive, ArchiveRestore, Trash2, ArrowUpDown, AlertTriangle, FileSpreadsheet, BarChart3 } from 'lucide-react-native';
 import { Text, EmptyState, TabFilter, ActionSheet, type ActionSheetOption, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, FloatingSearchBar, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen, SkeletonAccountList } from '@/components/ui';
 import { ProductRow, ArchivedProductRow } from '@/components/urunlerPage/ProductRow';
+import { getListEdgePosition } from '@/components/ui/listEdgeStyles';
 import { OzetModeToggle } from '@/components/urunlerPage/OzetModeToggle';
 import { ProductPeriodPickers } from '@/components/urunlerPage/ProductPeriodPickers';
 import { ProductCategoryFilter, CATEGORY_FILTER_ALL, CATEGORY_FILTER_UNCATEGORIZED } from '@/components/urunlerPage/ProductCategoryFilter';
@@ -695,7 +696,7 @@ export default function UrunlerPage() {
   }, [router]);
 
   // FlatList renderItem for active products
-  const renderActiveItem = useCallback(({ item: urun }: ListRenderItemInfo<Urun>) => (
+  const renderActiveItem = useCallback(({ item: urun, index }: ListRenderItemInfo<Urun>) => (
     <ProductRow
       urun={urun}
       expanded={expandedId === urun.id}
@@ -712,11 +713,12 @@ export default function UrunlerPage() {
       kategoriAdi={urun.kategori_id ? kategoriMap.get(urun.kategori_id) : undefined}
       getBirimLabel={getBirimLabel}
       ozetMode={ozetMode}
+      listPosition={getListEdgePosition(index, filteredUrunler.length)}
     />
-  ), [expandedId, handleToggle, handleNewTransaction, canCreateProduct, canUpdate, canDelete, handleViewMovements, handleOpenActionSheet, stableDonemUrunOzet, kategoriMap, getBirimLabel, ozetMode]);
+  ), [expandedId, handleToggle, handleNewTransaction, canCreateProduct, canUpdate, canDelete, handleViewMovements, handleOpenActionSheet, stableDonemUrunOzet, kategoriMap, getBirimLabel, ozetMode, filteredUrunler.length]);
 
   // FlatList renderItem for archived products
-  const renderArchivedItem = useCallback(({ item: urun }: ListRenderItemInfo<Urun>) => (
+  const renderArchivedItem = useCallback(({ item: urun, index }: ListRenderItemInfo<Urun>) => (
     <ArchivedProductRow
       urun={urun}
       expanded={expandedId === urun.id}
@@ -728,8 +730,9 @@ export default function UrunlerPage() {
         canDelete('urunler', urun.created_by ?? null)
       }
       getBirimLabel={getBirimLabel}
+      listPosition={getListEdgePosition(index, filteredArchivedUrunler.length)}
     />
-  ), [expandedId, handleToggle, handleViewMovements, handleOpenActionSheet, canUpdate, canDelete, getBirimLabel]);
+  ), [expandedId, handleToggle, handleViewMovements, handleOpenActionSheet, canUpdate, canDelete, getBirimLabel, filteredArchivedUrunler.length]);
 
   const keyExtractor = useCallback((item: Urun) => item.id, []);
 

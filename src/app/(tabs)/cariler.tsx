@@ -75,6 +75,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { hasTypeMismatch } from '@/lib/cariTransactionMapper';
 import { useTopAnchoredListSnapshot } from '@/hooks/useTopAnchoredListSnapshot';
 import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
+import { getListEdgePosition, getListEdgeStyle } from '@/components/ui/listEdgeStyles';
 
 // Merged cari type: own cari + optional link metadata
 type MergedCari = Cari & {
@@ -812,6 +813,9 @@ export default function CarilerPage() {
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
   const renderCariItem = useCallback(({ item: cari, index }: { item: MergedCari; index: number }) => {
     const isSelected = selectedIds.has(cari.id);
+    const edgeStyle = getListEdgeStyle(
+      getListEdgePosition(index, filteredCariler.length),
+    );
     // Vade bilgisi (chip yok, düz yazı) — bakiye tutarının ALTINDA iki satır:
     // etiket ("Vadesi geçen:" / "En yakın vade: <tarih>") + tutar satırı.
     // Gecikmiş gösterimi bakiye-yönü susturuculu (migration-öncesi kapanmış geçmişte yanlış alarm yok).
@@ -843,7 +847,7 @@ export default function CarilerPage() {
     }
     return (
       <AnimatedListItem index={index}>
-      <View style={[!cari.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
+      <View style={[edgeStyle, !cari.is_active && styles.passiveItem, isSelectMode && isSelected && styles.selectedItem]}>
         {isSelectMode && !cari.isLinked && canSelectCari(cari) ? (
           <TouchableOpacity
             style={styles.selectableCard}
@@ -1021,7 +1025,7 @@ export default function CarilerPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap, canCreateTransactions, canCreateCariTransactions, canSelectCari]);
+  }, [selectedIds, isSelectMode, expandedCariId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, vadeRozetMap, canCreateTransactions, canCreateCariTransactions, canSelectCari, filteredCariler.length]);
 
   // FlatList ListHeaderComponent - header, mini-dashboard, filtre
   const ListHeader = useMemo(() => (

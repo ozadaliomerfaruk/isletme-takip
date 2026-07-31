@@ -51,6 +51,7 @@ import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { getAllowedScopedQuickTransactionTypes } from '@/lib/quickTransactionCreateScope';
+import { getListEdgePosition, getListEdgeStyle } from '@/components/ui/listEdgeStyles';
 
 export default function HomePage() {
   const router = useRouter();
@@ -593,7 +594,12 @@ export default function HomePage() {
                       style={[hesapIndex > 0 && styles.rowDivider, !hesap.is_active && styles.passiveItem]}
                     >
                       <ExpandableCard
-                        style={styles.flatCard}
+                        style={[
+                          styles.flatCard,
+                          getListEdgeStyle(
+                            getListEdgePosition(hesapIndex, groupHesaplar.length),
+                          ),
+                        ]}
                         showChevron={false}
                         expanded={expandedHesapId === hesap.id}
                         onToggle={() => setExpandedHesapId(expandedHesapId === hesap.id ? null : hesap.id)}

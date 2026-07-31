@@ -33,6 +33,10 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, roundCurrency, getCrossCurrencyDisplay, calculateTargetAmount, toNumber } from '@/lib/currency';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
+import {
+  getGroupedListEdgePosition,
+  type ListEdgePosition,
+} from '@/components/ui/listEdgeStyles';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
@@ -104,6 +108,7 @@ interface HesapTransactionItemProps {
   urunItems?: UrunKalemOzet[];
   runningBalanceText?: string | null;
   runningBalanceNegative?: boolean;
+  listPosition: ListEdgePosition;
 }
 
 // Helper fonksiyonlar - component dışında tanımlı (her render'da yeniden oluşturulmaz)
@@ -299,6 +304,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   urunItems,
   runningBalanceText,
   runningBalanceNegative,
+  listPosition,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -347,6 +353,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         subAmount={getCrossCurrencySubText(islem, hesapId)}
         runningBalanceText={runningBalanceText}
         runningBalanceNegative={runningBalanceNegative}
+        listPosition={listPosition}
         overrideColor={getHesapPerspectiveColor(islem.type, isTargetAccount)}
         overridePrefix={getHesapPerspectivePrefix(islem.type, isTargetAccount)}
         onPress={onPress}
@@ -365,7 +372,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
     && prev.creatorText === next.creatorText
     && prev.urunItems === next.urunItems
     && prev.runningBalanceText === next.runningBalanceText
-    && prev.runningBalanceNegative === next.runningBalanceNegative;
+    && prev.runningBalanceNegative === next.runningBalanceNegative
+    && prev.listPosition === next.listPosition;
 });
 
 // ============================================================================
@@ -1114,8 +1122,10 @@ export default function HesapHareketleriPage() {
   // === FlatList renderItem ===
   const renderTransactionItem = useCallback(({
     item,
+    index,
   }: {
     item: TransactionListItem<HesapDetailIslem>;
+    index: number;
   }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
@@ -1175,9 +1185,10 @@ export default function HesapHareketleriPage() {
         urunItems={getUrunItems(islem.id)}
         runningBalanceText={itemRunningBalanceText}
         runningBalanceNegative={itemRunningBalanceNegative}
+        listPosition={getGroupedListEdgePosition(groupedData, index)}
       />
     );
-  }, [id, hesap?.currency, hesap?.type, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransaction, resolveCreatorLabel, getUrunItems, runningBalanceMap, isletme?.id]);
+  }, [id, hesap?.currency, hesap?.type, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransaction, resolveCreatorLabel, getUrunItems, runningBalanceMap, isletme?.id, groupedData]);
 
   const keyExtractor = useCallback(
     (item: TransactionListItem<HesapDetailIslem>) => item.key,
