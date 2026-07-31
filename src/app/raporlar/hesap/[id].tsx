@@ -111,13 +111,13 @@ export default function HesapRaporDetayPage() {
     [islemler],
   );
   const {
-    getUrunItems,
     getProductItemCount,
     isProductItemsResolved,
   } = useUrunKalemlerByIslemIds(reportTransactionIds, true);
 
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   const canUpdateTransaction = useCallback(
     (transaction: IslemWithRelations): boolean => {
@@ -142,11 +142,8 @@ export default function HesapRaporDetayPage() {
       isletme?.id,
     ],
   );
-  const handleEdit = useCallback((transaction: IslemWithRelations) => {
-    if (
-      isProductItemsResolved
-      && getProductItemCount(transaction.id) > 0
-    ) {
+  const openResolvedTransaction = useCallback((transaction: IslemWithRelations) => {
+    if (getProductItemCount(transaction.id) > 0) {
       setProductDetailIslemId(transaction.id);
       return;
     }
@@ -179,12 +176,32 @@ export default function HesapRaporDetayPage() {
     canAccessModule,
     canUpdate,
     canUpdateTransaction,
-    getUrunItems,
     getProductItemCount,
-    isProductItemsResolved,
     isletme?.id,
     t,
     user?.id,
+  ]);
+  const handleEdit = useCallback((transaction: IslemWithRelations) => {
+    if (!isProductItemsResolved) {
+      setPendingTransactionOpenId(transaction.id);
+      return;
+    }
+    openResolvedTransaction(transaction);
+  }, [isProductItemsResolved, openResolvedTransaction]);
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId || !isProductItemsResolved) return;
+
+    const transaction = (islemler || []).find(
+      (item) => item.id === pendingTransactionOpenId,
+    );
+    setPendingTransactionOpenId(null);
+    if (transaction) openResolvedTransaction(transaction);
+  }, [
+    isProductItemsResolved,
+    islemler,
+    openResolvedTransaction,
+    pendingTransactionOpenId,
   ]);
   const handleEditDismiss = useCallback(() => {
     setShowEditBar(false);

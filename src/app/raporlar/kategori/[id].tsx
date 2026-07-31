@@ -133,6 +133,7 @@ export default function KategoriDetayPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
   // Pull-to-refresh
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -190,9 +191,6 @@ export default function KategoriDetayPage() {
     getUrunItems,
     getProductItemCount,
     isProductItemsResolved,
-    isLoading: urunKalemleriLoading,
-    isFetching: urunKalemleriFetching,
-    isError: urunKalemleriError,
   } = useUrunKalemlerByIslemIds(islemIdList, true);
 
   const canUpdateTransactionAs = useCallback(
@@ -202,16 +200,11 @@ export default function KategoriDetayPage() {
     ): boolean => {
       // Ürün projeksiyonu sonuçlanmadan "ürünsüz" varsaymak, ürün modülü kapalı
       // kullanıcıya kısa süreli edit penceresi açardı. Bilgi belirsizken fail-closed.
-      const productItemsResolved =
-        isProductItemsResolved
-        && !urunKalemleriLoading
-        && !urunKalemleriFetching
-        && !urunKalemleriError;
       if (transaction.isletme_id !== isletme?.id) return false;
 
       return getTransactionProductMutationDecision({
         type: transaction.type,
-        productItemsResolved,
+        productItemsResolved: isProductItemsResolved,
         productItemCount: getProductItemCount(transaction.id),
         isOwner,
         canAccessModule,
@@ -226,9 +219,6 @@ export default function KategoriDetayPage() {
       isOwner,
       isProductItemsResolved,
       isletme?.id,
-      urunKalemleriError,
-      urunKalemleriFetching,
-      urunKalemleriLoading,
     ],
   );
   const canUpdateTransaction = useCallback(
@@ -240,7 +230,7 @@ export default function KategoriDetayPage() {
     [canUpdateTransactionAs],
   );
 
-  const handleEditTransaction = useCallback(
+  const openResolvedTransaction = useCallback(
     (transaction: IslemWithRelations) => {
       const createdBy = transaction.created_by ?? null;
       const canUpdateRecord = canUpdateTransaction(transaction);
@@ -269,6 +259,34 @@ export default function KategoriDetayPage() {
       user?.id,
     ],
   );
+
+  const handleEditTransaction = useCallback(
+    (transaction: IslemWithRelations) => {
+      if (!isProductItemsResolved) {
+        setPendingTransactionOpenId(transaction.id);
+        return;
+      }
+      openResolvedTransaction(transaction);
+    },
+    [isProductItemsResolved, openResolvedTransaction],
+  );
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId || !isProductItemsResolved) return;
+
+    const transaction = [
+      ...(filteredIslemler || []),
+      ...(uncategorizedIslemler || []),
+    ].find((item) => item.id === pendingTransactionOpenId);
+    setPendingTransactionOpenId(null);
+    if (transaction) openResolvedTransaction(transaction);
+  }, [
+    filteredIslemler,
+    isProductItemsResolved,
+    openResolvedTransaction,
+    pendingTransactionOpenId,
+    uncategorizedIslemler,
+  ]);
 
   const editTransaction = useMemo(
     () => [...(filteredIslemler || []), ...(uncategorizedIslemler || [])]

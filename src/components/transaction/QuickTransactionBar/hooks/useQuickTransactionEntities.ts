@@ -5,6 +5,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useTransactionAccountRefs } from '@/hooks/useCariPaymentAccountRefs';
 import { usePermissions } from '@/hooks/usePermissions';
+import { supportsQuickTransactionProducts } from '@/lib/productSelectionGuard';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import type {
   QuickTransactionCreateScope,
@@ -121,12 +122,7 @@ export function useQuickTransactionEntities({
   const isCariCashType = type === 'odeme' || type === 'tahsilat';
   const isPersonelCashType =
     type === 'personel_odeme_tab' || type === 'personel_tahsilat_tab';
-  const isProductType = [
-    'alis',
-    'satis',
-    'alis_iade',
-    'satis_iade',
-  ].includes(type);
+  const isProductType = supportsQuickTransactionProducts(type);
 
   const shouldLoadMinimalHesaplar =
     !!accountReferenceScope

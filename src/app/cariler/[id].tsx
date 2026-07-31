@@ -545,6 +545,9 @@ export default function CariHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Ürün/link yetki sorguları tamamlanmadan satıra dokunulursa niyeti sakla.
+  // Hazırlık tamamlandığında aynı satır güvenli biçimde otomatik açılır.
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
@@ -615,6 +618,65 @@ export default function CariHareketleriPage() {
     canUpdateCariRecord,
     showEditBar,
   ]);
+
+  const tryOpenTransaction = useCallback((islemId: string): boolean => {
+    const transaction = (islemler || []).find((item) => item.id === islemId);
+    if (!transaction) {
+      showTransactionUpdateDenied(islemId);
+      return true;
+    }
+
+    // Salt-okunur bağlantıda da ürün kalemleri görüntülenebilir. Bu nedenle link
+    // yazma durumunu beklemeden önce ürün projeksiyonunun sonucunu çözüyoruz.
+    if (!isProductItemsResolved) return false;
+    if (getProductItemCount(islemId) > 0) {
+      setProductDetailIslemId(islemId);
+      return true;
+    }
+
+    // Link durumu henüz doğrulanmadıysa bunu yetki reddi gibi göstermeyiz.
+    if (!linkWriteStatusReady) {
+      if (linkStatusError) {
+        Alert.alert(t('common:status.error'), t('errors:general.tryAgain'));
+        return true;
+      }
+      return false;
+    }
+
+    if (!canUpdateTransactionRecord(transaction)) {
+      showTransactionUpdateDenied(islemId);
+      return true;
+    }
+
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+    return true;
+  }, [
+    canUpdateTransactionRecord,
+    getProductItemCount,
+    isProductItemsResolved,
+    islemler,
+    linkStatusError,
+    linkWriteStatusReady,
+    showTransactionUpdateDenied,
+    t,
+  ]);
+
+  const requestTransactionOpen = useCallback((islemId: string) => {
+    if (tryOpenTransaction(islemId)) {
+      setPendingTransactionOpenId(null);
+      return;
+    }
+    setPendingTransactionOpenId(islemId);
+  }, [tryOpenTransaction]);
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId) return;
+    if (tryOpenTransaction(pendingTransactionOpenId)) {
+      setPendingTransactionOpenId(null);
+    }
+  }, [pendingTransactionOpenId, tryOpenTransaction]);
+
   // Undo delete hook
   const {
     pendingDeleteIds,
@@ -666,30 +728,14 @@ export default function CariHareketleriPage() {
   const [expandHandled, setExpandHandled] = useState(false);
   useEffect(() => {
     if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
-      const transaction = islemler.find((item) => item.id === expandIslemId);
-      if (
-        transaction
-        && isProductItemsResolved
-        && getProductItemCount(expandIslemId) > 0
-      ) {
-        setProductDetailIslemId(expandIslemId);
-      } else if (transaction && canUpdateTransactionRecord(transaction)) {
-        setEditTransactionId(expandIslemId);
-        setShowEditBar(true);
-      } else {
-        showTransactionUpdateDenied(expandIslemId);
-      }
+      requestTransactionOpen(expandIslemId);
       setExpandHandled(true);
     }
   }, [
     expandIslemId,
     expandHandled,
     islemler,
-    canUpdateTransactionRecord,
-    getUrunItems,
-    getProductItemCount,
-    isProductItemsResolved,
-    showTransactionUpdateDenied,
+    requestTransactionOpen,
   ]);
 
   // Başlangıç bakiyesini hesapla - MEMOIZED
@@ -777,31 +823,8 @@ export default function CariHareketleriPage() {
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
-    const islem = (islemler || []).find(i => i.id === islemId);
-    if (!islem) return;
-
-    // View-only bağlantıda ürün kalemleri salt-okunur görülebilir; ProductDetailModal
-    // edit callback'ini ayrıca fail-closed alır.
-    if (isProductItemsResolved && getProductItemCount(islemId) > 0) {
-      setProductDetailIslemId(islemId);
-      return;
-    }
-
-    if (!canUpdateTransactionRecord(islem)) {
-      showTransactionUpdateDenied(islemId);
-      return;
-    }
-
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, [
-    canUpdateTransactionRecord,
-    getUrunItems,
-    getProductItemCount,
-    isProductItemsResolved,
-    islemler,
-    showTransactionUpdateDenied,
-  ]);
+    requestTransactionOpen(islemId);
+  }, [requestTransactionOpen]);
 
   // Fotoğraf ikonuna basıldığında fotoğraf viewer aç
   const handlePressPhoto = useCallback((islemId: string) => {
@@ -818,29 +841,8 @@ export default function CariHareketleriPage() {
   }, [canDeleteTransactionRecord, islemler, requestDelete, t]);
 
   const handleLongPressIslem = useCallback((islemId: string) => {
-    const islem = (islemler || []).find((item) => item.id === islemId);
-    if (
-      islem
-      && isProductItemsResolved
-      && getProductItemCount(islemId) > 0
-    ) {
-      setProductDetailIslemId(islemId);
-      return;
-    }
-    if (!islem || !canUpdateTransactionRecord(islem)) {
-      showTransactionUpdateDenied(islemId);
-      return;
-    }
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, [
-    canUpdateTransactionRecord,
-    getUrunItems,
-    getProductItemCount,
-    isProductItemsResolved,
-    islemler,
-    showTransactionUpdateDenied,
-  ]);
+    requestTransactionOpen(islemId);
+  }, [requestTransactionOpen]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
     const transaction = (islemler || []).find((item) => item.id === islemId);

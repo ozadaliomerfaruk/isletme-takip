@@ -99,9 +99,11 @@ describe('işlem mutation yetki ve hata sözleşmesi', () => {
     expect(source).toContain('getTransactionProductMutationDecision');
     expect(source).toContain('getProductItemCount(transaction.id)');
     expect(source).toContain('isProductItemsResolved');
-    expect(source).toContain('urunKalemleriLoading');
-    expect(source).toContain('urunKalemleriFetching');
-    expect(source).toContain('urunKalemleriError');
+    expect(source).toContain(
+      'productItemsResolved: isProductItemsResolved,',
+    );
+    expect(source).toContain('setPendingTransactionOpenId(transaction.id)');
+    expect(source).not.toContain('urunKalemleriFetching');
     expect(source).toContain(
       "canMutateTransaction: canUpdate('islemler', createdBy)",
     );
@@ -318,13 +320,19 @@ describe('işlem mutation yetki ve hata sözleşmesi', () => {
     expect(source).toContain("getTransactionMutationMessageKey(error, 'delete')");
   });
 
-  it.each([
-    'src/app/hesaplar/[id].tsx',
-    'src/app/cariler/[id].tsx',
-    'src/app/personel/[id].tsx',
-  ])('%s detay deep-link reddini sessizce yutmaz', (file) => {
-    const source = read(file);
+  it('hesap detay deep-link reddini sessizce yutmaz', () => {
+    const source = read('src/app/hesaplar/[id].tsx');
 
     expect(source).toContain('showTransactionUpdateDenied(expandIslemId)');
+  });
+
+  it.each([
+    'src/app/cariler/[id].tsx',
+    'src/app/personel/[id].tsx',
+  ])('%s detay deep-link niyetini yükleme sonrasına taşır ve gerçek reddi gösterir', (file) => {
+    const source = read(file);
+
+    expect(source).toContain('requestTransactionOpen(expandIslemId)');
+    expect(source).toContain('showTransactionUpdateDenied(islemId)');
   });
 });

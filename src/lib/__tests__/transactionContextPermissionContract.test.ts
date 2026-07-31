@@ -100,6 +100,15 @@ describe('geniş işlem bağlamı UI sözleşmesi', () => {
     expect(account).toContain('const canUpdateTransaction = useCallback(');
     expect(account).toContain('getTransactionProductMutationDecision');
     expect(account).toContain(
+      'const [pendingTransactionOpenId, setPendingTransactionOpenId]',
+    );
+    expect(account).toMatch(
+      /if \(!pendingTransactionOpenId \|\| !isProductItemsResolved\) return;/,
+    );
+    expect(account).toMatch(
+      /if \(!isProductItemsResolved\) \{\s*setPendingTransactionOpenId\(islemId\);\s*return;/,
+    );
+    expect(account).toContain(
       'visible={showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}',
     );
     expect(account).toMatch(/Copy Transaction Bar[\s\S]{0,100}\{isOwner && \(/);
@@ -123,6 +132,43 @@ describe('geniş işlem bağlamı UI sözleşmesi', () => {
       /Edit QuickTransactionBar[\s\S]{0,100}\{canRenderEditTransactionBar && \(/,
     );
     expect(leaveHistory).toMatch(/Copy QuickTransactionBar[\s\S]{0,100}\{isOwner && \(/);
+  });
+
+  it('detay ve rapor satırları ürün/link bağlamı çözülmeden yanlış yetki reddi göstermez', () => {
+    const client = read('src/app/cariler/[id].tsx');
+    const staff = read('src/app/personel/[id].tsx');
+    const accountReport = read('src/app/raporlar/hesap/[id].tsx');
+    const categoryReport = read('src/app/raporlar/kategori/[id].tsx');
+
+    for (const source of [client, staff, accountReport, categoryReport]) {
+      expect(source).toContain(
+        'const [pendingTransactionOpenId, setPendingTransactionOpenId]',
+      );
+      expect(source).toContain('pendingTransactionOpenId');
+      expect(source).toContain('isProductItemsResolved');
+    }
+
+    expect(client).toContain('if (!isProductItemsResolved) return false;');
+    expect(client).toMatch(
+      /if \(!linkWriteStatusReady\) \{[\s\S]{0,260}return false;/,
+    );
+    expect(client).toContain('requestTransactionOpen(expandIslemId);');
+    expect(staff).toContain('if (!isProductItemsResolved) return false;');
+    expect(staff).toContain('requestTransactionOpen(expandIslemId);');
+
+    for (const source of [accountReport, categoryReport]) {
+      expect(source).toMatch(
+        /if \(!isProductItemsResolved\) \{\s*setPendingTransactionOpenId\(transaction\.id\);\s*return;/,
+      );
+      expect(source).toMatch(
+        /if \(!pendingTransactionOpenId \|\| !isProductItemsResolved\) return;/,
+      );
+    }
+
+    expect(categoryReport).toContain(
+      'productItemsResolved: isProductItemsResolved,',
+    );
+    expect(categoryReport).not.toContain('urunKalemleriFetching');
   });
 
   it('hesap ve personel ileri tarihli ham sorgularini owner-only gizler', () => {

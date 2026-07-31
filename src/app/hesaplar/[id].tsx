@@ -533,6 +533,9 @@ export default function HesapHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Ürün kalemi var/yok sorgusu tamamlanmadan satıra dokunulursa bunu yetki
+  // reddi gibi göstermeyiz. Sorgu çözülünce aynı niyeti otomatik sürdürürüz.
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
   const editTransaction = editTransactionId
     ? (islemler || []).find((item) => item.id === editTransactionId)
     : undefined;
@@ -569,6 +572,30 @@ export default function HesapHareketleriPage() {
     setShowCopyBar(false);
     setCopySourceId(null);
   }, [isOwner]);
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId || !isProductItemsResolved) return;
+
+    const islemId = pendingTransactionOpenId;
+    setPendingTransactionOpenId(null);
+
+    if (getProductItemCount(islemId) > 0) {
+      setProductDetailIslemId(islemId);
+      return;
+    }
+    if (canUpdateTransaction(islemId)) {
+      setEditTransactionId(islemId);
+      setShowEditBar(true);
+      return;
+    }
+    showTransactionUpdateDenied(islemId);
+  }, [
+    canUpdateTransaction,
+    getProductItemCount,
+    isProductItemsResolved,
+    pendingTransactionOpenId,
+    showTransactionUpdateDenied,
+  ]);
 
   const {
     pendingDeleteIds,
@@ -626,7 +653,13 @@ export default function HesapHareketleriPage() {
   // Handle expandIslemId from search navigation
   const [expandHandled, setExpandHandled] = useState(false);
   useEffect(() => {
-    if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
+    if (
+      expandIslemId
+      && !expandHandled
+      && islemler
+      && islemler.length > 0
+      && isProductItemsResolved
+    ) {
       const transaction = islemler.find((item) => item.id === expandIslemId);
       if (
         isProductItemsResolved
@@ -807,6 +840,10 @@ export default function HesapHareketleriPage() {
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
     // Ürünlü işlem → ürün detay modalı; değilse düzenleme barı (cariler ile aynı standart)
+    if (!isProductItemsResolved) {
+      setPendingTransactionOpenId(islemId);
+      return;
+    }
     if (isProductItemsResolved && getProductItemCount(islemId) > 0) {
       setProductDetailIslemId(islemId);
       return;
@@ -835,6 +872,10 @@ export default function HesapHareketleriPage() {
   }, [canDeleteTransaction, islemler, requestDelete, t]);
 
   const handleEditIslem = useCallback((islemId: string) => {
+    if (!isProductItemsResolved) {
+      setPendingTransactionOpenId(islemId);
+      return;
+    }
     if (isProductItemsResolved && getProductItemCount(islemId) > 0) {
       setProductDetailIslemId(islemId);
       return;

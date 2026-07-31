@@ -44,6 +44,7 @@ export function RouteStack({ children }: { children?: ReactNode }) {
       headerBackTitle: t('buttons.back'),
       gestureEnabled: true,
       fullScreenGestureEnabled: false,
+      freezeOnBlur: true, // PERF (P0-3): kök Stack'in sözleşmesi iç navigatöre miras geçmez — modül içi push'ta da alttaki ekran donsun
       contentStyle: { backgroundColor: colors.background },
     }),
     [t],

@@ -137,6 +137,9 @@ describe('Cari/Personel bakiye-siz hesap referansi istemci sozlesmesi', () => {
     expect(entities).toContain(
       'canAccessModule(\'urunler\')',
     );
+    expect(entities).toContain(
+      'const isProductType = supportsQuickTransactionProducts(type);',
+    );
   });
 
   it('Personel toplu odeme Hesaplar kapaliyken adlari dar RPCden getirip bakiyeyi gizler', () => {

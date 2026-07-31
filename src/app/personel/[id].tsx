@@ -438,6 +438,7 @@ export default function PersonelHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
   const productDetailTransaction = productDetailIslemId
     ? (islemler || []).find((transaction) => transaction.id === productDetailIslemId)
@@ -474,6 +475,41 @@ export default function PersonelHareketleriPage() {
     setShowEditBar(false);
     setEditTransactionId(null);
   }, [canRenderEditTransactionBar, showEditBar]);
+
+  const tryOpenTransaction = useCallback((islemId: string): boolean => {
+    if (!isProductItemsResolved) return false;
+    if (getProductItemCount(islemId) > 0) {
+      setProductDetailIslemId(islemId);
+      return true;
+    }
+    if (!canUpdateTransaction(islemId)) {
+      showTransactionUpdateDenied(islemId);
+      return true;
+    }
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+    return true;
+  }, [
+    canUpdateTransaction,
+    getProductItemCount,
+    isProductItemsResolved,
+    showTransactionUpdateDenied,
+  ]);
+
+  const requestTransactionOpen = useCallback((islemId: string) => {
+    if (tryOpenTransaction(islemId)) {
+      setPendingTransactionOpenId(null);
+      return;
+    }
+    setPendingTransactionOpenId(islemId);
+  }, [tryOpenTransaction]);
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId) return;
+    if (tryOpenTransaction(pendingTransactionOpenId)) {
+      setPendingTransactionOpenId(null);
+    }
+  }, [pendingTransactionOpenId, tryOpenTransaction]);
 
   const {
     setEditingNoteId, editingNote,
@@ -517,28 +553,14 @@ export default function PersonelHareketleriPage() {
   const [expandHandled, setExpandHandled] = useState(false);
   useEffect(() => {
     if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
-      if (
-        isProductItemsResolved
-        && getProductItemCount(expandIslemId) > 0
-      ) {
-        setProductDetailIslemId(expandIslemId);
-      } else if (canUpdateTransaction(expandIslemId)) {
-        setEditTransactionId(expandIslemId);
-        setShowEditBar(true);
-      } else {
-        showTransactionUpdateDenied(expandIslemId);
-      }
+      requestTransactionOpen(expandIslemId);
       setExpandHandled(true);
     }
   }, [
     expandIslemId,
     expandHandled,
     islemler,
-    canUpdateTransaction,
-    getUrunItems,
-    getProductItemCount,
-    isProductItemsResolved,
-    showTransactionUpdateDenied,
+    requestTransactionOpen,
   ]);
 
   // Pull-to-refresh
@@ -670,23 +692,8 @@ export default function PersonelHareketleriPage() {
 
   // Stable callback handlers for memoized item
   const handlePressIslem = useCallback((islemId: string) => {
-    if (isProductItemsResolved && getProductItemCount(islemId) > 0) {
-      setProductDetailIslemId(islemId);
-      return;
-    }
-    if (!canUpdateTransaction(islemId)) {
-      showTransactionUpdateDenied(islemId);
-      return;
-    }
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, [
-    canUpdateTransaction,
-    getUrunItems,
-    getProductItemCount,
-    isProductItemsResolved,
-    showTransactionUpdateDenied,
-  ]);
+    requestTransactionOpen(islemId);
+  }, [requestTransactionOpen]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = (islemler || []).find(i => i.id === islemId);
@@ -698,23 +705,8 @@ export default function PersonelHareketleriPage() {
   }, [canDeleteTransactionRecord, islemler, requestDelete, t]);
 
   const handleEditIslem = useCallback((islemId: string) => {
-    if (isProductItemsResolved && getProductItemCount(islemId) > 0) {
-      setProductDetailIslemId(islemId);
-      return;
-    }
-    if (!canUpdateTransaction(islemId)) {
-      showTransactionUpdateDenied(islemId);
-      return;
-    }
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, [
-    canUpdateTransaction,
-    getUrunItems,
-    getProductItemCount,
-    isProductItemsResolved,
-    showTransactionUpdateDenied,
-  ]);
+    requestTransactionOpen(islemId);
+  }, [requestTransactionOpen]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
     setCopySourceId(islemId);

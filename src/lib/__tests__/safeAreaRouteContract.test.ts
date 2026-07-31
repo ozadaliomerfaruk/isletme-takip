@@ -214,6 +214,32 @@ describe('safe-area and native-header route contract', () => {
     );
   });
 
+  it('declares no nested-layout children on the root Stack', () => {
+    // Bir klasörün kendi `_layout.tsx`i varsa kök Stack'in çocuğu klasör adıdır;
+    // kökte bırakılan `klasor/cocuk` kaydı sessizce yok sayılır ve options'ları
+    // hiç uygulanmaz (Layout children uyarısının kaynağı buydu).
+    const declaredNames = [...rootLayout.matchAll(/name="([^"]+)"/g)].map(
+      (match) => match[1],
+    );
+
+    const staleNames = declaredNames.filter((name) => {
+      const segments = name.split('/');
+      for (let depth = 1; depth < segments.length; depth += 1) {
+        const folder = segments.slice(0, depth).join('/');
+        if (
+          fs.existsSync(
+            path.join(process.cwd(), 'src/app', folder, '_layout.tsx'),
+          )
+        ) {
+          return true;
+        }
+      }
+      return false;
+    });
+
+    expect(staleNames).toEqual([]);
+  });
+
   it.each(DIRECT_ROOT_NATIVE_HEADER_ROUTES)(
     '%s opts into a non-transparent native header at root',
     (route) => {
