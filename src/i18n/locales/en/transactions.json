@@ -333,6 +333,8 @@
   "validation": {
     "selectTargetAccount": "Select target account",
     "invalidAmount": "Please enter a valid amount",
+    "productsUnsupportedTypeTitle": "Selected products are not supported by this transaction type",
+    "productsUnsupportedTypeMessage": "Products can be saved only with purchase, sale, return, income, or expense transactions. Remove the products or return to a product-enabled tab.",
     "scheduledNoProductsTitle": "Products not allowed on scheduled transactions",
     "scheduledNoProductsMessage": "Products/stock can't be added to scheduled (future-dated) transactions. Remove the products or set the date to today."
   },

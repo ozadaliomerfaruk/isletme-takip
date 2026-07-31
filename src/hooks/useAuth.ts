@@ -11,7 +11,16 @@ import { isPermissionNarrowing } from '@/lib/permissionCacheGuard';
 import { clearLastUsedSelections } from '@/lib/lastUsedSelections';
 import { logEvent, setEventContext } from '@/lib/appEvents';
 import { markNeedsSetup } from '@/lib/setupFlow';
-import { clearNotificationsForSignOut } from '@/lib/notifications';
+import {
+  finalizeNotificationsAfterSignOut,
+  restorePushTokenAfterFailedSignOut,
+  waitForNotificationCleanupBeforeSignOut,
+} from '@/lib/notifications';
+import {
+  AppleManualRevocationRequiredError,
+  captureAppleRevocationCredential,
+  isAppleAuthenticatedUser,
+} from '@/lib/appleAccountDeletion';
 import { Isletme } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import type { Permissions, UserRole } from '@/types/multiUser';
@@ -36,7 +45,15 @@ interface AuthState {
   isOwner: boolean;             // Aktif işletmenin sahibi mi?
   currentPermissions: Permissions | null;  // Paylaşılan işletmedeki yetkiler
   currentUserRole: UserRole | 'owner' | null;  // Aktif rol
+  // Bu kullanıcı hesabına aittir; aktif/paylaşılan işletmenin silme alanı
+  // burada kaynak kabul edilmez.
+  accountDeletionScheduledAt: string | null;
 }
+
+type AccountDeletionStatus = {
+  scheduledDeletionAt: string;
+  isletmeId: string | null;
+} | null;
 
 export function useAuth() {
   const queryClient = useQueryClient();
@@ -52,6 +69,7 @@ export function useAuth() {
     isOwner: true,
     currentPermissions: null,
     currentUserRole: null,
+    accountDeletionScheduledAt: null,
   });
 
   // AppState için ref - arka plan/ön plan takibi
@@ -66,6 +84,30 @@ export function useAuth() {
   const pendingRequests = useRef<Map<string, Promise<Isletme | null>>>(new Map());
   // İşletme oluşturma lock'u - duplicate oluşturmayı engelle (global lock)
   const createIsletmeLock = useRef<Promise<Isletme | null> | null>(null);
+
+  const fetchAccountDeletionStatus = useCallback(
+    async (): Promise<AccountDeletionStatus> => {
+      const { data, error } = await supabase.rpc(
+        'get_own_account_deletion_status_v1'
+      );
+      if (error) throw error;
+
+      const row = Array.isArray(data) ? data[0] : data;
+      if (
+        !row
+        || typeof row.scheduled_deletion_at !== 'string'
+        || !['scheduled', 'pending'].includes(row.state)
+      ) {
+        return null;
+      }
+
+      return {
+        scheduledDeletionAt: row.scheduled_deletion_at,
+        isletmeId: typeof row.isletme_id === 'string' ? row.isletme_id : null,
+      };
+    },
+    []
+  );
 
   // Session'ı yenile - arka plandan dönüşte veya token süresi dolmak üzereyken çağrılır
   const refreshSession = useCallback(async () => {
@@ -93,6 +135,7 @@ export function useAuth() {
             isOwner: true,
             currentPermissions: null,
             currentUserRole: null,
+            accountDeletionScheduledAt: null,
           });
         }
         return null;
@@ -158,6 +201,13 @@ export function useAuth() {
           if (__DEV__) {
             console.error('İşletme getirme hatası:', error);
           }
+          return null;
+        }
+
+        // Shared-only/no-owned bir kullanıcı silme talebi verdiyse yeniden
+        // giriş sırasında hayalet bir işletme oluşturmak talebin kapsamını
+        // değiştirirdi. Talep iptal edilene kadar create yolu fail-closed kalır.
+        if (await fetchAccountDeletionStatus()) {
           return null;
         }
 
@@ -240,7 +290,7 @@ export function useAuth() {
     });
     pendingRequests.current.set(userId, requestPromise);
     return requestPromise;
-  }, []);
+  }, [fetchAccountDeletionStatus]);
 
   // Sadece işletme getir (oluşturma yapma) - read-only işlemler için
   const fetchIsletme = useCallback(async (userId: string): Promise<Isletme | null> => {
@@ -305,6 +355,7 @@ export function useAuth() {
             isOwner: true,
             currentPermissions: null,
             currentUserRole: null,
+            accountDeletionScheduledAt: null,
           });
           return;
         }
@@ -329,7 +380,10 @@ export function useAuth() {
               || null;
             const isletmeName = session.user.user_metadata?.isletme_name || null;
             if (__DEV__) console.log(`[auth-debug] isletme fetch başlıyor ${Date.now() - __t0}ms`); // [GEÇİCİ TEŞHİS]
-            const isletme = await fetchOrCreateIsletme(session.user.id, userName, isletmeName);
+            const deletionStatus = await fetchAccountDeletionStatus();
+            const isletme = deletionStatus
+              ? await fetchIsletme(session.user.id)
+              : await fetchOrCreateIsletme(session.user.id, userName, isletmeName);
             if (__DEV__) console.log(`[auth-debug] isletme fetch bitti ${Date.now() - __t0}ms · isletme=${!!isletme}`); // [GEÇİCİ TEŞHİS]
 
             if (!isMounted) return;
@@ -341,6 +395,8 @@ export function useAuth() {
               isOwner: true,
               currentPermissions: null,
               currentUserRole: isletme ? 'owner' : null,
+              accountDeletionScheduledAt:
+                deletionStatus?.scheduledDeletionAt ?? null,
               isletmeLoading: false,
             }));
           } catch (e) {
@@ -367,6 +423,7 @@ export function useAuth() {
             isOwner: true,
             currentPermissions: null,
             currentUserRole: null,
+            accountDeletionScheduledAt: null,
           });
         }
       } catch (error) {
@@ -386,6 +443,7 @@ export function useAuth() {
             isOwner: true,
             currentPermissions: null,
             currentUserRole: null,
+            accountDeletionScheduledAt: null,
           });
         }
       }
@@ -464,6 +522,7 @@ export function useAuth() {
           isOwner: true,
           currentPermissions: null,
           currentUserRole: null,
+          accountDeletionScheduledAt: null,
         });
         return;
       }
@@ -496,17 +555,24 @@ export function useAuth() {
         setTimeout(() => {
           void (async () => {
             try {
-              const isletme = await fetchOrCreateIsletme(userId, userName, isletmeName);
+              const deletionStatus = await fetchAccountDeletionStatus();
+              const isletme = deletionStatus
+                ? await fetchIsletme(userId)
+                : await fetchOrCreateIsletme(userId, userName, isletmeName);
 
               if (!isMounted) return;
 
               setState((prev) => ({
                 ...prev,
-                isletme: isletme ?? prev.isletme,
-                ownIsletme: isletme ?? prev.ownIsletme,
+                isletme: deletionStatus ? isletme : (isletme ?? prev.isletme),
+                ownIsletme: deletionStatus
+                  ? isletme
+                  : (isletme ?? prev.ownIsletme),
                 isOwner: true,
                 currentPermissions: null,
                 currentUserRole: isletme ? 'owner' : prev.currentUserRole,
+                accountDeletionScheduledAt:
+                  deletionStatus?.scheduledDeletionAt ?? null,
                 isletmeLoading: false,
               }));
             } catch (e) {
@@ -542,7 +608,11 @@ export function useAuth() {
       }
       subscription.unsubscribe();
     };
-  }, [fetchOrCreateIsletme]);
+  }, [
+    fetchAccountDeletionStatus,
+    fetchIsletme,
+    fetchOrCreateIsletme,
+  ]);
 
   const applyRefreshedSharedPermissions = useCallback(async (
     permissions: Permissions,
@@ -746,14 +816,16 @@ export function useAuth() {
   const signOut = async () => {
     setState((prev) => ({ ...prev, loading: true }));
 
-    // RLS token satırını yalnız aktif oturum varken sildirebilir. Ayrıca cihazda
-    // önceki işletmeye ait açıklama/tutar taşıyabilecek yerel bildirim bırakma.
-    // Temizlik best-effort; bildirim servisi hatası çıkışı kilitlemez.
+    // Token silme isteğine aktif RLS oturumu varken kısa ve sınırlı bir pencere
+    // ver. Normal ağda DELETE bitmeden auth oturumu kapanmaz; takılmış ağ ise
+    // kullanıcıyı çıkış ekranında sonsuza kadar bekletmez.
     if (state.user?.id) {
-      try {
-        await clearNotificationsForSignOut(state.user.id);
-      } catch {
-        // sessiz geç
+      const cleanupResult =
+        await waitForNotificationCleanupBeforeSignOut(state.user.id);
+      if (__DEV__ && cleanupResult === 'timeout') {
+        console.warn(
+          'Çıkış bildirim temizliği zaman aşımına uğradı; çıkış sürdürülüyor.'
+        );
       }
     }
 
@@ -762,9 +834,19 @@ export function useAuth() {
     // AuthSessionMissingError durumunda da çıkış başarılı sayılmalı
     // Çünkü session zaten yok, kullanıcı fiilen çıkış yapmış
     if (error && error.name !== 'AuthSessionMissingError') {
+      if (state.user?.id) {
+        // Token reconciliation shares the serialized push-write queue with the
+        // bounded logout cleanup. Do not make a failed auth sign-out wait on a
+        // network request that may still be finishing behind that queue.
+        void restorePushTokenAfterFailedSignOut(state.user.id);
+      }
       setState((prev) => ({ ...prev, loading: false }));
       throw error;
     }
+
+    // Native APNs/FCM kaydı auth çıkışından önce kaldırılırsa başarısız bir
+    // signOut açık kalan oturumun bildirimlerini sessizce keser.
+    await finalizeNotificationsAfterSignOut();
 
     // Önceki kullanıcının verilerinin sızmaması için query cache'i BELLEKTEN VE
     // DİSKTEN temizle (persist read-cache açık; disk temizlenmezse sonraki
@@ -790,6 +872,7 @@ export function useAuth() {
       isOwner: true,
       currentPermissions: null,
       currentUserRole: null,
+      accountDeletionScheduledAt: null,
     });
   };
 
@@ -846,7 +929,27 @@ export function useAuth() {
       // Kullanıcı için işletme var mı kontrol et, yoksa oluştur
       if (data.user) {
         const userName = credential.fullName?.givenName || null;
-        const isletme = await fetchOrCreateIsletme(data.user.id, userName);
+        if (credential.authorizationCode) {
+          try {
+            await captureAppleRevocationCredential(
+              credential.authorizationCode
+            );
+          } catch (captureError) {
+            // Giriş, Apple sunucu anahtarlarının kurulumundan bağımsız
+            // çalışabilmeli. Silme ekranı daha sonra yeniden yetkilendirir ve
+            // gerekirse Apple'ın manuel erişim kaldırma yolunu gösterir.
+            if (__DEV__) {
+              console.warn(
+                'Apple revocation credential could not be captured:',
+                captureError
+              );
+            }
+          }
+        }
+        const deletionStatus = await fetchAccountDeletionStatus();
+        const isletme = deletionStatus
+          ? await fetchIsletme(data.user.id)
+          : await fetchOrCreateIsletme(data.user.id, userName);
 
         // State'i güncelle
         setState((prev) => ({
@@ -854,6 +957,12 @@ export function useAuth() {
           session: data.session,
           user: data.user,
           isletme,
+          ownIsletme: isletme,
+          isOwner: true,
+          currentPermissions: null,
+          currentUserRole: isletme ? 'owner' : null,
+          accountDeletionScheduledAt:
+            deletionStatus?.scheduledDeletionAt ?? null,
           loading: false,
         }));
       }
@@ -898,39 +1007,127 @@ export function useAuth() {
   };
 
   // Hesap silme isteği (7 gün sonra silinecek)
-  const deleteAccount = async () => {
-    if (!state.user || !state.ownIsletme) {
+  const deleteAccount = async (
+    options: { allowManualAppleRevocation?: boolean } = {}
+  ) => {
+    if (!state.user) {
       throw new Error(i18n.t('common:errors.userNotFound'));
     }
 
     setState((prev) => ({ ...prev, loading: true }));
+    let deletionCommitted = false;
 
     try {
-      const isletmeId = state.ownIsletme.id;
+      const ownIsletmeId = state.ownIsletme?.id;
 
-      // 7 gün sonrası için silme tarihi ayarla
-      const deletionDate = new Date();
-      deletionDate.setDate(deletionDate.getDate() + 7);
+      if (
+        isAppleAuthenticatedUser(state.user)
+        && !options.allowManualAppleRevocation
+      ) {
+        if (Platform.OS !== 'ios') {
+          throw new AppleManualRevocationRequiredError();
+        }
 
-      // İşletmeye silme tarihi ekle
-      const { error } = await supabase
-        .from('isletmeler')
-        .update({ scheduled_deletion_at: deletionDate.toISOString() })
-        .eq('id', isletmeId);
+        try {
+          const appleCredential = await AppleAuthentication.signInAsync();
+          if (!appleCredential.authorizationCode) {
+            throw new AppleManualRevocationRequiredError();
+          }
+          await captureAppleRevocationCredential(
+            appleCredential.authorizationCode
+          );
+        } catch {
+          // TN3194'e göre token/code yokluğu hesap silmeyi engelleyemez.
+          // UI, manuel Apple erişim kaldırma adımını açıkça onaylatıp
+          // allowManualAppleRevocation ile yeniden çağırır.
+          throw new AppleManualRevocationRequiredError();
+        }
+      }
 
+      // Tarih ve kapsam sunucuda üretilir. Böylece cihaz saati, aktif
+      // paylaşılan işletme veya işletmesi olmayan hesap akışı yetki/kapsam
+      // kararına karışmaz.
+      const { data: scheduleData, error } = await supabase.rpc(
+        'schedule_own_account_deletion_v1'
+      );
       if (error) throw error;
 
-      // Kullanıcıyı çıkış yaptır
-      await supabase.auth.signOut();
+      const scheduleRow = Array.isArray(scheduleData)
+        ? scheduleData[0]
+        : scheduleData;
+      let scheduledDeletionAt = (
+        scheduleRow
+        && typeof scheduleRow === 'object'
+        && 'scheduled_deletion_at' in scheduleRow
+        && typeof scheduleRow.scheduled_deletion_at === 'string'
+      )
+        ? scheduleRow.scheduled_deletion_at
+        : null;
 
-      // Persist read-cache'i bellek + diskten sil (veri sızmasın)
-      await wipePersistedCache();
-
-      // A1: son-kullanılan seçim belleğini de sil (hesap silindi → veri gitmeli).
-      await clearLastUsedSelections(isletmeId);
-      if (state.isletme?.id && state.isletme.id !== isletmeId) {
-        await clearLastUsedSelections(state.isletme.id);
+      if (!scheduledDeletionAt) {
+        try {
+          scheduledDeletionAt = (
+            await fetchAccountDeletionStatus()
+          )?.scheduledDeletionAt ?? null;
+        } catch (statusError) {
+          if (__DEV__) {
+            console.warn(
+              'Account deletion status could not be re-read:',
+              toErrorMessage(statusError)
+            );
+          }
+        }
       }
+
+      // The RPC contract returns the server timestamp. This valid ISO fallback
+      // is presentation-only and keeps the client fail-closed if both response
+      // reads are unexpectedly empty; it never changes the server due date.
+      scheduledDeletionAt ??= new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      ).toISOString();
+      deletionCommitted = true;
+      setState((prev) => ({
+        ...prev,
+        accountDeletionScheduledAt: scheduledDeletionAt,
+        loading: true,
+      }));
+
+      // Sunucu push tokenını talep ile aynı transaction'da siler. Bu çağrı
+      // cihazda daha önce planlanmış veya halen bildirim merkezinde görünen
+      // Defter bildirimlerini de best-effort temizler.
+      await waitForNotificationCleanupBeforeSignOut(state.user.id);
+
+      // Kullanıcıyı çıkış yaptır; native APNs/FCM kaydını yalnız başarıdan
+      // sonra kaldır ki başarısız auth çıkışı açık oturumu sessiz bırakmasın.
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (
+        signOutError
+        && signOutError.name !== 'AuthSessionMissingError'
+      ) {
+        if (__DEV__) {
+          console.warn(
+            'Deletion was scheduled but sign-out did not complete:',
+            toErrorMessage(signOutError)
+          );
+        }
+        setState((prev) => ({ ...prev, loading: false }));
+        return;
+      }
+      await finalizeNotificationsAfterSignOut();
+
+      // Sunucu talebi ve auth çıkışı tamamlandıktan sonra yerel hijyen
+      // best-effort'tur. Yerel depolama hatası gerçek sunucu sonucunu sahte
+      // bir "talep başarısız" mesajına çeviremez.
+      await Promise.allSettled([
+        wipePersistedCache(),
+        clearLastUsedSelections(ownIsletmeId),
+        (
+          state.isletme?.id
+          && state.isletme.id !== ownIsletmeId
+        )
+          ? clearLastUsedSelections(state.isletme.id)
+          : Promise.resolve(),
+      ]);
 
       setState({
         session: null,
@@ -944,37 +1141,74 @@ export function useAuth() {
         isOwner: true,
         currentPermissions: null,
         currentUserRole: null,
+        accountDeletionScheduledAt: null,
       });
     } catch (error) {
       setState((prev) => ({ ...prev, loading: false }));
+      if (deletionCommitted) {
+        if (__DEV__) {
+          console.warn(
+            'Deletion was scheduled; post-commit cleanup failed:',
+            toErrorMessage(error)
+          );
+        }
+        return;
+      }
       throw error;
     }
   };
 
   // Hesap silme isteğini iptal et
   const cancelAccountDeletion = async () => {
-    if (!state.user || !state.ownIsletme) {
+    if (!state.user) {
       throw new Error(i18n.t('common:errors.userNotFound'));
     }
 
     setState((prev) => ({ ...prev, loading: true }));
 
     try {
-      const isletmeId = state.ownIsletme.id;
-
-      // Silme tarihini kaldır
-      const { error } = await supabase
-        .from('isletmeler')
-        .update({ scheduled_deletion_at: null })
-        .eq('id', isletmeId);
+      const { data: cancelled, error } = await supabase.rpc(
+        'cancel_own_account_deletion_v1'
+      );
 
       if (error) throw error;
+      if (cancelled !== true) {
+        throw new Error(i18n.t('errors:general.tryAgain'));
+      }
+
+      // No-owned kullanıcı girişte talep kapısı nedeniyle işletme
+      // oluşturmadı. İptalden sonra uygulamanın normal workspace sözleşmesini
+      // geri kur.
+      let restoredOwnIsletme = state.ownIsletme;
+      if (!restoredOwnIsletme) {
+        const userName = state.user.user_metadata?.full_name?.split(' ')[0]
+          || state.user.user_metadata?.name?.split(' ')[0]
+          || null;
+        const isletmeName = state.user.user_metadata?.isletme_name || null;
+        restoredOwnIsletme = await fetchOrCreateIsletme(
+          state.user.id,
+          userName,
+          isletmeName
+        );
+      }
 
       // State'i güncelle
       setState((prev) => ({
         ...prev,
-        ownIsletme: prev.ownIsletme ? { ...prev.ownIsletme, scheduled_deletion_at: null } : null,
-        isletme: prev.isOwner && prev.isletme ? { ...prev.isletme, scheduled_deletion_at: null } : prev.isletme,
+        ownIsletme: restoredOwnIsletme
+          ? { ...restoredOwnIsletme, scheduled_deletion_at: null }
+          : null,
+        isletme: prev.isOwner
+          ? (
+            restoredOwnIsletme
+              ? { ...restoredOwnIsletme, scheduled_deletion_at: null }
+              : null
+          )
+          : prev.isletme,
+        currentUserRole: prev.isOwner && restoredOwnIsletme
+          ? 'owner'
+          : prev.currentUserRole,
+        accountDeletionScheduledAt: null,
         loading: false,
       }));
     } catch (error) {

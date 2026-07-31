@@ -45,10 +45,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useReview } from '@/contexts/ReviewContext';
 import * as Notifications from 'expo-notifications';
-import { registerForPushNotificationsAsync, savePushToken, removePushToken } from '@/lib/notifications';
+import {
+  disableNotificationsForUser,
+  NOTIFICATIONS_ENABLED_KEY,
+  registerForPushNotificationsAsync,
+  savePushToken,
+  setNotificationsEnabledPreference,
+} from '@/lib/notifications';
 import { isOwnerOrManagerRole } from '@/lib/permissionNavigation';
-
-const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -166,6 +170,9 @@ export default function DahaPage() {
   // pushGranted: OS bildirim izni verili mi (push'un ve iOS "Bildirimler" satırının ön koşulu)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [pushGranted, setPushGranted] = useState(false);
+  const [notificationToggleBusy, setNotificationToggleBusy] =
+    useState(false);
+  const notificationToggleBusyRef = useRef(false);
 
   useEffect(() => {
     AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY).then((val) => {
@@ -182,14 +189,24 @@ export default function DahaPage() {
   // İSTEYEBİLİR (sonra iOS "Bildirimler" satırı kalıcı belirir, kullanıcı oradan yönetir).
   // İzin reddedilmişse uygulamadan tekrar sorulamaz → iOS Ayarlar'a yönlendiririz.
   const handleNotificationToggle = async (value: boolean) => {
-    if (value) {
+    if (notificationToggleBusyRef.current) return;
+    notificationToggleBusyRef.current = true;
+    setNotificationToggleBusy(true);
+
+    try {
+      if (value) {
       // AÇ: OS iznini iste/sağla + push token'ı kaydet
+      await setNotificationsEnabledPreference(true);
       const token = await registerForPushNotificationsAsync({ promptIfNeeded: true });
       if (token) {
-        if (user) await savePushToken(user.id, token);
+        const saved = user ? await savePushToken(user.id, token) : false;
+        if (!saved) {
+          await disableNotificationsForUser(user?.id ?? null);
+          setNotificationsEnabled(false);
+          return;
+        }
         setPushGranted(true);
         setNotificationsEnabled(true);
-        await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'true');
         return;
       }
       // Token alınamadı (izin yok / fiziksel cihaz değil) → nedenini kontrol et
@@ -199,7 +216,7 @@ export default function DahaPage() {
       } catch { /* sessiz geç */ }
       setPushGranted(false);
       setNotificationsEnabled(false);
-      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'false');
+      await setNotificationsEnabledPreference(false);
       if (status === 'denied') {
         Alert.alert(
           t('settings:notifications.permissionTitle'),
@@ -210,11 +227,14 @@ export default function DahaPage() {
           ]
         );
       }
-    } else {
+      } else {
       // KAPAT: yerel hatırlatmaları durdur + push token'ı sil (bildirim gelmesin)
       setNotificationsEnabled(false);
-      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'false');
-      if (user) await removePushToken(user.id);
+        await disableNotificationsForUser(user?.id ?? null);
+      }
+    } finally {
+      notificationToggleBusyRef.current = false;
+      setNotificationToggleBusy(false);
     }
   };
 
@@ -449,6 +469,7 @@ export default function DahaPage() {
               <Switch
                 value={pushGranted && notificationsEnabled}
                 onValueChange={handleNotificationToggle}
+                disabled={notificationToggleBusy}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.white}
               />

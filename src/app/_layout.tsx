@@ -28,12 +28,14 @@ import { isTabBarVisible } from '@/lib/tabBarVisibility';
 import { RealInsetsContext } from '@/components/ui/ModalInsets';
 import { colors } from '@/constants/colors';
 import {
-  registerForPushNotificationsAsync,
-  savePushToken,
   addNotificationListeners,
 } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { logEvent } from '@/lib/appEvents';
+import {
+  resolvePushTokenRegistrationUserId,
+  usePushTokenRegistration,
+} from '@/hooks/usePushTokenRegistration';
 
 // Initialize i18n
 import '@/i18n';
@@ -96,7 +98,15 @@ function NavDepthLogger() {
 }
 
 function RootLayoutNav() {
-  const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
+  const {
+    user,
+    initialized,
+    needsPasswordReset,
+    clearPasswordReset,
+    ownIsletme,
+    isletmeLoading,
+    accountDeletionScheduledAt,
+  } = useAuthContext();
   const segments = useSegments();
   // Bildirim listener'ı [router] bağımlılıklı effect closure'ında yaşıyor; segments'i doğrudan okursa
   // BAYAT değer yakalar. Her render'da güncellenen ref üzerinden okunur (goToTab için güncel bağlam).
@@ -109,7 +119,12 @@ function RootLayoutNav() {
   // Kurulum akışı (v1.5): yalnızca YENİ işletme oluşturulduğunda true olur (setupFlow).
   // useSyncExternalStore → kurulum tamamlanınca kapı anında kapanır, geri sıçrama olmaz.
   const needsSetup = useSyncExternalStore(subscribeNeedsSetup, getNeedsSetupSync);
-  const pushTokenRegistered = useRef(false);
+  usePushTokenRegistration(resolvePushTokenRegistrationUserId({
+    userId: user?.id ?? null,
+    ownIsletmeId: ownIsletme?.id ?? null,
+    isletmeLoading,
+    accountDeletionScheduledAt,
+  }));
   const insets = useSafeAreaInsets();
   // OVERLAY tab bar: bar artık akıştan çıkıp içeriğin ÜSTÜNDE float ediyor (gerçek cam efekti).
   // Eskiden bottom:0'dı (akıştaki bar boşluğu yönetiyordu); şimdi ekranların alt-boşluğu bar'ı
@@ -169,24 +184,6 @@ function RootLayoutNav() {
     // Kurulum bayrağını AsyncStorage'dan yükle (yeni işletme oluşturulmuşsa true)
     loadNeedsSetup();
   }, []);
-
-  // Push notification ayarları
-  useEffect(() => {
-    if (!user || pushTokenRegistered.current) return;
-
-    const setupPushNotifications = async () => {
-      // promptIfNeeded:false — açılışta sistem izni İSTENMEZ; yalnızca izni zaten
-      // vermiş kullanıcıların token'ı tazelenir. Yeni kullanıcıya izin, ilk işlem
-      // sonrası kutlama ekranındaki pre-prompt ile sorulur (kurulum-tamam.tsx).
-      const token = await registerForPushNotificationsAsync({ promptIfNeeded: false });
-      if (token) {
-        await savePushToken(user.id, token);
-        pushTokenRegistered.current = true;
-      }
-    };
-
-    setupPushNotifications();
-  }, [user]);
 
   // Session tracking: cold start + her foreground'da kontrol
   useEffect(() => {
@@ -270,6 +267,9 @@ function RootLayoutNav() {
     // okunabilmeli. Bu rotaları yalnız oturum açmış kullanıcılara kapatmak
     // aydınlatmayı kayıt sonrasına bırakıyordu.
     const inLegal = segments[0] === 'yasal';
+    const inAccountDeletion =
+      segments[0] === 'ayarlar'
+      && (segments as readonly string[])[1] === 'hesap-sil';
     const inKurulum = segments[0]?.startsWith('kurulum') ?? false;
     // Kurulum sırasında "ekle" ekranlarına (cari/personel/hesap) gidilebilsin —
     // rehberli oluşturma adımı buraya yönlendirir; guard başa atmamalı.
@@ -280,6 +280,18 @@ function RootLayoutNav() {
     if (!user && !inAuthGroup && !inOnboarding && !inVerify && !inLegal) {
       // Kullanici giris yapmamis, login'e yonlendir
       router.replace('/(auth)/login');
+    } else if (
+      user
+      && accountDeletionScheduledAt
+      && !ownIsletme
+      && !inAccountDeletion
+      && !inLegal
+      && !needsPasswordReset
+    ) {
+      // Shared-only/no-owned hesapta bekleyen silme talebi varken giriş yeni
+      // bir işletme oluşturmamalı. Kullanıcı yalnız talebi iptal edebilir,
+      // hukuki sayfaları okuyabilir veya çıkış yapabilir.
+      router.replace('/ayarlar/hesap-sil');
     } else if (user && inAuthGroup && !needsPasswordReset) {
       // Kullanici giris yapmis ve sifre sifirlama modunda degil
       if (showOnboarding) {
@@ -298,7 +310,18 @@ function RootLayoutNav() {
       // inSetupCreate: kurulumun "ekle" adimlari haric (oraya gidebilmeli).
       router.replace('/kurulum');
     }
-  }, [user, segments, initialized, onboardingChecked, showOnboarding, needsSetup, needsPasswordReset, router]);
+  }, [
+    user,
+    segments,
+    initialized,
+    onboardingChecked,
+    showOnboarding,
+    needsSetup,
+    needsPasswordReset,
+    ownIsletme,
+    accountDeletionScheduledAt,
+    router,
+  ]);
 
   // Yukleniyor - sadece initialized ve onboardingChecked kontrol et
   // loading'i burada kontrol etmiyoruz çünkü login/logout sırasında da true oluyor

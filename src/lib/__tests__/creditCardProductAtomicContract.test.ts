@@ -21,20 +21,20 @@ describe('credit-card product expense atomic contract', () => {
     expect(source).not.toContain('transactions:messages.urunMovementFailed');
   });
 
-  it('uses one stable UUID and probes an unknown network outcome', () => {
-    expect(source).toContain('productExpenseMutationIdRef');
-    expect(source).toContain('productExpenseMutationFingerprintRef');
+  it('uses one stable UUID for every create and probes an unknown regular outcome', () => {
+    expect(source).toContain('createMutationIdRef');
+    expect(source).toContain('createMutationFingerprintRef');
     expect(source).toContain('buildMutationFingerprint({');
     expect(source).toContain('Crypto.randomUUID()');
+    expect(source).toContain('id: clientMutationId');
     expect(source).toContain(
       "classifyMutationError(rpcError) !== 'network_unknown'",
     );
-    expect(source).toContain('probeCreatedProductExpense(');
+    expect(source).toContain('probeCreatedCreditCardTransaction(');
     expect(source).toContain('isSameRegularCreate(');
     expect(source).toContain('new MutationRetryPayloadChangedError()');
-    expect(source).toMatch(
-      /!hasProductExpense\s+&& productExpenseMutationFingerprintRef\.current/,
-    );
+    expect(source).toContain("kind: 'scheduled'");
+    expect(source).toContain("kind: 'regular'");
   });
 
   it('accepts the account currencies derived by the server in its product probe', () => {
@@ -81,6 +81,22 @@ describe('credit-card product expense atomic contract', () => {
     expect(source).toContain(
       'kategori_id: hasProductExpense ? null : kategoriId',
     );
+  });
+
+  it('uses the credit-card account currency for product display and inline create', () => {
+    expect(source).toContain('currency={creditCard.currency}');
+    expect(source).toContain('currency: creditCard.currency');
+    expect(source).not.toContain('currency={userCurrency}');
+    expect(source).not.toContain('currency: userCurrency');
+  });
+
+  it('locks both direct save and exchange confirmation synchronously', () => {
+    expect(source).toContain('const submitInFlightRef = useRef(false);');
+    expect(source.match(/if \(submitInFlightRef\.current\) return;/g)).toHaveLength(3);
+    expect(source.match(/submitInFlightRef\.current = true;/g)).toHaveLength(2);
+    expect(source.match(/submitInFlightRef\.current = false;/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(source).toContain('await persistIslem(sourceAmount, {');
+    expect(source).toContain('await persistIslem(parsedAmount);');
   });
 
   it('never starts a photo upload for a shared user', () => {

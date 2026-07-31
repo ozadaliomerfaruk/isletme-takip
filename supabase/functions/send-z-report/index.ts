@@ -20,6 +20,7 @@
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { guardServiceRoleWorkerRequest } from "../_shared/workerAuth.ts";
+import { fetchUnambiguousPushTokenMap } from "../_shared/pushTokenOwnership.ts";
 
 // Telemetri — ../_shared importu per-function deploy'da çözülemediği için INLINE
 // (deploy edilen sürümle birebir). Yalnız kullanılan iki yardımcı.
@@ -209,27 +210,30 @@ async function runZReport(
     targets = targets.filter((t) => t.user_id === testUserId);
   }
 
-  // Gönderilecek kullanıcıların push token'larını topla.
-  // ÖNEMLİ (bug fix): user_id'leri TEK .in() ile sorgulamak ~600 kullanıcıda URL uzunluk
-  // limitini aşıp sorguyu BAŞARISIZ yapıyordu -> tokenMap boş -> KİMSEYE gönderilemiyordu.
-  // Bu yüzden 100'erlik gruplara bölüp her grubu ayrı çekiyoruz. Hedefleme/pasiflik/
-  // is_internal/force_z_report mantığı AYNEN korunur; yalnız token getirme parçalanır.
-  const userIds = [...new Set(targets.map((t) => t.user_id))];
-  const tokenMap = new Map<string, PushTokenRow>();
-  const TOKEN_FETCH_CHUNK = 100;
-  for (let i = 0; i < userIds.length; i += TOKEN_FETCH_CHUNK) {
-    const chunk = userIds.slice(i, i + TOKEN_FETCH_CHUNK);
-    const { data: tokens, error: tokenError } = await supabaseAdmin
-      .from("push_tokens")
-      .select("user_id, token, locale")
-      .in("user_id", chunk);
-    if (tokenError) {
-      console.error("push_tokens fetch error:", tokenError.message);
-      continue;
-    }
-    for (const tk of (tokens || []) as PushTokenRow[]) {
-      tokenMap.set(tk.user_id, tk);
-    }
+  // Bütün tokenlar tek, küçük sorguda alınır. Böylece hedef listesi dışındaki
+  // ikinci sahibi de görür ve privacy-ambiguous tokenı fail-closed atlarız;
+  // `.in(userIds)` URL uzunluğu/N+1 sorunu da oluşmaz.
+  const {
+    byUserId: tokenMap,
+    failedChunkMessages,
+    ambiguousResponseTokens,
+  } = await fetchUnambiguousPushTokenMap<PushTokenRow>(
+    targets.map((target) => target.user_id),
+    async (userIds) => {
+      const { data, error } = await supabaseAdmin.rpc(
+        "get_unambiguous_push_tokens_v1",
+        { p_user_ids: userIds },
+      );
+      return { data: (data || []) as PushTokenRow[], error };
+    },
+  );
+  for (const message of failedChunkMessages) {
+    console.error("Safe push token RPC error:", message);
+  }
+  if (ambiguousResponseTokens.size > 0) {
+    console.warn(
+      `Skipping ${ambiguousResponseTokens.size} ambiguous RPC response token(s)`,
+    );
   }
 
   const messages: ExpoMessage[] = [];

@@ -4,6 +4,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
 import { guardServiceRoleWorkerRequest } from "../_shared/workerAuth.ts";
+import { fetchUnambiguousPushTokenMap } from "../_shared/pushTokenOwnership.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -230,21 +231,27 @@ Deno.serve(withFnTelemetry({
     }
 
     // Push token'ları al
-    const userIds = [...new Set((isletmeler || []).map((i: Isletme) => i.user_id))];
-
-    const { data: pushTokens, error: tokenError } = await supabaseAdmin
-      .from("push_tokens")
-      .select("user_id, token")
-      .in("user_id", userIds);
-
-    if (tokenError) {
-      console.error("Push token fetch error:", tokenError);
+    const {
+      byUserId: safePushTokensByUser,
+      failedChunkMessages,
+      ambiguousResponseTokens,
+    } = await fetchUnambiguousPushTokenMap<PushToken>(
+      (isletmeler || []).map((isletme) => isletme.user_id),
+      async (userIds) => {
+        const { data, error } = await supabaseAdmin.rpc(
+          "get_unambiguous_push_tokens_v1",
+          { p_user_ids: userIds },
+        );
+        return { data: (data || []) as PushToken[], error };
+      },
+    );
+    for (const message of failedChunkMessages) {
+      console.error("Safe push token RPC error:", message);
     }
-
-    // user_id -> token map
-    const tokenMap = new Map<string, string>();
-    for (const pt of (pushTokens || []) as PushToken[]) {
-      tokenMap.set(pt.user_id, pt.token);
+    if (ambiguousResponseTokens.size > 0) {
+      console.warn(
+        `Skipping ${ambiguousResponseTokens.size} ambiguous RPC response token(s)`,
+      );
     }
 
     // hesap_id -> currency map (bildirimde doğru para sembolü için)
@@ -281,7 +288,7 @@ Deno.serve(withFnTelemetry({
           continue;
         }
 
-        const pushToken = tokenMap.get(isletme.user_id);
+        const pushToken = safePushTokensByUser.get(isletme.user_id)?.token;
         if (!pushToken) {
           console.log(`Push token bulunamadı: ${isletme.user_id}`);
           results.push({

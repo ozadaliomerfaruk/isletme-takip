@@ -54,6 +54,10 @@ import {
   getTransactionProductMutationDecision,
   isEditableProductPayloadComplete,
 } from '@/lib/transactionProductMutationGate';
+import {
+  getQuickTransactionProductMovementType,
+  hasUnsupportedQuickTransactionProducts,
+} from '@/lib/productSelectionGuard';
 
 interface Hesap {
   id: string;
@@ -633,21 +637,7 @@ export function useTransactionSubmit({
 
   // Helper: Get urun movement type based on transaction type
   const getUrunHareketTipi = useCallback((txnType: TransactionType): UrunHareketTipi | null => {
-    // alis: Tedarikçiden mal alındı → Ürün Girişi
-    if (txnType === 'alis') return 'giris';
-    // satis: Müşteriye mal satıldı → Ürün Çıkışı
-    if (txnType === 'satis') return 'cikis';
-    // alis_iade: Tedarikçiye mal iade edildi → Ürün Çıkışı
-    if (txnType === 'alis_iade') return 'cikis';
-    // satis_iade: Müşteriden mal iade alındı → Ürün Girişi
-    if (txnType === 'satis_iade') return 'giris';
-    // gelir: Para GİRDİ = mal SATILDI → Ürün ÇIKIŞI (satis ile tutarlı)
-    if (txnType === 'gelir') return 'cikis';
-    // gider: Para ÇIKTI = mal SATIN ALINDI → Ürün GİRİŞİ (alis ile tutarlı)
-    if (txnType === 'gider') return 'giris';
-    // kredi_karti_gider: Kart gideri = mal satın alındı → Ürün GİRİŞİ
-    if (txnType === 'kredi_karti_gider') return 'giris';
-    return null;
+    return getQuickTransactionProductMovementType(txnType);
   }, []);
 
   // Build transaction data
@@ -926,6 +916,20 @@ export function useTransactionSubmit({
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
+      return;
+    }
+
+    // Ürünler sekme değişiminde formda korunur. Seçili ürünleri desteklemeyen
+    // bir tipe geçildiğinde normal işlem dalına düşmek, kaydı başarılı gösterip
+    // stok kalemlerini sessizce yok sayıyordu.
+    if (hasUnsupportedQuickTransactionProducts(type, urunItems.length)) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      Alert.alert(
+        t('transactions:validation.productsUnsupportedTypeTitle'),
+        t('transactions:validation.productsUnsupportedTypeMessage'),
+      );
       return;
     }
 

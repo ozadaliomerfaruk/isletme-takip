@@ -546,6 +546,8 @@
     "cancelDeletion": "Silme Talebini İptal Et",
     "deleteTitle": "Hesabı Sil",
     "deleteDescription": "Silme talebinde 7 günlük bekleme süresi başlar ve bu sürede vazgeçebilirsiniz. Süre sonunda hesabınız kapatılır ve aşağıdaki kayıtlar silme sürecine alınır. Kanunen saklanması gereken sınırlı kayıtlar ile başka bir işletmenin çalışma alanında korunması gereken kayıtlar tutulabilir:",
+    "deleteDescriptionNoBusiness": "Silme talebinde 7 günlük bekleme süresi başlar ve bu sürede vazgeçebilirsiniz. Süre sonunda kullanıcı hesabınız kapatılır; paylaşılan işletmelerdeki üyelikleriniz kaldırılır. O işletmelere ait işlemler ve diğer işletme kayıtları korunur.",
+    "sharedRecordsPreserved": "• Paylaşılan işletmelere ait işlem ve kayıtlar silinmez",
     "deleteWarnings": {
       "transactions": "• Tüm işlemleriniz (gelir, gider, transfer)",
       "accounts": "• Tüm hesaplarınız ve bakiyeler",
@@ -556,11 +558,19 @@
     },
     "confirmLabel": "Onaylamak için işletme adınızı yazın:",
     "confirmPlaceholder": "İşletme adını yazın",
+    "confirmAccountLabel": "Onaylamak için e-posta adresinizi yazın:",
+    "confirmAccountPlaceholder": "E-posta adresinizi yazın",
     "confirmDeleteButton": "Evet, Silme Talebi Oluştur",
     "deleteRequestTitle": "Hesap Silme Talebi",
     "deleteRequestDescription": "Hesabınız 7 gün sonra kapatılacak ve silme talebiniz işleme alınacaktır. Bu süre içinde giriş yaparak talebi iptal edebilirsiniz.\n\nDevam etmek istiyor musunuz?",
     "deleteRequestCreated": "Talep Oluşturuldu",
-    "deleteRequestCreatedMessage": "Hesabınız 7 gün sonra kapatılacak ve silme talebiniz işleme alınacaktır. Bu süre içinde giriş yaparak iptal edebilirsiniz."
+    "deleteRequestCreatedMessage": "Hesabınız 7 gün sonra kapatılacak ve silme talebiniz işleme alınacaktır. Bu süre içinde giriş yaparak iptal edebilirsiniz.",
+    "deleteRequestCancelledMessage": "Hesap silme talebiniz iptal edildi. Hesabınız ve kayıtlarınız kullanılmaya devam edecek.",
+    "pendingDeletionTitle": "Silme Talebiniz Bekliyor",
+    "pendingDeletionDescription": "Hesabınız için silme talebi oluşturuldu. 7 günlük süre dolmadan talebi iptal edebilir veya güvenli şekilde çıkış yapabilirsiniz.",
+    "appleManualRevokeTitle": "Apple Erişimini Kaldırın",
+    "appleManualRevokeDescription": "Apple bağlantısı otomatik kaldırılamadı. Hesap silme talebine devam edebilirsiniz; ardından iPhone'da Ayarlar > [Adınız] > Apple ile Giriş > Defter > Apple ile Girişi Kullanmayı Bırak yolundan Defter erişimini kaldırın.",
+    "continueDeletion": "Silme Talebine Devam Et"
   },
   "messages": {
     "saveSuccess": "Ayarlar kaydedildi",
@@ -571,7 +581,9 @@
     "cacheCleared": "Önbellek temizlendi",
     "businessUpdateFailed": "İşletme bilgileri güncellenemedi",
     "deleteRequestFailed": "Hesap silme talebi oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.",
-    "confirmBusinessName": "Lütfen işletme adını doğru yazıp tekrar deneyin."
+    "confirmBusinessName": "Lütfen işletme adını doğru yazıp tekrar deneyin.",
+    "confirmAccountIdentifier": "Lütfen e-posta adresinizi doğru yazıp tekrar deneyin.",
+    "cancelDeletionFailed": "Talep iptal edilemedi. Silme işlemi başlamış olabilir; lütfen destek ile iletişime geçin."
   },
   "validation": {
     "businessNameRequired": "İşletme adı gerekli"

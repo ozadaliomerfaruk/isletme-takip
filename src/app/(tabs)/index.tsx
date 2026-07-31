@@ -137,7 +137,11 @@ export default function HomePage() {
     canAccessModule('personel') ||
     canAccessModule('urunler') ||
     canAccessModule('notlar');
-  const { isletme, cancelAccountDeletion } = useAuthContext();
+  const {
+    isletme,
+    accountDeletionScheduledAt,
+    cancelAccountDeletion,
+  } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
   const { showToast } = useToast();
   const haptics = useHaptics();
@@ -307,7 +311,7 @@ export default function HomePage() {
   const totalExpense = monthSummary?.expense ?? 0;
 
   // Silme planlanmış mı kontrol et
-  const scheduledDeletion = isletme?.scheduled_deletion_at;
+  const scheduledDeletion = accountDeletionScheduledAt;
   const deletionDate = scheduledDeletion ? new Date(scheduledDeletion) : null;
   const daysRemaining = deletionDate
     ? Math.ceil((deletionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -325,9 +329,15 @@ export default function HomePage() {
             setIsCancelling(true);
             try {
               await cancelAccountDeletion();
-              Alert.alert(t('common:status.success'), t('settings:account.deleteRequestCreatedMessage'));
+              Alert.alert(
+                t('common:status.success'),
+                t('settings:account.deleteRequestCancelledMessage'),
+              );
             } catch (error) {
-              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+              Alert.alert(
+                t('common:status.error'),
+                t('settings:messages.cancelDeletionFailed'),
+              );
             } finally {
               setIsCancelling(false);
             }

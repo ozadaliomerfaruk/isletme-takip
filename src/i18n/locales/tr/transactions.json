@@ -333,6 +333,8 @@
   "validation": {
     "selectTargetAccount": "Hedef hesap seçin",
     "invalidAmount": "Geçerli bir tutar girin",
+    "productsUnsupportedTypeTitle": "Seçili ürünler bu işlem türüne uygun değil",
+    "productsUnsupportedTypeMessage": "Ürünler yalnız alış, satış, iade, gelir veya gider işlemlerinde kaydedilebilir. Ürünleri kaldırın ya da ürün destekleyen sekmeye dönün.",
     "scheduledNoProductsTitle": "İleri tarihli işleme ürün eklenemez",
     "scheduledNoProductsMessage": "İleri tarihli (planlanmış) işlemlere ürün/stok eklenemiyor. Ürünleri kaldırın ya da işlem tarihini bugüne alın."
   },

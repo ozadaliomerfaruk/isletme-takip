@@ -25,6 +25,8 @@ const APP_AND_WEB_LEGAL_FILES = [
   'docs/privacy-policy-en.html',
   'docs/kvkk.html',
   'docs/kvkk-en.html',
+  'docs/account-deletion.html',
+  'docs/account-deletion-en.html',
 ];
 
 describe('privacy and regional rights notice contract', () => {
@@ -187,6 +189,22 @@ describe('privacy and regional rights notice contract', () => {
       expect(login).toContain(route);
       expect(register).toContain(route);
     }
+  });
+
+  it('offers an external account deletion path in both languages', () => {
+    const trPage = read('docs/account-deletion.html');
+    const enPage = read('docs/account-deletion-en.html');
+
+    expect(trPage).toContain('mailto:ozadaliomerfaruk@gmail.com');
+    expect(enPage).toContain('mailto:ozadaliomerfaruk@gmail.com');
+    expect(trPage).toContain('7 günlük bekleme süresi');
+    expect(enPage).toContain('7-day waiting period');
+    expect(read('docs/index.html')).toContain('account-deletion.html');
+    expect(read('docs/index-en.html')).toContain('account-deletion-en.html');
+    expect(read('docs/privacy-policy.html')).toContain('account-deletion.html');
+    expect(read('docs/privacy-policy-en.html')).toContain(
+      'account-deletion-en.html',
+    );
   });
 
   it.each(['docs/ekstre/index.html', 'docs/verify/index.html'])(

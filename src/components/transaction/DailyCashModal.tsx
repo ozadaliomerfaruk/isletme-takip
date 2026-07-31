@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, X, Wallet, Eye, EyeOff, SlidersHorizontal } from 'lucide-react-native';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -21,6 +21,7 @@ import { getCurrencySymbol } from '@/constants/currencies';
 import { Hesap } from '@/types/database';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getTransactionMutationMessageKey, toErrorMessage } from '@/lib/errors';
+import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
 
 // Gizli-hesap tercihi isletme_id ile namespace'lenir (çapraz-kiracı sızıntı yok).
 // NOT: eski global anahtar (`@defter_daily_cash_hidden_accounts`) artık okunmaz;
@@ -76,6 +77,8 @@ export function DailyCashModal({
 
   // Entries state - initialized when hesaplar loads
   const [entries, setEntries] = useState<DailyCashEntry[]>([]);
+  const [categoryNavigatedAway, setCategoryNavigatedAway] = useState(false);
+  const categoryNavigationEntryIdRef = useRef<string | null>(null);
 
   // Animation
   const opacity = useRef(new Animated.Value(0)).current;
@@ -145,19 +148,35 @@ export function DailyCashModal({
     });
   }, [filteredHesaplar, t, hiddenAccountsKey]);
 
-  // Initialize entries when visible hesaplar changes
+  // Görünür hesap listesini ID üzerinden uzlaştır. Query refetch'i aynı hesapları
+  // yeni array referansıyla döndürebilir; ayrıca ayarlar panelini açıp kapatmak
+  // visibleHesaplar'ı yeniden üretir. Eski davranış her ikisinde de kullanıcının
+  // girdiği tutar/not/kategorileri boşaltıyordu.
   useEffect(() => {
-    if (visibleHesaplar.length > 0 && !showSettings) {
-      setEntries(
-        visibleHesaplar.map((h) => ({
-          hesapId: h.id,
-          amount: '',
-          kategoriId: null,
-          description: '',
-        }))
+    if (!visible || showSettings) return;
+
+    setEntries((previousEntries) => {
+      const previousById = new Map(
+        previousEntries.map((entry) => [entry.hesapId, entry]),
       );
-    }
-  }, [visibleHesaplar, showSettings]);
+      const nextEntries = visibleHesaplar.map(
+        (hesap) =>
+          previousById.get(hesap.id) ?? {
+            hesapId: hesap.id,
+            amount: '',
+            kategoriId: null,
+            description: '',
+          },
+      );
+
+      const unchanged =
+        previousEntries.length === nextEntries.length
+        && previousEntries.every(
+          (entry, index) => entry === nextEntries[index],
+        );
+      return unchanged ? previousEntries : nextEntries;
+    });
+  }, [showSettings, visible, visibleHesaplar]);
 
   // Reset state when modal closes
   useEffect(() => {
@@ -168,6 +187,8 @@ export function DailyCashModal({
         setDate(d);
         setIsSaving(false);
         setShowSettings(false);
+        setCategoryNavigatedAway(false);
+        categoryNavigationEntryIdRef.current = null;
         if (visibleHesaplar.length > 0) {
           setEntries(
             visibleHesaplar.map((h) => ({
@@ -292,6 +313,23 @@ export function DailyCashModal({
       )
     );
   }, []);
+
+  // Kategori ekleme route'undan dönüşte modalı yeniden göster; parent `visible`
+  // kapanmadığı için diğer hesap satırlarının tutar/not taslakları korunur. Yeni
+  // kategori yalnız ekleme akışını başlatan hesap satırına uygulanır.
+  useFocusEffect(
+    useCallback(() => {
+      if (!visible || !categoryNavigationEntryIdRef.current) return;
+
+      const hesapId = categoryNavigationEntryIdRef.current;
+      categoryNavigationEntryIdRef.current = null;
+      setCategoryNavigatedAway(false);
+      const pending = consumePendingCategorySelection();
+      if (pending?.type === 'gelir') {
+        updateEntry(hesapId, 'kategoriId', pending.id);
+      }
+    }, [updateEntry, visible]),
+  );
 
   // Handle amount change
   const handleAmountChange = useCallback((hesapId: string, text: string) => {
@@ -444,7 +482,12 @@ export function DailyCashModal({
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal
+      visible={visible && !categoryNavigatedAway}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+    >
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <View style={styles.backdrop} />
@@ -591,7 +634,10 @@ export function DailyCashModal({
                           type="gelir"
                           label=""
                           placeholder={t('transactions:dailyCash.category')}
-                          onNavigateAway={handleDismiss}
+                          onNavigateAway={() => {
+                            categoryNavigationEntryIdRef.current = entry.hesapId;
+                            setCategoryNavigatedAway(true);
+                          }}
                         />
                       </View>
 

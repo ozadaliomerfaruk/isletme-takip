@@ -37,6 +37,13 @@ BEGIN
     RAISE EXCEPTION 'PRODUCT_V3_TEST_TARGET_MIGRATION_MISSING';
   END IF;
 
+  IF pg_catalog.to_regprocedure(
+       'internal.bridge_legacy_shared_product_unlinked_mutation_v1()'
+     ) IS NULL THEN
+    RAISE EXCEPTION
+      'LEGACY_SHARED_UNLINKED_PRODUCT_BRIDGE_MIGRATION_MISSING';
+  END IF;
+
   SELECT pg_catalog.format_type(attribute_row.atttypid, attribute_row.atttypmod)
   INTO v_date_type
   FROM pg_catalog.pg_attribute AS attribute_row
@@ -86,6 +93,26 @@ BEGIN
     true
   );
 END;
+$function$;
+
+CREATE FUNCTION pg_temp.has_legacy_product_delta_intent(
+  p_actor_user_id uuid,
+  p_isletme_id uuid,
+  p_urun_id uuid
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO ''
+AS $function$
+  SELECT EXISTS (
+    SELECT 1
+    FROM internal.legacy_shared_product_delta_intents_v1 AS intent
+    WHERE intent.actor_user_id = p_actor_user_id
+      AND intent.isletme_id = p_isletme_id
+      AND intent.urun_id = p_urun_id
+  );
 $function$;
 
 CREATE FUNCTION pg_temp.tenant_digest(p_isletme_id uuid)
@@ -1563,6 +1590,643 @@ BEGIN
 END;
 $test_legacy_shared_bridge_results$;
 
+-- 10) Released shared 1.5.6 manual movement CREATE/UPDATE/DELETE:
+-- staging never changes stock; the row statement applies the exact delta once;
+-- a zero-net edit needs no stock intent; raw replay fails closed.
+UPDATE public.isletme_users AS member
+SET permissions =
+  '{
+    "level":"edit_all",
+    "modules":{"urunler":true},
+    "actions":{
+      "urunler":{
+        "can_create":true,
+        "can_update_own":true,
+        "can_update_all":true,
+        "can_delete_own":true,
+        "can_delete_all":true
+      }
+    },
+    "visibility":{"can_see_all_users_data":true}
+  }'::jsonb
+WHERE member.id = 'b2000000-0000-4000-8000-000000000001';
+
+SELECT pg_temp.set_actor(
+  'a1000000-0000-4000-8000-000000000002'
+);
+SET LOCAL ROLE authenticated;
+
+DO $test_legacy_shared_manual_crud$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000008';
+  v_movement uuid;
+  v_projected numeric;
+  v_state text;
+  v_message text;
+BEGIN
+  v_projected := public.update_urun_miktar(
+    v_product,
+    4,
+    v_business
+  );
+  PERFORM pg_temp.assert_true(
+    v_projected = 104
+    AND (
+      SELECT product.miktar = 100
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'manual create delta must only stage'
+  );
+
+  INSERT INTO public.urun_hareketler (
+    isletme_id,
+    urun_id,
+    hareket_tipi,
+    miktar,
+    birim_fiyat,
+    kdv_orani,
+    onceki_miktar,
+    yeni_miktar,
+    aciklama
+  )
+  VALUES (
+    v_business,
+    v_product,
+    'giris',
+    4,
+    10.1234,
+    0,
+    100,
+    104,
+    'legacy shared manual create'
+  )
+  RETURNING id INTO v_movement;
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 104
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND NOT pg_temp.has_legacy_product_delta_intent(
+      auth.uid(), v_business, v_product
+    ),
+    'manual create must apply exactly once and consume intent'
+  );
+
+  BEGIN
+    INSERT INTO public.urun_hareketler (
+      id,
+      isletme_id,
+      urun_id,
+      hareket_tipi,
+      miktar,
+      birim_fiyat,
+      kdv_orani,
+      onceki_miktar,
+      yeni_miktar
+    )
+    VALUES (
+      'b7000000-0000-4000-8000-000000000014',
+      v_business,
+      v_product,
+      'giris',
+      1,
+      10,
+      0,
+      104,
+      105
+    );
+    RAISE EXCEPTION 'EXPECTED_MANUAL_REPLAY_REJECTION';
+  EXCEPTION
+    WHEN OTHERS THEN
+      GET STACKED DIAGNOSTICS
+        v_state = RETURNED_SQLSTATE,
+        v_message = MESSAGE_TEXT;
+      IF v_state IS DISTINCT FROM '42501'
+         OR v_message IS DISTINCT FROM
+            'LEGACY_UNLINKED_PRODUCT_INTENT_MISMATCH' THEN
+        RAISE EXCEPTION
+          'UNEXPECTED_MANUAL_REPLAY_ERROR: state=% message=%',
+          v_state,
+          v_message;
+      END IF;
+  END;
+
+  v_projected := public.update_urun_miktar(
+    v_product,
+    -6,
+    v_business
+  );
+  PERFORM pg_temp.assert_true(
+    v_projected = 98
+    AND (
+      SELECT product.miktar = 104
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'manual update net delta must only stage'
+  );
+
+  UPDATE public.urun_hareketler AS movement
+  SET hareket_tipi = 'cikis',
+      miktar = 2,
+      birim_fiyat = 11.4321,
+      yeni_miktar = 98,
+      aciklama = 'legacy shared manual update'
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 98
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND (
+      SELECT
+        movement.hareket_tipi = 'cikis'
+        AND movement.miktar = 2
+        AND movement.onceki_miktar = 100
+        AND movement.yeni_miktar = 98
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id = v_movement
+    ),
+    'manual update must apply only net stock delta'
+  );
+
+  -- giris/cikis/duzeltme can change while the signed stock effect stays equal.
+  -- The released client calls update_urun_miktar(0); no non-zero intent is
+  -- required because this row transition cannot change stock.
+  v_projected := public.update_urun_miktar(
+    v_product,
+    0,
+    v_business
+  );
+  UPDATE public.urun_hareketler AS movement
+  SET hareket_tipi = 'duzeltme',
+      miktar = -2,
+      yeni_miktar = 98
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+
+  PERFORM pg_temp.assert_true(
+    v_projected = 98
+    AND (
+      SELECT product.miktar = 98
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND (
+      SELECT movement.hareket_tipi = 'duzeltme'
+        AND movement.miktar = -2
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id = v_movement
+    ),
+    'zero-net manual update must not require or change stock'
+  );
+
+  v_projected := public.update_urun_miktar(
+    v_product,
+    2,
+    v_business
+  );
+  DELETE FROM public.urun_hareketler AS movement
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+
+  PERFORM pg_temp.assert_true(
+    v_projected = 100
+    AND (
+      SELECT product.miktar = 100
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id = v_movement
+    ),
+    'manual delete must reverse stock exactly once'
+  );
+END;
+$test_legacy_shared_manual_crud$;
+
+-- Released JavaScript can serialize a mathematically three-decimal UPDATE
+-- delta with binary float noise. The shared adapter rounds only its staged
+-- delta; the exact OLD/NEW movement rows still define the authoritative stock
+-- effect inside the final UPDATE transaction.
+DO $test_legacy_shared_manual_float_delta$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000008';
+  v_movement uuid;
+  v_projected numeric;
+BEGIN
+  PERFORM public.update_urun_miktar(v_product, 0.1, v_business);
+  INSERT INTO public.urun_hareketler (
+    isletme_id,
+    urun_id,
+    hareket_tipi,
+    miktar,
+    onceki_miktar,
+    yeni_miktar
+  )
+  VALUES (
+    v_business,
+    v_product,
+    'giris',
+    0.1,
+    100,
+    100.1
+  )
+  RETURNING id INTO v_movement;
+
+  v_projected := public.update_urun_miktar(
+    v_product,
+    0.19999999999999998,
+    v_business
+  );
+  UPDATE public.urun_hareketler AS movement
+  SET miktar = 0.3,
+      yeni_miktar = 100.3
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+
+  PERFORM pg_temp.assert_true(
+    v_projected = 100.3
+    AND (
+      SELECT product.miktar = 100.3
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'legacy JavaScript float noise must normalize to three decimals'
+  );
+
+  PERFORM public.update_urun_miktar(v_product, -0.3, v_business);
+  DELETE FROM public.urun_hareketler AS movement
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 100
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'float-noise compatibility fixture must fully reverse'
+  );
+END;
+$test_legacy_shared_manual_float_delta$;
+
+-- A stale legacy intent must never be applied by a canonical V2 action. The
+-- canonical exact context bypasses the legacy stock bridge for create/update/
+-- delete, and AFTER success invalidates the stale intent.
+DO $test_canonical_manual_contexts$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000008';
+  v_created jsonb;
+  v_movement uuid;
+BEGIN
+  PERFORM public.update_urun_miktar(v_product, 3, v_business);
+  v_created := public.create_urun_hareket_atomik_v2(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'urun_id', v_product,
+      'hareket_tipi', 'giris',
+      'miktar', 1,
+      'birim_fiyat', 12.3456,
+      'kdv_orani', 0,
+      'aciklama', 'canonical create with stale legacy intent'
+    )
+  );
+  v_movement := (v_created->>'id')::uuid;
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 101
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND NOT pg_temp.has_legacy_product_delta_intent(
+      auth.uid(), v_business, v_product
+    ),
+    'canonical create must ignore and consume stale legacy intent'
+  );
+
+  PERFORM public.update_urun_miktar(v_product, -3, v_business);
+  PERFORM public.update_urun_hareket_atomik_v2(
+    v_business,
+    v_movement,
+    pg_catalog.jsonb_build_object(
+      'hareket_tipi', 'cikis',
+      'miktar', 2,
+      'birim_fiyat', 13.4567
+    )
+  );
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 98
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'canonical update must not double-apply matching legacy intent'
+  );
+
+  PERFORM public.update_urun_miktar(v_product, 2, v_business);
+  PERFORM public.delete_urun_hareket_atomik_v2(
+    v_business,
+    v_movement
+  );
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 100
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id = v_movement
+    )
+    AND NOT pg_temp.has_legacy_product_delta_intent(
+      auth.uid(), v_business, v_product
+    ),
+    'canonical delete must not double-apply matching legacy intent'
+  );
+END;
+$test_canonical_manual_contexts$;
+
+-- One staged intent cannot authorize two movement rows in one statement.
+DO $test_manual_multi_row_reuse$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000008';
+  v_first jsonb;
+  v_second jsonb;
+  v_first_id uuid;
+  v_second_id uuid;
+  v_raised boolean := false;
+  v_state text;
+  v_message text;
+BEGIN
+  v_first := public.create_urun_hareket_atomik_v2(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'urun_id', v_product,
+      'hareket_tipi', 'giris',
+      'miktar', 1
+    )
+  );
+  v_second := public.create_urun_hareket_atomik_v2(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'urun_id', v_product,
+      'hareket_tipi', 'giris',
+      'miktar', 2
+    )
+  );
+  v_first_id := (v_first->>'id')::uuid;
+  v_second_id := (v_second->>'id')::uuid;
+
+  PERFORM public.update_urun_miktar(v_product, 1, v_business);
+  BEGIN
+    UPDATE public.urun_hareketler AS movement
+    SET miktar = movement.miktar + 1,
+        yeni_miktar = 104
+    WHERE movement.id IN (v_first_id, v_second_id)
+      AND movement.isletme_id = v_business;
+  EXCEPTION
+    WHEN OTHERS THEN
+      GET STACKED DIAGNOSTICS
+        v_state = RETURNED_SQLSTATE,
+        v_message = MESSAGE_TEXT;
+      IF v_state IS DISTINCT FROM '42501'
+         OR v_message IS DISTINCT FROM
+            'LEGACY_UNLINKED_PRODUCT_INTENT_MISMATCH' THEN
+        RAISE EXCEPTION
+          'UNEXPECTED_MANUAL_MULTI_ROW_ERROR: state=% message=%',
+          v_state,
+          v_message;
+      END IF;
+      v_raised := true;
+  END;
+
+  PERFORM pg_temp.assert_true(
+    v_raised
+    AND (
+      SELECT product.miktar = 103
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND (
+      SELECT pg_catalog.array_agg(
+        movement.miktar ORDER BY movement.miktar
+      ) = ARRAY[1::numeric, 2::numeric]
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id IN (v_first_id, v_second_id)
+    ),
+    'one legacy intent must not mutate multiple rows'
+  );
+
+  -- Released compensation cancels the intent left by the failed row statement.
+  PERFORM public.update_urun_miktar(v_product, -1, v_business);
+  PERFORM public.delete_urun_hareket_atomik_v2(
+    v_business, v_first_id
+  );
+  PERFORM public.delete_urun_hareket_atomik_v2(
+    v_business, v_second_id
+  );
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 100
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'multi-row rejection and cleanup must leave exact stock'
+  );
+END;
+$test_manual_multi_row_reuse$;
+
+RESET ROLE;
+
+-- own/all is decided against the real movement creator, not the actor used
+-- during harmless staging.
+SELECT pg_temp.set_actor(
+  'a1000000-0000-4000-8000-000000000001'
+);
+SET LOCAL ROLE authenticated;
+
+DO $create_owner_manual_movement$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000008';
+BEGIN
+  PERFORM public.update_urun_miktar(v_product, 5, v_business);
+  INSERT INTO public.urun_hareketler (
+    id,
+    isletme_id,
+    urun_id,
+    hareket_tipi,
+    miktar,
+    onceki_miktar,
+    yeni_miktar,
+    aciklama
+  )
+  VALUES (
+    'b7000000-0000-4000-8000-000000000015',
+    v_business,
+    v_product,
+    'giris',
+    5,
+    100,
+    105,
+    'owner-created manual movement'
+  );
+END;
+$create_owner_manual_movement$;
+
+RESET ROLE;
+
+UPDATE public.isletme_users AS member
+SET permissions =
+  '{
+    "level":"edit_own",
+    "modules":{"urunler":true},
+    "actions":{
+      "urunler":{
+        "can_create":false,
+        "can_update_own":true,
+        "can_update_all":false,
+        "can_delete_own":true,
+        "can_delete_all":false
+      }
+    },
+    "visibility":{"can_see_all_users_data":true}
+  }'::jsonb
+WHERE member.id = 'b2000000-0000-4000-8000-000000000001';
+
+SELECT pg_temp.set_actor(
+  'a1000000-0000-4000-8000-000000000002'
+);
+SET LOCAL ROLE authenticated;
+
+DO $test_manual_own_permission$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000008';
+  v_movement constant uuid :=
+    'b7000000-0000-4000-8000-000000000015';
+  v_count integer;
+BEGIN
+  -- update-own is sufficient to stage, but cannot authorize an owner row.
+  PERFORM public.update_urun_miktar(v_product, 1, v_business);
+  UPDATE public.urun_hareketler AS movement
+  SET miktar = 6,
+      yeni_miktar = 106
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+  GET DIAGNOSTICS v_count = ROW_COUNT;
+
+  PERFORM pg_temp.assert_true(
+    v_count = 0
+    AND (
+      SELECT product.miktar = 105
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND (
+      SELECT movement.miktar = 5
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id = v_movement
+    ),
+    'update-own must not mutate a movement created by another user'
+  );
+
+  -- Released failure compensation removes the harmless pending intent.
+  PERFORM public.update_urun_miktar(v_product, -1, v_business);
+END;
+$test_manual_own_permission$;
+
+RESET ROLE;
+
+UPDATE public.isletme_users AS member
+SET permissions =
+  '{
+    "level":"edit_all",
+    "modules":{"urunler":true},
+    "actions":{
+      "urunler":{
+        "can_create":false,
+        "can_update_own":true,
+        "can_update_all":true,
+        "can_delete_own":true,
+        "can_delete_all":true
+      }
+    },
+    "visibility":{"can_see_all_users_data":true}
+  }'::jsonb
+WHERE member.id = 'b2000000-0000-4000-8000-000000000001';
+
+SELECT pg_temp.set_actor(
+  'a1000000-0000-4000-8000-000000000002'
+);
+SET LOCAL ROLE authenticated;
+
+DO $test_manual_all_permission$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000008';
+  v_movement constant uuid :=
+    'b7000000-0000-4000-8000-000000000015';
+BEGIN
+  PERFORM public.update_urun_miktar(v_product, 1, v_business);
+  UPDATE public.urun_hareketler AS movement
+  SET miktar = 6,
+      yeni_miktar = 106
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+
+  PERFORM public.update_urun_miktar(v_product, -6, v_business);
+  DELETE FROM public.urun_hareketler AS movement
+  WHERE movement.id = v_movement
+    AND movement.isletme_id = v_business;
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 100
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id = v_movement
+    ),
+    'update-all/delete-all must mutate another creator row exactly once'
+  );
+END;
+$test_manual_all_permission$;
+
+RESET ROLE;
+
 DO $final_assertions$
 BEGIN
   PERFORM pg_temp.assert_true(
@@ -1587,6 +2251,12 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1
       FROM internal.legacy_shared_product_insert_context_v1
+      WHERE isletme_id =
+        'b1000000-0000-4000-8000-000000000001'
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM internal.legacy_shared_product_unlinked_mutation_context_v1
       WHERE isletme_id =
         'b1000000-0000-4000-8000-000000000001'
     ),

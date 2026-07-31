@@ -12,6 +12,9 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 jest.mock('expo-notifications', () => ({
   scheduleNotificationAsync: jest.fn().mockResolvedValue('mock-notification-id'),
   cancelScheduledNotificationAsync: jest.fn().mockResolvedValue(undefined),
+  cancelAllScheduledNotificationsAsync: jest.fn().mockResolvedValue(undefined),
+  dismissAllNotificationsAsync: jest.fn().mockResolvedValue(undefined),
+  unregisterForNotificationsAsync: jest.fn().mockResolvedValue(undefined),
   setNotificationChannelAsync: jest.fn().mockResolvedValue(undefined),
   setNotificationHandler: jest.fn(),
   getPermissionsAsync: jest.fn().mockResolvedValue({ status: 'granted' }),

@@ -17,10 +17,10 @@ import {
 import { ActionSheet, ActionSheetOption } from '@/components/ui/ActionSheet';
 import { useAuthContext } from '@/contexts/AuthContext';
 
-// App Store ID - Update with your actual App Store ID
-const APP_STORE_ID = '6740512078';
-// Android package name
-const ANDROID_PACKAGE_NAME = 'com.defterapp.isletmetakip';
+// Keep these identifiers aligned with eas.json/app.json. They are used only
+// for the explicit user-tapped "Puan Ver" deep links.
+const APP_STORE_ID = '6756860637';
+const ANDROID_PACKAGE_NAME = 'com.isletmetakip.app';
 
 interface ReviewContextValue {
   /** Trigger review flow if eligible (checks transaction count internally) */

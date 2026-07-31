@@ -8,6 +8,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { withFnTelemetry, measuredFetch } from "../_shared/telemetry.ts";
+import { fetchUnambiguousPushTokenMap } from "../_shared/pushTokenOwnership.ts";
 import {
   getBearerToken,
   guardPostRequest,
@@ -142,6 +143,18 @@ interface CariLink {
   cari_id: string;
   owner_isletme_id: string;
   viewer_isletme_id: string;
+}
+
+interface PushTokenRow {
+  user_id: string;
+  token: string;
+  locale: string | null;
+}
+
+interface RecipientContext {
+  recipientIsletmeId: string;
+  senderName: string | null;
+  userIds: string[];
 }
 
 function notifyResponse(
@@ -291,6 +304,9 @@ Deno.serve(withFnTelemetry({
     // Her link icin karsi tarafa bildirim gonder
     let sentCount = 0;
 
+    // Tek toplu sorgu: aynı cihaz tokenı birden çok user_id'ye bağlıysa sahiplik
+    // belirsizdir; yeni claim bunu onarana kadar hiçbir sahibine push gönderme.
+    const recipientContexts: RecipientContext[] = [];
     for (const link of links) {
       // Alici: islem yapan kisi owner ise viewer'a, viewer ise owner'a bildir
       const recipientIsletmeId =
@@ -350,19 +366,43 @@ Deno.serve(withFnTelemetry({
         .eq("id", senderIsletmeId)
         .single();
 
+      recipientContexts.push({
+        recipientIsletmeId,
+        senderName: senderIsletme?.name || null,
+        userIds: recipientUserIds,
+      });
+    }
+
+    const {
+      byUserId: safePushTokensByUser,
+      failedChunkMessages,
+      ambiguousResponseTokens,
+    } = await fetchUnambiguousPushTokenMap<PushTokenRow>(
+      recipientContexts.flatMap((context) => context.userIds),
+      async (userIds) => {
+        const { data, error } = await supabaseAdmin.rpc(
+          "get_unambiguous_push_tokens_v1",
+          { p_user_ids: userIds },
+        );
+        return { data: (data || []) as PushTokenRow[], error };
+      },
+    );
+    for (const message of failedChunkMessages) {
+      console.error(
+        "[notify-linked-users] Safe push token RPC error:",
+        message,
+      );
+    }
+    if (ambiguousResponseTokens.size > 0) {
+      console.warn(
+        `[notify-linked-users] Skipping ${ambiguousResponseTokens.size} ambiguous RPC response token(s)`,
+      );
+    }
+
+    for (const context of recipientContexts) {
       // Her alici kullaniciya bildirim gonder
-      for (const userId of recipientUserIds) {
-        // Push token'i bul
-        const { data: pushTokenRecord, error: tokenError } = await supabaseAdmin
-          .from("push_tokens")
-          .select("user_id, token, locale")
-          .eq("user_id", userId)
-          .maybeSingle();
-
-        if (tokenError) {
-          console.error("[notify-linked-users] Token query error:", tokenError.message);
-        }
-
+      for (const userId of context.userIds) {
+        const pushTokenRecord = safePushTokensByUser.get(userId);
         if (!pushTokenRecord) {
           console.log(
             `[notify-linked-users] No push token found: user_id=${userId}`
@@ -373,7 +413,7 @@ Deno.serve(withFnTelemetry({
         // Kullanicinin dil tercihini belirle
         const lang = pushTokenRecord.locale?.startsWith("en") ? "en" : "tr";
         const texts = getTexts(lang);
-        const senderName = senderIsletme?.name || texts.unknownSender;
+        const senderName = context.senderName || texts.unknownSender;
 
         // Bildirim mesajini olustur
         const islemTypeLabel = getIslemTypeLabel(record.type as IslemType, lang);
@@ -394,7 +434,7 @@ Deno.serve(withFnTelemetry({
             type: "linked_cari_transaction",
             cari_id: record.cari_id,
             islem_id: record.id,
-            isletme_id: recipientIsletmeId,
+            isletme_id: context.recipientIsletmeId,
           },
           priority: "high",
           channelId: "default",

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
+import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 import { Text, CategoryPicker, Modal } from '@/components/ui';
@@ -41,7 +42,6 @@ import { ExchangeRateBar } from '../ExchangeRateBar';
 import { UrunPickerModal } from '../QuickTransactionBar/components';
 import type { UrunItem } from '../QuickTransactionBar/types';
 import { useUrunler, useCreateUrun } from '@/hooks/useUrunler';
-import { useSettings } from '@/hooks/useSettings';
 import {
   classifyMutationError,
   getTransactionMutationMessageKey,
@@ -52,6 +52,8 @@ import {
   buildMutationFingerprint,
   isSameRegularCreate,
 } from '@/lib/mutationIdentity';
+import { hasUnsupportedQuickTransactionProducts } from '@/lib/productSelectionGuard';
+import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
 
 import { CreditCardDatePicker } from './CreditCardDatePicker';
 import { HesapPickerSheet, CariPickerSheet, PersonelPickerSheet, OdemeHedefTypePicker } from './CreditCardPickerSheets';
@@ -60,7 +62,7 @@ import { styles } from './styles';
 type OdemeHedefType = 'tedarikci' | 'staff';
 const PRODUCT_CREATE_PROBE_TIMEOUT_MS = 5000;
 
-async function probeCreatedProductExpense(
+async function probeCreatedCreditCardTransaction(
   islemId: string,
   isletmeId: string,
   expected: Omit<IslemInsert, 'isletme_id'>,
@@ -151,10 +153,16 @@ export function CreditCardTransactionBar({
   const [urunItems, setUrunItems] = useState<UrunItem[]>([]);
   const [showUrunPicker, setShowUrunPicker] = useState(false);
   const [urunSearchQuery, setUrunSearchQuery] = useState('');
-  const productExpenseMutationIdRef = useRef<string | null>(null);
-  const productExpenseMutationFingerprintRef = useRef<string | null>(null);
+  // Bütün create yolları aynı istemci UUID'sini taşır. Böylece hem hızlı çift
+  // dokunuş hem de "sunucuda commit + HTTP cevabı kayıp" tekrarı ikinci bir
+  // finansal satır oluşturamaz.
+  const createMutationIdRef = useRef<string | null>(null);
+  const createMutationFingerprintRef = useRef<string | null>(null);
+  const submitInFlightRef = useRef(false);
   const hasProductExpense =
     type === 'kredi_karti_gider' && urunItems.length > 0;
+  const hasUnsupportedProductSelection =
+    hasUnsupportedQuickTransactionProducts(type, urunItems.length);
 
   const [sourceHesapId, setSourceHesapId] = useState<string | null>(null);
   const [cariId, setCariId] = useState<string | null>(null);
@@ -188,6 +196,8 @@ export function CreditCardTransactionBar({
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
   const [categorySkipped, setCategorySkipped] = useState(false);
   const [selectedCategoryType, setSelectedCategoryType] = useState<'gelir' | 'gider' | null>(null);
+  const [categoryNavigatedAway, setCategoryNavigatedAway] = useState(false);
+  const categoryNavigationPendingRef = useRef(false);
 
   // Animation
   const opacity = useRef(new Animated.Value(0)).current;
@@ -243,7 +253,6 @@ export function CreditCardTransactionBar({
   // Ürün — ana bar ile aynı hook'lar (reuse)
   const { data: urunler } = useUrunler(false, canUseProducts);
   const createUrun = useCreateUrun();
-  const { currency: userCurrency } = useSettings();
 
   // Inline ürün oluşturma (aranan ürün yoksa oluştur + otomatik seç). Tam ekran /urunler/ekle
   // yolu (onAddFullProduct) burada VERİLMEZ — bu bar'da navigasyon/veri-kaybı karmaşasına
@@ -257,13 +266,16 @@ export function CreditCardTransactionBar({
           kdv_orani: 0,
           alis_fiyati: 0,
           satis_fiyati: 0,
-          currency: userCurrency as Currency,
+          // Kredi kartı harcamasının gerçek para birimi kart hesabından gelir.
+          // Global görüntüleme tercihini kullanmak TRY ürünü USD harcamaya
+          // uyarısız ve çevrilmeden yazabiliyordu.
+          currency: creditCard.currency,
         });
       } catch {
         return undefined;
       }
     },
-    [createUrun, userCurrency]
+    [createUrun, creditCard.currency]
   );
 
   const amountInputRef = useRef<TextInput>(null);
@@ -319,13 +331,15 @@ export function CreditCardTransactionBar({
         setCategoryPickerOpen(false);
         setCategorySkipped(false);
         setSelectedCategoryType(null);
+        setCategoryNavigatedAway(false);
+        categoryNavigationPendingRef.current = false;
         setPhotoUri(null);
         setShowPhotoViewer(false);
         setUrunItems([]);
         setShowUrunPicker(false);
         setUrunSearchQuery('');
-        productExpenseMutationIdRef.current = null;
-        productExpenseMutationFingerprintRef.current = null;
+        createMutationIdRef.current = null;
+        createMutationFingerprintRef.current = null;
       }, 300);
       return () => clearTimeout(timer);
     }
@@ -364,9 +378,8 @@ export function CreditCardTransactionBar({
     setOdemeHedefType(
       canCreateSupplierPayment ? 'tedarikci' : 'staff',
     );
-    // NOT: urunItems tür değişince TEMİZLENMEZ — kullanıcı sekme değiştirip geri gelince
-    // ürünler durur (ana bar ile aynı UX). Kayıtta yalnız kredi_karti_gider'de stok
-    // hareketi oluşur (aşağıdaki tip guard'ı); Ürün butonu da yalnız o tipte görünür.
+    // urunItems tür değişince temizlenmez; kullanıcı geri döndüğünde kalemler
+    // korunur. Desteklenmeyen tipte düğme görünür kalır ve kaydetme fail-closed.
   }, [canCreateSupplierPayment, type]);
 
   // Keyboard listeners
@@ -451,11 +464,18 @@ export function CreditCardTransactionBar({
     }
   }, [visible, animateOpen]);
 
-  const handleDismiss = useCallback(() => {
+  const dismissModal = useCallback(() => {
     animateClose(() => {
       onDismiss();
     });
   }, [animateClose, onDismiss]);
+
+  const handleDismiss = useCallback(() => {
+    // Kullanıcı yazma sürerken modalı kapatıp 300 ms sonra yeni UUID ile tekrar
+    // açamasın. Başarılı kayıt kendi kontrollü dismiss yolunu kullanır.
+    if (submitInFlightRef.current) return;
+    dismissModal();
+  }, [dismissModal]);
 
   const handleBackdropPress = useCallback(() => {
     if (Platform.OS !== 'web') {
@@ -535,17 +555,14 @@ export function CreditCardTransactionBar({
       }
 
       try {
-        if (
-          !hasProductExpense
-          && productExpenseMutationFingerprintRef.current
-        ) {
-          throw new MutationRetryPayloadChangedError();
-        }
-
         const { apiType, hesapId, hedefHesapId, cariIdValue, personelIdValue } = resolveLegs();
+        const clientMutationId =
+          createMutationIdRef.current ?? Crypto.randomUUID();
+        createMutationIdRef.current = clientMutationId;
 
         if (isScheduled) {
           const scheduledData: Omit<IleriTarihliIslemInsert, 'isletme_id'> = {
+            id: clientMutationId,
             type: apiType,
             amount: parsedAmount,
             description: description.trim() || null,
@@ -556,17 +573,21 @@ export function CreditCardTransactionBar({
             personel_id: personelIdValue,
             scheduled_date: formatDateForDB(date),
           };
+          const fingerprint = buildMutationFingerprint({
+            kind: 'scheduled',
+            input: scheduledData,
+          });
+          if (
+            createMutationFingerprintRef.current
+            && createMutationFingerprintRef.current !== fingerprint
+          ) {
+            throw new MutationRetryPayloadChangedError();
+          }
+          createMutationFingerprintRef.current = fingerprint;
           await createIleriTarihliIslem.mutateAsync(scheduledData);
         } else {
-          const clientIslemId = hasProductExpense
-            ? productExpenseMutationIdRef.current ?? Crypto.randomUUID()
-            : null;
-          if (clientIslemId) {
-            productExpenseMutationIdRef.current = clientIslemId;
-          }
-
           const islemData: Omit<IslemInsert, 'isletme_id'> = {
-            ...(clientIslemId ? { id: clientIslemId } : {}),
+            id: clientMutationId,
             type: apiType,
             amount: parsedAmount,
             description: description.trim() || null,
@@ -584,51 +605,54 @@ export function CreditCardTransactionBar({
                 }
               : {}),
           };
-          let newIslem: Islem;
-          if (hasProductExpense && clientIslemId) {
-            const items = urunItems.map((item) => ({
-              urun_id: item.urunId,
-              hareket_tipi: 'giris' as const,
-              miktar: item.miktar,
-              birim_fiyat: item.birimFiyat,
-              kdv_orani: item.kdvOrani,
-              aciklama: description.trim() || null,
-            }));
-            const fingerprint = buildMutationFingerprint({
-              input: islemData,
-              items,
-            });
-            if (
-              productExpenseMutationFingerprintRef.current
-              && productExpenseMutationFingerprintRef.current !== fingerprint
-            ) {
-              throw new MutationRetryPayloadChangedError();
-            }
-            productExpenseMutationFingerprintRef.current = fingerprint;
+          const items = hasProductExpense
+            ? urunItems.map((item) => ({
+                urun_id: item.urunId,
+                hareket_tipi: 'giris' as const,
+                miktar: item.miktar,
+                birim_fiyat: item.birimFiyat,
+                kdv_orani: item.kdvOrani,
+                aciklama: description.trim() || null,
+              }))
+            : [];
+          const fingerprint = buildMutationFingerprint({
+            kind: 'regular',
+            input: islemData,
+            items,
+          });
+          if (
+            createMutationFingerprintRef.current
+            && createMutationFingerprintRef.current !== fingerprint
+          ) {
+            throw new MutationRetryPayloadChangedError();
+          }
+          createMutationFingerprintRef.current = fingerprint;
 
-            try {
+          let newIslem: Islem;
+          try {
+            if (hasProductExpense) {
               newIslem = await createIslemWithUrun.mutateAsync({
                 input: islemData,
                 items,
               });
-            } catch (rpcError) {
-              if (
-                classifyMutationError(rpcError) !== 'network_unknown'
-                || !isletme?.id
-              ) {
-                throw rpcError;
-              }
-
-              const landed = await probeCreatedProductExpense(
-                clientIslemId,
-                isletme.id,
-                islemData,
-              );
-              if (!landed) throw rpcError;
-              newIslem = landed;
+            } else {
+              newIslem = await createIslem.mutateAsync(islemData);
             }
-          } else {
-            newIslem = await createIslem.mutateAsync(islemData);
+          } catch (rpcError) {
+            if (
+              classifyMutationError(rpcError) !== 'network_unknown'
+              || !isletme?.id
+            ) {
+              throw rpcError;
+            }
+
+            const landed = await probeCreatedCreditCardTransaction(
+              clientMutationId,
+              isletme.id,
+              islemData,
+            );
+            if (!landed) throw rpcError;
+            newIslem = landed;
           }
 
           // Foto varsa yükle → photo_path set et (ana bar ile aynı akış; scheduled hariç)
@@ -651,10 +675,10 @@ export function CreditCardTransactionBar({
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         }
 
-        productExpenseMutationIdRef.current = null;
-        productExpenseMutationFingerprintRef.current = null;
+        createMutationIdRef.current = null;
+        createMutationFingerprintRef.current = null;
         onSuccess?.();
-        handleDismiss();
+        dismissModal();
       } catch (error) {
         if (__DEV__) {
           console.error('Transaction error:', error);
@@ -668,8 +692,8 @@ export function CreditCardTransactionBar({
           || errorKind === 'validation'
           || errorKind === 'network_not_sent'
         ) {
-          productExpenseMutationIdRef.current = null;
-          productExpenseMutationFingerprintRef.current = null;
+          createMutationIdRef.current = null;
+          createMutationFingerprintRef.current = null;
         }
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -685,28 +709,54 @@ export function CreditCardTransactionBar({
     },
     [
       t, description, date, kategoriId, isScheduled, resolveLegs,
-      createIslem, createIleriTarihliIslem, onSuccess, handleDismiss,
+      createIslem, createIleriTarihliIslem, onSuccess, dismissModal,
       isOwner, photoUri, uploadPhoto, updateIslem, isletme,
       urunItems, hasProductExpense, createIslemWithUrun,
     ]
   );
 
   const handleExchangeRateConfirm = useCallback(
-    (exchangeRate: number) => {
+    async (exchangeRate: number) => {
       if (!pendingExchange) return;
-      const { sourceCurrency, targetCurrency, sourceAmount } = pendingExchange;
-      setShowExchangeRateBar(false);
-      setPendingExchange(null);
-      void persistIslem(sourceAmount, { sourceCurrency, targetCurrency, exchangeRate });
+      if (submitInFlightRef.current) return;
+      submitInFlightRef.current = true;
+      try {
+        const { sourceCurrency, targetCurrency, sourceAmount } = pendingExchange;
+        setShowExchangeRateBar(false);
+        setPendingExchange(null);
+        await persistIslem(sourceAmount, {
+          sourceCurrency,
+          targetCurrency,
+          exchangeRate,
+        });
+      } finally {
+        submitInFlightRef.current = false;
+      }
     },
     [pendingExchange, persistIslem]
   );
 
   const handleSave = useCallback(async () => {
+    // React state ancak sonraki render'da butonu disabled yapar. Ref aynı JS
+    // frame'inde ikinci onPress'i keserek iki ayrı finansal mutation'ı engeller.
+    if (submitInFlightRef.current) return;
+    submitInFlightRef.current = true;
+    try {
     if (!isValidAmount(amount)) {
       if (Platform.OS !== 'web') {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       }
+      return;
+    }
+
+    if (hasUnsupportedProductSelection) {
+      if (Platform.OS !== 'web') {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      }
+      Alert.alert(
+        t('transactions:validation.productsUnsupportedTypeTitle'),
+        t('transactions:validation.productsUnsupportedTypeMessage'),
+      );
       return;
     }
 
@@ -800,10 +850,14 @@ export function CreditCardTransactionBar({
     }
 
     await persistIslem(parsedAmount);
+    } finally {
+      submitInFlightRef.current = false;
+    }
   }, [
     t, amount, type, kategoriId, categorySkipped,
     isScheduled, sourceHesapId, cariId, personelId, odemeHedefType,
     allowedTypes, canCreate, canCreateTransactionType, hasProductExpense,
+    hasUnsupportedProductSelection,
     resolveLegs, persistIslem,
   ]);
 
@@ -868,6 +922,24 @@ export function CreditCardTransactionBar({
     setPersonelSearchQuery('');
   }, []);
 
+  // Kategori ekleme tam ekran bir route'a gider. Parent `visible` değerini kapatmak
+  // formu sıfırladığı için kartı yalnız geçici olarak gizle; route geri odaklandığında
+  // taslağı koruyup yeni kategoriyi otomatik seç.
+  useFocusEffect(
+    useCallback(() => {
+      if (!visible || !categoryNavigationPendingRef.current) return;
+
+      categoryNavigationPendingRef.current = false;
+      setCategoryNavigatedAway(false);
+      const pending = consumePendingCategorySelection();
+      if (pending?.type === 'gider') {
+        setKategoriId(pending.id);
+        setSelectedCategoryType('gider');
+      }
+      setCategoryPickerOpen(false);
+    }, [visible]),
+  );
+
   if (!visible || allowedTypes.length === 0) return null;
 
   const buttonColor = getTransactionTypeColor(type);
@@ -891,16 +963,22 @@ export function CreditCardTransactionBar({
   // Hero tutar: uzun sayılarda fontu yumuşat (RN TextInput otomatik küçültmez)
   const amtFontSize = amount.length > 12 ? 22 : amount.length > 9 ? 26 : 30;
 
-  // Ürün butonu: yalnızca ürün varsa VE kredi kartı HARCAMA tipinde (mal alımı)
+  // Desteklenmeyen sekmede seçili kalem varsa düğmeyi görünür tut; kullanıcı
+  // kalemleri kaldırabilsin ve sessiz veri kaybı yaşanmasın.
   const hasUrunler = (urunler?.length ?? 0) > 0;
   const showUrunButton =
     canUseProducts
     && hasUrunler
-    && type === 'kredi_karti_gider'
+    && (type === 'kredi_karti_gider' || urunItems.length > 0)
     && !isScheduled;
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal
+      visible={visible && !categoryNavigatedAway}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+    >
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <View style={styles.backdrop} />
       </TouchableWithoutFeedback>
@@ -1064,7 +1142,10 @@ export function CreditCardTransactionBar({
               type={categoryType}
               label=""
               placeholder={t('common:select.selectCategory')}
-              onNavigateAway={onDismiss}
+              onNavigateAway={() => {
+                categoryNavigationPendingRef.current = true;
+                setCategoryNavigatedAway(true);
+              }}
               open={categoryPickerOpen}
               onOpenChange={(open) => {
                 setCategoryPickerOpen(open);
@@ -1239,7 +1320,7 @@ export function CreditCardTransactionBar({
           // dışındaki ayracı siler (TR'de "489.65" → "48965", 100x şişme).
           if (total > 0) setAmount(formatAmountForInput(roundCurrency(total)));
         }}
-        currency={userCurrency}
+        currency={creditCard.currency}
         islemYonu="alis"
         onCreateNew={handleUrunCreateNew}
         creating={createUrun.isPending}

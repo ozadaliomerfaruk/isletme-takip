@@ -76,6 +76,7 @@ import {
   getAllowedScopedQuickTransactionTypes,
 } from '@/lib/quickTransactionCreateScope';
 import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
+import { supportsQuickTransactionProducts } from '@/lib/productSelectionGuard';
 import { checkBackendConnectivity } from '@/lib/supabase';
 import {
   getTransactionMutationMessageKey,
@@ -911,6 +912,29 @@ export function QuickTransactionBar({
   // Inline ürün oluşturma: picker'da aranan ürün yoksa "+ yeni ekle" ile oluştur + otomatik seç.
   const createUrun = useCreateUrun();
   const { currency: userCurrency } = useSettings();
+  // Ürün fiyatları, uygulamanın yalnızca gösterim tercihiyle değil işlemin gerçek
+  // para birimiyle gösterilip kaydedilmeli. Cari alış/satışlarında gerçek bacak
+  // caridir; gelir/giderde hesaptır. Hedef henüz seçilmediyse mevcut davranışın
+  // güvenli varsayılanı olarak kullanıcının gösterim para birimine düşeriz.
+  const productTransactionCurrency = useMemo(() => {
+    if (['alis', 'satis', 'alis_iade', 'satis_iade'].includes(form.type)) {
+      return (entities.selectedCari?.currency ?? userCurrency) as Currency;
+    }
+    if (form.type === 'kredi_karti_gider') {
+      return (
+        entities.selectedKrediKarti?.currency
+        ?? entities.selectedHesap?.currency
+        ?? userCurrency
+      ) as Currency;
+    }
+    return (entities.selectedHesap?.currency ?? userCurrency) as Currency;
+  }, [
+    entities.selectedCari?.currency,
+    entities.selectedHesap?.currency,
+    entities.selectedKrediKarti?.currency,
+    form.type,
+    userCurrency,
+  ]);
   const handleUrunCreateNew = useCallback(
     async (name: string): Promise<Urun | undefined> => {
       try {
@@ -920,13 +944,13 @@ export function QuickTransactionBar({
           kdv_orani: 0,
           alis_fiyati: 0,
           satis_fiyati: 0,
-          currency: userCurrency as Currency,
+          currency: productTransactionCurrency,
         });
       } catch {
         return undefined;
       }
     },
-    [createUrun, userCurrency]
+    [createUrun, productTransactionCurrency]
   );
 
   const handleOpenTaksitConfig = useCallback(() => {
@@ -1596,9 +1620,14 @@ export function QuickTransactionBar({
   };
   const categoryType = modals.selectedCategoryType || getCategoryType();
 
-  // Urun button visibility - show for alis/satis/iade, gelir/gider, and kredi_karti_gider types if user has products
-  const urunTransactionTypes: TransactionType[] = ['alis', 'satis', 'alis_iade', 'satis_iade', 'gelir', 'gider', 'kredi_karti_gider'];
-  const showUrunButton = entities.hasUrunler && urunTransactionTypes.includes(form.type);
+  // Seçili ürünler desteklenmeyen bir sekmeye geçilince de düğmeyi görünür
+  // tut: kullanıcı ürünleri kaldırabilsin; kaydetme katmanı bu durumda fail-closed.
+  const showUrunButton =
+    entities.hasUrunler
+    && (
+      supportsQuickTransactionProducts(form.type)
+      || form.urunItems.length > 0
+    );
 
   // Vade (ödeme tarihi) — yalnız borç-doğuran (alış/satış) + non-scheduled tiplerde. İleri-tarihli
   // (Bell) ile BİLİNÇLİ olarak ayrı: bu, var olan borcun ödeme vadesi (scheduled = henüz olmamış işlem).
@@ -2295,7 +2324,7 @@ export function QuickTransactionBar({
             form.setAmount(formatAmountForInput(roundCurrency(total)));
           }
         }}
-        currency={userCurrency}
+        currency={productTransactionCurrency}
         islemYonu={form.type === 'satis' || form.type === 'satis_iade' ? 'satis' : 'alis'}
         onCreateNew={handleUrunCreateNew}
         creating={createUrun.isPending}

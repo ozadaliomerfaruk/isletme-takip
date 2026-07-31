@@ -9,6 +9,75 @@ import i18n from '@/i18n';
 
 // Reminder storage key prefix
 const REMINDER_STORAGE_KEY = 'reminder_';
+export const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
+
+// Aynı JS sürecindeki token yazılarını sırala. A kullanıcısının yavaş RPC'si B
+// girişinden sonra tamamlanıp tokenı tekrar A'ya taşıyamaz; B her zaman A'nın
+// tamamlanmasının ardından claim eder.
+let pushTokenWriteTail: Promise<void> = Promise.resolve();
+let pushTokenWritesSuppressed = false;
+const blockedPushTokenUserIds = new Set<string>();
+
+function enqueuePushTokenWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const result = pushTokenWriteTail.then(operation, operation);
+  pushTokenWriteTail = result.then(
+    () => undefined,
+    () => undefined,
+  );
+  return result;
+}
+
+export async function setNotificationsEnabledPreference(
+  enabled: boolean,
+): Promise<void> {
+  if (!enabled) pushTokenWritesSuppressed = true;
+  await AsyncStorage.setItem(
+    NOTIFICATIONS_ENABLED_KEY,
+    enabled ? 'true' : 'false',
+  );
+  if (enabled) pushTokenWritesSuppressed = false;
+}
+
+/**
+ * A completed login (and only that) reopens token writes for the user. Logout
+ * closes the fence synchronously before any asynchronous token cleanup starts.
+ */
+export function resumePushTokenRegistrationForUser(userId: string): void {
+  blockedPushTokenUserIds.delete(userId);
+}
+
+/**
+ * A failed auth sign-out leaves the current session active after its server
+ * push-token row may already have been removed. Reconcile that row immediately
+ * without prompting for permission. If the network is also unavailable, the
+ * root registration hook retries when connectivity changes.
+ */
+export async function restorePushTokenAfterFailedSignOut(
+  userId: string,
+): Promise<void> {
+  resumePushTokenRegistrationForUser(userId);
+
+  try {
+    const preference = await AsyncStorage.getItem(
+      NOTIFICATIONS_ENABLED_KEY,
+    );
+    if (preference === 'false') return;
+
+    const token = await registerForPushNotificationsAsync({
+      promptIfNeeded: false,
+    });
+    if (!token) return;
+
+    await savePushToken(userId, token);
+  } catch (error) {
+    if (__DEV__) {
+      console.warn(
+        'Başarısız çıkış sonrası push token yenilenemedi:',
+        toErrorMessage(error),
+      );
+    }
+  }
+}
 
 // Bildirim ayarları
 Notifications.setNotificationHandler({
@@ -111,48 +180,102 @@ export async function registerForPushNotificationsAsync(
   return token;
 }
 
-// Push token'ı veritabanına kaydet
-export async function savePushToken(userId: string, token: string): Promise<void> {
+function isMissingPushClaimRpc(error: { code?: string } | null): boolean {
+  return error?.code === 'PGRST202' || error?.code === '42883';
+}
+
+// Push token'ı veritabanına kaydet. Yeni istemci atomik claim RPC'siyle aynı
+// cihaz token'ının eski kullanıcı satırını da temizler. RPC henüz deploy edilmemiş
+// kısa rollout penceresinde yalnız "fonksiyon yok" hatası legacy upsert'e düşer.
+async function persistPushToken(userId: string, token: string): Promise<boolean> {
   try {
-    // Verify active session before attempting to save
+    // Geç kalan A-kullanıcısı effect'i B oturumunda A adına kayıt yazamasın.
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    if (!session || session.user.id !== userId) {
       if (__DEV__) {
-        console.log('Push token kaydedilmedi: aktif oturum yok');
+        console.log('Push token kaydedilmedi: kullanıcı oturumu eşleşmiyor');
       }
-      return;
+      return false;
     }
 
-    const { error } = await supabase
+    const locale = i18n.language?.startsWith('en') ? 'en' : 'tr';
+    const { error: claimError } = await supabase.rpc('claim_push_token_v1', {
+      p_token: token,
+      p_platform: Platform.OS,
+      p_locale: locale,
+    });
+
+    if (!claimError) {
+      if (__DEV__) {
+        console.log('Push token kaydedildi');
+      }
+      return true;
+    }
+
+    if (!isMissingPushClaimRpc(claimError)) {
+      if (__DEV__) {
+        console.warn('Push token claim hatası:', toErrorMessage(claimError));
+      }
+      return false;
+    }
+
+    // Migration ile uygulama rollout'u arasındaki kısa süre için geriye uyum.
+    // Güvenlik/validasyon hatalarında buraya düşülmez; yalnız RPC yoksa eski 1.5.x
+    // davranışı sürdürülür.
+    const { error: legacyError } = await supabase
       .from('push_tokens')
       .upsert(
         {
           user_id: userId,
-          token: token,
+          token,
           platform: Platform.OS,
-          // Edge function'lar (notify-linked-users) bildirim dilini bu alandan okur
-          locale: i18n.language?.startsWith('en') ? 'en' : 'tr',
+          locale,
           updated_at: new Date().toISOString(),
         },
-        {
-          onConflict: 'user_id',
-        }
+        { onConflict: 'user_id' },
       );
 
-    if (error) {
+    if (legacyError) {
       if (__DEV__) {
-        console.warn('Push token kaydetme hatası:', toErrorMessage(error));
+        console.warn('Push token kaydetme hatası:', toErrorMessage(legacyError));
       }
-    } else {
-      if (__DEV__) {
-        console.log('Push token kaydedildi');
-      }
+      return false;
     }
+
+    return true;
   } catch (error) {
     if (__DEV__) {
       console.warn('Push token kaydetme hatası:', toErrorMessage(error));
     }
+    return false;
   }
+}
+
+export function savePushToken(
+  userId: string,
+  token: string,
+): Promise<boolean> {
+  return enqueuePushTokenWrite(async () => {
+    try {
+      if (blockedPushTokenUserIds.has(userId)) return false;
+      const preference = await AsyncStorage.getItem(
+        NOTIFICATIONS_ENABLED_KEY,
+      );
+      if (
+        blockedPushTokenUserIds.has(userId)
+        || pushTokenWritesSuppressed
+        || preference === 'false'
+      ) {
+        return false;
+      }
+      return await persistPushToken(userId, token);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Push token tercihi okunamadı:', toErrorMessage(error));
+      }
+      return false;
+    }
+  });
 }
 
 // Push token'ı sil (logout sırasında)
@@ -176,16 +299,79 @@ export async function removePushToken(userId: string): Promise<void> {
 }
 
 /**
- * Oturum kapanırken önce sunucu token'ını, ardından bu kullanıcıya ait olabilecek
- * cihaz içi planlı/gösterilmiş bildirimleri temizle. Her adım best-effort'tur:
+ * Kullanıcı bildirim anahtarını kapattığında önce yeni claim'leri bastır, daha
+ * önce başlamış claim kuyruğunun bitmesini bekle ve EN SON token/yerel
+ * bildirimleri temizle. Böylece geç bir claim silinen tokenı geri koyamaz.
+ */
+export async function disableNotificationsForUser(
+  userId: string | null,
+): Promise<void> {
+  await setNotificationsEnabledPreference(false);
+  await pushTokenWriteTail;
+
+  await Promise.allSettled([
+    userId ? removePushToken(userId) : Promise.resolve(),
+    Notifications.unregisterForNotificationsAsync(),
+    Notifications.cancelAllScheduledNotificationsAsync(),
+    Notifications.dismissAllNotificationsAsync(),
+  ]);
+}
+
+/**
+ * Oturum kapanırken sunucu token'ı ile cihaz içi planlı/gösterilmiş bildirimleri
+ * paralel temizle. Her adım best-effort'tur:
  * bildirim altyapısındaki bir hata kullanıcının çıkış yapmasını engellemez.
  */
 export async function clearNotificationsForSignOut(userId: string): Promise<void> {
-  await removePushToken(userId);
+  // Synchronous fence: token acquisition that finishes after logout began may
+  // enqueue a save later, but that late operation can no longer recreate the
+  // row after this user's queued removal.
+  blockedPushTokenUserIds.add(userId);
+  const queuedRemoval = enqueuePushTokenWrite(async () => {
+    await removePushToken(userId);
+  });
 
   await Promise.allSettled([
+    queuedRemoval,
     Notifications.cancelAllScheduledNotificationsAsync(),
     Notifications.dismissAllNotificationsAsync(),
+  ]);
+}
+
+/**
+ * Gives the authenticated RLS delete a short head start before auth.signOut()
+ * invalidates the local session. Logout is still bounded: a stalled network
+ * cannot hold the user on screen indefinitely.
+ */
+export async function waitForNotificationCleanupBeforeSignOut(
+  userId: string,
+  timeoutMs = 2_500,
+): Promise<'completed' | 'timeout'> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<'timeout'>((resolve) => {
+    timeoutHandle = setTimeout(() => resolve('timeout'), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([
+      clearNotificationsForSignOut(userId).then(
+        (): 'completed' => 'completed',
+      ),
+      timeout,
+    ]);
+  } finally {
+    if (timeoutHandle) clearTimeout(timeoutHandle);
+  }
+}
+
+/**
+ * Native APNs/FCM kaydını yalnız auth çıkışı gerçekten tamamlandıktan sonra
+ * kaldır. Böylece başarısız bir signOut, açık kalan oturumun bildirimlerini
+ * sessizce kesmez.
+ */
+export async function finalizeNotificationsAfterSignOut(): Promise<void> {
+  await Promise.allSettled([
+    Notifications.unregisterForNotificationsAsync(),
   ]);
 }
 
