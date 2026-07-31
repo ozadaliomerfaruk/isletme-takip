@@ -266,6 +266,10 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
     const inVerify = segments[0] === 'verify';
+    // Gizlilik ve bölgesel gizlilik hakları metinleri, kişisel veri alınmadan önce kayıt ekranından
+    // okunabilmeli. Bu rotaları yalnız oturum açmış kullanıcılara kapatmak
+    // aydınlatmayı kayıt sonrasına bırakıyordu.
+    const inLegal = segments[0] === 'yasal';
     const inKurulum = segments[0]?.startsWith('kurulum') ?? false;
     // Kurulum sırasında "ekle" ekranlarına (cari/personel/hesap) gidilebilsin —
     // rehberli oluşturma adımı buraya yönlendirir; guard başa atmamalı.
@@ -273,7 +277,7 @@ function RootLayoutNav() {
       (segments[0] === 'cariler' || segments[0] === 'personel' || segments[0] === 'hesaplar') &&
       (segments as readonly string[])[1] === 'ekle';
 
-    if (!user && !inAuthGroup && !inOnboarding && !inVerify) {
+    if (!user && !inAuthGroup && !inOnboarding && !inVerify && !inLegal) {
       // Kullanici giris yapmamis, login'e yonlendir
       router.replace('/(auth)/login');
     } else if (user && inAuthGroup && !needsPasswordReset) {
@@ -738,7 +742,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('navigation:menu.kvkk'),
+            headerTitle: t('navigation:menu.privacyNotice'),
             headerShadowVisible: false,
           }}
         />

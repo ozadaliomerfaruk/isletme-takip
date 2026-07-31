@@ -57,7 +57,7 @@
     },
     "disaAktarma": {
       "title": "Export, Backup & Security",
-      "content": "You can share or print account summaries and balance statements as PDF or Excel for any date range you choose.\nUse Import Data in the More menu to bulk-import transactions from an Excel file.\nYour data is backed up on our servers and does not get lost; all revenue, income and expenses you enter are stored encrypted and cannot be seen by others. In short, your data is kept safely and with backups."
+      "content": "You can share or print account summaries and balance statements as PDF or Excel for any date range you choose.\nUse Import Data in the More menu to bulk-import transactions from an Excel file.\nYour records are stored in secure cloud infrastructure and synchronized across your devices. Data is transferred over a secure connection; access within a business is limited by roles and permissions granted by its owner."
     },
     "tips": {
       "title": "Handy Tips",

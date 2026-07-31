@@ -9,7 +9,7 @@
 import { addMonths, formatDateForDB } from './date';
 
 export const MIN_INSTALLMENT_COUNT = 2;
-export const MAX_INSTALLMENT_COUNT = 48;
+export const MAX_INSTALLMENT_COUNT = 120;
 
 export interface LockedInstallmentRow {
   /** Sıfır tabanlı taksit satırı. */
@@ -18,10 +18,17 @@ export interface LockedInstallmentRow {
   amountCents: number;
 }
 
+export interface InstallmentDateOverride {
+  /** Sıfır tabanlı taksit satırı. */
+  index: number;
+  /** Kullanıcının elle seçtiği vade, YYYY-MM-DD (DB formatı). */
+  dueDate: string;
+}
+
 export interface InstallmentDistributionInput {
   /** Dağıtılacak toplam tutar, integer kuruş. */
   totalCents: number;
-  /** Taksit sayısı (2..48). */
+  /** Taksit sayısı (2..120). */
   count: number;
   /**
    * Kullanıcının elle düzenleyip sabitlediği satırlar.
@@ -86,10 +93,13 @@ export interface InstallmentPlan {
   ilkVade: Date;
   rows: InstallmentRpcRow[];
   lockedRows: LockedInstallmentRow[];
+  /** Satır bazında elle seçilmiş vadeler; kalan satırlar ilkVade + n ay kalır. */
+  dateOverrides: InstallmentDateOverride[];
 }
 
 export type InstallmentPlanErrorCode =
   | InstallmentDistributionErrorCode
+  | 'INVALID_DATE_OVERRIDE'
   | 'INVALID_FIRST_DUE_DATE'
   | 'FIRST_DUE_BEFORE_TRANSACTION_DATE'
   | 'STALE_TOTAL_CENTS'
@@ -164,7 +174,7 @@ function distributeFloorWithLeftRemainder(
 }
 
 /**
- * Toplam tutarı 2..48 pozitif taksite deterministik biçimde dağıtır.
+ * Toplam tutarı 2..120 pozitif taksite deterministik biçimde dağıtır.
  *
  * Sabit satır yokken mevcut uygulama davranışı korunur: ilk `count - 1`
  * satır `Math.round(toplam / adet)`, son satır tam kalan olur. Bu yöntem son
@@ -321,6 +331,38 @@ function isSupportedDueDate(value: unknown): value is Date {
   return year >= 1900 && year <= 2100;
 }
 
+const DB_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** YYYY-MM-DD biçiminde, gerçekten var olan (round-trip eden) bir günü doğrular. */
+function isSupportedDbDateString(value: unknown): value is string {
+  if (typeof value !== 'string' || !DB_DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00`);
+  if (!isSupportedDueDate(parsed)) return false;
+  return formatDateForDB(parsed) === value;
+}
+
+function normalizeDateOverrides(
+  dateOverrides: ReadonlyArray<InstallmentDateOverride>,
+  count: number
+):
+  | { ok: true; overrideByIndex: Map<number, string> }
+  | { ok: false; rowIndex: number } {
+  const overrideByIndex = new Map<number, string>();
+  for (const override of dateOverrides) {
+    if (
+      !Number.isSafeInteger(override.index) ||
+      override.index < 0 ||
+      override.index >= count ||
+      overrideByIndex.has(override.index) ||
+      !isSupportedDbDateString(override.dueDate)
+    ) {
+      return { ok: false, rowIndex: override.index };
+    }
+    overrideByIndex.set(override.index, override.dueDate);
+  }
+  return { ok: true, overrideByIndex };
+}
+
 function rpcAmountToCents(amount: number): number | null {
   if (!Number.isFinite(amount) || amount <= 0) return null;
 
@@ -344,12 +386,22 @@ export function buildInstallmentPlan(
   totalCents: number,
   count: number,
   firstDueDate: Date,
-  lockedRows: ReadonlyArray<LockedInstallmentRow> = []
+  lockedRows: ReadonlyArray<LockedInstallmentRow> = [],
+  dateOverrides: ReadonlyArray<InstallmentDateOverride> = []
 ): InstallmentPlanBuildResult {
   if (!isSupportedDueDate(firstDueDate)) {
     return planError(
       'INVALID_FIRST_DUE_DATE',
       'İlk taksit vadesi geçerli bir tarih olmalıdır.'
+    );
+  }
+
+  const normalizedOverrides = normalizeDateOverrides(dateOverrides, count);
+  if (!normalizedOverrides.ok) {
+    return planError(
+      'INVALID_DATE_OVERRIDE',
+      'Elle seçilen taksit vadesi geçersiz.',
+      normalizedOverrides.rowIndex
     );
   }
 
@@ -370,18 +422,25 @@ export function buildInstallmentPlan(
   const rows: InstallmentRpcRow[] = [];
 
   for (let index = 0; index < count; index += 1) {
-    const dueDate = addMonths(firstDueDateSnapshot, index);
-    if (!isSupportedDueDate(dueDate)) {
-      return planError(
-        'INVALID_FIRST_DUE_DATE',
-        'Taksit vadelerinden biri desteklenen tarih aralığının dışında.',
-        index
-      );
+    const overrideDate = normalizedOverrides.overrideByIndex.get(index);
+    let dueDateString: string;
+    if (overrideDate !== undefined) {
+      dueDateString = overrideDate;
+    } else {
+      const dueDate = addMonths(firstDueDateSnapshot, index);
+      if (!isSupportedDueDate(dueDate)) {
+        return planError(
+          'INVALID_FIRST_DUE_DATE',
+          'Taksit vadelerinden biri desteklenen tarih aralığının dışında.',
+          index
+        );
+      }
+      dueDateString = formatDateForDB(dueDate);
     }
 
     rows.push({
       sira: index + 1,
-      vade_tarihi: formatDateForDB(dueDate),
+      vade_tarihi: dueDateString,
       tutar: distribution.amountsCents[index] / 100,
     });
   }
@@ -394,6 +453,10 @@ export function buildInstallmentPlan(
       ilkVade: firstDueDateSnapshot,
       rows,
       lockedRows: lockedRows.map((row) => ({ ...row })),
+      dateOverrides: Array.from(
+        normalizedOverrides.overrideByIndex,
+        ([index, dueDate]) => ({ index, dueDate })
+      ).sort((a, b) => a.index - b.index),
     },
   };
 }
@@ -455,6 +518,20 @@ function validatePlanAndGetRows(
     );
   }
 
+  const normalizedOverrides = normalizeDateOverrides(
+    plan.dateOverrides ?? [],
+    plan.adet
+  );
+  if (!normalizedOverrides.ok) {
+    return planError(
+      'INVALID_DATE_OVERRIDE',
+      'Elle seçilen taksit vadesi geçersiz.',
+      normalizedOverrides.rowIndex
+    );
+  }
+  const minimumDueDateString =
+    minimumDueDate === undefined ? null : formatDateForDB(minimumDueDate);
+
   let rowTotalCents = 0;
   for (let index = 0; index < plan.rows.length; index += 1) {
     const row = plan.rows[index];
@@ -467,14 +544,38 @@ function validatePlanAndGetRows(
       );
     }
 
-    const expectedDueDate = addMonths(plan.ilkVade, index);
-    if (
-      !isSupportedDueDate(expectedDueDate) ||
-      row.vade_tarihi !== formatDateForDB(expectedDueDate)
-    ) {
+    const overrideDate = normalizedOverrides.overrideByIndex.get(index);
+    let expectedDueDateString: string;
+    if (overrideDate !== undefined) {
+      expectedDueDateString = overrideDate;
+    } else {
+      const expectedDueDate = addMonths(plan.ilkVade, index);
+      if (!isSupportedDueDate(expectedDueDate)) {
+        return planError(
+          'PLAN_ROW_DATE_MISMATCH',
+          'Taksit vadesi önizlenen planla uyuşmuyor.',
+          index
+        );
+      }
+      expectedDueDateString = formatDateForDB(expectedDueDate);
+    }
+
+    if (row.vade_tarihi !== expectedDueDateString) {
       return planError(
         'PLAN_ROW_DATE_MISMATCH',
         'Taksit vadesi önizlenen planla uyuşmuyor.',
+        index
+      );
+    }
+
+    // Elle seçilmiş vadeler de işlem tarihinin gerisine düşemez.
+    if (
+      minimumDueDateString !== null &&
+      row.vade_tarihi < minimumDueDateString
+    ) {
+      return planError(
+        'FIRST_DUE_BEFORE_TRANSACTION_DATE',
+        'Taksit vadesi işlem tarihinden önce olamaz.',
         index
       );
     }

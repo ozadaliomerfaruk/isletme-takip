@@ -228,19 +228,22 @@ describe('distributeInstallmentCents', () => {
       ).toEqual(new Array(12).fill(1));
     });
 
-    it('1 ve 49 taksit sayılarını reddeder', () => {
+    it('1 ve 121 taksit sayılarını reddeder (üst sınır 120)', () => {
       expectError(
         distributeInstallmentCents({ totalCents: 100, count: 1 }),
         'INVALID_INSTALLMENT_COUNT'
       );
       expectError(
-        distributeInstallmentCents({ totalCents: 100, count: 49 }),
+        distributeInstallmentCents({ totalCents: 200, count: 121 }),
         'INVALID_INSTALLMENT_COUNT'
       );
+      // 49..120 artık geçerli: eski üst sınırın hemen üstü ve yeni tavan.
+      expectSuccess(distributeInstallmentCents({ totalCents: 10_000, count: 49 }));
+      expectSuccess(distributeInstallmentCents({ totalCents: 10_000, count: 120 }));
     });
 
-    it('2..48 aralığında toplam >= adet olan örneklerin hepsini pozitif ve tam toplam üretir', () => {
-      for (let count = 2; count <= 48; count += 1) {
+    it('2..120 aralığında toplam >= adet olan örneklerin hepsini pozitif ve tam toplam üretir', () => {
+      for (let count = 2; count <= 120; count += 1) {
         const totals = [count, count + 1, count * 2 - 1, count * 3 + 2, 10_000 + count];
 
         for (const totalCents of totals) {

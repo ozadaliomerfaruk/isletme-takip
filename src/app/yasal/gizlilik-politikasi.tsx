@@ -1,9 +1,17 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useTranslation } from 'react-i18next';
 import { Text, Screen } from '@/components/ui';
-import { colors } from '@/constants/colors';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { spacing } from '@/constants/spacing';
+
+const SECTION_KEYS = [
+  'data',
+  'usage',
+  'permissions',
+  'sharing',
+  'retention',
+  'rights',
+] as const;
 
 export default function GizlilikPolitikasiPage() {
   const contentPaddingBottom = useContentBottomPadding();
@@ -12,7 +20,10 @@ export default function GizlilikPolitikasiPage() {
   return (
     <Screen>
       <ScrollView
-          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.content}>
           <Text variant="h3" style={styles.title}>
             {t('privacy.title')}
@@ -27,158 +38,16 @@ export default function GizlilikPolitikasiPage() {
             </Text>
           </View>
 
-          {/* Section 1: Collected Data */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.collectedData.title')}
-            </Text>
-
-            <Text variant="body" style={styles.subTitle}>
-              {t('privacy.sections.collectedData.identity.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.collectedData.identity.content').split('\n').map((item) => `• ${item}`).join('\n')}
-            </Text>
-
-            <Text variant="body" style={styles.subTitle}>
-              {t('privacy.sections.collectedData.userContent.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.collectedData.userContent.intro')}{'\n'}
-              {t('privacy.sections.collectedData.userContent.content').split('\n').map((item) => `• ${item}`).join('\n')}
-            </Text>
-
-            <Text variant="body" style={styles.subTitle}>
-              {t('privacy.sections.collectedData.optional.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.collectedData.optional.content')}
-            </Text>
-
-            <Text variant="body" style={styles.subTitle}>
-              {t('privacy.sections.collectedData.deviceAccess.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.collectedData.deviceAccess.content').split('\n').map((item) => `• ${item}`).join('\n')}
-            </Text>
-          </View>
-
-          {/* Section 2: Data Usage */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.dataUsage.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.dataUsage.intro')}{'\n\n'}
-              {t('privacy.sections.dataUsage.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
-              {t('privacy.sections.dataUsage.outro')}
-            </Text>
-          </View>
-
-          {/* Section 3: Multi-User Access */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.multiUser.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.multiUser.content').split('\n').map((item) => `• ${item}`).join('\n')}
-            </Text>
-          </View>
-
-          {/* Section 4: App Store */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.appStore.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.appStore.content').split('\n').map((item) => `• ${item}`).join('\n')}
-            </Text>
-          </View>
-
-          {/* Section 4: Data Security */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.dataSecurity.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.dataSecurity.intro')}{'\n\n'}
-              {t('privacy.sections.dataSecurity.items').split('\n').map((item) => `• ${item}`).join('\n')}
-            </Text>
-          </View>
-
-          {/* Section 5: Third Party */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.thirdParty.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.thirdParty.intro')}{'\n\n'}
-              {t('privacy.sections.thirdParty.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
-              {t('privacy.sections.thirdParty.outro')}
-            </Text>
-          </View>
-
-          {/* Section 7: Data Export */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.dataExport.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.dataExport.content')}
-            </Text>
-          </View>
-
-          {/* Section 8: Retention */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.retention.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.retention.content').split('\n').map((item) => `• ${item}`).join('\n')}
-            </Text>
-          </View>
-
-          {/* Section 7: Children */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.children.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.children.content')}
-            </Text>
-          </View>
-
-          {/* Section 8: User Rights */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.userRights.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.userRights.intro')}{'\n\n'}
-              {t('privacy.sections.userRights.items').split('\n').map((item) => `• ${item}`).join('\n')}{'\n\n'}
-              {t('privacy.sections.userRights.outro')}
-            </Text>
-          </View>
-
-          {/* Section 11: Policy Changes */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.policyChanges.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.policyChanges.content')}
-            </Text>
-          </View>
-
-          {/* Section 12: Contact */}
-          <View style={styles.section}>
-            <Text variant="label" style={styles.sectionTitle}>
-              {t('privacy.sections.contact.title')}
-            </Text>
-            <Text variant="body" color="secondary" style={styles.paragraph}>
-              {t('privacy.sections.contact.content')}
-            </Text>
-          </View>
+          {SECTION_KEYS.map((sectionKey) => (
+            <View key={sectionKey} style={styles.section}>
+              <Text variant="label" style={styles.sectionTitle}>
+                {t(`privacy.sections.${sectionKey}.title`)}
+              </Text>
+              <Text variant="body" color="secondary" style={styles.paragraph}>
+                {t(`privacy.sections.${sectionKey}.content`)}
+              </Text>
+            </View>
+          ))}
         </View>
       </ScrollView>
     </Screen>
@@ -186,10 +55,6 @@ export default function GizlilikPolitikasiPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   scrollView: {
     flex: 1,
   },
@@ -208,11 +73,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     marginBottom: spacing.sm,
-  },
-  subTitle: {
-    fontWeight: '600',
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
   },
   paragraph: {
     lineHeight: 22,

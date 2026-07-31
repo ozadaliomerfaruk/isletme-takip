@@ -428,29 +428,28 @@ function sanitizeBasicFields(parsed: ParsedInvoiceResponse): ParsedInvoiceRespon
 
 /** Step 2: Filter out balance/summary lines and column headers */
 function filterNonProductRows(result: ParsedInvoiceResponse): ParsedInvoiceResponse {
-  // Log tableRowNames if present
-  if (result.tableRowNames && result.tableRowNames.length > 0) {
-    console.log(`[parse-invoice] TABLE ROW NAMES (${result.tableRowNames.length}): [${result.tableRowNames.join(", ")}]`);
-  } else {
-    console.log(`[parse-invoice] TABLE ROW NAMES: not provided by Gemini`);
-  }
-
-  // Log all items from Gemini BEFORE any filtering
-  console.log(`[parse-invoice] RAW items from Gemini (${result.items.length}):`);
-  for (const item of result.items) {
-    const rc = item.rawColumns ? `rawCols=[${item.rawColumns.join(",")}]` : "no-rawCols";
-    console.log(`[parse-invoice]   → "${item.name}" qty=${item.quantity} price=${item.unitPrice} total=${item.totalPrice} darali=${item.darali} ${rc} review=${item.needsReview}`);
-  }
+  const inputItemCount = result.items.length;
+  const tableRowNameCount = result.tableRowNames?.length || 0;
+  let emptyNameCount = 0;
+  let nonPositiveCount = 0;
+  let balanceLineCount = 0;
+  let columnHeaderCount = 0;
 
   result.items = result.items.filter((item) => {
-    if (item.name.length === 0) return false;
-    if (item.totalPrice <= 0 && item.quantity <= 0 && !item.needsReview) return false;
+    if (item.name.length === 0) {
+      emptyNameCount++;
+      return false;
+    }
+    if (item.totalPrice <= 0 && item.quantity <= 0 && !item.needsReview) {
+      nonPositiveCount++;
+      return false;
+    }
 
     const nameLower = normalizeTurkish(item.name);
 
     for (const keyword of BALANCE_KEYWORDS) {
       if (nameLower === keyword || nameLower.startsWith(keyword + " ")) {
-        console.log(`[parse-invoice] Filtered balance line: "${item.name}"`);
+        balanceLineCount++;
         return false;
       }
     }
@@ -458,7 +457,7 @@ function filterNonProductRows(result: ParsedInvoiceResponse): ParsedInvoiceRespo
     for (const keyword of COLUMN_HEADER_KEYWORDS) {
       const kwNorm = normalizeTurkish(keyword);
       if (nameLower === kwNorm || nameLower.startsWith(kwNorm + " ")) {
-        console.log(`[parse-invoice] Filtered column header: "${item.name}"`);
+        columnHeaderCount++;
         return false;
       }
     }
@@ -466,12 +465,16 @@ function filterNonProductRows(result: ParsedInvoiceResponse): ParsedInvoiceRespo
     return true;
   });
 
-  console.log(`[parse-invoice] After balance/header filter: ${result.items.length} items remain`);
+  console.log(
+    `[parse-invoice] Product row filter summary: input=${inputItemCount}, output=${result.items.length}, tableRows=${tableRowNameCount}, empty=${emptyNameCount}, nonPositive=${nonPositiveCount}, balance=${balanceLineCount}, headers=${columnHeaderCount}`,
+  );
   return result;
 }
 
 /** Step 3: De-duplicate items with very similar names */
 function deduplicateItems(result: ParsedInvoiceResponse): ParsedInvoiceResponse {
+  const inputItemCount = result.items.length;
+  let duplicateCount = 0;
   const deduped: typeof result.items = [];
   for (const item of result.items) {
     const nameNorm = normalizeTurkish(item.name).replace(/[^a-z0-9]/g, "");
@@ -482,13 +485,15 @@ function deduplicateItems(result: ParsedInvoiceResponse): ParsedInvoiceResponse 
           (dNorm.includes(nameNorm) || nameNorm.includes(dNorm)));
     });
     if (existing && Math.abs(existing.totalPrice - item.totalPrice) < 1) {
-      console.log(`[parse-invoice] De-duplicated: "${item.name}" (same as "${existing.name}")`);
+      duplicateCount++;
       continue;
     }
     deduped.push(item);
   }
   result.items = deduped;
-  console.log(`[parse-invoice] After dedup: ${result.items.length} items remain`);
+  console.log(
+    `[parse-invoice] Product row dedup summary: input=${inputItemCount}, output=${result.items.length}, removed=${duplicateCount}`,
+  );
   return result;
 }
 
@@ -529,12 +534,18 @@ function resolveHalColumnsFromRaw(result: ParsedInvoiceResponse, isHal: boolean)
   if (!isHal) return result;
 
   let resolvedCount = 0;
+  let changedCount = 0;
+  let confirmedCount = 0;
+  let skippedCount = 0;
+  let daraliExtractedCount = 0;
+  let daraliFallbackCount = 0;
+  let failedCount = 0;
 
   for (const item of result.items) {
     if (item.needsReview) continue; // placeholder, skip
     const raw = item.rawColumns;
     if (!raw || raw.length < 3) {
-      console.log(`[parse-invoice] HAL RAW-SKIP: "${item.name}" (no rawColumns or < 3 numbers)`);
+      skippedCount++;
       continue;
     }
 
@@ -544,7 +555,7 @@ function resolveHalColumnsFromRaw(result: ParsedInvoiceResponse, isHal: boolean)
       darali = extractDaraliFromRawColumns(raw);
       if (darali) {
         item.darali = darali; // store for validateHalWithDarali fallback
-        console.log(`[parse-invoice] HAL DARALI EXTRACTED: "${item.name}" darali=${darali} from rawColumns=[${raw.join(",")}]`);
+        daraliExtractedCount++;
       }
     }
 
@@ -557,7 +568,7 @@ function resolveHalColumnsFromRaw(result: ParsedInvoiceResponse, isHal: boolean)
     if (!resolved && darali && darali > 0) {
       const resolvedNoDarali = findProductTriplet(raw, null);
       if (resolvedNoDarali) {
-        console.log(`[parse-invoice] HAL DARALI WRONG: "${item.name}" darali=${darali} rejected all triplets, retrying without darali → safi=${resolvedNoDarali.safi}, fiyati=${resolvedNoDarali.fiyati}`);
+        daraliFallbackCount++;
         resolved = resolvedNoDarali;
         item.darali = 0; // Clear wrong darali so validateHalWithDarali won't use it
       }
@@ -573,19 +584,19 @@ function resolveHalColumnsFromRaw(result: ParsedInvoiceResponse, isHal: boolean)
       item.totalPrice = resolved.tutari;
 
       if (oldQty !== item.quantity || oldPrice !== item.unitPrice || oldTotal !== item.totalPrice) {
-        console.log(`[parse-invoice] HAL RESOLVED: "${item.name}" qty ${oldQty}→${item.quantity}, price ${oldPrice}→${item.unitPrice}, total ${oldTotal}→${item.totalPrice}`);
+        changedCount++;
       } else {
-        console.log(`[parse-invoice] HAL CONFIRMED: "${item.name}" qty=${item.quantity}, price=${item.unitPrice}, total=${item.totalPrice}`);
+        confirmedCount++;
       }
       resolvedCount++;
     } else {
-      console.log(`[parse-invoice] HAL RAW-FAIL: "${item.name}" rawColumns=[${raw.join(",")}] — no valid triplet found, keeping Gemini values`);
+      failedCount++;
     }
   }
 
-  if (resolvedCount > 0) {
-    console.log(`[parse-invoice] HAL RAW RESOLVE: ${resolvedCount}/${result.items.length} items resolved from rawColumns`);
-  }
+  console.log(
+    `[parse-invoice] Hal raw-column resolution summary: items=${result.items.length}, resolved=${resolvedCount}, changed=${changedCount}, confirmed=${confirmedCount}, skipped=${skippedCount}, daraliExtracted=${daraliExtractedCount}, daraliFallback=${daraliFallbackCount}, failed=${failedCount}`,
+  );
 
   return result;
 }
@@ -683,10 +694,6 @@ function findProductTriplet(
     }
   }
 
-  if (bestMatch) {
-    console.log(`[parse-invoice] TRIPLET FOUND: safi=${bestMatch.safi}(idx${bestMatch.safiIdx}) × fiyati=${bestMatch.fiyati}(idx${bestMatch.fiyatiIdx}) = tutari=${bestMatch.tutari}(idx${bestMatch.tutariIdx}) | raw=[${raw.join(",")}]`);
-  }
-
   return bestMatch ? { safi: bestMatch.safi, fiyati: bestMatch.fiyati, tutari: bestMatch.tutari } : null;
 }
 
@@ -696,6 +703,10 @@ function validateHalWithDarali(result: ParsedInvoiceResponse, isHal: boolean): P
 
   let swapCount = 0;
   let totalKg = 0;
+  let invalidDaraliCount = 0;
+  let okCount = 0;
+  let ambiguousCount = 0;
+  let noDaraliCount = 0;
 
   for (const item of result.items) {
     if (item.needsReview) continue;
@@ -711,16 +722,15 @@ function validateHalWithDarali(result: ParsedInvoiceResponse, isHal: boolean): P
       // Sanity check: darali must be >= SAFİ. If darali < both candidates, it's wrong
       // (Gemini confused DARA with DARALI). Skip darali-based validation.
       if (darali < item.quantity && darali < item.unitPrice) {
-        console.log(`[parse-invoice] HAL DARALI INVALID: "${item.name}" darali=${darali} < both qty=${item.quantity} and price=${item.unitPrice}, skipping darali check`);
+        invalidDaraliCount++;
       } else if (item.quantity > darali * 1.01 && item.unitPrice <= darali * 1.01) {
         const origQty = item.quantity;
         const origPrice = item.unitPrice;
         item.quantity = origPrice;
         item.unitPrice = origQty;
         swapCount++;
-        console.log(`[parse-invoice] HAL SWAP FIX (darali=${darali}): "${item.name}" qty ${origQty}→${item.quantity}, price ${origPrice}→${item.unitPrice}`);
       } else if (item.unitPrice > darali * 1.01 && item.quantity <= darali * 1.01) {
-        console.log(`[parse-invoice] HAL OK (darali=${darali}): "${item.name}" qty=${item.quantity}, price=${item.unitPrice}`);
+        okCount++;
       } else {
         const calcQty = Math.round((item.totalPrice / item.unitPrice) * 100) / 100;
         const qtyMatchesDarali = Math.abs(calcQty - darali) / darali < 0.05;
@@ -733,49 +743,57 @@ function validateHalWithDarali(result: ParsedInvoiceResponse, isHal: boolean): P
             item.quantity = origPrice;
             item.unitPrice = origQty;
             swapCount++;
-            console.log(`[parse-invoice] HAL SWAP FIX (darali match): "${item.name}" qty ${origQty}→${item.quantity}, price ${origPrice}→${item.unitPrice}`);
           } else {
-            console.log(`[parse-invoice] HAL AMBIGUOUS (darali=${darali}): "${item.name}" qty=${item.quantity}, price=${item.unitPrice}`);
+            ambiguousCount++;
           }
         } else {
-          console.log(`[parse-invoice] HAL OK (darali=${darali}): "${item.name}" qty=${item.quantity}≈darali, price=${item.unitPrice}`);
+          okCount++;
         }
       }
     } else {
-      console.log(`[parse-invoice] HAL NO-DARALI: "${item.name}" qty=${item.quantity}, price=${item.unitPrice}, total=${item.totalPrice}`);
+      noDaraliCount++;
     }
   }
 
-  if (swapCount > 0) {
-    console.log(`[parse-invoice] HAL DARALI SWAP SUMMARY: Fixed ${swapCount}/${totalKg} KG items`);
-  }
+  console.log(
+    `[parse-invoice] Hal DARALI validation summary: kgItems=${totalKg}, swaps=${swapCount}, valid=${okCount}, invalid=${invalidDaraliCount}, ambiguous=${ambiguousCount}, unavailable=${noDaraliCount}`,
+  );
 
   return result;
 }
 
 /** Step 6: Validate quantity × unitPrice ≈ totalPrice for ALL document types */
 function validateItemMath(result: ParsedInvoiceResponse): ParsedInvoiceResponse {
+  let checkedCount = 0;
+  let mismatchCount = 0;
+  let recalculatedCount = 0;
+  let filledMissingPriceCount = 0;
+
   for (const item of result.items) {
     if (item.needsReview) continue;
 
     if (item.quantity > 0 && item.unitPrice > 0 && item.totalPrice > 0) {
+      checkedCount++;
       const expected = item.quantity * item.unitPrice;
       const diff = Math.abs(expected - item.totalPrice);
       const tolerance = item.totalPrice * 0.05;
       if (diff > tolerance && diff > 1) {
-        console.log(
-          `[parse-invoice] Price mismatch: "${item.name}" qty=${item.quantity} × price=${item.unitPrice} = ${expected} ≠ ${item.totalPrice}`,
-        );
+        mismatchCount++;
         if (item.totalPrice > item.unitPrice) {
           item.unitPrice = Math.round((item.totalPrice / item.quantity) * 100) / 100;
-          console.log(`[parse-invoice] Recalculated unitPrice: ${item.unitPrice}`);
+          recalculatedCount++;
         }
       }
     }
     if (item.unitPrice === 0 && item.totalPrice > 0 && item.quantity > 0) {
       item.unitPrice = Math.round((item.totalPrice / item.quantity) * 100) / 100;
+      filledMissingPriceCount++;
     }
   }
+
+  console.log(
+    `[parse-invoice] Item math validation summary: items=${result.items.length}, checked=${checkedCount}, mismatches=${mismatchCount}, recalculated=${recalculatedCount}, filledMissingPrice=${filledMissingPriceCount}`,
+  );
 
   return result;
 }
@@ -807,7 +825,7 @@ function recoverAndDetectMissingRows(
     }
 
     if (missingNames.length > 0) {
-      console.log(`[parse-invoice] TABLE ROW RECOVERY: Found ${missingNames.length} names in tableRowNames not in items: [${missingNames.join(", ")}]`);
+      console.log(`[parse-invoice] Table row recovery summary: missing=${missingNames.length}`);
       // Add placeholder items for missing names
       for (const name of missingNames) {
         result.items.push({
@@ -819,7 +837,6 @@ function recoverAndDetectMissingRows(
           totalPrice: 0,
           needsReview: true,
         });
-        console.log(`[parse-invoice] ADDED PLACEHOLDER: "${name}" (needsReview=true, from tableRowNames)`);
       }
       warning = {
         type: "tableRowNames",
@@ -833,7 +850,9 @@ function recoverAndDetectMissingRows(
   // Check 1: detectedRowCount vs actual items
   if (result.detectedRowCount && result.detectedRowCount > result.items.length) {
     const missing = result.detectedRowCount - result.items.length;
-    console.log(`[parse-invoice] ROW COUNT MISMATCH: Gemini detected ${result.detectedRowCount} rows but only ${result.items.length} items parsed. Missing ~${missing} rows.`);
+    console.log(
+      `[parse-invoice] Row count mismatch summary: detected=${result.detectedRowCount}, parsed=${result.items.length}, missing=${missing}`,
+    );
     warning = {
       ...(warning || {}),
       type: warning ? "both" : "rowCount",
@@ -851,14 +870,14 @@ function recoverAndDetectMissingRows(
     const missingAmount = result.subtotal - itemsSum;
 
     if (missingAmount > result.subtotal * 0.03 && missingAmount > 10) { // More than 3% and >10₺
-      console.log(`[parse-invoice] HAL SUBTOTAL MISMATCH: items total=${itemsSum}, YEKUN=${result.subtotal}, missing amount=${missingAmount} (${((missingAmount / result.subtotal) * 100).toFixed(1)}%)`);
+      console.log("[parse-invoice] Hal subtotal mismatch detected");
 
       // Check if we already have needsReview placeholders with totalPrice=0 that could absorb this
       const unresolvedPlaceholders = result.items.filter(i => i.needsReview && i.totalPrice === 0);
       if (unresolvedPlaceholders.length === 1) {
         // Only one unknown placeholder — assign the missing amount to it
         unresolvedPlaceholders[0].totalPrice = Math.round(missingAmount * 100) / 100;
-        console.log(`[parse-invoice] ASSIGNED MISSING AMOUNT: ₺${missingAmount.toFixed(2)} to placeholder "${unresolvedPlaceholders[0].name}"`);
+        console.log("[parse-invoice] Hal subtotal recovery applied to one placeholder");
       } else if (unresolvedPlaceholders.length === 0) {
         // No placeholders — add a new catch-all
         result.items.push({
@@ -870,7 +889,7 @@ function recoverAndDetectMissingRows(
           totalPrice: Math.round(missingAmount * 100) / 100,
           needsReview: true,
         });
-        console.log(`[parse-invoice] ADDED CATCH-ALL PLACEHOLDER: "EKSİK_SATIR" totalPrice=₺${missingAmount.toFixed(2)}`);
+        console.log("[parse-invoice] Hal subtotal recovery added one placeholder");
       }
 
       warning = {
@@ -916,7 +935,6 @@ function detectHalFatura(result: ParsedInvoiceResponse): boolean {
 function sanitizeInvoice(parsed: ParsedInvoiceResponse): {
   sanitized: ParsedInvoiceResponse;
   missingRowWarning: Record<string, unknown> | null;
-  preCleanupItems: Array<{ darali?: number | null; rawColumns?: number[] }>;
 } {
   let result = sanitizeBasicFields(parsed);
   result = filterNonProductRows(result);
@@ -924,7 +942,7 @@ function sanitizeInvoice(parsed: ParsedInvoiceResponse): {
 
   const isHal = detectHalFatura(result);
   if (isHal) {
-    console.log(`[parse-invoice] HAL FATURA detected: ${result.items.length} items, running hal pipeline`);
+    console.log(`[parse-invoice] Hal document pipeline started: items=${result.items.length}`);
   }
 
   result = resolveHalColumnsFromRaw(result, isHal);
@@ -934,15 +952,9 @@ function sanitizeInvoice(parsed: ParsedInvoiceResponse): {
   const { result: validatedResult, missingRowWarning } = recoverAndDetectMissingRows(result, isHal);
   result = validatedResult;
 
-  // Capture pre-cleanup data for debugging (darali, rawColumns)
-  const preCleanupItems = result.items.map(i => ({
-    darali: i.darali,
-    rawColumns: i.rawColumns ? [...i.rawColumns] : undefined,
-  }));
-
   result = cleanupInternalFields(result);
 
-  return { sanitized: result, missingRowWarning, preCleanupItems };
+  return { sanitized: result, missingRowWarning };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -980,15 +992,17 @@ async function callGemini(apiKey: string, parts: Array<Record<string, unknown>>)
     }, "parse-invoice", true);
 
     if (geminiResponse.status === 429) {
-      const errorText = await geminiResponse.text();
-      console.warn(`[parse-invoice] Gemini 429 rate limit (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, errorText);
+      console.warn(
+        `[parse-invoice] Gemini upstream rate limit: status=429, attempt=${attempt + 1}/${MAX_RETRIES + 1}`,
+      );
       lastError = new Error(`Gemini API rate limit (429)`);
       continue;
     }
 
     if (!geminiResponse.ok) {
-      const errorText = await geminiResponse.text();
-      console.error("[parse-invoice] Gemini API error:", errorText);
+      console.error(
+        `[parse-invoice] Gemini upstream HTTP error: status=${geminiResponse.status}`,
+      );
       throw new Error(
         `Gemini API error: ${geminiResponse.status} ${geminiResponse.statusText}`,
       );
@@ -997,6 +1011,9 @@ async function callGemini(apiKey: string, parts: Array<Record<string, unknown>>)
     const geminiData: GeminiResponse = await geminiResponse.json();
 
     if (geminiData.error) {
+      console.error(
+        `[parse-invoice] Gemini structured error: code=${geminiData.error.code}`,
+      );
       throw new Error(`Gemini error: ${geminiData.error.message}`);
     }
 
@@ -1068,7 +1085,7 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
     const remainingCount = remaining ?? DAILY_LIMIT;
 
     if (remainingCount <= 0) {
-      console.warn(`[parse-invoice] Rate limit exceeded for user ${user.id}. Remaining: 0`);
+      console.warn("[parse-invoice] Daily rate limit exceeded: remaining=0");
       return new Response(
         JSON.stringify({
           success: false,
@@ -1082,7 +1099,9 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
     }
 
     if (imageCount > remainingCount) {
-      console.warn(`[parse-invoice] Not enough quota for user ${user.id}. Requested: ${imageCount}, Remaining: ${remainingCount}`);
+      console.warn(
+        `[parse-invoice] Daily quota insufficient: requested=${imageCount}, remaining=${remainingCount}`,
+      );
       return new Response(
         JSON.stringify({
           success: false,
@@ -1103,7 +1122,9 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
       });
     }
 
-    console.log(`[parse-invoice] User ${user.id} - ${imageCount} image(s) recorded, ${remainingCount - imageCount} remaining`);
+    console.log(
+      `[parse-invoice] Usage recorded: images=${imageCount}, remaining=${remainingCount - imageCount}`,
+    );
 
     const apiKey = Deno.env.get("GEMINI_API_KEY");
     if (!apiKey) {
@@ -1131,7 +1152,6 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
             data: base64Data,
           },
         });
-        console.log(`[parse-invoice] Image ${i + 1}/${body.images.length}: ${Math.round(base64Data.length / 1024)}KB`);
       }
 
       parts.push({
@@ -1140,58 +1160,35 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
 
       const textContent = await callGemini(apiKey, parts);
 
-      // Log raw Gemini response for debugging
-      console.log(`[parse-invoice] RAW Gemini batch response (first 2000 chars):`, textContent.substring(0, 2000));
-
       // Parse as array
       let parsedArray: ParsedInvoiceResponse[];
       try {
         const rawParsed = JSON.parse(textContent);
         parsedArray = Array.isArray(rawParsed) ? rawParsed : [rawParsed];
       } catch {
-        console.error("[parse-invoice] Failed to parse Gemini batch JSON:", textContent);
+        console.error("[parse-invoice] Gemini batch response was not valid JSON");
         throw new Error("Gemini returned invalid JSON");
       }
 
-      console.log(`[parse-invoice] Gemini returned ${parsedArray.length} invoice(s) from ${body.images.length} images`);
-
-      // Log each raw parsed invoice's key identifiers BEFORE sanitization
-      for (let idx = 0; idx < parsedArray.length; idx++) {
-        const p = parsedArray[idx];
-        console.log(`[parse-invoice] Raw invoice[${idx}]: ettn="${p.ettn}" invNo="${p.invoiceNumber}" supplier="${p.supplierName}" date="${p.invoiceDate}" items=${p.items?.length || 0} grandTotal=${p.grandTotal} detectedRows=${p.detectedRowCount}`);
-      }
+      const rawItemCount = parsedArray.reduce(
+        (total, parsed) => total + (parsed.items?.length || 0),
+        0,
+      );
+      console.log(
+        `[parse-invoice] Gemini batch parsed: images=${body.images.length}, invoices=${parsedArray.length}, items=${rawItemCount}`,
+      );
 
       // Sanitize each invoice through the pipeline
       const results: ParsedInvoiceResponse[] = [];
-      const warnings: Array<Record<string, unknown> | null> = [];
       for (const parsed of parsedArray) {
-        const { sanitized, missingRowWarning } = sanitizeInvoice(parsed);
+        const { sanitized } = sanitizeInvoice(parsed);
         results.push(sanitized);
-        warnings.push(missingRowWarning);
-      }
-
-      // Build debug info for client
-      const debugInfo = results.map((r, idx) => ({
-        index: idx,
-        ettn: r.ettn,
-        invoiceNumber: r.invoiceNumber,
-        supplierName: r.supplierName,
-        date: r.invoiceDate,
-        itemCount: r.items.length,
-        grandTotal: r.grandTotal,
-        missingRowWarning: warnings[idx] || undefined,
-      }));
-
-      for (const r of results) {
-        console.log(
-          `[parse-invoice] Batch result: ${r.items.length} items, type: ${r.documentType}, supplier: ${r.supplierName}, invNo: ${r.invoiceNumber}, ettn: ${r.ettn}`,
-        );
       }
 
       console.log(`[parse-invoice] BATCH RESULT: ${body.images.length} images → ${results.length} invoices`);
 
       return new Response(
-        JSON.stringify({ success: true, data: results, batch: true, debug: debugInfo }),
+        JSON.stringify({ success: true, data: results, batch: true }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -1214,9 +1211,7 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
     const base64Data = image.replace(/^data:image\/\w+;base64,/, "");
     const imageMime = body.mimeType || "image/jpeg";
 
-    console.log(
-      `[parse-invoice] SINGLE MODE: Processing image (${Math.round(base64Data.length / 1024)}KB)`,
-    );
+    console.log("[parse-invoice] SINGLE MODE: Processing one image");
 
     const systemPrompt = buildSystemPrompt();
 
@@ -1235,14 +1230,11 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
 
     const textContent = await callGemini(apiKey, parts);
 
-    // Log raw Gemini response for debugging (single mode)
-    console.log(`[parse-invoice] RAW Gemini single response (first 2000 chars):`, textContent.substring(0, 2000));
-
     let parsed: ParsedInvoiceResponse;
     try {
       parsed = JSON.parse(textContent);
     } catch {
-      console.error("[parse-invoice] Failed to parse Gemini JSON:", textContent);
+      console.error("[parse-invoice] Gemini single response was not valid JSON");
       throw new Error("Gemini returned invalid JSON");
     }
 
@@ -1250,46 +1242,41 @@ Deno.serve(withFnTelemetry({ name: "parse-invoice", largePayloadProne: true }, a
     const rawColCount = parsed.items?.filter(i => i.rawColumns && i.rawColumns.length > 0).length || 0;
     const tableNames = parsed.tableRowNames || [];
     const daraliCount = parsed.items?.filter(i => i.darali && i.darali > 0).length || 0;
-    console.log(`[parse-invoice] Pre-sanitize: ${parsed.items?.length || 0} items, ${rawColCount} with rawColumns, ${daraliCount} with darali, detectedRowCount=${parsed.detectedRowCount}, tableRowNames=[${tableNames.join(",")}], docType=${parsed.documentType}`);
-
-    const { sanitized, missingRowWarning, preCleanupItems } = sanitizeInvoice(parsed);
-
     console.log(
-      `[parse-invoice] Parsed ${sanitized.items.length} items, type: ${sanitized.documentType}, supplier: ${sanitized.supplierName}`,
+      `[parse-invoice] Pre-sanitize summary: items=${parsed.items?.length || 0}, rawColumns=${rawColCount}, darali=${daraliCount}, detectedRows=${parsed.detectedRowCount || 0}, tableRows=${tableNames.length}`,
     );
 
-    // Include debug info in single mode response for client-side debugging
-    const _debug = {
-      rawItemCount: parsed.items?.length || 0,
-      rawColumnsCount: rawColCount,
-      daraliFromGemini: daraliCount,
-      detectedRowCount: parsed.detectedRowCount || null,
-      tableRowNames: tableNames.length > 0 ? tableNames : null,
-      finalItemCount: sanitized.items.length,
-      missingRowWarning: missingRowWarning || undefined,
-      itemSummary: sanitized.items.map((item, idx) => {
-        const pre = preCleanupItems?.[idx];
-        return {
-          name: item.name,
-          qty: item.quantity,
-          price: item.unitPrice,
-          total: item.totalPrice,
-          review: item.needsReview || false,
-          darali: pre?.darali ?? null,
-          rawCols: pre?.rawColumns ? pre.rawColumns.slice(-4) : null, // last 4 for debugging
-        };
-      }),
-    };
+    const { sanitized } = sanitizeInvoice(parsed);
+
+    console.log(`[parse-invoice] Single result sanitized: items=${sanitized.items.length}`);
 
     return new Response(
-      JSON.stringify({ success: true, data: sanitized, _debug }),
+      JSON.stringify({ success: true, data: sanitized }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       },
     );
   } catch (error) {
-    console.error("[parse-invoice] Error:", error);
+    let errorCategory = "unclassified";
+    if (error instanceof SyntaxError) {
+      errorCategory = "invalid-json";
+    } else if (error instanceof Error) {
+      if (error.message.includes("rate limit")) {
+        errorCategory = "upstream-rate-limit";
+      } else if (error.message.startsWith("Gemini API error:")) {
+        errorCategory = "upstream-http";
+      } else if (error.message.startsWith("Gemini error:")) {
+        errorCategory = "upstream-structured";
+      } else if (error.message === "Gemini returned invalid JSON") {
+        errorCategory = "invalid-json";
+      } else if (error.message === "No response from Gemini") {
+        errorCategory = "empty-upstream-response";
+      } else if (error.message === "GEMINI_API_KEY is not set") {
+        errorCategory = "configuration";
+      }
+    }
+    console.error(`[parse-invoice] Request failed: category=${errorCategory}`);
 
     return new Response(
       JSON.stringify({

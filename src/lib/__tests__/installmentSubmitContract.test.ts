@@ -15,7 +15,15 @@ describe('S-07 taksit önizleme → RPC sözleşmesi', () => {
 
     expect(source).toContain('buildInstallmentPlan(');
     expect(source).toContain('MAX_INSTALLMENT_COUNT');
-    expect(source).toContain('[2, 3, 4, 5, 6, 9, 10, 12]');
+    // Hazır adet chip'leri kullanıcı seçimi (31 Tem); serbest adet chip
+    // satırındaki yazılabilir alandan girilir (2–120 clamp), stepper yok.
+    expect(source).toContain('[2, 3, 5, 9, 12]');
+    expect(source).toContain('commitTaksitAdetInput');
+    expect(source).toContain("keyboardType=\"number-pad\"");
+    // Satır bazlı vade düzenleme + modal içi tutar girişi sözleşmesi.
+    expect(source).toContain('handleTaksitRowDateChange');
+    expect(source).toContain('taksitDraftDateOverrides');
+    expect(source).toContain("form.setAmount(cleanAmountInput(text))");
     // Cari/Personel-only dar hesap referansı, taksit planı oluşturmayı kapatmaz.
     // Editör ana QTB içinde inline kalır; hesap bakiyesi görünürlüğü ayrı kapıdır.
     expect(source).toContain('{showTaksitConfig && (');

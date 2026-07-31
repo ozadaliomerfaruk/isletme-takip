@@ -298,6 +298,39 @@ export default function RegisterPage() {
                 >
                   {t('auth:register.registerButton')}
                 </Button>
+
+                <Text
+                  variant="caption"
+                  color="secondary"
+                  center
+                  style={styles.legalNotice}
+                >
+                  {t('auth:register.legalIntro')}
+                  <Text
+                    variant="caption"
+                    style={styles.legalLink}
+                    onPress={() => router.push('/yasal/kullanim-kosullari')}
+                  >
+                    {t('auth:register.termsOfService')}
+                  </Text>
+                  {t('auth:register.legalTermsAfter')}
+                  <Text
+                    variant="caption"
+                    style={styles.legalLink}
+                    onPress={() => router.push('/yasal/gizlilik-politikasi')}
+                  >
+                    {t('auth:register.privacyPolicy')}
+                  </Text>
+                  {t('auth:register.legalPrivacyJoin')}
+                  <Text
+                    variant="caption"
+                    style={styles.legalLink}
+                    onPress={() => router.push('/yasal/kvkk')}
+                  >
+                    {t('auth:register.privacyNotice')}
+                  </Text>
+                  {t('auth:register.legalOutro')}
+                </Text>
               </View>
 
               <View style={styles.footer}>
@@ -408,6 +441,14 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     marginTop: spacing.md,
+  },
+  legalNotice: {
+    marginTop: spacing.md,
+    lineHeight: 19,
+  },
+  legalLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   button: {
     marginTop: spacing.lg,

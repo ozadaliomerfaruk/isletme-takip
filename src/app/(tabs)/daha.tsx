@@ -505,7 +505,7 @@ export default function DahaPage() {
             <View style={styles.divider} />
             <MenuItem
               icon={<ScrollText size={22} color={colors.textSecondary} />}
-              label={t('navigation:menu.kvkk')}
+              label={t('navigation:menu.privacyNotice')}
               onPress={() => router.push('/yasal/kvkk')}
             />
           </Card>

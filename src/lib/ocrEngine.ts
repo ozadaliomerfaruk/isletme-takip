@@ -54,16 +54,6 @@ interface EdgeFunctionBatchResponse {
   rateLimited?: boolean;
   dailyLimit?: number;
   remaining?: number;
-  debug?: Array<{
-    index: number;
-    ettn: string | null;
-    invoiceNumber: string | null;
-    supplierName: string | null;
-    date: string | null;
-    itemCount: number;
-    grandTotal: number | null;
-    missingRowWarning?: Record<string, unknown>;
-  }>;
 }
 
 const VALID_UNITS: BirimType[] = [
@@ -200,8 +190,6 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
       body: { image: base64, mimeType },
     });
 
-    console.log('[ocrEngine] Edge function response:', JSON.stringify(result.error || 'no error'), typeof result.data);
-
     // Supabase may put non-2xx responses in result.error or result.data
     const responseData = (result.data ?? result.error) as EdgeFunctionResponse;
 
@@ -226,16 +214,7 @@ export async function recognizeInvoice(imageUri: string): Promise<OcrParsedInvoi
     return responseData;
   });
 
-  console.log('[ocrEngine] Parsed response:', data?.success, data?.data?.items?.length, 'items');
-
-  // Log debug info from edge function (rawColumns, tableRowNames, etc.)
-  const debugInfo = (data as unknown as Record<string, unknown>)?._debug;
-  if (debugInfo) {
-    console.log('[ocrEngine] EDGE DEBUG:', JSON.stringify(debugInfo));
-  }
-
   if (!data.success || !data.data) {
-    console.error('[ocrEngine] Parse failed:', data.error);
     throw new Error(data.error || i18n.t('ocrImport:messages.analysisFailed'));
   }
 
@@ -294,16 +273,7 @@ export async function recognizeInvoicesBatch(imageUris: string[]): Promise<OcrPa
   });
 
   if (!responseData.success || !responseData.data) {
-    console.error('[ocrEngine] Batch parse failed:', responseData.error);
     throw new Error(responseData.error || i18n.t('ocrImport:messages.analysisFailed'));
-  }
-
-  // Log debug info from edge function
-  if (responseData.debug) {
-    console.log(`[ocrEngine] BATCH DEBUG: Gemini returned ${responseData.debug.length} invoice(s):`);
-    for (const d of responseData.debug) {
-      console.log(`[ocrEngine]   invoice[${d.index}]: ettn="${d.ettn}" invNo="${d.invoiceNumber}" supplier="${d.supplierName}" date="${d.date}" items=${d.itemCount} total=${d.grandTotal}${d.missingRowWarning ? ' ⚠️ MISSING ROWS' : ''}`);
-    }
   }
 
   const invoices = responseData.data.map(d => mapParsedDataToInvoice(d));

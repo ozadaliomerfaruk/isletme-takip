@@ -1340,6 +1340,229 @@ BEGIN
 END;
 $test_unexpected_legacy_movement$;
 
+-- 9) Released shared 1.5.x clients stage update_urun_miktar first and then
+-- directly INSERT the linked movement. The bridge keeps stock unchanged after
+-- request 1 and applies it exactly once inside request 2. Raw/no-intent inserts
+-- still fail closed; the opposite legacy compensation cancels a staged intent;
+-- canonical V3 create remains unaffected.
+UPDATE public.isletme_users AS member
+SET permissions =
+  '{
+    "level":"add",
+    "modules":{"cariler":true,"urunler":true},
+    "actions":{
+      "cariler":{"can_create":true},
+      "urunler":{"can_create":true}
+    },
+    "visibility":{"can_see_all_users_data":true}
+  }'::jsonb
+WHERE member.id = 'b2000000-0000-4000-8000-000000000001';
+
+SELECT pg_temp.set_actor(
+  'a1000000-0000-4000-8000-000000000002'
+);
+SET LOCAL ROLE authenticated;
+
+DO $test_legacy_shared_bridge$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_projected numeric;
+  v_state text;
+  v_message text;
+BEGIN
+  PERFORM public.create_islem_atomik(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'id', 'b6000000-0000-4000-8000-000000000010',
+      'type', 'cari_satis',
+      'amount', 20,
+      'description', 'legacy shared linked create',
+      'date', '2026-07-31T10:10:00',
+      'cari_id', 'b4000000-0000-4000-8000-000000000002'
+    ),
+    '[]'::jsonb
+  );
+
+  v_projected := public.update_urun_miktar(
+    'b5000000-0000-4000-8000-000000000010',
+    -2,
+    v_business
+  );
+  PERFORM pg_temp.assert_true(
+    v_projected = 98,
+    'shared legacy delta must stage without changing stock'
+  );
+
+  INSERT INTO public.urun_hareketler (
+    id,
+    isletme_id,
+    urun_id,
+    islem_id,
+    hareket_tipi,
+    miktar,
+    birim_fiyat,
+    kdv_orani,
+    onceki_miktar,
+    yeni_miktar,
+    aciklama
+  )
+  VALUES (
+    'b7000000-0000-4000-8000-000000000010',
+    v_business,
+    'b5000000-0000-4000-8000-000000000010',
+    'b6000000-0000-4000-8000-000000000010',
+    'cikis',
+    2,
+    10,
+    0,
+    100,
+    98,
+    'legacy shared bridge'
+  );
+
+  PERFORM public.create_islem_atomik(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'id', 'b6000000-0000-4000-8000-000000000011',
+      'type', 'cari_satis',
+      'amount', 10,
+      'description', 'legacy raw insert rejection',
+      'date', '2026-07-31T10:11:00',
+      'cari_id', 'b4000000-0000-4000-8000-000000000002'
+    ),
+    '[]'::jsonb
+  );
+
+  BEGIN
+    INSERT INTO public.urun_hareketler (
+      id,
+      isletme_id,
+      urun_id,
+      islem_id,
+      hareket_tipi,
+      miktar,
+      birim_fiyat,
+      kdv_orani,
+      onceki_miktar,
+      yeni_miktar
+    )
+    VALUES (
+      'b7000000-0000-4000-8000-000000000011',
+      v_business,
+      'b5000000-0000-4000-8000-000000000009',
+      'b6000000-0000-4000-8000-000000000011',
+      'cikis',
+      1,
+      10,
+      0,
+      100,
+      99
+    );
+    RAISE EXCEPTION 'EXPECTED_RAW_LEGACY_INSERT_REJECTION';
+  EXCEPTION
+    WHEN OTHERS THEN
+      GET STACKED DIAGNOSTICS
+        v_state = RETURNED_SQLSTATE,
+        v_message = MESSAGE_TEXT;
+      IF v_state IS DISTINCT FROM '42501'
+         OR v_message IS DISTINCT FROM
+            'PRODUCT_MOVEMENT_CANONICAL_RPC_REQUIRED' THEN
+        RAISE EXCEPTION
+          'UNEXPECTED_RAW_LEGACY_INSERT_ERROR: state=% message=%',
+          v_state,
+          v_message;
+      END IF;
+  END;
+
+  PERFORM public.update_urun_miktar(
+    'b5000000-0000-4000-8000-000000000008',
+    3,
+    v_business
+  );
+  PERFORM public.update_urun_miktar(
+    'b5000000-0000-4000-8000-000000000008',
+    -3,
+    v_business
+  );
+  PERFORM public.create_islem_with_urun_atomik(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'id', 'b6000000-0000-4000-8000-000000000012',
+      'type', 'cari_alis',
+      'amount', 5,
+      'description', 'canonical create after legacy bridge',
+      'date', '2026-07-31T10:12:00',
+      'cari_id', 'b4000000-0000-4000-8000-000000000002'
+    ),
+    '[]'::jsonb,
+    pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'urun_id', 'b5000000-0000-4000-8000-000000000009',
+        'hareket_tipi', 'giris',
+        'miktar', 1,
+        'birim_fiyat', 5,
+        'kdv_orani', 0
+      )
+    )
+  );
+END;
+$test_legacy_shared_bridge$;
+
+RESET ROLE;
+
+DO $test_legacy_shared_bridge_results$
+BEGIN
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 98
+      FROM public.urunler AS product
+      WHERE product.id =
+        'b5000000-0000-4000-8000-000000000010'
+    )
+    AND (
+      SELECT pg_catalog.count(*) = 1
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id =
+        'b7000000-0000-4000-8000-000000000010'
+    ),
+    'shared legacy linked insert must atomically apply stock'
+  );
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 101
+      FROM public.urunler AS product
+      WHERE product.id =
+        'b5000000-0000-4000-8000-000000000009'
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id =
+        'b7000000-0000-4000-8000-000000000011'
+    )
+    AND (
+      SELECT pg_catalog.count(*) = 1
+      FROM public.urun_hareketler AS movement
+      WHERE movement.islem_id =
+        'b6000000-0000-4000-8000-000000000012'
+    ),
+    'raw insert must fail and canonical create must apply exactly once'
+  );
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.miktar = 100
+      FROM public.urunler AS product
+      WHERE product.id =
+        'b5000000-0000-4000-8000-000000000008'
+    ),
+    'opposite legacy compensation must cancel without changing stock'
+  );
+END;
+$test_legacy_shared_bridge_results$;
+
 DO $final_assertions$
 BEGIN
   PERFORM pg_temp.assert_true(
@@ -1352,6 +1575,18 @@ BEGIN
     AND NOT EXISTS (
       SELECT 1
       FROM internal.product_edit_v3_history_context
+      WHERE isletme_id =
+        'b1000000-0000-4000-8000-000000000001'
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM internal.legacy_shared_product_delta_intents_v1
+      WHERE isletme_id =
+        'b1000000-0000-4000-8000-000000000001'
+    )
+    AND NOT EXISTS (
+      SELECT 1
+      FROM internal.legacy_shared_product_insert_context_v1
       WHERE isletme_id =
         'b1000000-0000-4000-8000-000000000001'
     ),

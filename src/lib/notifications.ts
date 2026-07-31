@@ -175,6 +175,20 @@ export async function removePushToken(userId: string): Promise<void> {
   }
 }
 
+/**
+ * Oturum kapanırken önce sunucu token'ını, ardından bu kullanıcıya ait olabilecek
+ * cihaz içi planlı/gösterilmiş bildirimleri temizle. Her adım best-effort'tur:
+ * bildirim altyapısındaki bir hata kullanıcının çıkış yapmasını engellemez.
+ */
+export async function clearNotificationsForSignOut(userId: string): Promise<void> {
+  await removePushToken(userId);
+
+  await Promise.allSettled([
+    Notifications.cancelAllScheduledNotificationsAsync(),
+    Notifications.dismissAllNotificationsAsync(),
+  ]);
+}
+
 // Bildirim dinleyicileri ekle
 export function addNotificationListeners(
   onNotificationReceived?: (notification: Notifications.Notification) => void,

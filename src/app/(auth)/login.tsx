@@ -217,6 +217,39 @@ export default function LoginPage() {
             </TouchableOpacity>
           </View>
 
+          <Text
+            variant="caption"
+            color="secondary"
+            center
+            style={styles.socialLegalNotice}
+          >
+            {t('auth:login.socialLegalIntro')}
+            <Text
+              variant="caption"
+              style={styles.legalLink}
+              onPress={() => router.push('/yasal/kullanim-kosullari')}
+            >
+              {t('auth:register.termsOfService')}
+            </Text>
+            {t('auth:register.legalTermsAfter')}
+            <Text
+              variant="caption"
+              style={styles.legalLink}
+              onPress={() => router.push('/yasal/gizlilik-politikasi')}
+            >
+              {t('auth:register.privacyPolicy')}
+            </Text>
+            {t('auth:register.legalPrivacyJoin')}
+            <Text
+              variant="caption"
+              style={styles.legalLink}
+              onPress={() => router.push('/yasal/kvkk')}
+            >
+              {t('auth:register.privacyNotice')}
+            </Text>
+            {t('auth:register.legalOutro')}
+          </Text>
+
           {/* Divider */}
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -314,7 +347,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   socialButtons: {
+    marginBottom: spacing.sm,
+  },
+  socialLegalNotice: {
     marginBottom: spacing.lg,
+    lineHeight: 19,
+  },
+  legalLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   appleButton: {
     width: '100%',

@@ -1,6 +1,6 @@
 import { useRef, useCallback, useMemo, useEffect, useState } from 'react';
 import { View, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, StyleSheet, Alert, ScrollView, FlatList, useWindowDimensions } from 'react-native';
-import { X, Lock, Unlock, Minus, Plus } from 'lucide-react-native';
+import { X, Lock, Unlock } from 'lucide-react-native';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Text, Modal } from '@/components/ui';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,13 +11,14 @@ import { useRouter, useFocusEffect, type Href } from 'expo-router';
 
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
 import { colors } from '@/constants/colors';
-import { roundCurrency, parseCurrency, formatCurrency, formatAmountForInput, cleanAmountInput } from '@/lib/currency';
+import { roundCurrency, parseCurrency, formatAmountForInput, cleanAmountInput } from '@/lib/currency';
 import { addDays, addMonths, formatDateForDB } from '@/lib/date';
 import {
   MAX_INSTALLMENT_COUNT,
   MIN_INSTALLMENT_COUNT,
   amountToCents,
   buildInstallmentPlan,
+  type InstallmentDateOverride,
   type InstallmentPlan,
   type InstallmentPlanErrorCode,
   type InstallmentRpcRow,
@@ -452,6 +453,13 @@ export function QuickTransactionBar({
   const [editingTaksitIndex, setEditingTaksitIndex] = useState<number | null>(null);
   const [editingTaksitText, setEditingTaksitText] = useState('');
   const [showTaksitVadePicker, setShowTaksitVadePicker] = useState(false);
+  // Taksit sayısı elle yazılırken geçici metin; null = yazım modunda değil.
+  const [taksitAdetInput, setTaksitAdetInput] = useState<string | null>(null);
+  // Satır bazında elle seçilmiş vadeler + hangi satırın tarih seçicisi açık.
+  const [taksitDraftDateOverrides, setTaksitDraftDateOverrides] = useState<
+    InstallmentDateOverride[]
+  >([]);
+  const [editingVadeIndex, setEditingVadeIndex] = useState<number | null>(null);
 
   const currentTaksitTotalCents = useMemo(
     () => amountToCents(parseCurrency(form.amount)),
@@ -472,6 +480,8 @@ export function QuickTransactionBar({
       setShowTaksitVadePicker(false);
       setEditingTaksitIndex(null);
       setEditingTaksitText('');
+      setTaksitAdetInput(null);
+      setEditingVadeIndex(null);
     }
   }, [showTaksitConfig]);
 
@@ -936,12 +946,18 @@ export function QuickTransactionBar({
         taksitPlan.totalCents !== currentTaksitTotalCents ||
         planDateStale);
     let locks = taksitPlan?.lockedRows.map((row) => ({ ...row })) ?? [];
+    // Baz vade bayatladıysa satır bazlı özel vadeler de anlamını yitirir.
+    const overrides = planDateStale
+      ? []
+      : taksitPlan?.dateOverrides.map((row) => ({ ...row })) ?? [];
 
     setTaksitAdetDraft(count);
     setTaksitIlkVadeDraft(firstDueDate);
     setTaksitDraftWasStale(wasStale);
     setEditingTaksitIndex(null);
     setEditingTaksitText('');
+    setEditingVadeIndex(null);
+    setTaksitDraftDateOverrides(overrides);
 
     if (currentTaksitTotalCents === null) {
       setTaksitPreviewPlan(null);
@@ -955,7 +971,8 @@ export function QuickTransactionBar({
       currentTaksitTotalCents,
       count,
       firstDueDate,
-      locks
+      locks,
+      overrides
     );
 
     // Tutar küçüldüğünde eski elle-sabitlenmiş satırlar yeni toplamı aşabilir.
@@ -963,7 +980,13 @@ export function QuickTransactionBar({
     // doğrulanabilir dağılımı önizle; eski committed plan Apply'a kadar korunur.
     if (!result.ok && wasStale && locks.length > 0) {
       locks = [];
-      result = buildInstallmentPlan(currentTaksitTotalCents, count, firstDueDate);
+      result = buildInstallmentPlan(
+        currentTaksitTotalCents,
+        count,
+        firstDueDate,
+        [],
+        overrides
+      );
     }
 
     setTaksitDraftLocks(locks);
@@ -982,7 +1005,8 @@ export function QuickTransactionBar({
       count: number,
       firstDueDate: Date,
       locks: LockedInstallmentRow[],
-      clearPreviewOnError = false
+      clearPreviewOnError = false,
+      overrides?: InstallmentDateOverride[]
     ): InstallmentPlan | null => {
       if (currentTaksitTotalCents === null) {
         if (clearPreviewOnError) setTaksitPreviewPlan(null);
@@ -994,7 +1018,8 @@ export function QuickTransactionBar({
         currentTaksitTotalCents,
         count,
         firstDueDate,
-        locks
+        locks,
+        overrides ?? taksitDraftDateOverrides
       );
       if (!result.ok) {
         if (clearPreviewOnError) setTaksitPreviewPlan(null);
@@ -1004,16 +1029,42 @@ export function QuickTransactionBar({
 
       setTaksitPreviewPlan(result.plan);
       setTaksitDraftLocks(result.plan.lockedRows);
+      setTaksitDraftDateOverrides(result.plan.dateOverrides);
       setTaksitDraftError(null);
       return result.plan;
     },
-    [currentTaksitTotalCents]
+    [currentTaksitTotalCents, taksitDraftDateOverrides]
   );
+
+  // Modal içi tutar girişi: toplam değişince önizleme canlı yeniden kurulur.
+  // Kilitli satırlar yeni toplama sığmazsa kilitler bırakılıp tekrar denenir
+  // (açılıştaki stale davranışının canlı hali). Dar dep listesi bilinçli:
+  // rebuild kendi state'lerini güncellediği için tam liste döngü üretir.
+  useEffect(() => {
+    if (!showTaksitConfig || editingTaksitIndex !== null) return;
+    if (currentTaksitTotalCents === null) {
+      setTaksitPreviewPlan(null);
+      setTaksitDraftError('INVALID_TOTAL_CENTS');
+      return;
+    }
+    const rebuilt = rebuildTaksitDraft(
+      taksitAdetDraft,
+      taksitIlkVadeDraft,
+      taksitDraftLocks,
+      true
+    );
+    if (!rebuilt && taksitDraftLocks.length > 0) {
+      setTaksitDraftLocks([]);
+      rebuildTaksitDraft(taksitAdetDraft, taksitIlkVadeDraft, [], true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTaksitTotalCents, showTaksitConfig]);
 
   const handleTaksitCountChange = useCallback(
     (nextCount: number) => {
       if (editingTaksitIndex !== null) return;
 
+      setTaksitAdetInput(null);
       const count = Math.max(
         MIN_INSTALLMENT_COUNT,
         Math.min(MAX_INSTALLMENT_COUNT, nextCount)
@@ -1023,9 +1074,12 @@ export function QuickTransactionBar({
       Keyboard.dismiss();
       setEditingTaksitIndex(null);
       setEditingTaksitText('');
+      setEditingVadeIndex(null);
       setTaksitAdetDraft(count);
       setTaksitDraftLocks([]);
-      rebuildTaksitDraft(count, taksitIlkVadeDraft, [], true);
+      // Adet değişince satır kilitleri gibi elle vadeler de sıfırlanır.
+      setTaksitDraftDateOverrides([]);
+      rebuildTaksitDraft(count, taksitIlkVadeDraft, [], true, []);
     },
     [
       editingTaksitIndex,
@@ -1034,6 +1088,16 @@ export function QuickTransactionBar({
       taksitIlkVadeDraft,
     ]
   );
+
+  // Taksit sayısı elle yazımı: blur/enter'da 2–48'e sıkıştırıp uygular; boş
+  // veya sayı-dışı girişte mevcut değer korunur.
+  const commitTaksitAdetInput = useCallback(() => {
+    if (taksitAdetInput === null) return;
+    const parsed = Number.parseInt(taksitAdetInput, 10);
+    setTaksitAdetInput(null);
+    if (!Number.isFinite(parsed)) return;
+    handleTaksitCountChange(parsed);
+  }, [taksitAdetInput, handleTaksitCountChange]);
 
   const handleTaksitDateChange = useCallback(
     (date: Date) => {
@@ -1046,6 +1110,44 @@ export function QuickTransactionBar({
       rebuildTaksitDraft,
       taksitAdetDraft,
       taksitDraftLocks,
+    ]
+  );
+
+  // Satır vadesine dokununca o satırın satır-içi tarih seçicisi açılır/kapanır.
+  const handlePressTaksitRowDate = useCallback(
+    (index: number) => {
+      if (editingTaksitIndex !== null) return;
+      Keyboard.dismiss();
+      setShowTaksitVadePicker(false);
+      setEditingVadeIndex((value) => (value === index ? null : index));
+    },
+    [editingTaksitIndex]
+  );
+
+  // Satır vadesi seçimi: varsayılana (ilkVade + n ay) dönerse override silinir.
+  const handleTaksitRowDateChange = useCallback(
+    (index: number, date: Date) => {
+      const picked = formatDateForDB(date);
+      const defaultDate = formatDateForDB(addMonths(taksitIlkVadeDraft, index));
+      const nextOverrides = [
+        ...taksitDraftDateOverrides.filter((row) => row.index !== index),
+        ...(picked === defaultDate ? [] : [{ index, dueDate: picked }]),
+      ].sort((a, b) => a.index - b.index);
+      setTaksitDraftDateOverrides(nextOverrides);
+      rebuildTaksitDraft(
+        taksitAdetDraft,
+        taksitIlkVadeDraft,
+        taksitDraftLocks,
+        false,
+        nextOverrides
+      );
+    },
+    [
+      rebuildTaksitDraft,
+      taksitAdetDraft,
+      taksitDraftDateOverrides,
+      taksitDraftLocks,
+      taksitIlkVadeDraft,
     ]
   );
 
@@ -1127,7 +1229,9 @@ export function QuickTransactionBar({
       const base = buildInstallmentPlan(
         currentTaksitTotalCents,
         taksitAdetDraft,
-        taksitIlkVadeDraft
+        taksitIlkVadeDraft,
+        [],
+        taksitDraftDateOverrides
       );
       if (!base.ok) {
         setTaksitPreviewPlan(null);
@@ -1161,6 +1265,7 @@ export function QuickTransactionBar({
       editingTaksitIndex,
       rebuildTaksitDraft,
       taksitAdetDraft,
+      taksitDraftDateOverrides,
       taksitIlkVadeDraft,
     ]
   );
@@ -1200,7 +1305,6 @@ export function QuickTransactionBar({
     taksitPreviewPlan,
   ]);
 
-  const taksitCurrency = entities.selectedCari?.currency || userCurrency;
   const editingTaksitCents =
     editingTaksitIndex === null
       ? null
@@ -1223,13 +1327,15 @@ export function QuickTransactionBar({
       currentTaksitTotalCents,
       taksitAdetDraft,
       taksitIlkVadeDraft,
-      nextLocks
+      nextLocks,
+      taksitDraftDateOverrides
     );
   }, [
     currentTaksitTotalCents,
     editingTaksitCents,
     editingTaksitIndex,
     taksitAdetDraft,
+    taksitDraftDateOverrides,
     taksitDraftLocks,
     taksitIlkVadeDraft,
   ]);
@@ -1301,6 +1407,11 @@ export function QuickTransactionBar({
     return t('transactions:taksit.dagitimGecersiz');
   }, [t, visibleTaksitDraftError]);
 
+  const overriddenTaksitIndexes = useMemo(
+    () => new Set(taksitDraftDateOverrides.map((row) => row.index)),
+    [taksitDraftDateOverrides]
+  );
+
   const renderTaksitRow = useCallback(
     ({ item, index }: { item: InstallmentRpcRow; index: number }) => (
       <InstallmentPreviewRow
@@ -1318,16 +1429,28 @@ export function QuickTransactionBar({
         onCommitEditing={handleCommitTaksitEdit}
         onToggleLock={handleToggleTaksitLock}
         lockControlsDisabled={editingTaksitIndex !== null}
+        isDateEditing={editingVadeIndex === index}
+        isDateOverridden={overriddenTaksitIndexes.has(index)}
+        onPressDate={handlePressTaksitRowDate}
+        onDateChange={handleTaksitRowDateChange}
+        minimumDueDate={form.safeDate}
+        pickerLocale={locale}
         t={t}
       />
     ),
     [
       editingTaksitIndex,
       editingTaksitText,
+      editingVadeIndex,
+      form.safeDate,
       formatDateMedium,
       handleCommitTaksitEdit,
+      handlePressTaksitRowDate,
+      handleTaksitRowDateChange,
       handleToggleTaksitLock,
+      locale,
       lockedTaksitIndexes,
+      overriddenTaksitIndexes,
       t,
     ]
   );
@@ -1808,7 +1931,7 @@ export function QuickTransactionBar({
               data={effectiveTaksitPreviewPlan?.rows ?? []}
               keyExtractor={(row) => String(row.sira)}
               renderItem={renderTaksitRow}
-              extraData={`${editingTaksitIndex ?? 'x'}:${editingTaksitText}:${Array.from(lockedTaksitIndexes).join(',')}`}
+              extraData={`${editingTaksitIndex ?? 'x'}:${editingTaksitText}:${Array.from(lockedTaksitIndexes).join(',')}:${editingVadeIndex ?? 'x'}:${taksitDraftDateOverrides.map((row) => `${row.index}=${row.dueDate}`).join(',')}`}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
               showsVerticalScrollIndicator
@@ -1818,74 +1941,37 @@ export function QuickTransactionBar({
               removeClippedSubviews={Platform.OS === 'android'}
               ListHeaderComponent={
                 <View>
-                  <Text style={styles.pickerSectionTitle}>
-                    {t('transactions:taksit.adetSecin')}
-                  </Text>
-                  <View style={taksitStyles.stepperRow}>
-                    <TouchableOpacity
+                  {/* QTB satır dili: ince çizgili yapışık satırlar, başlık yok. */}
+                  <View style={taksitStyles.fieldRow}>
+                    <Text style={taksitStyles.fieldLabel}>
+                      {t('transactions:form.amount')}
+                    </Text>
+                    <TextInput
                       style={[
-                        taksitStyles.stepperButton,
-                        (taksitAdetDraft <= MIN_INSTALLMENT_COUNT ||
-                          editingTaksitIndex !== null) &&
-                          taksitStyles.controlDisabled,
+                        taksitStyles.fieldAmountInput,
+                        editingTaksitIndex !== null && taksitStyles.controlDisabled,
                       ]}
-                      onPress={() => handleTaksitCountChange(taksitAdetDraft - 1)}
-                      disabled={
-                        taksitAdetDraft <= MIN_INSTALLMENT_COUNT ||
-                        editingTaksitIndex !== null
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel={t('transactions:taksit.adetAzalt')}
-                      accessibilityState={{
-                        disabled:
-                          taksitAdetDraft <= MIN_INSTALLMENT_COUNT ||
-                          editingTaksitIndex !== null,
-                      }}
-                    >
-                      <Minus size={20} color={colors.primary} />
-                    </TouchableOpacity>
-                    <View style={taksitStyles.stepperValue}>
-                      <Text style={taksitStyles.stepperValueText}>{taksitAdetDraft}</Text>
-                      <Text style={taksitStyles.stepperHint}>
-                        {t('transactions:taksit.adetAraligi')}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[
-                        taksitStyles.stepperButton,
-                        (taksitAdetDraft >= MAX_INSTALLMENT_COUNT ||
-                          editingTaksitIndex !== null) &&
-                          taksitStyles.controlDisabled,
-                      ]}
-                      onPress={() => handleTaksitCountChange(taksitAdetDraft + 1)}
-                      disabled={
-                        taksitAdetDraft >= MAX_INSTALLMENT_COUNT ||
-                        editingTaksitIndex !== null
-                      }
-                      accessibilityRole="button"
-                      accessibilityLabel={t('transactions:taksit.adetArtir')}
-                      accessibilityState={{
-                        disabled:
-                          taksitAdetDraft >= MAX_INSTALLMENT_COUNT ||
-                          editingTaksitIndex !== null,
-                      }}
-                    >
-                      <Plus size={20} color={colors.primary} />
-                    </TouchableOpacity>
+                      value={form.amount}
+                      onChangeText={(text) => form.setAmount(cleanAmountInput(text))}
+                      keyboardType="decimal-pad"
+                      returnKeyType="done"
+                      editable={editingTaksitIndex === null}
+                      placeholder={t('transactions:form.amountPlaceholder')}
+                      placeholderTextColor={colors.textMuted}
+                      accessibilityLabel={t('transactions:form.amount')}
+                    />
                   </View>
-
-                  <ScrollView
-                    horizontal
-                    bounces={false}
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={taksitStyles.quickChipRow}
-                  >
-                    {[2, 3, 4, 5, 6, 9, 10, 12].map((count) => (
+                  <View style={taksitStyles.fieldRow}>
+                    <Text style={taksitStyles.fieldLabel}>
+                      {t('transactions:taksit.adetEtiket')}
+                    </Text>
+                    <View style={taksitStyles.segmentGroup}>
+                    {[2, 3, 5, 9, 12].map((count) => (
                       <TouchableOpacity
                         key={count}
                         style={[
-                          taksitStyles.adetChip,
-                          taksitAdetDraft === count && taksitStyles.adetChipActive,
+                          taksitStyles.segment,
+                          taksitAdetDraft === count && taksitStyles.segmentActive,
                           editingTaksitIndex !== null && taksitStyles.controlDisabled,
                         ]}
                         onPress={() => {
@@ -1904,23 +1990,43 @@ export function QuickTransactionBar({
                       >
                         <Text
                           style={[
-                            taksitStyles.adetChipText,
+                            taksitStyles.segmentText,
                             taksitAdetDraft === count &&
-                              taksitStyles.adetChipTextActive,
+                              taksitStyles.segmentTextActive,
                           ]}
                         >
                           {count}
                         </Text>
                       </TouchableOpacity>
                     ))}
-                  </ScrollView>
+                    <TextInput
+                      style={[
+                        taksitStyles.segment,
+                        taksitStyles.segmentInput,
+                        ![2, 3, 5, 9, 12].includes(taksitAdetDraft) &&
+                          taksitStyles.segmentInputActive,
+                        editingTaksitIndex !== null && taksitStyles.controlDisabled,
+                      ]}
+                      value={taksitAdetInput ?? String(taksitAdetDraft)}
+                      onFocus={() => setTaksitAdetInput(String(taksitAdetDraft))}
+                      onChangeText={(text) =>
+                        setTaksitAdetInput(text.replace(/[^0-9]/g, '').slice(0, 3))
+                      }
+                      onBlur={commitTaksitAdetInput}
+                      onSubmitEditing={commitTaksitAdetInput}
+                      keyboardType="number-pad"
+                      returnKeyType="done"
+                      maxLength={3}
+                      editable={editingTaksitIndex === null}
+                      selectTextOnFocus
+                      accessibilityLabel={`${t('transactions:taksit.adetSecin')} (${t('transactions:taksit.adetAraligi')})`}
+                    />
+                    </View>
+                  </View>
 
-                  <Text style={styles.pickerSectionTitle}>
-                    {t('transactions:taksit.ilkVade')}
-                  </Text>
                   <TouchableOpacity
                     style={[
-                      taksitStyles.vadeButton,
+                      taksitStyles.fieldRow,
                       editingTaksitIndex !== null && taksitStyles.controlDisabled,
                     ]}
                     onPress={() => {
@@ -1930,8 +2036,12 @@ export function QuickTransactionBar({
                     disabled={editingTaksitIndex !== null}
                     accessibilityRole="button"
                     accessibilityState={{ disabled: editingTaksitIndex !== null }}
+                    accessibilityLabel={t('transactions:taksit.ilkVade')}
                   >
-                    <Text style={taksitStyles.vadeButtonText}>
+                    <Text style={taksitStyles.fieldLabel}>
+                      {t('transactions:taksit.ilkVade')}
+                    </Text>
+                    <Text style={taksitStyles.fieldValue}>
                       {formatDateMedium(taksitIlkVadeDraft)}
                     </Text>
                   </TouchableOpacity>
@@ -1961,9 +2071,6 @@ export function QuickTransactionBar({
                     </View>
                   )}
 
-                  <Text style={taksitStyles.not}>
-                    {t('transactions:taksit.aylikNot')}
-                  </Text>
                   <View style={taksitStyles.tableHeader}>
                     <Text style={[taksitStyles.tableHeaderText, taksitStyles.rowNumber]}>
                       {t('transactions:taksit.satirSira')}
@@ -2002,6 +2109,7 @@ export function QuickTransactionBar({
                 <TouchableOpacity
                   style={[
                     taksitStyles.distributionAction,
+                    taksitStyles.distributionDivider,
                     editingTaksitIndex !== null && taksitStyles.controlDisabled,
                   ]}
                   onPress={() => handleTaksitDistributionPreset('last')}
@@ -2014,6 +2122,7 @@ export function QuickTransactionBar({
                 <TouchableOpacity
                   style={[
                     taksitStyles.distributionAction,
+                    taksitStyles.distributionDivider,
                     editingTaksitIndex !== null && taksitStyles.controlDisabled,
                   ]}
                   onPress={() => handleTaksitDistributionPreset('reset')}
@@ -2026,43 +2135,11 @@ export function QuickTransactionBar({
               </View>
             )}
 
-            <View style={taksitStyles.summary}>
-              <View style={taksitStyles.summaryRow}>
-                <Text style={taksitStyles.summaryLabel}>
-                  {t('transactions:taksit.taksitToplami')}
-                </Text>
-                <Text style={taksitStyles.summaryValue}>
-                  {formatCurrency(taksitPreviewTotalCents / 100, taksitCurrency)}
-                </Text>
-              </View>
-              <View style={taksitStyles.summaryRow}>
-                <Text style={taksitStyles.summaryLabel}>
-                  {t('transactions:taksit.islemToplami')}
-                </Text>
-                <Text style={taksitStyles.summaryValue}>
-                  {formatCurrency((currentTaksitTotalCents ?? 0) / 100, taksitCurrency)}
-                </Text>
-              </View>
-              <View style={taksitStyles.summaryRow}>
-                <Text style={taksitStyles.summaryLabel}>
-                  {t('transactions:taksit.fark')}
-                </Text>
-                <Text
-                  style={[
-                    taksitStyles.summaryValue,
-                    {
-                      color:
-                        taksitDifferenceCents === 0 ? colors.success : colors.error,
-                    },
-                  ]}
-                >
-                  {formatCurrency(taksitDifferenceCents / 100, taksitCurrency)}
-                </Text>
-              </View>
-              {taksitDraftErrorText && (
-                <Text style={taksitStyles.errorText}>{taksitDraftErrorText}</Text>
-              )}
-            </View>
+            {/* Tek hata mesajı kuralı: liste boşken mesaj listede; burada yalnız
+                plan varken satır-düzeyi hatalar gösterilir. */}
+            {effectiveTaksitPreviewPlan !== null && taksitDraftErrorText && (
+              <Text style={taksitStyles.errorText}>{taksitDraftErrorText}</Text>
+            )}
 
             <View style={taksitStyles.editorFooter}>
               <TouchableOpacity
@@ -2263,6 +2340,12 @@ interface InstallmentPreviewRowProps {
   onCommitEditing: (index: number, value: string) => void;
   onToggleLock: (index: number, row: InstallmentRpcRow) => void;
   lockControlsDisabled: boolean;
+  isDateEditing: boolean;
+  isDateOverridden: boolean;
+  onPressDate: (index: number) => void;
+  onDateChange: (index: number, date: Date) => void;
+  minimumDueDate: Date;
+  pickerLocale: string;
   t: TFunction;
 }
 
@@ -2278,6 +2361,12 @@ function InstallmentPreviewRow({
   onCommitEditing,
   onToggleLock,
   lockControlsDisabled,
+  isDateEditing,
+  isDateOverridden,
+  onPressDate,
+  onDateChange,
+  minimumDueDate,
+  pickerLocale,
   t,
 }: InstallmentPreviewRowProps) {
   const displayAmount = isEditing
@@ -2285,16 +2374,39 @@ function InstallmentPreviewRow({
     : formatAmountForInput(row.tutar, 2);
 
   return (
+    <View>
     <View style={taksitStyles.previewRow}>
       <Text style={[taksitStyles.previewText, taksitStyles.rowNumber]}>
         {row.sira}
       </Text>
-      <Text
-        style={[taksitStyles.previewText, taksitStyles.rowDate]}
-        numberOfLines={1}
+      <TouchableOpacity
+        style={[
+          taksitStyles.rowDate,
+          taksitStyles.rowDateButton,
+          isDateEditing && taksitStyles.rowDateButtonActive,
+          lockControlsDisabled && taksitStyles.controlDisabled,
+        ]}
+        onPress={() => onPressDate(index)}
+        disabled={lockControlsDisabled}
+        accessibilityRole="button"
+        accessibilityState={{
+          selected: isDateEditing,
+          disabled: lockControlsDisabled,
+        }}
+        accessibilityLabel={t('transactions:taksit.satirVadeDuzenle', {
+          sira: row.sira,
+        })}
       >
-        {formatDate(row.vade_tarihi)}
-      </Text>
+        <Text
+          style={[
+            taksitStyles.previewText,
+            (isDateOverridden || isDateEditing) && taksitStyles.rowDateTextActive,
+          ]}
+          numberOfLines={1}
+        >
+          {formatDate(row.vade_tarihi)}
+        </Text>
+      </TouchableOpacity>
       <TextInput
         style={[
           taksitStyles.rowAmount,
@@ -2336,6 +2448,27 @@ function InstallmentPreviewRow({
         )}
       </TouchableOpacity>
     </View>
+    {/* Satır-içi vade seçici: iç içe native modal açılmaz (iOS donma kuralı). */}
+    {isDateEditing && (
+      <View style={taksitStyles.inlinePickerWrap}>
+        <DateTimePickerRN
+          value={new Date(`${row.vade_tarihi}T00:00:00`)}
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          minimumDate={minimumDueDate}
+          locale={pickerLocale}
+          themeVariant="light"
+          onChange={(event, date) => {
+            if (Platform.OS === 'android') {
+              onPressDate(index);
+              if (event.type === 'dismissed') return;
+            }
+            if (date) onDateChange(index, date);
+          }}
+        />
+      </View>
+    )}
+    </View>
   );
 }
 
@@ -2366,7 +2499,7 @@ const taksitStyles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     overflow: 'hidden',
-    padding: 12,
+    padding: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.22,
@@ -2378,11 +2511,12 @@ const taksitStyles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 38,
     paddingHorizontal: 4,
-    marginBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   editorTitle: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text,
   },
@@ -2419,88 +2553,83 @@ const taksitStyles = StyleSheet.create({
   planListContent: {
     paddingBottom: 4,
   },
-  stepperRow: {
+  // QTB satır dili: etiket solda, değer sağda, ince alt çizgi.
+  fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 8,
+    minHeight: 46,
+    paddingHorizontal: 4,
+    gap: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
-  stepperButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primaryLight,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  stepperValue: {
-    minWidth: 88,
-    alignItems: 'center',
-  },
-  stepperValueText: {
-    fontSize: 24,
-    lineHeight: 27,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  stepperHint: {
-    fontSize: 10,
-    color: colors.textMuted,
-  },
-  quickChipRow: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 2,
-    paddingBottom: 10,
-  },
-  adetChip: {
-    minWidth: 38,
-    height: 34,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 9,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  adetChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  adetChipText: {
+  fieldLabel: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
   },
-  adetChipTextActive: {
-    color: '#FFFFFF',
-  },
-  vadeButton: {
-    alignSelf: 'center',
+  fieldAmountInput: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.text,
+    textAlign: 'right',
     paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    marginBottom: 6,
   },
-  inlinePickerWrap: {
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  vadeButtonText: {
+  fieldValue: {
+    flex: 1,
     fontSize: 15,
     fontWeight: '600',
     color: colors.primary,
+    textAlign: 'right',
   },
-  not: {
-    fontSize: 12,
-    color: colors.textMuted,
+  // Taksit sayısı: QTB tip sekmeleri dilinde segment grubu.
+  segmentGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+  },
+  segment: {
+    minWidth: 36,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    backgroundColor: colors.background,
+  },
+  segmentActive: {
+    backgroundColor: colors.primary,
+  },
+  segmentText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  segmentTextActive: {
+    color: '#FFFFFF',
+  },
+  // Serbest adet girişi: beyaz zemin + kenarlık yazılabilirliği imler.
+  segmentInput: {
+    minWidth: 44,
+    paddingVertical: 0,
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
     textAlign: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: '#FFFFFF',
+  },
+  segmentInputActive: {
+    borderColor: colors.primary,
+    color: colors.primary,
+  },
+  inlinePickerWrap: {
+    alignItems: 'center',
     marginBottom: 8,
   },
   tableHeader: {
@@ -2512,20 +2641,20 @@ const taksitStyles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   tableHeaderText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     color: colors.textMuted,
   },
   previewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
+    minHeight: 40,
     paddingHorizontal: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.border,
   },
   previewText: {
-    fontSize: 12,
+    fontSize: 14,
     color: colors.text,
   },
   rowNumber: {
@@ -2537,12 +2666,25 @@ const taksitStyles = StyleSheet.create({
     minWidth: 78,
     paddingRight: 5,
   },
+  rowDateButton: {
+    minHeight: 36,
+    justifyContent: 'center',
+    borderRadius: 8,
+    paddingHorizontal: 4,
+  },
+  rowDateButtonActive: {
+    backgroundColor: colors.primaryLight,
+  },
+  rowDateTextActive: {
+    color: colors.primary,
+    fontWeight: '600',
+  },
   rowAmount: {
     flex: 1,
     minWidth: 88,
   },
   amountEditor: {
-    height: 34,
+    height: 36,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
@@ -2550,7 +2692,7 @@ const taksitStyles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.background,
     color: colors.text,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     textAlign: 'right',
   },
@@ -2570,60 +2712,39 @@ const taksitStyles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
   },
   emptyPlanText: {
-    paddingVertical: 20,
+    paddingVertical: 12,
     paddingHorizontal: 10,
     fontSize: 13,
     color: colors.error,
     textAlign: 'center',
   },
+  // Yapışık satır dili: buton görünümü yok, ince çizgilerle bölünmüş eylemler.
   distributionActions: {
     flexDirection: 'row',
-    gap: 6,
-    paddingTop: 7,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
   distributionAction: {
     flex: 1,
-    minHeight: 38,
-    paddingHorizontal: 5,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.background,
+    minHeight: 42,
+    paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  distributionDivider: {
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderLeftColor: colors.border,
+  },
   distributionActionText: {
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '600',
     color: colors.primary,
     textAlign: 'center',
   },
-  summary: {
-    marginTop: 7,
-    paddingVertical: 5,
-    paddingHorizontal: 9,
-    borderRadius: 9,
-    backgroundColor: colors.background,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    minHeight: 20,
-  },
-  summaryLabel: {
-    flex: 1,
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  summaryValue: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text,
-  },
   errorText: {
-    marginTop: 3,
-    fontSize: 11,
+    marginTop: 6,
+    fontSize: 12,
     color: colors.error,
     textAlign: 'center',
   },

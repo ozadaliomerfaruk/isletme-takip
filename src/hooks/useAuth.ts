@@ -11,6 +11,7 @@ import { isPermissionNarrowing } from '@/lib/permissionCacheGuard';
 import { clearLastUsedSelections } from '@/lib/lastUsedSelections';
 import { logEvent, setEventContext } from '@/lib/appEvents';
 import { markNeedsSetup } from '@/lib/setupFlow';
+import { clearNotificationsForSignOut } from '@/lib/notifications';
 import { Isletme } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import type { Permissions, UserRole } from '@/types/multiUser';
@@ -744,6 +745,17 @@ export function useAuth() {
   // Çıkış yap
   const signOut = async () => {
     setState((prev) => ({ ...prev, loading: true }));
+
+    // RLS token satırını yalnız aktif oturum varken sildirebilir. Ayrıca cihazda
+    // önceki işletmeye ait açıklama/tutar taşıyabilecek yerel bildirim bırakma.
+    // Temizlik best-effort; bildirim servisi hatası çıkışı kilitlemez.
+    if (state.user?.id) {
+      try {
+        await clearNotificationsForSignOut(state.user.id);
+      } catch {
+        // sessiz geç
+      }
+    }
 
     const { error } = await supabase.auth.signOut();
 
