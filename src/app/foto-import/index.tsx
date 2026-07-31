@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, ActivityIndicator, TouchableOpacity, Platform, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import {
   OcrCaptureStep,
   OcrBatchProcessingOverlay,
@@ -104,7 +103,7 @@ export default function FotoImportIndexPage() {
   const showInvoiceList = ctx.step === 'invoice-list' || (ctx.step === 'review' && ctx.entries.length > 0);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       {/* Capture step */}
       {ctx.step === 'capture' && (
         <OcrCaptureStep
@@ -162,7 +161,7 @@ export default function FotoImportIndexPage() {
           ) : null}
         </View>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 

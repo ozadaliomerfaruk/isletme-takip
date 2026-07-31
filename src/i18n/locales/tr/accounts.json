@@ -147,12 +147,6 @@
   },
   "currency": {
     "title": "Para Birimi",
-    "selectCurrency": "Para birimi seçin",
-    "TRY": "Turk Lirasi",
-    "USD": "Amerikan Dolari",
-    "EUR": "Euro",
-    "GBP": "Ingiliz Sterlini",
-    "XAU": "Altin (gram)",
-    "XAG": "Gumus (gram)"
+    "selectCurrency": "Para birimi seçin"
   }
 }

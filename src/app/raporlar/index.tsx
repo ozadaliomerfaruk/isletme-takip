@@ -1,9 +1,9 @@
 import { upperTr } from '@/lib/turkishTextUtils';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
-import { TabFilter } from '@/components/ui';
+import { TabFilter, Screen } from '@/components/ui';
 import { FinanceKPIGrid, TrendChartWidget, CategoryDonutWidget } from '@/widgets/finance';
 import { QuickInsights, ExploreGrid, CustomDateRangePicker } from '@/components/reports';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
@@ -18,6 +18,7 @@ import { logEvent } from '@/lib/appEvents';
 type ReportTab = 'ozet' | 'grafikler';
 
 export default function RaporlarPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
@@ -64,29 +65,29 @@ export default function RaporlarPage() {
     router.push({
       pathname: route,
       params: {
-        period: widgetPeriod,
+        period,
         periodOffset: String(periodOffset),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         ...params,
       },
     } as Href);
-  }, [router, widgetPeriod, periodOffset, dateRange]);
+  }, [router, period, periodOffset, dateRange]);
 
   const handleExplorePress = useCallback((route: string) => {
     router.push({
       pathname: route,
       params: {
-        period: widgetPeriod,
+        period,
         periodOffset: String(periodOffset),
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       },
     } as Href);
-  }, [router, widgetPeriod, periodOffset, dateRange]);
+  }, [router, period, periodOffset, dateRange]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       {/* STICKY: Period selector + Content tabs */}
       <View style={styles.stickyHeader}>
         {/* Period type selector */}
@@ -126,7 +127,8 @@ export default function RaporlarPage() {
       </View>
 
       {/* SCROLLABLE: Tab content */}
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {activeTab === 'ozet' ? (
           <>
             {/* KPI Grid */}
@@ -154,6 +156,7 @@ export default function RaporlarPage() {
                 dateRange={dateRange}
                 previousDateRange={previousDateRange}
                 onNavigate={handleNavigate}
+                isCustomRange={period === 'custom'}
               />
             </View>
 
@@ -172,15 +175,11 @@ export default function RaporlarPage() {
         {/* Bottom spacing */}
         <View style={styles.bottomSpacer} />
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   stickyHeader: {
     backgroundColor: colors.background,
     paddingBottom: spacing.sm,

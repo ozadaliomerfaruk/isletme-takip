@@ -392,11 +392,28 @@ entrypoint = "./functions/delete-scheduled-accounts/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/delete-scheduled-accounts/*.html" ]
 
+[functions.apple-revocation-credential]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/apple-revocation-credential/index.ts"
+
 [functions.notify-linked-users]
 enabled = true
 verify_jwt = true
 import_map = "./functions/notify-linked-users/deno.json"
 entrypoint = "./functions/notify-linked-users/index.ts"
+
+[functions.process-scheduled-transactions]
+enabled = true
+verify_jwt = true
+import_map = "./functions/process-scheduled-transactions/deno.json"
+entrypoint = "./functions/process-scheduled-transactions/index.ts"
+
+[functions.send-z-report]
+enabled = true
+verify_jwt = true
+import_map = "./functions/send-z-report/deno.json"
+entrypoint = "./functions/send-z-report/index.ts"
 
 [functions.app-config]
 enabled = true

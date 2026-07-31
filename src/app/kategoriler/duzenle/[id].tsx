@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   View,
   StyleSheet,
@@ -7,32 +9,39 @@ import {
   Platform,
   Alert,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TrendingUp, TrendingDown, Package } from 'lucide-react-native';
-import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
 import { useKategoriler, useUpdateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
-import { upperTr } from '@/lib/turkishTextUtils';
+import { upperTrData } from '@/lib/turkishTextUtils';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriDuzenlePage() {
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
-  const { data: kategoriler } = useKategoriler();
+  const { data: kategoriler, isLoading } = useKategoriler();
   const updateKategori = useUpdateKategori();
 
   const kategori = kategoriler?.find((k) => k.id === id);
-  usePagePermission({ module: 'kategoriler', action: 'update', createdBy: kategori?.created_by });
+  usePagePermission({
+    module: 'kategoriler',
+    action: 'update',
+    createdBy: kategori?.created_by,
+    allowManager: true,
+  });
 
   const [name, setName] = useState('');
   const [type, setType] = useState<KategoriType>('gelir');
@@ -72,9 +81,11 @@ export default function KategoriDuzenlePage() {
     try {
       // Güncellemede işlem kategorisi (gelir/gider) BÜYÜK harf kaydedilir (kullanıcı
       // isteği); kullanıcı bir kategoriyi düzenlerse büyük harfe döner. Ürün hariç.
+      // upperTrData: yazma yolu dile duyarlı OLMAMALI, yoksa aynı ad iki dilde
+      // iki farklı kayda bölünür (ISTANBUL / İSTANBUL).
       await updateKategori.mutateAsync({
         id,
-        name: type === 'urun' ? name.trim() : upperTr(name.trim()),
+        name: type === 'urun' ? name.trim() : upperTrData(name.trim()),
         type,
         icon,
         color,
@@ -98,27 +109,45 @@ export default function KategoriDuzenlePage() {
     setMappedGiderKategoriId(null);
   };
 
+  if (isLoading) {
+    return (
+      <Screen>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
+        </View>
+      </Screen>
+    );
+  }
+
+  // Liste yüklendi ama kayıt yoksa (bayat deep-link / başka cihazda silinmiş) kalıcı
+  // "Yükleniyor" yerine net "bulunamadı" + geri çıkışı göster (kardeş düzenleme ekranları gibi).
   if (!kategori) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
-          <Text>{t('common:status.loading')}</Text>
+          <Text color="error">{t('errors:category.notFound')}</Text>
+          <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
+            {t('common:buttons.back')}
+          </Button>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Tip Seçimi */}
             <View style={styles.section}>
@@ -275,29 +304,29 @@ export default function KategoriDuzenlePage() {
               </View>
             )}
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updateKategori.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.update')}
-              </Button>
-            </View>
           </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updateKategori.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.update')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -318,7 +347,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: spacing.xl,
+    // Form ekranlarında ilk alanın header'a uzaklığı TEK değer (ekle/düzenle aynı).
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
   },
   section: {
@@ -365,11 +395,15 @@ const styles = StyleSheet.create({
   mappingPickers: {
     gap: spacing.md,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

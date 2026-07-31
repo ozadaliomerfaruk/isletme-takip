@@ -1,7 +1,6 @@
 import { StyleSheet } from 'react-native';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { FLOATING_SEARCH_CLEARANCE } from '@/components/ui/FloatingSearchBar';
 
 export const styles = StyleSheet.create({
   container: {
@@ -13,9 +12,12 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  flatListContent: {
-    paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE,
-  },
+  // Alt boşluk BURADA DEĞİL: tek tüketicisi olan urunler/index.tsx inline
+  // paddingBottom (useContentBottomPadding) veriyor ve buradaki sabit değeri
+  // eziyordu — ölü değerdi. Sabit 32+80, cam tab bar'ın gerçek payını (insets.bottom
+  // override'lı, ~106) hiçbir zaman karşılamıyordu; iki kaynak olması da
+  // "hangisi geçerli?" tuzağıydı.
+  flatListContent: {},
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -28,15 +30,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  sortButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // sortButton → GlassIconButton'a taşındı.
   searchSection: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.md,
@@ -225,20 +219,10 @@ export const styles = StyleSheet.create({
     flex: 1,
     color: colors.text,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
   fabMenuContainer: {
@@ -248,31 +232,5 @@ export const styles = StyleSheet.create({
     gap: spacing.sm,
     zIndex: 9,
   },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    gap: spacing.sm,
-  },
-  fabMenuIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabMenuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  // fabMenuItem / fabMenuIcon / fabMenuLabel → GlassFabMenuItem'a taşındı.
 });

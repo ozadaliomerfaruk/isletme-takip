@@ -34,6 +34,23 @@
     "ara": "Ara",
     "whatsapp": "WhatsApp"
   },
+  "contactPicker": {
+    "accessibilityLabel": "Rehberden seç",
+    "accessibilityHint": "Telefonun kişi seçicisini açar",
+    "chooseNumber": "Telefon numarasını seçin",
+    "phoneOption": "Telefon {{index}}",
+    "noPhoneTitle": "Telefon bulunamadı",
+    "noPhoneMessage": "Seçtiğiniz kişide kayıtlı telefon numarası yok. Numarayı manuel girebilirsiniz.",
+    "permissionTitle": "Rehber izni gerekli",
+    "permissionDenied": "Rehber izni verilmedi. Numarayı manuel girebilir veya telefonun Ayarlar bölümünden izin verebilirsiniz.",
+    "unavailableTitle": "Rehber açılamadı",
+    "unavailableMessage": "Telefonun kişi seçicisi şu anda kullanılamıyor. Numarayı manuel girebilirsiniz.",
+    "errors": {
+      "extension": "Telefon numarasında dahili veya bekletme işareti var. Dahiliyi kaldırıp numarayı kontrol edin.",
+      "invalid": "Geçerli bir telefon numarası girin. Yalnızca baştaki +, rakamlar ve yaygın ayraçlar kullanılabilir.",
+      "tooLong": "Telefon numarası 20 karakter sınırını aşıyor. Numarayı kısaltıp tekrar deneyin."
+    }
+  },
   "buttons": {
     "save": "Kaydet",
     "cancel": "İptal",
@@ -76,7 +93,8 @@
     "seeAll": "Tümünü Gör",
     "goBack": "Geri Dön",
     "tryAgain": "Tekrar Dene",
-    "share": "Paylaş"
+    "share": "Paylaş",
+    "action": "İşlem"
   },
   "status": {
     "loading": "Yükleniyor...",
@@ -116,16 +134,17 @@
   },
   "search": {
     "search": "Ara",
-    "searchPlaceholder": "Ara...",
+    "searchPlaceholder": "Arayın",
     "noResults": "Sonuç bulunamadı",
     "noResultsFor": "\"{{query}}\" için sonuç bulunamadı",
-    "globalSearch": "Hesap, cari, personel ara...",
+    "globalSearch": "Hesap, cari, personel arayın",
     "clearSearch": "Aramayı Temizle",
     "searching": "Aranıyor...",
     "tryDifferent": "Farklı bir arama terimi deneyin",
-    "searchIcons": "İkon ara...",
-    "searchCategories": "Kategori ara...",
-    "resultCount": "{{count}} sonuç bulundu",
+    "searchIcons": "İkon arayın",
+    "searchCategories": "Kategori arayın",
+    "resultCount_one": "{{count}} sonuç bulundu",
+    "resultCount_other": "{{count}} sonuç bulundu",
     "showAll": "Tümünü Gör ({{count}})",
     "searchHint": "İsim, not veya ürün kodu ile arayın",
     "recentSearches": "Son Aramalar",
@@ -137,7 +156,8 @@
     "endDate": "Bitiş",
     "clearFilters": "Filtreleri Temizle",
     "noResultsWithFilters": "Filtrelerinizi genişletin veya farklı bir terim deneyin",
-    "clearRecentSearches": "Temizle"
+    "clearRecentSearches": "Temizle",
+    "resultCount": "{{count}} sonuç bulundu"
   },
   "select": {
     "selectCategory": "Kategori seç",
@@ -268,6 +288,13 @@
     "debt": "Borç",
     "overpayment": "Fazla Ödeme",
     "advance": "Avans"
+  },
+  "notifications": {
+    "channels": {
+      "defaultName": "Genel",
+      "scheduledName": "İleri Tarihli İşlemler",
+      "scheduledDescription": "İleri tarihli işlemler için hatırlatmalar"
+    }
   },
   "tax": {
     "vat": "KDV"
@@ -537,7 +564,7 @@
       "phone": "Telefon",
       "date": "Tarih",
       "time": "Saat",
-      "balance": "Son Bakiye",
+      "balance": "Dönem Sonu Bakiye",
       "totalRecords": "Toplam Kayıt",
       "page": "Sayfa"
     }
@@ -565,10 +592,12 @@
       "unarchiveSuccess": "Arşivden çıkarıldı",
       "archivedBanner": "Bu öğe arşivlenmiş. Yeni işlem eklenemez.",
       "emptyArchive": "Arşivde öğe bulunmuyor",
+      "itemCount_one": "Arşivde {{count}} öğe bulunuyor",
+      "itemCount_other": "Arşivde {{count}} öğe bulunuyor",
       "itemCount": "Arşivde {{count}} öğe bulunuyor"
     },
     "search": {
-      "placeholder": "Arşivde ara..."
+      "placeholder": "Arşivde arayın"
     }
   },
   "photo": {
@@ -603,7 +632,7 @@
   "errors": {
     "businessNotFound": "İşletme bulunamadı",
     "ocrDailyLimit": "Günlük fatura tarama limitine ulaştınız ({{limit}}/gün)",
-    "balanceUpdateFailed": "Bakiye güncellenemedi: {{detail}}",
+    "balanceUpdateFailed": "Bakiye güncellenemedi: {{message}}",
     "balanceRollbackCritical": "Kritik hata: İşlem oluşturuldu ancak bakiye güncellenemedi ve geri alınamadı. Lütfen destek ile iletişime geçin. Detay: {{detail}}",
     "accountNotFound": "Hesap bulunamadı veya erişim yetkiniz yok",
     "clientNotFound": "Cari bulunamadı veya erişim yetkiniz yok",
@@ -623,7 +652,6 @@
     "transactionCreationFailed": "İşlem oluşturulamadı",
     "accountSelectionRequired": "Hesap seçimi zorunludur",
     "clientSelectionRequired": "Cari seçimi zorunludur",
-    "balanceUpdateFailed": "Bakiye güncellenemedi: {{message}}",
     "installmentCreationFailed": "Taksit işlemleri oluşturulamadı: {{message}}",
     "cashAdvanceTransactionFailed": "Nakit avans işlemi oluşturulamadı: {{message}}",
     "futureTransactionsDeletionFailed": "İleri tarihli işlemler silinemedi: {{message}}",
@@ -645,6 +673,7 @@
     "hasLinkedRecords": "Bu kaydı silmek için önce bağlı kayıtları silmeniz gerekiyor.",
     "hasLinkedProductMovements": "Bu ürünü kalıcı silmek için önce bağlı işlemleri silmeniz gerekiyor. {{count}} adet işleme bağlı hareketi var. Bunun yerine ürünü arşivleyebilirsiniz.",
     "hasSharedCari": "Bu cari paylaşımda olduğu için silinemez. Önce paylaşımı kaldırın; aksi halde paylaştığınız taraf erişimini kaybeder.",
+    "noteContextServerManaged": "Bu notun bağlı olduğu kayıt doğrudan değiştirilemez.",
     "cannotDeleteTitle": "Silinemez"
   },
   "notes": {
@@ -660,7 +689,7 @@
     "filterStaff": "Personel",
     "filterProducts": "Ürünler",
     "filterGeneral": "Genel",
-    "searchPlaceholder": "Notlarda ara...",
+    "searchPlaceholder": "Notlarda arayın",
     "confirmDelete": "Bu notu silmek istediğinize emin misiniz?",
     "confirmDeleteTitle": "Notu Sil",
     "createSuccess": "Not eklendi",
@@ -681,6 +710,7 @@
     "removeReminder": "Hatırlatıcıyı Kaldır",
     "reminderSet": "Hatırlatıcı ayarlandı",
     "reminderRemoved": "Hatırlatıcı kaldırıldı",
+    "reminderUpdateFailed": "Not kaydedildi ancak hatırlatıcı güncellenemedi.",
     "addPhoto": "Fotoğraf Ekle",
     "removePhoto": "Fotoğrafı Kaldır",
     "takePhoto": "Fotoğraf Çek",

@@ -9,6 +9,7 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
+import { usePermissions } from '@/hooks/usePermissions';
 import { supabase } from '@/lib/supabase';
 import { parseDateFromDB } from '@/lib/date';
 import type { Not } from '@/types/database';
@@ -27,6 +28,8 @@ interface NoteRowProps {
   assignedUserName?: string | null;
   assignedCariName?: string | null;
   assignedPersonelName?: string | null;
+  /** Detay bağlamı kendi parent modül yetkisini önceden hesaplar. */
+  canModifyOverride?: boolean;
 }
 
 export function NoteRow({
@@ -39,15 +42,31 @@ export function NoteRow({
   assignedUserName: assignedUserNameProp,
   assignedCariName: assignedCariNameProp,
   assignedPersonelName: assignedPersonelNameProp,
+  canModifyOverride,
 }: NoteRowProps) {
   const { formatDateSmart } = useDateFormat();
   const { t } = useTranslation(['common']);
   const [thumbUrl, setThumbUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  const { data: cariler } = useCariler(undefined, true, true);
-  const { data: personeller } = usePersonelList(true, true);
-  const { data: isletmeUsers } = useIsletmeUsers();
+  const { canAccessModule, canUpdate } = usePermissions();
+  const canModifyNote =
+    canModifyOverride ?? canUpdate('notlar', note.created_by);
+  const canResolveCari = canAccessModule('cariler') && !!note.assigned_to_cari;
+  const canResolvePersonel =
+    canAccessModule('personel') && !!note.assigned_to_personel;
+  const { data: cariler } = useCariler(
+    undefined,
+    true,
+    true,
+    canResolveCari,
+  );
+  const { data: personeller } = usePersonelList(
+    true,
+    true,
+    canResolvePersonel,
+  );
+  const { data: isletmeUsers } = useIsletmeUsers(!!note.assigned_to_user);
 
   const resolvedCariName = useMemo(() => {
     if (!note.assigned_to_cari || !cariler) return null;
@@ -143,7 +162,12 @@ export function NoteRow({
         {isTask && (
           <TouchableOpacity
             style={styles.checkbox}
-            onPress={() => onToggleComplete?.(note.id, !isDone)}
+            onPress={
+              canModifyNote && onToggleComplete
+                ? () => onToggleComplete(note.id, !isDone)
+                : undefined
+            }
+            disabled={!canModifyNote || !onToggleComplete}
             hitSlop={HIT_SLOP.md}
           >
             {isDone ? (
@@ -243,7 +267,7 @@ export function NoteRow({
       {/* Expanded actions */}
       {expanded && (
         <View style={styles.expandedActions}>
-          {onEdit && (
+          {canModifyNote && onEdit && (
             <TouchableOpacity style={styles.actionBtn} onPress={onEdit} activeOpacity={0.7}>
               <Pencil size={16} color={colors.primary} />
               <Text variant="caption" style={styles.actionText}>
@@ -257,10 +281,10 @@ export function NoteRow({
               {t('common:buttons.share')}
             </Text>
           </TouchableOpacity>
-          {!isTask && (
+          {!isTask && canModifyNote && onMarkAsTask && (
             <TouchableOpacity
               style={[styles.actionBtn, styles.actionBtnTask]}
-              onPress={() => onMarkAsTask?.(note.id)}
+              onPress={() => onMarkAsTask(note.id)}
               activeOpacity={0.7}
             >
               <CheckCircle2 size={16} color={colors.orange} />

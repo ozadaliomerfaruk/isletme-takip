@@ -27,7 +27,7 @@
     "clientDetails": "Contact Details",
     "clientTransactions": "Contact History",
     "clientPayment": "Client Payment",
-    "clientCollection": "Payment from Client",
+    "clientCollection": "Contact Collection",
     "clientPurchase": "Purchase from Supplier",
     "clientSale": "Sale to Customer",
     "personnel": "Staff",
@@ -54,7 +54,7 @@
     "about": "About",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
-    "kvkk": "Data Protection",
+    "privacyNotice": "Privacy Notice",
     "login": "Login",
     "register": "Register",
     "forgotPassword": "Forgot Password",
@@ -81,7 +81,7 @@
     "importData": "Import Data",
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
-    "kvkk": "Data Protection",
+    "privacyNotice": "Privacy Notice",
     "logout": "Logout",
     "deleteAccount": "Delete Account"
   },
@@ -94,7 +94,7 @@
     "income": "Income",
     "expense": "Expense",
     "transfer": "Transfer",
-    "client": "Client",
+    "client": "Contact",
     "personnel": "Staff"
   }
 }

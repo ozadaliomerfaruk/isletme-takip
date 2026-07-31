@@ -1,51 +1,45 @@
-import { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  Modal,
-  Pressable,
-  TouchableOpacity,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useEffect, type ReactNode } from 'react';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, Pressable, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import {
-  Building2, Lock, X, ChevronDown, Check,
-  ShoppingBasket, Coffee, Scissors, Shirt, Car, Hammer, Truck, Pill, Camera, Laptop, Store,
-  type LucideIcon,
-} from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Building2, Lock, X, ChevronDown, Check } from 'lucide-react-native';
+import { Text, Input, Button, Card, Screen, Modal, PasswordStrengthIndicator, type PasswordStrength } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+// Sektör listesi tek kaynaktan gelir — kurulum ekranıyla ayrışmasın
+import { SECTORS } from '@/constants/sectors';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useUpdateIsletme } from '@/hooks/useIsletme';
 import type { IsletmeSector } from '@/types/database';
-
-const SECTORS: { id: IsletmeSector; icon: LucideIcon; color: string }[] = [
-  { id: 'market_bakkal', icon: ShoppingBasket, color: '#10B981' },
-  { id: 'kafe_restoran', icon: Coffee, color: '#F59E0B' },
-  { id: 'berber_kuafor', icon: Scissors, color: '#8B5CF6' },
-  { id: 'giyim_tekstil', icon: Shirt, color: '#EC4899' },
-  { id: 'oto', icon: Car, color: '#3B82F6' },
-  { id: 'nalbur_insaat', icon: Hammer, color: '#EF4444' },
-  { id: 'toptan_dagitim', icon: Truck, color: '#14B8A6' },
-  { id: 'eczane', icon: Pill, color: '#06B6D4' },
-  { id: 'emlak', icon: Building2, color: '#0EA5E9' },
-  { id: 'fotografci', icon: Camera, color: '#D946EF' },
-  { id: 'serbest_meslek', icon: Laptop, color: '#6366F1' },
-  { id: 'diger', icon: Store, color: '#6B7280' },
-];
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { parseDateFromDB } from '@/lib/date';
 import { useRequireOwner } from '@/hooks/usePagePermission';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 
+/**
+ * Alt sheet gövdesi — alt boşluğu home indicator'ı ezmesin diye gerçek
+ * safe-area'dan alır. NEDEN ayrı bileşen: ModalInsets gerçek (tab bar'sız)
+ * inset'i yalnız Modal'ın ALT AĞACINA sağlıyor; sayfa gövdesinden okunan değer
+ * tab bar yüksekliğini de içerdiği için burada kullanılamaz.
+ */
+function SheetBody({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <Pressable
+      style={[styles.modalContent, { paddingBottom: spacing.lg + insets.bottom }]}
+      onPress={(e) => e.stopPropagation()}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 export default function IsletmeBilgileriPage() {
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['settings', 'common', 'errors', 'auth']);
@@ -68,6 +62,8 @@ export default function IsletmeBilgileriPage() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordLoading, setPasswordLoading] = useState(false);
+  // Zayıf şifre kapısı diğer iki şifre-belirleme yüzeyiyle (kayıt, şifre sıfırlama) aynı olmalı
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>('weak');
   const [passwordErrors, setPasswordErrors] = useState<{
     newPassword?: string;
     confirmPassword?: string;
@@ -132,6 +128,8 @@ export default function IsletmeBilgileriPage() {
       newErrors.newPassword = t('errors:validation.required');
     } else if (newPassword.length < 6) {
       newErrors.newPassword = t('errors:auth.invalidPassword');
+    } else if (passwordStrength === 'weak') {
+      newErrors.newPassword = t('errors:auth.passwordWeak');
     }
 
     if (!confirmPassword) {
@@ -165,6 +163,7 @@ export default function IsletmeBilgileriPage() {
       setShowPasswordModal(false);
       setNewPassword('');
       setConfirmPassword('');
+      setPasswordStrength('weak');
       setPasswordErrors({});
 
       Alert.alert(t('common:status.success'), t('settings:messages.passwordChanged'));
@@ -191,31 +190,34 @@ export default function IsletmeBilgileriPage() {
     setShowPasswordModal(false);
     setNewPassword('');
     setConfirmPassword('');
+    setPasswordStrength('weak');
     setPasswordErrors({});
     setPasswordLoading(false);
   };
 
   if (!isletme) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* İşletme Icon */}
             <View style={styles.iconContainer}>
@@ -332,27 +334,27 @@ export default function IsletmeBilgileriPage() {
               </View>
             </TouchableOpacity>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updateIsletme.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.save')}
-              </Button>
-            </View>
           </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updateIsletme.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.save')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
 
         {/* Şifre Değiştirme Modal */}
@@ -362,7 +364,7 @@ export default function IsletmeBilgileriPage() {
               behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
               style={styles.modalKeyboardView}
             >
-              <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+              <SheetBody>
                 {/* Header */}
                 <View style={styles.modalHeader}>
                   <Text variant="h3">{t('settings:profile.changePassword')}</Text>
@@ -382,6 +384,12 @@ export default function IsletmeBilgileriPage() {
                     onChangeText={setNewPassword}
                     error={passwordErrors.newPassword}
                   />
+                  {newPassword.length > 0 && (
+                    <PasswordStrengthIndicator
+                      password={newPassword}
+                      onStrengthChange={setPasswordStrength}
+                    />
+                  )}
 
                   {/* Şifre Tekrar */}
                   <Input
@@ -404,7 +412,7 @@ export default function IsletmeBilgileriPage() {
                 >
                   {t('settings:profile.changePassword')}
                 </Button>
-              </Pressable>
+              </SheetBody>
             </KeyboardAvoidingView>
           </Pressable>
         </Modal>
@@ -412,7 +420,7 @@ export default function IsletmeBilgileriPage() {
         {/* Sektör Seçim Modal */}
         <Modal visible={showSectorModal} transparent animationType="slide">
           <Pressable style={styles.modalOverlay} onPress={() => setShowSectorModal(false)}>
-            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <SheetBody>
               <View style={styles.modalHeader}>
                 <Text variant="h3">{t('settings:business.sectorSelectTitle')}</Text>
                 <TouchableOpacity onPress={() => setShowSectorModal(false)}>
@@ -445,10 +453,10 @@ export default function IsletmeBilgileriPage() {
                   );
                 })}
               </ScrollView>
-            </Pressable>
+            </SheetBody>
           </Pressable>
         </Modal>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -495,11 +503,15 @@ const styles = StyleSheet.create({
   sectionTitle: {
     marginBottom: spacing.md,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,
@@ -539,12 +551,12 @@ const styles = StyleSheet.create({
   modalKeyboardView: {
     width: '100%',
   },
+  // Alt boşluk SheetBody'de safe-area ile veriliyor (home indicator)
   modalContent: {
     backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
     padding: spacing.lg,
-    paddingBottom: spacing['2xl'],
   },
   modalHeader: {
     flexDirection: 'row',

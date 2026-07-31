@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -16,19 +16,26 @@ import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing
 import { formatCurrency } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
-import { IleriTarihliIslemWithRelations } from '@/types/database';
+import {
+  Currency,
+  IleriTarihliIslemWithRelations,
+} from '@/types/database';
 import {
   useCompleteIleriTarihliIslem,
   useDeleteIleriTarihliIslem,
 } from '@/hooks/useIleriTarihliIslemler';
+import { isCrossCurrencyRateRequiredError } from '@/lib/crossCurrency';
 import { toErrorMessage } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar/QuickTransactionBar';
+import { ExchangeRateBar } from '@/components/transaction/ExchangeRateBar';
+import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
 
 interface IleriTarihliIslemlerSectionProps {
   ileriTarihliIslemler: IleriTarihliIslemWithRelations[] | undefined;
   isLoading: boolean;
   title?: string;
+  readOnly?: boolean;
 }
 
 // İşlem tipine göre ilgili entity adını çıkar
@@ -49,6 +56,14 @@ function getEntityText(item: IleriTarihliIslemWithRelations): string | null {
 }
 
 function getTransactionCurrency(item: IleriTarihliIslemWithRelations): string | undefined {
+  if (
+    item.type === 'cari_odeme'
+    || item.type === 'cari_tahsilat'
+    || item.type === 'personel_odeme'
+    || item.type === 'personel_tahsilat'
+  ) {
+    return item.hesap?.currency;
+  }
   if (item.type.startsWith('cari_')) return item.cari?.currency;
   if (item.type.startsWith('personel_')) return item.personel?.currency;
   return item.hesap?.currency;
@@ -67,20 +82,64 @@ export function IleriTarihliIslemlerSection({
   ileriTarihliIslemler,
   isLoading,
   title,
+  readOnly = false,
 }: IleriTarihliIslemlerSectionProps) {
   const { t } = useTranslation(['transactions', 'common']);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
-  const { canUpdate, canDelete } = usePermissions();
+  const [completingId, setCompletingId] = useState<string | null>(null);
+  const completingIdRef = useRef<string | null>(null);
+  const {
+    canAccessModule,
+    canCreateTransactionType,
+    canUpdate,
+    canDelete,
+    canSeeRecord,
+  } = usePermissions();
 
   const completeIslem = useCompleteIleriTarihliIslem();
   const deleteIslem = useDeleteIleriTarihliIslem();
+
+  // Çapraz-kurlu bir planı tamamlarken kur TAMAMLAMA ANINDA sorulur:
+  // ileri_tarihli_islemler tablosu kur saklamıyor (kolon yok), bu yüzden planlama
+  // anında kaydedilemiyor. Hook kursuz denemede CrossCurrencyRateRequiredError
+  // fırlatıyor → burada yakalanıp ExchangeRateBar açılıyor, onay sonrası aynı id
+  // kurla tekrar gönderiliyor. (Eskiden kur hiç sorulmadığı için kullanıcı ham
+  // "Geçersiz döviz kuru: TRY → USD" hatası alıyor ve işlemi HİÇ tamamlayamıyordu.)
+  const [pendingRate, setPendingRate] = useState<{
+    id: string;
+    sourceCurrency: Currency;
+    targetCurrency: Currency;
+    sourceAmount: number;
+    completionToken: string | null;
+  } | null>(null);
+  const readOnlyRef = useRef(readOnly);
+  readOnlyRef.current = readOnly;
+
+  useEffect(() => {
+    if (!readOnly) return;
+
+    setEditTransactionId(null);
+    setPendingRate(null);
+  }, [readOnly]);
 
   const displayTitle = title ?? t('transactions:scheduled.title');
 
   if (isLoading || !ileriTarihliIslemler || ileriTarihliIslemler.length === 0) {
     return null;
   }
+
+  const selectedEditTransaction = editTransactionId
+    ? ileriTarihliIslemler.find((item) => item.id === editTransactionId)
+    : undefined;
+  const canEditSelectedTransaction =
+    !readOnly
+    && !!selectedEditTransaction
+    && canAccessTransactionSources(
+      [selectedEditTransaction.type],
+      canAccessModule,
+    )
+    && canUpdate('ileri_tarihli', selectedEditTransaction.created_by ?? null);
 
   const formatDate = (dateStr: string) => {
     const date = new Date(dateStr + 'T00:00:00');
@@ -105,7 +164,44 @@ export function IleriTarihliIslemlerSection({
     return scheduled.getTime() === today.getTime();
   };
 
+  const runComplete = async (
+    id: string,
+    exchangeRate?: number,
+    expectedToken?: string | null,
+  ) => {
+    // Alert callback'i aynı frame'de iki kez çalışsa bile ikinci finansal isteği başlatma.
+    if (readOnlyRef.current || completingIdRef.current) return;
+    completingIdRef.current = id;
+    setCompletingId(id);
+
+    try {
+      await completeIslem.mutateAsync({ id, exchangeRate, expectedToken });
+      Alert.alert(t('common:status.success'), t('transactions:messages.saveSuccess'));
+    } catch (error) {
+      if (isCrossCurrencyRateRequiredError(error)) {
+        if (!readOnlyRef.current) {
+          setPendingRate({
+            id,
+            sourceCurrency: error.sourceCurrency,
+            targetCurrency: error.targetCurrency,
+            sourceAmount: error.sourceAmount,
+            completionToken: error.completionToken,
+          });
+        }
+        return;
+      }
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
+    } finally {
+      if (completingIdRef.current === id) {
+        completingIdRef.current = null;
+        setCompletingId(null);
+      }
+    }
+  };
+
   const handleComplete = (item: IleriTarihliIslemWithRelations) => {
+    if (readOnlyRef.current || completingIdRef.current) return;
+
     Alert.alert(
       t('transactions:scheduled.execute'),
       t('transactions:scheduled.executeConfirm', { amount: formatCurrency(item.amount, getTransactionCurrency(item)), type: t(`transactions:types.${item.type}`).toLowerCase() }),
@@ -113,13 +209,9 @@ export function IleriTarihliIslemlerSection({
         { text: t('common:buttons.cancel'), style: 'cancel' },
         {
           text: t('transactions:scheduled.execute'),
-          onPress: async () => {
-            try {
-              await completeIslem.mutateAsync(item.id);
-              Alert.alert(t('common:status.success'), t('transactions:messages.saveSuccess'));
-            } catch (error) {
-              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
-            }
+          onPress: () => {
+            if (readOnlyRef.current) return;
+            void runComplete(item.id);
           },
         },
       ]
@@ -127,6 +219,8 @@ export function IleriTarihliIslemlerSection({
   };
 
   const handleDelete = (item: IleriTarihliIslemWithRelations) => {
+    if (readOnlyRef.current || completingIdRef.current) return;
+
     Alert.alert(
       t('transactions:scheduled.delete'),
       t('transactions:scheduled.deleteConfirm'),
@@ -136,6 +230,7 @@ export function IleriTarihliIslemlerSection({
           text: t('common:buttons.delete'),
           style: 'destructive',
           onPress: async () => {
+            if (readOnlyRef.current || completingIdRef.current) return;
             try {
               await deleteIslem.mutateAsync(item.id);
               Alert.alert(t('common:status.success'), t('transactions:messages.deleteSuccess'));
@@ -149,6 +244,7 @@ export function IleriTarihliIslemlerSection({
   };
 
   const handleEdit = (item: IleriTarihliIslemWithRelations) => {
+    if (readOnlyRef.current || completingIdRef.current) return;
     setEditTransactionId(item.id);
   };
 
@@ -163,14 +259,36 @@ export function IleriTarihliIslemlerSection({
       </View>
 
       {/* QuickTransactionBar for editing */}
-      <QuickTransactionBar
-        visible={!!editTransactionId}
-        onDismiss={() => setEditTransactionId(null)}
-        mode="edit"
-        transactionId={editTransactionId ?? undefined}
-        isScheduledTransaction={true}
-        onSuccess={() => setEditTransactionId(null)}
-      />
+      {!readOnly && (
+        <QuickTransactionBar
+          visible={!!editTransactionId && canEditSelectedTransaction}
+          onDismiss={() => setEditTransactionId(null)}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={true}
+          onSuccess={() => setEditTransactionId(null)}
+        />
+      )}
+
+      {/* Çapraz-kur barı — tamamlama anında kur (ana bar ile aynı bileşen) */}
+      {!readOnly && pendingRate && (
+        <ExchangeRateBar
+          visible
+          onDismiss={() => setPendingRate(null)}
+          sourceAmount={pendingRate.sourceAmount}
+          sourceCurrency={pendingRate.sourceCurrency}
+          targetCurrency={pendingRate.targetCurrency}
+          onConfirm={(exchangeRate) => {
+            if (readOnlyRef.current) {
+              setPendingRate(null);
+              return;
+            }
+            const { id, completionToken } = pendingRate;
+            setPendingRate(null);
+            void runComplete(id, exchangeRate, completionToken);
+          }}
+        />
+      )}
 
       {ileriTarihliIslemler.map((item) => {
         const overdue = isOverdue(item.scheduled_date);
@@ -180,6 +298,16 @@ export function IleriTarihliIslemlerSection({
         const entityText = getEntityText(item);
         const accountText = getAccountText(item);
         const typeLabel = t(`transactions:types.${item.type}`);
+        const hasSourceAccess = canAccessTransactionSources(
+          [item.type],
+          canAccessModule,
+        );
+        const canCompleteItem =
+          !readOnly
+          && hasSourceAccess
+          && canSeeRecord(item.created_by ?? null)
+          && canUpdate('ileri_tarihli', item.created_by ?? null)
+          && canCreateTransactionType(item.type);
 
         // Satır 3: açıklama veya kategori + hesap adı
         const secondaryParts: string[] = [];
@@ -246,36 +374,45 @@ export function IleriTarihliIslemlerSection({
             }
           >
             <View style={styles.actions}>
-              {canUpdate('ileri_tarihli', item.created_by ?? null) && (
+              {canCompleteItem && (
                 <Button
                   variant="primary"
                   size="sm"
                   icon={<Check size={16} color={colors.surface} />}
                   onPress={() => handleComplete(item)}
-                  loading={completeIslem.isPending}
+                  loading={completeIslem.isPending && completingId === item.id}
+                  disabled={completingId !== null && completingId !== item.id}
                   style={styles.actionButton}
                 >
                   {t('transactions:scheduled.executed')}
                 </Button>
               )}
-              {canUpdate('ileri_tarihli', item.created_by ?? null) && (
+              {!readOnly
+                && hasSourceAccess
+                && canUpdate('ileri_tarihli', item.created_by ?? null)
+                && (
                 <Button
                   variant="outline"
                   size="sm"
                   icon={<Pencil size={16} color={colors.text} />}
                   onPress={() => handleEdit(item)}
+                  disabled={completingId !== null}
                   style={styles.actionButton}
                 >
                   {t('common:buttons.edit')}
                 </Button>
               )}
-              {canDelete('ileri_tarihli', item.created_by ?? null) && (
+              {!readOnly
+                && hasSourceAccess
+                && canDelete('ileri_tarihli', item.created_by ?? null)
+                && (
                 <Button
                   variant="outline"
                   size="sm"
                   icon={<Trash2 size={16} color={colors.error} />}
                   onPress={() => handleDelete(item)}
                   loading={deleteIslem.isPending}
+                  disabled={completingId !== null}
                   style={[styles.actionButton, styles.deleteButton]}
                 >
                   {t('common:buttons.delete')}

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import {
   View,
   StyleSheet,
@@ -8,28 +10,33 @@ import {
   Alert,
   TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { TrendingUp, TrendingDown, Package } from 'lucide-react-native';
-import { Text, Input, Button, Card, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker } from '@/components/ui';
+import { Text, Input, Button, Card, IconPicker, ColorPicker, ParentCategoryPicker, CategoryPicker, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { DEFAULT_CATEGORY_ICON, DEFAULT_CATEGORY_COLOR } from '@/constants/categoryIcons';
 import { useCreateKategori } from '@/hooks/useKategoriler';
 import { KategoriType } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
-import { upperTr } from '@/lib/turkishTextUtils';
+import { upperTrData } from '@/lib/turkishTextUtils';
 import { setPendingCategorySelection } from '@/lib/pendingCategorySelection';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function KategoriEklePage() {
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { type: initialType } = useLocalSearchParams<{ type?: string }>();
   const { t } = useTranslation(['categories', 'common', 'errors']);
-  usePagePermission({ module: 'kategoriler', action: 'create' });
+  usePagePermission({
+    module: 'kategoriler',
+    action: 'create',
+    allowManager: true,
+  });
   const createKategori = useCreateKategori();
 
   const [name, setName] = useState('');
@@ -65,8 +72,10 @@ export default function KategoriEklePage() {
     try {
       // İşlem kategorileri (gelir/gider) BÜYÜK harf kaydedilir (kullanıcı isteği).
       // Ürün kategorileri hariç (ayrı konu) → olduğu gibi.
+      // upperTrData: yazma yolu dile duyarlı OLMAMALI, yoksa aynı ad iki dilde
+      // iki farklı kayda bölünür (ISTANBUL / İSTANBUL).
       const created = await createKategori.mutateAsync({
-        name: type === 'urun' ? name.trim() : upperTr(name.trim()),
+        name: type === 'urun' ? name.trim() : upperTrData(name.trim()),
         type,
         icon,
         color,
@@ -100,16 +109,18 @@ export default function KategoriEklePage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Tip Seçimi */}
             <View style={styles.section}>
@@ -288,29 +299,29 @@ export default function KategoriEklePage() {
               </Card>
             </View>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={createKategori.isPending}
-                onPress={handleSubmit}
-                style={styles.button}
-              >
-                {t('common:buttons.add')}
-              </Button>
-            </View>
           </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={createKategori.isPending}
+              onPress={handleSubmit}
+              style={styles.button}
+            >
+              {t('common:buttons.add')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -384,11 +395,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight + '30',
     borderRadius: borderRadius.full,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

@@ -1,11 +1,25 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, type MutableRefObject } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import { UrunHareket, UrunHareketInsert, UrunHareketTipi, IslemType, KdvOrani, HesapType } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
-import { toNumber, roundCurrency } from '@/lib/currency';
+import { toNumber, roundCurrency, formatQuantity } from '@/lib/currency';
 import { urunHareketYon, aileNetIsaret, isAlisAilesi, isSatisAilesi } from '@/lib/urunHareket';
+import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
+import {
+  normalizeProductMutationItem,
+  normalizeProductMutationItems,
+} from '@/lib/productMutation';
+import {
+  ProductMovementPermissionError,
+  getProductCreateDenialReason,
+  getProductMovementDenialReason,
+  type ProductMovementPermissionAction,
+  type ProductMovementPermissionRecord,
+  type ProductMovementPermissionSnapshot,
+} from '@/lib/productMovementPermissions';
 import i18n from '@/i18n';
 
 /**
@@ -20,6 +34,11 @@ export interface UrunHareketWithSource extends UrunHareket {
   } | null;
   /** Bağlı işlemin tipi (gelir/gider/cari_alis/cari_satis/personel_satis...). */
   islemType?: IslemType | null;
+  /**
+   * Bağlı asıl işlem satırının creator'ı. Ürün hareketinin kendi `created_by`
+   * alanından ayrıdır; transaction edit own/all kapsamı bu alanla sınanır.
+   */
+  islemCreatedBy?: string | null;
   /**
    * Bağlı işlemin iş tarihi (islemler.date). Liste gösterimi ve sıralaması bunu
    * kullanmalı — created_at DEĞİL. created_at, düzenleme/yeniden-uygulama (reapply)
@@ -44,17 +63,301 @@ export interface UrunHareketWithSource extends UrunHareket {
 export type UrunHareketWithCari = UrunHareketWithSource;
 
 /**
+ * Mutation açıkken rol/işletme değişirse hook'un ilk render'ındaki closure'a
+ * güvenme. Ref her render'da senkron güncellenir; mutationFn yazmadan hemen önce
+ * o anki izin ve tenant fotoğrafını tekrar okur.
+ */
+function useLatestProductMovementPermissions(): MutableRefObject<ProductMovementPermissionSnapshot> {
+  const { isletme, user } = useAuthContext();
+  const {
+    canAccessModule,
+    canCreate,
+    canUpdate,
+    canDelete,
+  } = usePermissions();
+  const latestRef = useRef<ProductMovementPermissionSnapshot>({
+    isletmeId: null,
+    userId: null,
+    canCreate: false,
+    canAccessCari: false,
+    canCreateIslem: false,
+    canUpdate: () => false,
+    canDelete: () => false,
+  });
+  latestRef.current = {
+    isletmeId: isletme?.id ?? null,
+    userId: user?.id ?? null,
+    canCreate: canCreate('urunler'),
+    canAccessCari: canAccessModule('cariler'),
+    canCreateIslem: canCreate('islemler'),
+    canUpdate: (createdBy) => canUpdate('urunler', createdBy),
+    canDelete: (createdBy) => canDelete('urunler', createdBy),
+  };
+  return latestRef;
+}
+
+function productMovementPermissionMessage(
+  action: ProductMovementPermissionAction,
+  reason: ProductMovementPermissionError['reason'],
+): string {
+  if (reason === 'ownership') {
+    return i18n.t(
+      action === 'delete'
+        ? 'transactions:permissions.otherUserDeleteDenied'
+        : 'transactions:permissions.otherUserUpdateDenied',
+    );
+  }
+  return i18n.t('common:errors.permissionDenied');
+}
+
+function assertProductCreatePermission(
+  permissionRef: MutableRefObject<ProductMovementPermissionSnapshot>,
+  expectedIsletmeId: string,
+): void {
+  const reason = getProductCreateDenialReason(
+    permissionRef.current,
+    expectedIsletmeId,
+  );
+  if (reason) {
+    throw new ProductMovementPermissionError(
+      'create',
+      reason,
+      productMovementPermissionMessage('create', reason),
+    );
+  }
+}
+
+function assertCariLinkedCreatePermission(
+  permissionRef: MutableRefObject<ProductMovementPermissionSnapshot>,
+  expectedIsletmeId: string,
+): void {
+  assertProductCreatePermission(permissionRef, expectedIsletmeId);
+  const snapshot = permissionRef.current;
+  const deniedModule = !snapshot.canAccessCari
+    ? 'cariler'
+    : !snapshot.canCreateIslem
+      ? 'islemler'
+      : null;
+  if (deniedModule) {
+    throw new ProductMovementPermissionError(
+      'create',
+      'permission',
+      productMovementPermissionMessage('create', 'permission'),
+      deniedModule,
+    );
+  }
+}
+
+function assertProductMovementPermission(
+  permissionRef: MutableRefObject<ProductMovementPermissionSnapshot>,
+  expectedIsletmeId: string,
+  action: Exclude<ProductMovementPermissionAction, 'create'>,
+  record: ProductMovementPermissionRecord,
+): void {
+  const reason = getProductMovementDenialReason(
+    permissionRef.current,
+    expectedIsletmeId,
+    action,
+    record,
+  );
+  if (reason) {
+    throw new ProductMovementPermissionError(
+      action,
+      reason,
+      productMovementPermissionMessage(action, reason),
+    );
+  }
+}
+
+export interface UrunHareketMinimalCariLabel {
+  urun_hareket_id: string;
+  cari_name: string;
+}
+
+export interface UrunHareketKaynakEtiketi {
+  movement_id: string;
+  islem_id: string | null;
+  islem_type: string | null;
+  islem_date: string | null;
+  cari_name: string | null;
+  personel_name: string | null;
+  hesap_name: string | null;
+}
+
+/**
+ * Ürün hareketi için minimal cari etiketi.
+ *
+ * Cariler modülü kapalıyken temel cariler/islemler ilişkisini genişletmez; sunucu
+ * yalnız hareket kimliği + gösterim adını döndürür. Dinamik yetki projeksiyonu
+ * disk cache'e yazılmaz.
+ */
+export function useUrunHareketMinimalCariLabels(urunId: string | undefined) {
+  const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
+  const canSeeCariler = canAccessModule('cariler');
+
+  return useQuery({
+    queryKey: [
+      ...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''),
+      'minimal-cari-labels',
+      'v1',
+    ],
+    queryFn: async (): Promise<UrunHareketMinimalCariLabel[]> => {
+      if (!canSeeUrunler || canSeeCariler || !isletme || !urunId) return [];
+
+      const { data, error } = await supabase.rpc(
+        'get_urun_hareket_minimal_cari_labels',
+        {
+          p_isletme_id: isletme.id,
+          p_urun_id: urunId,
+        },
+      );
+      if (error) throw error;
+
+      return (Array.isArray(data) ? data : []).flatMap((row) => {
+        const raw = row as {
+          urun_hareket_id?: unknown;
+          cari_name?: unknown;
+        };
+        return typeof raw.urun_hareket_id === 'string' &&
+            typeof raw.cari_name === 'string' &&
+            raw.cari_name.trim().length > 0
+          ? [{
+              urun_hareket_id: raw.urun_hareket_id,
+              cari_name: raw.cari_name,
+            }]
+          : [];
+      });
+    },
+    enabled:
+      canSeeUrunler &&
+      !canSeeCariler &&
+      !!isletme &&
+      !!urunId,
+    staleTime: 30_000,
+    meta: {
+      persist: false,
+      query_purpose: 'urunler:minimal-cari-labels',
+    },
+  });
+}
+
+/**
+ * Kapalı Personel/Hesap modüllerinden yalnız hareket satırında gösterilecek adı
+ * alır. Kimlik, bakiye veya kaynak kaydı dönmez; dinamik sonuç diske yazılmaz.
+ */
+export function useUrunHareketKaynakEtiketleri(
+  urunId: string | undefined,
+) {
+  const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const needsMinimalLabels =
+    !canSeeCariler || !canSeePersonel || !canSeeHesaplar;
+
+  return useQuery({
+    queryKey: [
+      ...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''),
+      'minimal-source-labels',
+      'v1',
+      canSeeCariler,
+      canSeePersonel,
+      canSeeHesaplar,
+    ],
+    queryFn: async (): Promise<UrunHareketKaynakEtiketi[]> => {
+      if (
+        !canSeeUrunler
+        || !needsMinimalLabels
+        || !isletme
+        || !urunId
+      ) {
+        return [];
+      }
+
+      const { data, error } = await supabase.rpc(
+        'get_urun_hareket_kaynak_etiketleri_v1',
+        {
+          p_isletme_id: isletme.id,
+          p_urun_id: urunId,
+        },
+      );
+      if (error) throw error;
+
+      return (Array.isArray(data) ? data : []).flatMap((row) => {
+        const raw = row as {
+          movement_id?: unknown;
+          islem_id?: unknown;
+          islem_type?: unknown;
+          islem_date?: unknown;
+          cari_name?: unknown;
+          personel_name?: unknown;
+          hesap_name?: unknown;
+        };
+        if (typeof raw.movement_id !== 'string') return [];
+
+        const cariName =
+          typeof raw.cari_name === 'string'
+          && raw.cari_name.trim().length > 0
+            ? raw.cari_name
+            : null;
+        const personelName =
+          typeof raw.personel_name === 'string'
+          && raw.personel_name.trim().length > 0
+            ? raw.personel_name
+            : null;
+        const hesapName =
+          typeof raw.hesap_name === 'string'
+          && raw.hesap_name.trim().length > 0
+            ? raw.hesap_name
+            : null;
+
+        if (!cariName && !personelName && !hesapName) return [];
+
+        return [{
+          movement_id: raw.movement_id,
+          islem_id:
+            typeof raw.islem_id === 'string' ? raw.islem_id : null,
+          islem_type:
+            typeof raw.islem_type === 'string' ? raw.islem_type : null,
+          islem_date:
+            typeof raw.islem_date === 'string' ? raw.islem_date : null,
+          cari_name: cariName,
+          personel_name: personelName,
+          hesap_name: hesapName,
+        }];
+      });
+    },
+    enabled:
+      canSeeUrunler
+      && needsMinimalLabels
+      && !!isletme
+      && !!urunId,
+    staleTime: 30_000,
+    meta: {
+      persist: false,
+      query_purpose: 'urunler:minimal-source-labels-v1',
+    },
+  });
+}
+
+/**
  * Ürünün SON işlem birim fiyatı (yön bazlı: alış → giriş, satış → çıkış).
  * Ürün seçicide fiyat alanını güncel piyasa fiyatıyla doldurmak için —
  * ürün kartındaki alis_fiyati/satis_fiyati işlemlerle güncellenmediğinden bayatlar.
  */
 export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'satis') {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
     queryKey: [...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''), 'son-fiyat', yon],
     queryFn: async (): Promise<{ fiyat: number; tarih: string } | null> => {
-      if (!isletme || !urunId) return null;
+      if (!canSeeUrunler || !isletme || !urunId) return null;
       const { data, error } = await supabase
         .from('urun_hareketler')
         .select('birim_fiyat, created_at, islem:islemler(date, type)')
@@ -88,7 +391,7 @@ export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'sati
       adaylar.sort((a, b) => (a.tarih < b.tarih ? 1 : -1));
       return { fiyat: adaylar[0].fiyat, tarih: adaylar[0].tarih };
     },
-    enabled: !!isletme && !!urunId,
+    enabled: canSeeUrunler && !!isletme && !!urunId,
     staleTime: 30_000,
   });
 }
@@ -98,11 +401,22 @@ export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'sati
  */
 export function useUrunHareketler(urunId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const canSeePersonel = canAccessModule('personel');
 
   const result = useQuery({
-    queryKey: queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''),
+    queryKey: [
+      ...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''),
+      'source-visibility',
+      canSeeCariler,
+      canSeeHesaplar,
+      canSeePersonel,
+    ],
     queryFn: async () => {
-      if (!isletme || !urunId) return [];
+      if (!canSeeUrunler || !isletme || !urunId) return [];
 
       // İlk olarak urun hareketlerini al
       const { data: hareketler, error } = await supabase
@@ -127,9 +441,21 @@ export function useUrunHareketler(urunId: string | undefined) {
 
       // İşlemleri ve kaynaklarını al (cari + hesap/kart + personel + tip).
       // İki FK (hesap_id, hedef_hesap_id) olduğundan PostgREST alias zorunlu (useIslemler ile aynı desen).
+      // Urun baglaminda minimal cari adi sozlesme geregi gorulebilir. Hesap ve
+      // personel kaynaklari ise yalniz ilgili modul aciksa ag yanitina/cach'e girer.
+      const sourceSelect = [
+        'id',
+        'type',
+        'date',
+        'created_by',
+        canSeeCariler ? 'cariler(id, name, type)' : null,
+        canSeeHesaplar ? 'hesap:hesaplar!hesap_id(id, name, type)' : null,
+        canSeePersonel ? 'personel:personel(id, first_name, last_name)' : null,
+      ].filter(Boolean).join(', ');
+
       const { data: islemler, error: islemError } = await supabase
         .from('islemler')
-        .select('id, type, date, cari_id, hesap_id, personel_id, cariler(id, name, type), hesap:hesaplar!hesap_id(id, name, type), personel:personel(id, first_name, last_name)')
+        .select(sourceSelect)
         .in('id', islemIds);
 
       if (islemError) {
@@ -144,17 +470,34 @@ export function useUrunHareketler(urunId: string | undefined) {
       };
 
       // islem_id -> kaynak (cari/hesap/personel + tip) mapping oluştur
-      type SourceInfo = Pick<UrunHareketWithSource, 'cari' | 'hesap' | 'personel' | 'islemType' | 'islemDate'>;
+      type SourceInfo = Pick<
+        UrunHareketWithSource,
+        | 'cari'
+        | 'hesap'
+        | 'personel'
+        | 'islemType'
+        | 'islemDate'
+        | 'islemCreatedBy'
+      >;
       const islemSourceMap = new Map<string, SourceInfo>();
-      islemler?.forEach(islemRaw => {
-        const islem = islemRaw as { id: string; type: string | null; date: string | null; cariler: unknown; hesap: unknown; personel: unknown };
+      const sourceRows = islemler as unknown as Array<{
+        id: string;
+        type: string | null;
+        date: string | null;
+        created_by: string | null;
+        cariler?: unknown;
+        hesap?: unknown;
+        personel?: unknown;
+      }> | null;
+      sourceRows?.forEach(islem => {
         const cariData = normalizeRel(islem.cariler);
         const hesapData = normalizeRel(islem.hesap);
         const personelData = normalizeRel(islem.personel);
         islemSourceMap.set(islem.id, {
           islemType: (islem.type as IslemType) ?? null,
           islemDate: islem.date ?? null,
-          cari: cariData
+          islemCreatedBy: islem.created_by ?? null,
+          cari: canSeeCariler && cariData
             ? { id: cariData.id as string, name: cariData.name as string, type: cariData.type as 'musteri' | 'tedarikci' }
             : null,
           hesap: hesapData
@@ -177,6 +520,7 @@ export function useUrunHareketler(urunId: string | undefined) {
           cari: src?.cari ?? null,
           islemType: src?.islemType ?? null,
           islemDate: src?.islemDate ?? null,
+          islemCreatedBy: src?.islemCreatedBy,
           hesap: src?.hesap ?? null,
           personel: src?.personel ?? null,
         };
@@ -201,7 +545,7 @@ export function useUrunHareketler(urunId: string | undefined) {
 
       return withSource;
     },
-    enabled: !!isletme && !!urunId,
+    enabled: !!isletme && !!urunId && canSeeUrunler,
   });
 
   return {
@@ -224,11 +568,13 @@ export interface AylikUrunOzet {
 
 export function useAylikUrunOzet(urunId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.aylikOzet(urunId || '', isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme || !urunId) return [];
+      if (!canSeeUrunler || !isletme || !urunId) return [];
 
       // Son 12 ay. created_at yalnız çekme sınırı; gruplama İŞ TARİHİNE (islem.date)
       // göre yapılır — created_at düzenleme/yeniden-uygulamada NOW()'a kayıyor.
@@ -290,7 +636,7 @@ export function useAylikUrunOzet(urunId: string | undefined) {
 
       return sonuc;
     },
-    enabled: !!isletme && !!urunId,
+    enabled: canSeeUrunler && !!isletme && !!urunId,
   });
 
   return {
@@ -316,13 +662,30 @@ export function useDonemUrunOzet(options: {
   startDate: string;
   endDate: string;
 }) {
-  const { isletme, isletmeLoading } = useAuthContext();
+  const {
+    isletme,
+    isletmeLoading,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
   const { startDate, endDate } = options;
+  const accessSignature = permissionAccessSignature(currentPermissions);
 
   const result = useQuery({
-    queryKey: queryKeys.urunHareketler.donemOzet(isletme?.id || '', startDate, endDate),
+    queryKey: [
+      ...queryKeys.urunHareketler.donemOzet(
+        isletme?.id || '',
+        startDate,
+        endDate,
+      ),
+      user?.id ?? 'no-user',
+      accessSignature,
+    ],
+    meta: { persist: false },
     queryFn: async () => {
-      if (!isletme) return {} as DonemUrunOzet;
+      if (!canSeeUrunler || !isletme) return {} as DonemUrunOzet;
 
       // İŞ TARİHİNE göre filtrele (created_at değil — düzenlemede NOW()'a kayıyor):
       //  - İşleme bağlı hareketler: islemler.date dönem içinde mi? (inner join → DB'de filtre)
@@ -384,7 +747,7 @@ export function useDonemUrunOzet(options: {
 
       return ozet;
     },
-    enabled: !!isletme && !!startDate && !!endDate,
+    enabled: canSeeUrunler && !!isletme && !!startDate && !!endDate,
   });
 
   return {
@@ -399,75 +762,42 @@ export function useDonemUrunOzet(options: {
  */
 export function useCreateUrunHareket() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const permissionRef = useLatestProductMovementPermissions();
 
   return useMutation({
     mutationFn: async (input: UrunHareketInsert) => {
-      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      const isletmeId = permissionRef.current.isletmeId;
+      if (!isletmeId) throw new Error(i18n.t('common:errors.businessNotFound'));
+      assertProductCreatePermission(permissionRef, isletmeId);
 
       // 1. Önce mevcut ürün miktarını al
       const { data: urun, error: urunError } = await supabase
         .from('urunler')
-        .select('miktar')
+        .select('miktar, isletme_id')
         .eq('id', input.urun_id)
-        .eq('isletme_id', isletme.id)
+        .eq('isletme_id', isletmeId)
         .single();
 
       if (urunError) throw urunError;
       if (!urun) throw new Error(i18n.t('common:errors.productNotFound'));
-
-      const oncekiMiktar = urun.miktar;
-
-      // 2. Miktar değişimini hesapla
-      let miktarDegisim: number;
-      if (input.hareket_tipi === 'giris') {
-        miktarDegisim = Math.abs(input.miktar);
-      } else if (input.hareket_tipi === 'cikis') {
-        miktarDegisim = -Math.abs(input.miktar);
-      } else {
-        // duzeltme - direkt miktar kullan (pozitif veya negatif olabilir)
-        miktarDegisim = input.miktar;
+      if (urun.isletme_id !== isletmeId) {
+        throw new ProductMovementPermissionError(
+          'create',
+          'tenant',
+          productMovementPermissionMessage('create', 'tenant'),
+        );
       }
 
-      // 3. Urun miktarını atomik olarak güncelle
-      const { data: yeniMiktar, error: rpcError } = await supabase
-        .rpc('update_urun_miktar', {
-          p_urun_id: input.urun_id,
-          p_miktar_degisim: miktarDegisim,
-          p_isletme_id: isletme.id,
-        });
-
-      if (rpcError) throw rpcError;
-
-      // 4. Urun hareketi kaydı oluştur
+      // İzin ürün okuması sürerken değişmiş olabilir; write öncesi güncel ref'i
+      // yeniden doğrula. Asıl yetki kapısı V2 RPC içinde de sunucu tarafındadır.
+      assertProductCreatePermission(permissionRef, isletmeId);
       const { data: hareket, error: hareketError } = await supabase
-        .from('urun_hareketler')
-        .insert({
-          isletme_id: isletme.id,
-          urun_id: input.urun_id,
-          islem_id: input.islem_id,
-          hareket_tipi: input.hareket_tipi,
-          miktar: input.miktar,
-          birim_fiyat: input.birim_fiyat,
-          kdv_orani: input.kdv_orani,
-          onceki_miktar: oncekiMiktar,
-          yeni_miktar: yeniMiktar,
-          aciklama: input.aciklama,
-          // İş tarihi: verilmişse seçilen tarih, yoksa DB now() (undefined -> JSON'da düşer)
-          created_at: input.created_at,
-        })
-        .select()
-        .single();
-
-      if (hareketError) {
-        // Rollback: urun miktarını geri al
-        await supabase.rpc('update_urun_miktar', {
-          p_urun_id: input.urun_id,
-          p_miktar_degisim: -miktarDegisim,
-          p_isletme_id: isletme.id,
+        .rpc('create_urun_hareket_atomik_v2', {
+          p_isletme_id: isletmeId,
+          p_new_row: input,
         });
-        throw hareketError;
-      }
+
+      if (hareketError) throw hareketError;
 
       return hareket as UrunHareket;
     },
@@ -488,14 +818,16 @@ export function useCreateUrunHareket() {
  */
 export function useSetUrunMiktarHedef() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const permissionRef = useLatestProductMovementPermissions();
 
   return useMutation({
     mutationFn: async (input: { urun_id: string; hedef: number; created_at?: string; aciklama?: string | null }) => {
-      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      const isletmeId = permissionRef.current.isletmeId;
+      if (!isletmeId) throw new Error(i18n.t('common:errors.businessNotFound'));
+      assertProductCreatePermission(permissionRef, isletmeId);
 
       const { data, error } = await supabase.rpc('set_urun_miktar_hedef', {
-        p_isletme_id: isletme.id,
+        p_isletme_id: isletmeId,
         p_urun_id: input.urun_id,
         p_hedef: input.hedef,
         p_created_at: input.created_at ?? null,
@@ -517,6 +849,8 @@ export function useSetUrunMiktarHedef() {
  */
 export function useIslemlerWithUrun(islemIds: string[]) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   // Batch islemIds in chunks of 100 to avoid too-large queries, but use a stable key
   const stableKey = islemIds.length > 0 ? islemIds.slice().sort().join(',') : '';
@@ -524,7 +858,7 @@ export function useIslemlerWithUrun(islemIds: string[]) {
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.islemlerWithUrun(stableKey, isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme || islemIds.length === 0) return new Map<string, number>();
+      if (!canSeeUrunler || !isletme || islemIds.length === 0) return new Map<string, number>();
 
       const { data, error } = await supabase
         .from('urun_hareketler')
@@ -545,7 +879,7 @@ export function useIslemlerWithUrun(islemIds: string[]) {
 
       return islemUrunCountMap;
     },
-    enabled: !!isletme && islemIds.length > 0,
+    enabled: canSeeUrunler && !!isletme && islemIds.length > 0,
     // Keep previous data while refetching with new islemIds to prevent icon flicker
     placeholderData: (previousData) => previousData,
   });
@@ -574,57 +908,143 @@ export interface UrunKalemOzet {
 // Modül düzeyi stabil boş referans — TransactionRow memo'sunu bozmamak için
 // (getUrunItems her render yeni [] dönmemeli).
 const EMPTY_KALEMLER: UrunKalemOzet[] = [];
+const URUN_KALEM_BATCH_SIZE = 100;
+
+interface UrunKalemRuntimeRow {
+  islem_id?: unknown;
+  miktar?: unknown;
+  birim_fiyat?: unknown;
+  urun_ad?: unknown;
+  urun_birim?: unknown;
+  urunler?: unknown;
+}
+
+interface UrunKalemBatchResult {
+  items: Map<string, UrunKalemOzet[]>;
+  counts: Map<string, number>;
+}
 
 /**
  * Birden fazla işlem için ürün KALEMLERİNİ (ad + miktar + birim fiyat) TEK batch
  * sorguda getir. Liste ekranlarında işlem satırında kalem önizlemesi için — map
  * içinde tek-tek sorgu (N+1) YAPMAZ. useIslemlerWithUrun deseninin kalem-detaylı hali.
  */
-export function useUrunKalemlerByIslemIds(islemIds: string[]) {
-  const { isletme, isletmeLoading } = useAuthContext();
+export function useUrunKalemlerByIslemIds(
+  islemIds: string[],
+  allowTransactionContextRead = false,
+) {
+  const {
+    isletme,
+    isletmeLoading,
+    user,
+    currentPermissions,
+  } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
+  const canReadAuthorizedTransactionItems =
+    canSeeUrunler || allowTransactionContextRead;
+  const accessSignature = permissionAccessSignature(currentPermissions);
 
   const stableKey = islemIds.length > 0 ? islemIds.slice().sort().join(',') : '';
 
   const result = useQuery({
-    queryKey: queryKeys.urunHareketler.kalemlerByIslemler(stableKey, isletme?.id || ''),
+    queryKey: [
+      ...queryKeys.urunHareketler.kalemlerByIslemler(
+        stableKey,
+        isletme?.id || '',
+      ),
+      canSeeUrunler ? 'urunler-direct' : 'transaction-context-rpc',
+      user?.id ?? '',
+      accessSignature,
+    ],
     queryFn: async () => {
-      if (!isletme || islemIds.length === 0) return new Map<string, UrunKalemOzet[]>();
+      if (
+        !canReadAuthorizedTransactionItems
+        || !isletme
+        || islemIds.length === 0
+      ) {
+        return {
+          items: new Map<string, UrunKalemOzet[]>(),
+          counts: new Map<string, number>(),
+        } satisfies UrunKalemBatchResult;
+      }
 
-      const { data, error } = await supabase
-        .from('urun_hareketler')
-        .select('islem_id, miktar, birim_fiyat, urunler(ad, birim)')
-        .eq('isletme_id', isletme.id)
-        .in('islem_id', islemIds)
-        .not('islem_id', 'is', null)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
+      const batches: string[][] = [];
+      for (let index = 0; index < islemIds.length; index += URUN_KALEM_BATCH_SIZE) {
+        batches.push(islemIds.slice(index, index + URUN_KALEM_BATCH_SIZE));
+      }
+      const batchResults = await Promise.all(
+        batches.map((batch) => (
+          canSeeUrunler
+            ? supabase
+                .from('urun_hareketler')
+                .select('islem_id, miktar, birim_fiyat, urunler(ad, birim)')
+                .eq('isletme_id', isletme.id)
+                .in('islem_id', batch)
+                .not('islem_id', 'is', null)
+                .order('created_at', { ascending: true })
+            : supabase.rpc('get_yetkili_islem_urun_kalemleri_v1', {
+                p_isletme_id: isletme.id,
+                p_islem_ids: batch,
+              })
+        )),
+      );
 
       const map = new Map<string, UrunKalemOzet[]>();
-      data?.forEach((row) => {
-        if (!row.islem_id) return;
-        // Supabase ilişkisi object veya array dönebilir
-        const urunRaw = row.urunler as unknown;
+      const counts = new Map<string, number>();
+      const rows: UrunKalemRuntimeRow[] = [];
+      batchResults.forEach(({ data, error }) => {
+        if (error) throw error;
+        if (Array.isArray(data)) {
+          rows.push(...(data as UrunKalemRuntimeRow[]));
+        }
+      });
+      rows.forEach((row) => {
+        const islemId =
+          typeof row.islem_id === 'string' ? row.islem_id : null;
+        if (!islemId) return;
+        // Presence is a security decision and must not depend on a relation
+        // label being visible. RLS-hidden/passive product relations can yield a
+        // raw movement row with no product name; it is still productful.
+        counts.set(islemId, (counts.get(islemId) ?? 0) + 1);
+        const urunRaw = row.urunler ?? null;
         const urun = Array.isArray(urunRaw) ? urunRaw[0] : urunRaw;
-        const ad =
-          urun && typeof urun === 'object' && 'ad' in urun ? (urun as { ad: string }).ad : null;
-        if (!ad) return;
-        const birim = (urun as { birim?: string })?.birim || 'adet';
-        const list = map.get(row.islem_id) || [];
+        const rpcAd = row.urun_ad;
+        const ad = canSeeUrunler
+          ? urun && typeof urun === 'object' && 'ad' in urun
+            ? (urun as { ad: string }).ad
+            : null
+          : typeof rpcAd === 'string'
+            ? rpcAd
+            : null;
+        const rpcBirim = row.urun_birim;
+        const birim = canSeeUrunler
+          ? (urun as { birim?: string })?.birim || 'adet'
+          : typeof rpcBirim === 'string'
+            ? rpcBirim
+            : 'adet';
+        const list = map.get(islemId) || [];
         list.push({
-          ad,
+          ad: ad || '-',
           miktar: Math.abs(Number(row.miktar) || 0),
-          birim_fiyat: row.birim_fiyat != null ? Number(row.birim_fiyat) : null,
+          birim_fiyat:
+            row.birim_fiyat != null ? Number(row.birim_fiyat) : null,
           birim,
         });
-        map.set(row.islem_id, list);
+        map.set(islemId, list);
       });
 
-      return map;
+      return { items: map, counts } satisfies UrunKalemBatchResult;
     },
-    enabled: !!isletme && islemIds.length > 0,
-    // Yeni islemIds'e geçerken eski veriyi koru — kalem önizlemesi flicker etmesin
+    enabled:
+      canReadAuthorizedTransactionItems
+      && !!isletme
+      && islemIds.length > 0,
     placeholderData: (previousData) => previousData,
+    meta: {
+      persist: false,
+      query_purpose: 'urun-hareketleri:authorized-transaction-items',
+    },
   });
 
   // getUrunItems'i stabil tut: data refetch'inde Map yeniden kurulsa bile, bir islemId'nin
@@ -634,7 +1054,32 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
   const stableItemsRef = useRef<Map<string, UrunKalemOzet[]>>(new Map());
   // Persist güvenliği: Map JSON'a serileşmediğinden eski disk cache düz obje ({}) olarak
   // hydrate olabilir → .get patlar. Map değilse yok say (refetch gerçek Map'i getirir).
-  const dataMap = result.data instanceof Map ? result.data : undefined;
+  const batchData =
+    result.data
+    && typeof result.data === 'object'
+    && 'items' in result.data
+    && result.data.items instanceof Map
+    && 'counts' in result.data
+    && result.data.counts instanceof Map
+      ? result.data
+      : undefined;
+  const dataMap = batchData?.items;
+  const countMap = batchData?.counts;
+  // An empty result is authoritative only after the exact id-set query has
+  // completed. Previous/placeholder data and failed queries must never let a
+  // mutation path misclassify a productful transaction as productless.
+  const isProductItemsResolved =
+    islemIds.length === 0
+    || (
+      canReadAuthorizedTransactionItems
+      && !isletmeLoading
+      && dataMap !== undefined
+      && !result.isPending
+      && !result.isLoading
+      && !result.isError
+      && !result.isRefetchError
+      && !result.isPlaceholderData
+    );
   const getUrunItems = useCallback(
     (islemId: string): UrunKalemOzet[] => {
       const next = dataMap?.get(islemId);
@@ -655,11 +1100,17 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
     },
     [dataMap]
   );
+  const getProductItemCount = useCallback(
+    (islemId: string): number => countMap?.get(islemId) ?? 0,
+    [countMap],
+  );
 
   return {
     ...result,
     isLoading: result.isLoading || isletmeLoading,
+    isProductItemsResolved,
     getUrunItems,
+    getProductItemCount,
   };
 }
 
@@ -668,11 +1119,13 @@ export function useUrunKalemlerByIslemIds(islemIds: string[]) {
  */
 export function useUrunHareketlerByIslemId(islemId: string | undefined) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   const result = useQuery({
     queryKey: queryKeys.urunHareketler.byIslem(islemId || '', isletme?.id || ''),
     queryFn: async () => {
-      if (!isletme || !islemId) return [];
+      if (!canSeeUrunler || !isletme || !islemId) return [];
 
       const { data, error } = await supabase
         .from('urun_hareketler')
@@ -684,7 +1137,7 @@ export function useUrunHareketlerByIslemId(islemId: string | undefined) {
       if (error) throw error;
       return data as (UrunHareket & { urunler: { ad: string; birim: string } })[];
     },
-    enabled: !!isletme && !!islemId,
+    enabled: canSeeUrunler && !!isletme && !!islemId,
   });
 
   return {
@@ -699,9 +1152,12 @@ export function useUrunHareketlerByIslemId(islemId: string | undefined) {
  */
 export function useUpdateUrunHareket() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const permissionRef = useLatestProductMovementPermissions();
 
   return useMutation({
+    // Ürün hareketi + stok etkisi finansal write'tır; HTTP cevabı kaybolursa mutation'ın
+    // tamamını körlemesine baştan koşturma.
+    retry: false,
     mutationFn: async (input: {
       id: string;
       miktar: number;
@@ -709,81 +1165,53 @@ export function useUpdateUrunHareket() {
       hareket_tipi: UrunHareketTipi;
       created_at?: string; // İş tarihi düzenlemesi; verilmezse değişmez
     }) => {
-      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      const isletmeId = permissionRef.current.isletmeId;
+      if (!isletmeId) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 1. Önce mevcut hareketi al
       const { data: eskiHareket, error: eskiError } = await supabase
         .from('urun_hareketler')
         .select('*')
         .eq('id', input.id)
-        .eq('isletme_id', isletme.id)
+        .eq('isletme_id', isletmeId)
         .single();
 
       if (eskiError) throw eskiError;
       if (!eskiHareket) throw new Error(i18n.t('common:errors.movementNotFound'));
+      assertProductMovementPermission(
+        permissionRef,
+        isletmeId,
+        'update',
+        eskiHareket,
+      );
 
       // 2. İşlem bağlantılı hareketler güncellenemez
       if (eskiHareket.islem_id) {
         throw new Error(i18n.t('common:errors.movementLinkedCannotUpdate'));
       }
 
-      // 3. Eski miktar etkisini geri al
-      let eskiMiktarDegisim: number;
-      if (eskiHareket.hareket_tipi === 'giris') {
-        eskiMiktarDegisim = -Math.abs(eskiHareket.miktar);
-      } else if (eskiHareket.hareket_tipi === 'cikis') {
-        eskiMiktarDegisim = Math.abs(eskiHareket.miktar);
-      } else {
-        eskiMiktarDegisim = -eskiHareket.miktar;
-      }
-
-      // 4. Yeni miktar etkisini hesapla
-      let yeniMiktarDegisim: number;
-      if (input.hareket_tipi === 'giris') {
-        yeniMiktarDegisim = Math.abs(input.miktar);
-      } else if (input.hareket_tipi === 'cikis') {
-        yeniMiktarDegisim = -Math.abs(input.miktar);
-      } else {
-        yeniMiktarDegisim = input.miktar;
-      }
-
-      // 5. Net değişimi uygula
-      const netDegisim = eskiMiktarDegisim + yeniMiktarDegisim;
-
-      const { data: yeniUrunMiktar, error: rpcError } = await supabase
-        .rpc('update_urun_miktar', {
-          p_urun_id: eskiHareket.urun_id,
-          p_miktar_degisim: netDegisim,
-          p_isletme_id: isletme.id,
+      assertProductMovementPermission(
+        permissionRef,
+        isletmeId,
+        'update',
+        eskiHareket,
+      );
+      const {
+        data: guncellenmisHareket,
+        error: updateError,
+      } = await supabase
+        .rpc('update_urun_hareket_atomik_v2', {
+          p_isletme_id: isletmeId,
+          p_hareket_id: input.id,
+          p_patch: {
+            hareket_tipi: input.hareket_tipi,
+            miktar: input.miktar,
+            birim_fiyat: input.birim_fiyat,
+            created_at: input.created_at,
+          },
         });
 
-      if (rpcError) throw rpcError;
-
-      // 6. Hareketi güncelle
-      const { data: guncellenmisHareket, error: updateError } = await supabase
-        .from('urun_hareketler')
-        .update({
-          hareket_tipi: input.hareket_tipi,
-          miktar: input.miktar,
-          birim_fiyat: input.birim_fiyat,
-          yeni_miktar: yeniUrunMiktar,
-          // İş tarihi: verilmişse güncelle, yoksa undefined -> JSON'da düşer -> değişmez
-          created_at: input.created_at,
-        })
-        .eq('id', input.id)
-        .eq('isletme_id', isletme.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        // Rollback: urun miktarını geri al
-        await supabase.rpc('update_urun_miktar', {
-          p_urun_id: eskiHareket.urun_id,
-          p_miktar_degisim: -netDegisim,
-          p_isletme_id: isletme.id,
-        });
-        throw updateError;
-      }
+      if (updateError) throw updateError;
 
       return guncellenmisHareket as UrunHareket;
     },
@@ -799,65 +1227,48 @@ export function useUpdateUrunHareket() {
  */
 export function useDeleteUrunHareket() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const permissionRef = useLatestProductMovementPermissions();
 
   return useMutation({
     mutationFn: async (hareketId: string) => {
-      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      const isletmeId = permissionRef.current.isletmeId;
+      if (!isletmeId) throw new Error(i18n.t('common:errors.businessNotFound'));
 
       // 1. Önce hareketi al
       const { data: hareket, error: hareketError } = await supabase
         .from('urun_hareketler')
         .select('*')
         .eq('id', hareketId)
-        .eq('isletme_id', isletme.id)
+        .eq('isletme_id', isletmeId)
         .single();
 
       if (hareketError) throw hareketError;
       if (!hareket) throw new Error(i18n.t('common:errors.movementNotFound'));
+      assertProductMovementPermission(
+        permissionRef,
+        isletmeId,
+        'delete',
+        hareket,
+      );
 
       // 2. İşlem bağlantılı hareketler silinemez
       if (hareket.islem_id) {
         throw new Error(i18n.t('common:errors.movementLinkedCannotDelete'));
       }
 
-      // 3. Miktar değişimini tersine çevir
-      let miktarDegisim: number;
-      if (hareket.hareket_tipi === 'giris') {
-        miktarDegisim = -Math.abs(hareket.miktar); // Girişi geri al
-      } else if (hareket.hareket_tipi === 'cikis') {
-        miktarDegisim = Math.abs(hareket.miktar); // Çıkışı geri al
-      } else {
-        // duzeltme - tersini uygula
-        miktarDegisim = -hareket.miktar;
-      }
-
-      // 4. Urun miktarını güncelle
-      const { error: rpcError } = await supabase
-        .rpc('update_urun_miktar', {
-          p_urun_id: hareket.urun_id,
-          p_miktar_degisim: miktarDegisim,
-          p_isletme_id: isletme.id,
-        });
-
-      if (rpcError) throw rpcError;
-
-      // 5. Hareketi sil
+      assertProductMovementPermission(
+        permissionRef,
+        isletmeId,
+        'delete',
+        hareket,
+      );
       const { error: deleteError } = await supabase
-        .from('urun_hareketler')
-        .delete()
-        .eq('id', hareketId)
-        .eq('isletme_id', isletme.id);
-
-      if (deleteError) {
-        // Rollback: urun miktarını geri al
-        await supabase.rpc('update_urun_miktar', {
-          p_urun_id: hareket.urun_id,
-          p_miktar_degisim: -miktarDegisim,
-          p_isletme_id: isletme.id,
+        .rpc('delete_urun_hareket_atomik_v2', {
+          p_isletme_id: isletmeId,
+          p_hareket_id: hareketId,
         });
-        throw deleteError;
-      }
+
+      if (deleteError) throw deleteError;
 
       return { success: true };
     },
@@ -880,6 +1291,9 @@ export function useReapplyUrunHareketlerForIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
+    // Stok geri-al + yeniden-uygula tek atomik write'tır. HTTP cevabı kaybolursa tüm RPC'yi
+    // otomatik tekrarlamak yerine çağıran sonucu kontrollü biçimde ele alır.
+    retry: false,
     mutationFn: async (input: {
       islemId: string;
       items: Array<{
@@ -896,7 +1310,7 @@ export function useReapplyUrunHareketlerForIslem() {
       const { error } = await supabase.rpc('reapply_urun_hareketler_for_islem', {
         p_isletme_id: isletme.id,
         p_islem_id: input.islemId,
-        p_items: input.items,
+        p_items: normalizeProductMutationItems(input.items),
       });
 
       if (error) throw error;
@@ -911,12 +1325,9 @@ export function useReapplyUrunHareketlerForIslem() {
 /**
  * Bir işleme bağlı TÜM ürün hareketlerini geri al (stok etkisini ters çevir) ve sil.
  *
- * İşlem düzenlenirken stoğu yeniden uygulamak için kullanılır: önce bununla eski
- * hareketleri geri al, sonra createUrunHareket ile güncel satırları yeniden oluştur.
- * Mantık useDeleteIslem içindeki ürün-hareketi geri alma akışının birebir aynısıdır.
- *
- * NOT: Atomik garanti için useReapplyUrunHareketlerForIslem tercih edilmelidir;
- * bu fonksiyon yedek/uyumluluk için tutulmaktadır.
+ * Eski çağıranlarla export API'sini korur; gerçek geri-alma ve silme işlemini boş
+ * items ile kanonik reapply_urun_hareketler_for_islem RPC'sine bırakır. Böylece
+ * stok ve hareket satırları tek veritabanı transaction'ında değişir.
  */
 export function useReverseAndDeleteUrunHareketlerForIslem() {
   const queryClient = useQueryClient();
@@ -926,43 +1337,24 @@ export function useReverseAndDeleteUrunHareketlerForIslem() {
     mutationFn: async (islemId: string) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      const { data: hareketler, error: fetchError } = await supabase
+      // `reversed` dönüş alanı eski API ile uyumluluk içindir; sayım yalnız bilgi
+      // amaçlıdır, bütünlük garantisini aşağıdaki tek RPC sağlar.
+      const { count: movementCount, error: countError } = await supabase
         .from('urun_hareketler')
-        .select('*')
+        .select('id', { count: 'exact', head: true })
         .eq('islem_id', islemId)
         .eq('isletme_id', isletme.id);
 
-      if (fetchError) throw fetchError;
-      if (!hareketler || hareketler.length === 0) return { reversed: 0 };
+      if (countError) throw countError;
 
-      // Her hareketin stok etkisini ters çevir
-      for (const hareket of hareketler) {
-        let miktarDegisim: number;
-        if (hareket.hareket_tipi === 'giris') {
-          miktarDegisim = -Math.abs(hareket.miktar); // girişi geri al
-        } else if (hareket.hareket_tipi === 'cikis') {
-          miktarDegisim = Math.abs(hareket.miktar); // çıkışı geri al
-        } else {
-          miktarDegisim = -hareket.miktar;
-        }
+      const { error } = await supabase.rpc('reapply_urun_hareketler_for_islem', {
+        p_isletme_id: isletme.id,
+        p_islem_id: islemId,
+        p_items: [],
+      });
 
-        const { error: rpcError } = await supabase.rpc('update_urun_miktar', {
-          p_urun_id: hareket.urun_id,
-          p_miktar_degisim: miktarDegisim,
-          p_isletme_id: isletme.id,
-        });
-        if (rpcError) throw rpcError;
-      }
-
-      // Hareket satırlarını sil
-      const { error: deleteError } = await supabase
-        .from('urun_hareketler')
-        .delete()
-        .eq('islem_id', islemId)
-        .eq('isletme_id', isletme.id);
-
-      if (deleteError) throw deleteError;
-      return { reversed: hareketler.length };
+      if (error) throw error;
+      return { reversed: movementCount ?? 0 };
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'urunHareket');
@@ -984,6 +1376,11 @@ export interface CreateUrunHareketWithCariInput {
   aciklama?: string;
   date?: string;
   hesap_id?: string | null;
+  /**
+   * Ürünün birim KODU ('adet' | 'kg' | 'lt' ...). Otomatik açıklamada çevirisi kullanılır.
+   * Verilmezse 'adet' varsayılır (eski davranış). Çağıran zaten urun nesnesine sahip.
+   */
+  birim?: string | null;
 }
 
 /**
@@ -995,31 +1392,48 @@ export interface CreateUrunHareketWithCariInput {
  */
 export function useCreateUrunHareketWithCari() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const permissionRef = useLatestProductMovementPermissions();
 
   return useMutation({
     mutationFn: async (input: CreateUrunHareketWithCariInput) => {
-      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      const isletmeId = permissionRef.current.isletmeId;
+      if (!isletmeId) throw new Error(i18n.t('common:errors.businessNotFound'));
+      assertCariLinkedCreatePermission(permissionRef, isletmeId);
 
       // İşlem tipi: giris → cari_alis (tedarikçiden alım), cikis → cari_satis (müşteriye satış)
       const islemType: IslemType = input.hareket_tipi === 'giris' ? 'cari_alis' : 'cari_satis';
 
       // KDV dahil toplam tutarı hesapla
-      const subtotal = input.miktar * input.birim_fiyat;
+      const normalizedItem = normalizeProductMutationItem({
+        miktar: input.miktar,
+        birim_fiyat: input.birim_fiyat,
+      });
+      const subtotal = normalizedItem.miktar * normalizedItem.birim_fiyat;
       const kdvAmount = subtotal * (input.kdv_orani / 100);
-      const totalAmount = subtotal + kdvAmount;
+      const totalAmount = roundCurrency(subtotal + kdvAmount);
 
       // ATOMİK: islem + cari bakiye + ürün hareketi TEK transaction (create_islem_with_urun_atomik).
       // Önceden 4 ayrı adım + yutulan best-effort rollback vardı → ortada patlarsa kısmi stok/bakiye.
       // Bakiye: cari_alis -total, cari_satis +total (mevcut balanceChange ile BİREBİR).
       const { data, error } = await supabase.rpc('create_islem_with_urun_atomik', {
-        p_isletme_id: isletme.id,
+        p_isletme_id: isletmeId,
         p_new_row: {
           type: islemType,
           amount: totalAmount,
           cari_id: input.cari_id,
           hesap_id: input.hesap_id ?? null,
-          description: input.aciklama || `${input.urun_ad} - ${input.miktar} adet`,
+          // Otomatik açıklama DB'YE YAZILIR (sonradan çevrilemez) — bu yüzden sabit
+          // Türkçe "adet" ve ham miktar interpolasyonu kabul edilemez: İngilizce
+          // kullanıcının İşlemler listesinde kalıcı olarak "Cement - 2.5 adet" kalıyordu
+          // ve ham interpolasyon her zaman NOKTA bastığı için TR kullanıcı 5.977 kg'ı
+          // "5977" okuyabiliyordu. formatQuantity + birim çevirisi ile üretiliyor.
+          description:
+            input.aciklama ||
+            i18n.t('products:stock.autoDescription', {
+              name: input.urun_ad,
+              qty: formatQuantity(normalizedItem.miktar),
+              unit: i18n.t(`products:units.${input.birim || 'adet'}`),
+            }),
           date: input.date || new Date().toISOString(),
         },
         p_balance_ops: [{
@@ -1030,11 +1444,10 @@ export function useCreateUrunHareketWithCari() {
         p_items: [{
           urun_id: input.urun_id,
           hareket_tipi: input.hareket_tipi,
-          miktar: input.miktar,
-          birim_fiyat: input.birim_fiyat,
+          miktar: normalizedItem.miktar,
+          birim_fiyat: normalizedItem.birim_fiyat,
           kdv_orani: input.kdv_orani,
           aciklama: input.aciklama ?? null,
-          created_at: input.date ?? null,
         }],
       });
 
@@ -1076,30 +1489,34 @@ export interface CreateBulkUrunHareketWithCariInput {
  */
 export function useCreateBulkUrunHareketWithCari() {
   const queryClient = useQueryClient();
-  const { isletme } = useAuthContext();
+  const permissionRef = useLatestProductMovementPermissions();
 
   return useMutation({
     mutationFn: async (input: CreateBulkUrunHareketWithCariInput) => {
-      if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      const isletmeId = permissionRef.current.isletmeId;
+      if (!isletmeId) throw new Error(i18n.t('common:errors.businessNotFound'));
+      assertCariLinkedCreatePermission(permissionRef, isletmeId);
       if (input.items.length === 0) throw new Error(i18n.t('common:errors.atLeastOneProductRequired'));
 
       const islemType: IslemType = input.hareket_tipi === 'giris' ? 'cari_alis' : 'cari_satis';
 
       // Toplam tutarı hesapla (tüm ürünlerin KDV dahil toplamı)
-      const grandTotal = input.items.reduce((acc, item) => {
+      const normalizedItems = normalizeProductMutationItems(input.items);
+      const grandTotal = roundCurrency(normalizedItems.reduce((acc, item) => {
         const subtotal = item.miktar * item.birim_fiyat;
         const kdv = subtotal * (item.kdv_orani / 100);
         return acc + subtotal + kdv;
-      }, 0);
+      }, 0));
 
-      // Ürün adları listesi (açıklama için)
-      const urunListesi = input.items.map(i => `${i.urun_ad} (${i.miktar})`).join(', ');
+      // Ürün adları listesi (açıklama için). Miktar formatQuantity'den geçer: ham
+      // interpolasyon her zaman NOKTA basıyordu (TR'de 5.977 kg → "5977" okunabiliyor).
+      const urunListesi = input.items.map(i => `${i.urun_ad} (${formatQuantity(i.miktar)})`).join(', ');
 
       // ATOMİK: tek islem + cari bakiye + N ürün hareketi TEK transaction
       // (create_islem_with_urun_atomik). Önceden ardışık adımlar + yutulan best-effort
       // rollback vardı → çok-kalemde ortada patlarsa kısmi stok/bakiye. Bakiye mevcutla BİREBİR.
       const { data, error } = await supabase.rpc('create_islem_with_urun_atomik', {
-        p_isletme_id: isletme.id,
+        p_isletme_id: isletmeId,
         p_new_row: {
           type: islemType,
           amount: grandTotal,
@@ -1113,14 +1530,13 @@ export function useCreateBulkUrunHareketWithCari() {
           id: input.cari_id,
           d: islemType === 'cari_alis' ? -grandTotal : grandTotal,
         }],
-        p_items: input.items.map((item) => ({
+        p_items: normalizedItems.map((item) => ({
           urun_id: item.urun_id,
           hareket_tipi: input.hareket_tipi,
           miktar: item.miktar,
           birim_fiyat: item.birim_fiyat,
           kdv_orani: item.kdv_orani,
           aciklama: input.aciklama ?? null,
-          created_at: input.date ?? null,
         })),
       });
 
@@ -1158,13 +1574,15 @@ export interface UrunOzet {
  */
 export function useUrunOzet(urunId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
     queryKey: queryKeys.urunHareketler.urunOzet(urunId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!urunId && !!isletme?.id,
+    enabled: enabled && canSeeUrunler && !!urunId && !!isletme?.id,
     queryFn: async (): Promise<UrunOzet> => {
       const bos: UrunOzet = { alisTutar: 0, satisTutar: 0, alisMiktar: 0, satisMiktar: 0 };
-      if (!urunId || !isletme?.id) return bos;
+      if (!canSeeUrunler || !urunId || !isletme?.id) return bos;
       const { data, error } = await supabase.rpc('get_urun_ozet', {
         p_isletme_id: isletme.id,
         p_urun_id: urunId,

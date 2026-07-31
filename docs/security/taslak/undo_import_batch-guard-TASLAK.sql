@@ -1,0 +1,122 @@
+-- =============================================================================
+-- TASLAK — UYGULANMADI, ONAY BEKLİYOR
+--
+-- Konum bilinçli: supabase/migrations/ ALTINDA DEĞİL. Buradaki dosya migration
+-- koşucusuna girmez. Onaylanırsa timestamp'li bir dosya olarak migrations/'a
+-- taşınacak.
+--
+-- HEDEF: undo_import_batch — canlıda SECURITY DEFINER, HİÇBİR erişim kontrolü yok
+-- ve anon EXECUTE açık. İşlem UUID dizisi alıp bakiyeleri geri alıyor, sonra
+-- kayıtları SİLİYOR. Kısıtlı bir ortak bile başka işletmenin UUID'leriyle
+-- çağırabilir. Denetimdeki tek P0.
+--
+-- GÖVDE KAYNAĞI: CANLI TANIM (pg_get_functiondef, 26 Tem) — repo dosyası DEĞİL.
+-- Sebep: repo bu fonksiyonda da bayat olabilir; bir önceki migration denemesi
+-- tam bu yüzden geri çekildi. Gövde
+-- docs/security/db-snapshots/2026-07-26/undo_import_batch.live.sql'den birebir
+-- alınmalı; aşağıda yalnız EKLENEN guard bloğu gösteriliyor.
+-- =============================================================================
+
+
+-- -----------------------------------------------------------------------------
+-- 1) GUARD BLOĞU — mevcut BEGIN'in hemen ardına eklenecek
+-- -----------------------------------------------------------------------------
+--
+-- DECLARE bölümüne eklenecek değişkenler:
+--     v_isletme_id  uuid;
+--     v_count       int;
+--     v_distinct    int;
+--
+-- BEGIN'den sonra:
+--
+--   -- (a) Boş/NULL dizi reddedilir
+--   IF p_transaction_ids IS NULL OR array_length(p_transaction_ids, 1) IS NULL THEN
+--     RAISE EXCEPTION 'undo_import_batch: islem listesi bos'
+--       USING ERRCODE = '22023';
+--   END IF;
+--
+--   -- (b) HEPSİ VAR MI + HEPSİ TEK İŞLETMEDEN Mİ (tek sorguda)
+--   SELECT count(*), count(DISTINCT i.isletme_id), min(i.isletme_id)
+--     INTO v_count, v_distinct, v_isletme_id
+--     FROM islemler i
+--    WHERE i.id = ANY(p_transaction_ids);
+--
+--   -- Eksik UUID varsa TAMAMI reddedilir (kısmi işlem YOK)
+--   IF v_count <> array_length(p_transaction_ids, 1) THEN
+--     RAISE EXCEPTION 'undo_import_batch: bazi islemler bulunamadi (istenen %, bulunan %)',
+--       array_length(p_transaction_ids, 1), v_count USING ERRCODE = '22023';
+--   END IF;
+--
+--   -- Karışık işletme = saldırı imzası; tamamı reddedilir
+--   IF v_distinct <> 1 THEN
+--     RAISE EXCEPTION 'undo_import_batch: islemler tek isletmeye ait olmali'
+--       USING ERRCODE = '42501';
+--   END IF;
+--
+--   -- (c) ÇAĞIRAN O İŞLETMENİN ÜYESİ Mİ
+--   IF NOT public.user_has_isletme_access(v_isletme_id) THEN
+--     RAISE EXCEPTION 'undo_import_batch: bu isletme icin yetkiniz yok'
+--       USING ERRCODE = '42501';
+--   END IF;
+--
+--   -- (d) SİLME YETKİSİ VAR MI — her satır için ayrı ayrı.
+--   --     user_can_islem_action (20260716030000) level + created_by'a bakar;
+--   --     'edit_own' kullanıcı yalnız kendi kaydını silebilir.
+--   IF EXISTS (
+--     SELECT 1 FROM islemler i
+--      WHERE i.id = ANY(p_transaction_ids)
+--        AND NOT public.user_can_islem_action(v_isletme_id, 'delete', i.created_by)
+--   ) THEN
+--     RAISE EXCEPTION 'undo_import_batch: bu islemleri silme yetkiniz yok'
+--       USING ERRCODE = '42501';
+--   END IF;
+--
+--   -- (e) TENANT KAPSAMI: aşağıdaki mevcut UPDATE/DELETE'lerin HEPSİNE
+--   --     "AND isletme_id = v_isletme_id" eklenecek. Guard'lar geçse bile
+--   --     savunma derinliği: fonksiyon asla başka tenant'a yazamasın.
+
+
+-- -----------------------------------------------------------------------------
+-- 2) YETKİ TEMİZLİĞİ
+-- -----------------------------------------------------------------------------
+-- REVOKE EXECUTE ON FUNCTION public.undo_import_batch(uuid[]) FROM PUBLIC, anon;
+-- GRANT  EXECUTE ON FUNCTION public.undo_import_batch(uuid[]) TO authenticated;
+
+
+-- =============================================================================
+-- UYGULANAMAYAN ŞART — dürüstlük notu
+--
+-- Dış değerlendirici "işlemler gerçekten aynı import batch'ine ait mi" kontrolünü
+-- de istedi. MEVCUT ŞEMAYLA UYGULANAMAZ:
+--   - islemler tablosunda import_batch_id benzeri kolon YOK (sorgulandı)
+--   - %import% / %batch% adlı hiçbir tablo YOK (sorgulandı, boş döndü)
+-- Batch bilgisi istemcide tutuluyor (useImportHistory).
+--
+-- İstenirse ayrı ve additive bir iş: islemler'e nullable import_batch_id kolonu +
+-- import yolunun onu doldurması + burada eşitlik kontrolü. Backfill GEREKMEZ
+-- (eski kayıtlar NULL kalır, kontrol yalnız dolu olanlarda çalışır).
+-- =============================================================================
+
+
+-- =============================================================================
+-- ESKİ CLIENT NE YAŞAR (repo kuralı — uygulamadan önce doldurulacak)
+--
+-- 1) Meşru kullanıcı kendi import'unu geri alıyor:
+--    DEĞİŞİKLİK YOK. Üye + silme yetkisi var, UUID'ler tek işletmeden.
+--
+-- 2) 'view' seviyesindeki ortak geri alma deniyor:
+--    ARTIK HATA ALIR (42501). Önceden BAŞARIYLA SİLEBİLİYORDU.
+--    ⚠️ Bu görünür bir davranış değişikliği — istemci hatayı kullanıcıya
+--    anlaşılır göstermeli (useImportHistory:361 hata yolu kontrol edilmeli).
+--
+-- 3) anon çağrı: EXECUTE kalkıyor. İstemcide anon çağrı YOK (tarandı).
+--
+-- 4) Kısmen silinmiş/bozuk UUID listesi: önceden sessizce kısmi iş yapıyordu,
+--    artık tamamı reddediliyor. Bu bir DÜZELTME ama davranış değişikliği.
+--
+-- UYGULAMA ÖNKOŞULLARI:
+--   [ ] node scripts/backup.js — tam yedek doğrulandı
+--   [ ] Canlı gövde snapshot'ı alındı (docs/security/db-snapshots/)
+--   [ ] Test ortamında doğrulandı
+--   [ ] Kullanıcı onayı
+-- =============================================================================

@@ -1,8 +1,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
-import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, ScrollView, Alert, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
+import { View, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import {
   TrendingUp,
   TrendingDown,
@@ -23,14 +23,15 @@ import {
   FileSignature, Scale, ChartLine,
   Monitor, Smartphone, Laptop, Printer, HardDrive, Camera, Tv, Headphones, Cog,
   Wrench, Hammer, Scissors, Paintbrush, SprayCan, Construction,
-  Share as ShareIcon,
 } from 'lucide-react-native';
-import { Text, Card } from '@/components/ui';
+import { Text, Card, Screen } from '@/components/ui';
+import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { TransactionRow } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, getIslemCurrency } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSubCategoryReport, useMultiCategoryTransactions, useCategoryTransactions } from '@/hooks/useCategoryReport';
@@ -42,8 +43,14 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { exportCategoryDetail } from '@/lib/pageExports';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createConversionSum } from '@/hooks/useExchangeRates';
 import { useQueryClient } from '@tanstack/react-query';
+import { usePermissions } from '@/hooks/usePermissions';
+import { getTransactionActionDeniedMessageKey } from '@/lib/errors';
+import {
+  getTransactionProductMutationDecision,
+} from '@/lib/transactionProductMutationGate';
+import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -79,9 +86,9 @@ const ICON_MAP: Record<string, LucideIcon> = {
 };
 
 export default function KategoriDetayPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'category_detail' }); }, []);
-  const router = useRouter();
   const { id, type, startDate, endDate, source } = useLocalSearchParams<{
     id: string;
     type: KategoriType;
@@ -91,7 +98,8 @@ export default function KategoriDetayPage() {
   }>();
   const { t } = useTranslation(['reports', 'common', 'errors', 'transactions']);
   const { formatDateMedium } = useDateFormat();
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const { canAccessModule, canUpdate, isOwner } = usePermissions();
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
@@ -125,6 +133,7 @@ export default function KategoriDetayPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
   // Pull-to-refresh
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
@@ -136,12 +145,6 @@ export default function KategoriDetayPage() {
       setRefreshing(false);
     }
   }, [queryClient]);
-
-  // Handle edit transaction
-  const handleEditTransaction = useCallback((transactionId: string) => {
-    setEditTransactionId(transactionId);
-    setShowEditBar(true);
-  }, []);
 
   const handleEditDismiss = useCallback(() => {
     setShowEditBar(false);
@@ -175,8 +178,132 @@ export default function KategoriDetayPage() {
   );
 
   // Ürün kalemleri (satırda önizleme) — tek batch sorgu (İşlemler listesiyle aynı desen, N+1 yok).
-  const islemIdList = useMemo(() => (filteredIslemler || []).map((i) => i.id), [filteredIslemler]);
-  const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
+  const islemIdList = useMemo(
+    () => [
+      ...new Set([
+        ...(filteredIslemler || []).map((item) => item.id),
+        ...(uncategorizedIslemler || []).map((item) => item.id),
+      ]),
+    ],
+    [filteredIslemler, uncategorizedIslemler],
+  );
+  const {
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+  } = useUrunKalemlerByIslemIds(islemIdList, true);
+
+  const canUpdateTransactionAs = useCallback(
+    (
+      transaction: IslemWithRelations,
+      createdBy: string | null,
+    ): boolean => {
+      // Ürün projeksiyonu sonuçlanmadan "ürünsüz" varsaymak, ürün modülü kapalı
+      // kullanıcıya kısa süreli edit penceresi açardı. Bilgi belirsizken fail-closed.
+      if (transaction.isletme_id !== isletme?.id) return false;
+
+      return getTransactionProductMutationDecision({
+        type: transaction.type,
+        productItemsResolved: isProductItemsResolved,
+        productItemCount: getProductItemCount(transaction.id),
+        isOwner,
+        canAccessModule,
+        canMutateTransaction: canUpdate('islemler', createdBy),
+        canMutateProduct: canUpdate('urunler', createdBy),
+      }).allowed;
+    },
+    [
+      canAccessModule,
+      canUpdate,
+      getProductItemCount,
+      isOwner,
+      isProductItemsResolved,
+      isletme?.id,
+    ],
+  );
+  const canUpdateTransaction = useCallback(
+    (transaction: IslemWithRelations): boolean =>
+      canUpdateTransactionAs(
+        transaction,
+        transaction.created_by ?? null,
+      ),
+    [canUpdateTransactionAs],
+  );
+
+  const openResolvedTransaction = useCallback(
+    (transaction: IslemWithRelations) => {
+      const createdBy = transaction.created_by ?? null;
+      const canUpdateRecord = canUpdateTransaction(transaction);
+      if (!canUpdateRecord) {
+        const messageKey = getTransactionActionDeniedMessageKey('update', {
+          createdBy,
+          currentUserId: user?.id,
+          canActOnOwnRecord:
+            !!user?.id
+            && canUpdateTransactionAs(transaction, user.id),
+          canActOnRecord: canUpdateRecord,
+        });
+        Alert.alert(
+          t('common:status.error'),
+          t(messageKey),
+        );
+        return;
+      }
+      setEditTransactionId(transaction.id);
+      setShowEditBar(true);
+    },
+    [
+      canUpdateTransactionAs,
+      canUpdateTransaction,
+      t,
+      user?.id,
+    ],
+  );
+
+  const handleEditTransaction = useCallback(
+    (transaction: IslemWithRelations) => {
+      if (!isProductItemsResolved) {
+        setPendingTransactionOpenId(transaction.id);
+        return;
+      }
+      openResolvedTransaction(transaction);
+    },
+    [isProductItemsResolved, openResolvedTransaction],
+  );
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId || !isProductItemsResolved) return;
+
+    const transaction = [
+      ...(filteredIslemler || []),
+      ...(uncategorizedIslemler || []),
+    ].find((item) => item.id === pendingTransactionOpenId);
+    setPendingTransactionOpenId(null);
+    if (transaction) openResolvedTransaction(transaction);
+  }, [
+    filteredIslemler,
+    isProductItemsResolved,
+    openResolvedTransaction,
+    pendingTransactionOpenId,
+    uncategorizedIslemler,
+  ]);
+
+  const editTransaction = useMemo(
+    () => [...(filteredIslemler || []), ...(uncategorizedIslemler || [])]
+      .find((item) => item.id === editTransactionId),
+    [editTransactionId, filteredIslemler, uncategorizedIslemler],
+  );
+  const canRenderEditTransactionBar =
+    !!editTransaction && canUpdateTransaction(editTransaction);
+
+  useEffect(() => {
+    if (!showEditBar || canRenderEditTransactionBar) return;
+    handleEditDismiss();
+  }, [
+    canRenderEditTransactionBar,
+    handleEditDismiss,
+    showEditBar,
+  ]);
 
   // Alt kategori seçimini toggle et
   const toggleSubCategory = (subKategoriId: string) => {
@@ -208,17 +335,31 @@ export default function KategoriDetayPage() {
   const [isExporting, setIsExporting] = useState(false);
 
   // Filtrelenmiş toplam (kategori-spesifik tutarları kullan)
-  // Her kalem kendi hesap para birimindedir; ana para birimine çevirip topla.
-  // (convertCurrency aynı para biriminde no-op olduğundan tek-para-birimli kullanıcıda değişmez.)
-  const filteredTotal = filteredIslemler?.reduce((acc, islem) => {
-    const amount = (islem as { _categoryAmount?: number })._categoryAmount !== undefined
-      ? (islem as { _categoryAmount: number })._categoryAmount
-      : Number(islem.amount);
-    const cur = islem.hesap?.currency ?? baseCurrency;
-    const converted = convertCurrency(amount, cur, baseCurrency, rates) ?? amount;
-    // İade tutarı yönü AZALTIR → net'ten düş.
-    return acc + (isReturnType(islem.type) ? -converted : converted);
-  }, 0) ?? 0;
+  // Her kalem KENDİ para biriminde; ana para birimine çevirip topla.
+  //
+  // İki düzeltme: (1) para birimi artık getIslemCurrency ile çözülüyor — hesap bacağı
+  // OLMAYAN tiplerde (cari_alis/cari_satis) `hesap?.currency ?? baseCurrency` kalemi
+  // baz para birimi sanıyordu, yani 1.000 USD'lik alış 1.000 TL olarak toplanıyordu.
+  // (2) kur yoksa `?? amount` ile 1:1 eklenmiyor, kalem HARİÇ tutulup uyarı çıkıyor —
+  // üst karttaki RPC toplamı (doğru çevirili) ile bu toplamın tutmaması bu yüzdendi.
+  const filteredSum = useMemo(() => {
+    const sum = createConversionSum(baseCurrency, rates);
+    filteredIslemler?.forEach((islem) => {
+      const amount = (islem as { _categoryAmount?: number })._categoryAmount !== undefined
+        ? (islem as { _categoryAmount: number })._categoryAmount
+        : Number(islem.amount);
+      // İade tutarı yönü AZALTIR → net'ten düş.
+      sum.add(amount, getIslemCurrency(islem), isReturnType(islem.type) ? -1 : 1);
+    });
+    return {
+      total: sum.total,
+      conversionIncomplete: sum.conversionIncomplete,
+      // Çeviri gerçekten yapıldıysa "bugünkü kur" notu gösterilir (tarihsel kur
+      // saklanmıyor). TRY-only kullanıcıda 0 → not çıkmaz.
+      converted: sum.convertedCount > 0,
+    };
+  }, [filteredIslemler, baseCurrency, rates]);
+  const filteredTotal = filteredSum.total;
   const filteredCount = filteredIslemler?.length ?? 0;
 
   // Sayfa başlığı
@@ -244,6 +385,8 @@ export default function KategoriDetayPage() {
         startDate: startDate!,
         endDate: endDate!,
         subCategories: subCats,
+        parentAmount: subCategoryReport.parentTotal,
+        parentTransactionCount: subCategoryReport.parentCount,
         totalAmount: subCategoryReport.totalAmount,
         currency: baseCurrency,
         t: {
@@ -294,7 +437,13 @@ export default function KategoriDetayPage() {
     // _categoryAmount varsa ana tutar = kategori payı, alt tutar = tam fatura.
     const hasCategoryAmount = item._categoryAmount !== undefined && item._categoryAmount !== Number(item.amount);
     const displayAmount = hasCategoryAmount ? item._categoryAmount! : Number(item.amount);
-    const currency = item.hesap?.currency;
+    // Para birimi MERKEZÎ zincirle çözülür (source_currency → hesap → cari → personel).
+    // Eskiden yalnız item.hesap?.currency okunuyordu; cari_alis/cari_satis/personel_*
+    // tiplerinin hesap bacağı OLMADIĞI için undefined dönüyor ve formatCurrency ANA
+    // para birimi sembolünü basıyordu → USD cariye kesilen 1.000 USD fatura bu listede
+    // "₺1.000" görünüyordu. Aynı ekranın toplamı (:227) zaten getIslemCurrency kullanıyordu,
+    // yani satır ile toplam birbirini tutmuyordu.
+    const currency = getIslemCurrency(item);
     const urunItems = getUrunItems(item.id);
     const entityText = item.cari?.name
       || (item.personel ? `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim() : null)
@@ -319,7 +468,7 @@ export default function KategoriDetayPage() {
         overridePrefix={showsPositive ? '+' : '-'}
         subAmount={hasCategoryAmount ? `${t('reports:labels.invoiceTotal')}: ${formatCurrency(Number(item.amount), currency)}` : null}
         hasPhoto={!!item.photo_path}
-        onPress={handleEditTransaction}
+        onPress={() => handleEditTransaction(item)}
       />
     );
   }, [type, getUrunItems, formatDateMedium, handleEditTransaction, t]);
@@ -466,9 +615,22 @@ export default function KategoriDetayPage() {
             {t('reports:sections.selectedTransactions')} ({filteredCount})
           </Text>
           <Text variant="label" color={type === 'gelir' ? 'success' : 'error'}>
-            {formatCurrency(filteredTotal)}
+            {formatCurrency(filteredTotal, baseCurrency)}
           </Text>
         </View>
+      )}
+      {/* Kuru bulunamayan kalemler toplama katılmadı — sessizce 1:1 eklemek yerine söyle */}
+      {filteredSum.conversionIncomplete && (
+        <Text variant="caption" color="error" style={styles.conversionWarningText}>
+          {t('reports:summary.conversionIncomplete')}
+        </Text>
+      )}
+      {/* Tarihsel kur saklanmıyor: geçmiş dönemin yabancı-para kalemi BUGÜNKÜ kurla
+          çevriliyor. Düzeltmesi şema işi; en azından sessiz kalmıyor. */}
+      {filteredSum.converted && (
+        <Text variant="caption" color="secondary" style={styles.conversionWarningText}>
+          {t('reports:summary.currentRateNote')}
+        </Text>
       )}
     </View>
   );
@@ -484,31 +646,35 @@ export default function KategoriDetayPage() {
     </Card>
   );
 
-  // Kategorisiz için özel hesaplamalar
-  const uncategorizedTotal = uncategorizedIslemler?.reduce((acc, islem) => {
-    const amount = Number(islem.amount);
-    const cur = islem.hesap?.currency ?? baseCurrency;
-    const converted = convertCurrency(amount, cur, baseCurrency, rates) ?? amount;
-    // İade tutarı yönü AZALTIR → net'ten düş.
-    return acc + (isReturnType(islem.type) ? -converted : converted);
-  }, 0) ?? 0;
+  // Kategorisiz için özel hesaplamalar (yukarıdaki filteredSum ile AYNI politika)
+  const uncategorizedSum = (() => {
+    const sum = createConversionSum(baseCurrency, rates);
+    uncategorizedIslemler?.forEach((islem) => {
+      // İade tutarı yönü AZALTIR → net'ten düş.
+      sum.add(Number(islem.amount), getIslemCurrency(islem), isReturnType(islem.type) ? -1 : 1);
+    });
+    return { total: sum.total, conversionIncomplete: sum.conversionIncomplete };
+  })();
+  const uncategorizedTotal = uncategorizedSum.total;
   const uncategorizedCount = uncategorizedIslemler?.length ?? 0;
 
   // Kategorisiz sayfası
   if (isUncategorized) {
     if (uncategorizedLoading) {
       return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <Screen>
           <Stack.Screen options={{ title: t('reports:titles.uncategorized'), headerBackVisible: true, gestureEnabled: true }} />
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
+            <SkeletonListItem />
+            <SkeletonListItem />
+            <SkeletonListItem />
           </View>
-        </SafeAreaView>
+        </Screen>
       );
     }
 
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen
           options={{
             title: t('reports:titles.uncategorized'),
@@ -542,7 +708,7 @@ export default function KategoriDetayPage() {
                       variant="h2"
                       color={type === 'gelir' ? 'success' : 'error'}
                     >
-                      {formatCurrency(uncategorizedTotal)}
+                      {formatCurrency(uncategorizedTotal, baseCurrency)}
                     </Text>
                   </View>
                   <View style={styles.statItem}>
@@ -550,6 +716,11 @@ export default function KategoriDetayPage() {
                     <Text variant="h2">{uncategorizedCount}</Text>
                   </View>
                 </View>
+                {uncategorizedSum.conversionIncomplete && (
+                  <Text variant="caption" color="error" style={styles.conversionWarningText}>
+                    {t('reports:summary.conversionIncomplete')}
+                  </Text>
+                )}
               </Card>
 
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
@@ -564,56 +735,71 @@ export default function KategoriDetayPage() {
               </Text>
             </Card>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={10}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
-        <QuickTransactionBar
-          visible={showEditBar}
-          onDismiss={handleEditDismiss}
-          mode="edit"
-          transactionId={editTransactionId ?? undefined}
-          isScheduledTransaction={false}
-          onSuccess={handleEditDismiss}
-        />
-      </SafeAreaView>
+        {canRenderEditTransactionBar && (
+          <QuickTransactionBar
+            visible={showEditBar}
+            onDismiss={handleEditDismiss}
+            mode="edit"
+            transactionId={editTransactionId ?? undefined}
+            isScheduledTransaction={false}
+            defaultHesapId={editTransaction?.hesap_id ?? undefined}
+            defaultCariId={editTransaction?.cari_id ?? undefined}
+            defaultCariType={editTransaction?.cari?.type}
+            defaultPersonelId={editTransaction?.personel_id ?? undefined}
+            createScope={
+              editTransaction
+                ? getQuickTransactionScopeForApiType(editTransaction.type)
+                  ?? undefined
+                : undefined
+            }
+            onSuccess={handleEditDismiss}
+          />
+        )}
+      </Screen>
     );
   }
 
   // Loading state (normal kategoriler için)
   if (subCategoryReport.isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <SkeletonListItem />
+          <SkeletonListItem />
+          <SkeletonListItem />
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // Error state
   if (subCategoryReport.error) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
         <View style={styles.errorContainer}>
           <Text variant="body" color="error">
             {t('reports:empty.dataLoadError')}
           </Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   // Alt kategorisi yoksa doğrudan tüm işlemleri göster
   if (subCategoryReport.subCategories.length === 0) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <Stack.Screen
           options={{
             title: pageTitleDisplay,
@@ -669,28 +855,41 @@ export default function KategoriDetayPage() {
               </Text>
             </Card>
           )}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={10}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
-        <QuickTransactionBar
-          visible={showEditBar}
-          onDismiss={handleEditDismiss}
-          mode="edit"
-          transactionId={editTransactionId ?? undefined}
-          isScheduledTransaction={false}
-          onSuccess={handleEditDismiss}
-        />
-      </SafeAreaView>
+        {canRenderEditTransactionBar && (
+          <QuickTransactionBar
+            visible={showEditBar}
+            onDismiss={handleEditDismiss}
+            mode="edit"
+            transactionId={editTransactionId ?? undefined}
+            isScheduledTransaction={false}
+            defaultHesapId={editTransaction?.hesap_id ?? undefined}
+            defaultCariId={editTransaction?.cari_id ?? undefined}
+            defaultCariType={editTransaction?.cari?.type}
+            defaultPersonelId={editTransaction?.personel_id ?? undefined}
+            createScope={
+              editTransaction
+                ? getQuickTransactionScopeForApiType(editTransaction.type)
+                  ?? undefined
+                : undefined
+            }
+            onSuccess={handleEditDismiss}
+          />
+        )}
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <Stack.Screen
         options={{
           title: pageTitleDisplay,
@@ -699,13 +898,11 @@ export default function KategoriDetayPage() {
           gestureEnabled: true,
           headerRight: () =>
             !isUncategorized && subCategoryReport.subCategories.length > 0 ? (
-              <TouchableOpacity onPress={handleExport} disabled={isExporting} style={{ padding: 6 }}>
-                {isExporting ? (
-                  <ActivityIndicator size="small" color={colors.text} />
-                ) : (
-                  <ShareIcon size={22} color={colors.text} />
-                )}
-              </TouchableOpacity>
+              <ReportExportButton
+                onPress={handleExport}
+                isExporting={isExporting}
+                accessibilityLabel={t('reports:export.exportExcel')}
+              />
             ) : null,
         }}
       />
@@ -718,7 +915,7 @@ export default function KategoriDetayPage() {
         // toggle'ında başlık (özet + tüm alt-kategori checkbox'ları) TÜMDEN remount ediyordu.
         ListHeaderComponent={renderHeader()}
         ListEmptyComponent={EmptyState()}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
@@ -730,27 +927,36 @@ export default function KategoriDetayPage() {
       />
 
       {/* Quick Transaction Bar - Edit Mode */}
-      <QuickTransactionBar
-        visible={showEditBar}
-        onDismiss={handleEditDismiss}
-        mode="edit"
-        transactionId={editTransactionId ?? undefined}
-        isScheduledTransaction={false}
-        onSuccess={handleEditDismiss}
-      />
-    </SafeAreaView>
+      {canRenderEditTransactionBar && (
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={handleEditDismiss}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          defaultHesapId={editTransaction?.hesap_id ?? undefined}
+          defaultCariId={editTransaction?.cari_id ?? undefined}
+          defaultCariType={editTransaction?.cari?.type}
+          defaultPersonelId={editTransaction?.personel_id ?? undefined}
+          createScope={
+            editTransaction
+              ? getQuickTransactionScopeForApiType(editTransaction.type)
+                ?? undefined
+              : undefined
+          }
+          onSuccess={handleEditDismiss}
+        />
+      )}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  // İskelet satırlar liste genişliğini taşımalı: ortalama (alignItems:center) satırları
+  // içeriğe daraltırdı — hesap detayındaki stateBox ile aynı yerleşim.
   loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: spacing.xl,
+    gap: spacing.sm,
   },
   errorContainer: {
     flex: 1,
@@ -850,6 +1056,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
+  },
+  conversionWarningText: {
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   sectionTitle: {
     marginBottom: spacing.sm,

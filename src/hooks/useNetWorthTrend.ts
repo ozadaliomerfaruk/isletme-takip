@@ -7,7 +7,8 @@ import { queryKeys } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
 import { useFinancialSummary } from './useFinancialSummary';
 import { useSettings } from './useSettings';
-import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter } from './useExchangeRates';
+import { usePermissions } from './usePermissions';
 
 /**
  * AYLIK NET-VARLIK (GENEL DURUM) TREND
@@ -42,12 +43,15 @@ interface RpcRow {
 
 export function useNetWorthTrend(monthsBack: number) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled = canAccessModule('raporlar');
   const { t } = useTranslation('common');
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
   const ratesVersion = ratesData?.updated_at ?? null;
-  const { generalStatus, isLoading: summaryLoading, conversionIncomplete } = useFinancialSummary();
+  const { generalStatus, isLoading: summaryLoading, conversionIncomplete } =
+    useFinancialSummary(reportsEnabled);
 
   const monthsShort = useMemo(() => {
     const m = t('date.monthsShort', { returnObjects: true });
@@ -87,7 +91,7 @@ export function useNetWorthTrend(monthsBack: number) {
       window.endDate,
     ],
     queryFn: async () => {
-      if (!isletme) return [] as RpcRow[];
+      if (!reportsEnabled || !isletme) return [] as RpcRow[];
       const { data, error } = await supabase.rpc('get_networth_pl_trend', {
         p_isletme_id: isletme.id,
         p_start_date: `${window.startDate}T00:00:00`,
@@ -96,7 +100,7 @@ export function useNetWorthTrend(monthsBack: number) {
       if (error) throw error;
       return (data ?? []) as RpcRow[];
     },
-    enabled: !!isletme,
+    enabled: reportsEnabled && !!isletme,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -111,7 +115,7 @@ export function useNetWorthTrend(monthsBack: number) {
       window.endDate,
     ],
     queryFn: async () => {
-      if (!isletme) return [] as { ay: string; opening: number }[];
+      if (!reportsEnabled || !isletme) return [] as { ay: string; opening: number }[];
       const { data, error } = await supabase.rpc('get_networth_opening_by_month', {
         p_isletme_id: isletme.id,
         p_start_date: `${window.startDate}T00:00:00`,
@@ -120,14 +124,16 @@ export function useNetWorthTrend(monthsBack: number) {
       if (error) throw error;
       return (data ?? []) as { ay: string; opening: number }[];
     },
-    enabled: !!isletme,
+    enabled: reportsEnabled && !!isletme,
     staleTime: 5 * 60 * 1000,
   });
 
   const points = useMemo<NetWorthTrendPoint[]>(() => {
     const rows = query.data ?? [];
     // RPC tutarları TRY; ana para birimine çevir (TR için no-op).
-    const toBase = (v: number) => (baseCurrency === 'TRY' ? v : convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika (createRpcTotalConverter): çevrilemezse ham TRY korunur, bayrak kalkar.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const toBase = converter.conv;
 
     const byMonth = new Map<string, { income: number; expense: number; net: number }>();
     for (const r of rows) {

@@ -18,14 +18,28 @@ interface ExploreGridProps {
   onPress: (route: string) => void;
 }
 
-const REPORT_CARDS = [
+interface ReportCard {
+  id: string;
+  icon: typeof BarChart3;
+  labelKey: string;
+  route: string;
+  color: string;
+}
+
+const REPORT_CARDS: readonly ReportCard[] = [
   { id: 'genel', icon: BarChart3, labelKey: 'reports:explore.genel', route: '/raporlar/genel', color: colors.primary },
   { id: 'net-varlik-trend', icon: TrendingUp, labelKey: 'reports:explore.netWorthTrend', route: '/raporlar/net-varlik-trend', color: colors.success },
   { id: 'kategori-dagilimi', icon: PieChart, labelKey: 'reports:explore.kategoriDagilimi', route: '/raporlar/gelir-gider', color: colors.info },
   { id: 'nakit', icon: Wallet, labelKey: 'reports:explore.nakit', route: '/nakit-akisi', color: colors.success },
   { id: 'cari', icon: Building2, labelKey: 'reports:explore.cari', route: '/raporlar/cari', color: colors.warning },
   { id: 'personel', icon: Users, labelKey: 'reports:explore.personel', route: '/raporlar/personel', color: colors.info },
-  { id: 'alis-satis', icon: ShoppingCart, labelKey: 'reports:explore.alisSatis', route: '/raporlar/alis-satis', color: colors.orange },
+  {
+    id: 'alis-satis',
+    icon: ShoppingCart,
+    labelKey: 'reports:explore.alisSatis',
+    route: '/raporlar/alis-satis',
+    color: colors.orange,
+  },
   { id: 'karsilastirma', icon: GitCompareArrows, labelKey: 'reports:explore.karsilastirma', route: '/raporlar/karsilastirma', color: colors.primary },
 ] as const;
 

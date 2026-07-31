@@ -1,22 +1,23 @@
 import { upperTr } from '@/lib/turkishTextUtils';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronUp, ChevronDown } from 'lucide-react-native';
-import { Text, TabFilter, CategoryReportCard, IncomeSourceCard, Button } from '@/components/ui';
+import { Text, TabFilter, CategoryReportCard, IncomeSourceCard, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { CollapsibleGroupHeader } from '@/components/reports/CollapsibleGroupHeader';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { useIncomeSourceReport, IncomeSourceItem } from '@/hooks/useAccountReport';
 import { PeriodType } from '@/hooks/useIslemler';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, signedCurrencyText } from '@/lib/currency';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -25,6 +26,7 @@ import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
 type ReportType = 'gelir' | 'gider';
 
 export default function GelirGiderRaporPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'income_expense' }); }, []);
   const router = useRouter();
@@ -35,7 +37,11 @@ export default function GelirGiderRaporPage() {
   // Gider tarafında her zaman kategori (hesap kırılımına ihtiyaç yok).
   const [gelirGroupBy, setGelirGroupBy] = useState<'kategori' | 'hesap'>('kategori');
 
-  const { isExporting, exportReport } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
+  const {
+    isExporting,
+    canExport,
+    exportReport,
+  } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 
   const PERIOD_OPTIONS = [
     { label: upperTr(t('reports:period.yearly')), value: 'yearly' },
@@ -129,17 +135,18 @@ export default function GelirGiderRaporPage() {
           title: t('reports:titles.categoryDistribution'),
           headerBackVisible: true,
           gestureEnabled: true,
-          headerRight: () => (
-            <ReportExportButton
-              onPress={handleExport}
-              isExporting={isExporting}
-              accessibilityLabel={t('reports:export.exportExcel')}
-            />
-          ),
+          headerRight: () => canExport ? (
+              <ReportExportButton
+                onPress={handleExport}
+                isExporting={isExporting}
+                accessibilityLabel={t('reports:export.exportExcel')}
+              />
+            ) : null,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -150,6 +157,15 @@ export default function GelirGiderRaporPage() {
             />
           }
         >
+          {/* Kur bulunamadıysa toplamlar eksik/çevrilmemiş — sessiz kalmıyor */}
+          <ConversionIncompleteWarning
+            visible={
+              showAccounts
+                ? kaynakRaporu.conversionIncomplete
+                : catReport.conversionIncomplete
+            }
+          />
+
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter
@@ -208,7 +224,11 @@ export default function GelirGiderRaporPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(gelirRaporu.totalAmount)}
+                  {signedCurrencyText(
+                    showAccounts
+                      ? kaynakRaporu.totalAmount
+                      : gelirRaporu.totalAmount
+                  )}
                 </Text>
               </TouchableOpacity>
 
@@ -236,7 +256,7 @@ export default function GelirGiderRaporPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(giderRaporu.totalAmount)}
+                  {signedCurrencyText(giderRaporu.totalAmount)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -303,31 +323,22 @@ export default function GelirGiderRaporPage() {
                     const collapsed = collapsedGroups.has(group.key);
                     return (
                       <View key={group.key}>
-                        <TouchableOpacity
-                          style={styles.groupHeader}
-                          onPress={() => toggleGroup(group.key)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.groupHeaderLeft}>
-                            {collapsed
-                              ? <ChevronDown size={16} color={colors.textSecondary} />
-                              : <ChevronUp size={16} color={colors.textSecondary} />}
-                            <Text variant="body" style={styles.groupHeaderText}>
-                              {t(`reports:incomeSource.groups.${group.key}`, { defaultValue: group.key })}
-                            </Text>
-                            <Text variant="caption" color="secondary">
-                              ({group.items.length})
-                            </Text>
-                          </View>
-                          <Text variant="body" style={styles.groupHeaderAmount}>
-                            {formatCurrency(group.total)}
-                          </Text>
-                        </TouchableOpacity>
+                        <CollapsibleGroupHeader
+                          label={t(`reports:incomeSource.groups.${group.key}`, { defaultValue: group.key })}
+                          count={group.items.length}
+                          amount={formatCurrency(group.total)}
+                          collapsed={collapsed}
+                          onToggle={() => toggleGroup(group.key)}
+                        />
                         {!collapsed && group.items.map((item) => (
                           <IncomeSourceCard
                             key={`${item.kind}-${item.id}`}
                             item={item}
-                            onPress={() => handleSourcePress(item)}
+                            onPress={
+                              kaynakRaporu.canOpenDetails
+                                ? () => handleSourcePress(item)
+                                : undefined
+                            }
                           />
                         ))}
                       </View>
@@ -371,16 +382,12 @@ export default function GelirGiderRaporPage() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   periodFilter: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -410,41 +417,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     fontWeight: '600',
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  groupHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  groupHeaderText: {
-    fontWeight: '600',
-  },
-  groupHeaderAmount: {
-    fontWeight: '700',
-  },
-  dateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  navBtn: {
-    padding: spacing.xs,
-  },
-  dateLabel: {
-    fontWeight: '600',
-    color: colors.primary,
-    minWidth: 140,
-    textAlign: 'center',
   },
   summaryTabs: {
     flexDirection: 'row',

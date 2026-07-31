@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { View, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, TextInput, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
+import { GlassSurface, GLASS_TINT_CONTROL } from './GlassSurface';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize, HIT_SLOP } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 interface ModalSearchBarProps {
   value: string;
@@ -34,27 +35,47 @@ export function ModalSearchBar({ value, onChangeText, placeholder, autoFocusDela
 
   return (
     <View style={styles.container}>
-      <View style={styles.pill}>
-        <Search size={20} color={colors.textMuted} />
-        <TextInput
-          ref={inputRef}
-          style={styles.input}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder ?? t('common:search.searchPlaceholder')}
-          placeholderTextColor={colors.textMuted}
-          returnKeyType="search"
-        />
-        {value.length > 0 && (
-          <TouchableOpacity
-            onPress={() => onChangeText('')}
-            hitSlop={HIT_SLOP.sm}
-            style={styles.clearButton}
-          >
-            <X size={16} color={colors.textMuted} />
-          </TouchableOpacity>
-        )}
-      </View>
+      {/**
+        * Cam — yüzen arama çubuğuyla aynı dilde olsun diye. BEKLENTİ: burada
+        * etki sınırlı kalır, çünkü bu çubuk OPAK bir sheet'in üstünde duruyor;
+        * cam arkasında hareketli içerik değil düz bir yüzey örnekliyor. Yani
+        * kazanç malzeme tutarlılığı, görsel "vay be" değil.
+        * Tint şart: küçük yüzey + açık zemin (bkz. GlassSurface kuralı).
+        */}
+      <GlassSurface
+        style={styles.pill}
+        fallbackStyle={styles.pillFallback}
+        tintColor={GLASS_TINT_CONTROL}
+      >
+        <Pressable
+          style={styles.pillInner}
+          onPress={() => inputRef.current?.focus()}
+        >
+          <Search size={20} color={colors.textMuted} />
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder ?? t('common:search.searchPlaceholder')}
+            placeholderTextColor={colors.textMuted}
+            returnKeyType="search"
+          />
+          {value.length > 0 && (
+            <TouchableOpacity
+              onPress={(event) => {
+                event.stopPropagation();
+                onChangeText('');
+                inputRef.current?.focus();
+              }}
+              hitSlop={HIT_SLOP.sm}
+              style={styles.clearButton}
+            >
+              <X size={16} color={colors.textMuted} />
+            </TouchableOpacity>
+          )}
+        </Pressable>
+      </GlassSurface>
     </View>
   );
 }
@@ -65,21 +86,30 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
   },
+  // Geometri (iki yolda da).
   pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     height: 48,
     borderRadius: borderRadius.full,
+  },
+  // Yalnız cam yokken: bugünkü dolgu + çerçeve.
+  pillFallback: {
     backgroundColor: colors.surfaceLight,
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  pillInner: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
   },
   input: {
     flex: 1,
     color: colors.text,
-    fontSize: fontSize.lg,
+    // Yüzen arama çubuğuyla AYNI punto (17 = iOS gövde metni) — iki arama
+    // yüzeyi aynı boyutta okunsun.
+    fontSize: 17,
     paddingVertical: 0,
   },
   clearButton: {

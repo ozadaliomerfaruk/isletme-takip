@@ -1,13 +1,13 @@
 import { useState } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ArrowRightLeft, LogOut, UserPlus, ChevronRight } from 'lucide-react-native';
-import { Text, Card, Input, Button, Avatar } from '@/components/ui';
+import { Text, Card, Input, Button, Avatar, Screen } from '@/components/ui';
 import { UserEditSheet } from '@/components/multiUser/UserEditSheet';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
@@ -21,6 +21,7 @@ import {
 import type { IsletmeUser } from '@/types/multiUser';
 
 export default function PaylasilanIsletmelerPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['multiUser', 'common']);
   const { user, isOwner, switchToSharedIsletme } = useAuthContext();
@@ -121,8 +122,9 @@ export default function PaylasilanIsletmelerPage() {
           headerShadowVisible: false,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <Screen>
+      <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* ── SAHİPLİK TARAFI: Bu işletmeyi paylaş (yalnızca sahip) ── */}
         {isOwner && (
           <>
@@ -235,6 +237,7 @@ export default function PaylasilanIsletmelerPage() {
                         <TouchableOpacity
                           onPress={() => handleCancelInvite(invite.id)}
                           style={styles.cancelButton}
+                          hitSlop={HIT_SLOP.md}
                         >
                           <Text variant="caption" style={{ color: colors.error }}>
                             {t('multiUser:invites.cancelInvite')}
@@ -311,6 +314,7 @@ export default function PaylasilanIsletmelerPage() {
                       <TouchableOpacity
                         style={styles.switchButton}
                         onPress={() => handleSwitchTo(item)}
+                        hitSlop={HIT_SLOP.md}
                       >
                         <ArrowRightLeft size={14} color={colors.primary} />
                         <Text variant="caption" style={{ color: colors.primary }}>
@@ -320,6 +324,7 @@ export default function PaylasilanIsletmelerPage() {
                       <TouchableOpacity
                         style={styles.leaveButton}
                         onPress={() => handleLeave(item)}
+                        hitSlop={HIT_SLOP.md}
                       >
                         <LogOut size={14} color={colors.error} />
                       </TouchableOpacity>
@@ -337,7 +342,7 @@ export default function PaylasilanIsletmelerPage() {
         visible={!!editingUser}
         onClose={() => setEditingUser(null)}
       />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

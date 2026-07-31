@@ -42,6 +42,14 @@ export async function safeIncrementBalance(tableName: string, rowId: string, amo
 
 /**
  * Cross-currency işlemlerde entity tarafının tutarını hesapla.
+ *
+ * POLİTİKA NOTU — islemBalanceOps (normal yazma yolu) kur eksikken THROW eder; burada
+ * ham tutara düşülüyor. Bu AYRIŞMA bilinçli olarak kapatıldı ama farklı bir yerde:
+ * içe aktarma artık source/target/exchange_rate üçlüsünü BİRLİKTE yazıyor
+ * (useDataImport), yani "para birimleri farklı ama kur yok" satırı hiç oluşmuyor.
+ * Buradaki fallback bu yüzden ULAŞILAMAZ hâle geldi; yine de bırakılıyor çünkü
+ * bakiye adımı insert'ten SONRA koşuyor — burada throw etmek satırları eklenmiş ama
+ * bakiyesi uygulanmamış bırakırdı (daha kötü sonuç).
  */
 function getEntityAmount(islem: IslemInsert): number {
   const rate = safeParseExchangeRate(islem.exchange_rate);

@@ -29,6 +29,24 @@ export function roundCurrency(value: number): number {
   return sign * Number(Math.round(parseFloat(Math.abs(value) + 'e2')) + 'e-2');
 }
 
+function roundToScale(value: number, scale: number): number {
+  if (isNaN(value) || !isFinite(value)) return 0;
+  const sign = value < 0 ? -1 : 1;
+  return sign * Number(
+    Math.round(parseFloat(`${Math.abs(value)}e${scale}`)) + `e-${scale}`,
+  );
+}
+
+/** Ürün miktarı DB sözleşmesi: numeric(..., 3). */
+export function roundQuantity(value: number): number {
+  return roundToScale(value, 3);
+}
+
+/** Ürün birim fiyatı DB sözleşmesi: numeric(15, 4). */
+export function roundUnitPrice(value: number): number {
+  return roundToScale(value, 4);
+}
+
 // ============================================================================
 // PARSE FONKSİYONLARI (String → Number)
 // ============================================================================
@@ -50,12 +68,39 @@ export function roundCurrency(value: number): number {
  * parseCurrency("43,27")    // 43.27
  */
 /**
- * Aktif (ana) para biriminin locale'ine göre binlik/ondalık ayraçlarını döndürür.
+ * PARA BİRİMİ → SAYI LOCALE'İ: TEK EŞLEME.
+ *
+ * Neden tek yerde — formatCurrency'nin iki dalı çelişiyordu: ikinci argümanla
+ * USD/EUR/GBP için KOŞULSUZ 'en-US', argümansız dalda ana para biriminin locale'i
+ * (useSettings: EUR → de-DE). Sonuç: ana para birimi EUR olan kullanıcı hesap
+ * satırında "€1.234,56", grup toplamında "€1,234.56" görüyordu — binlik ve ondalık
+ * TAM TERS. Üstelik girişi okuyan katman (parseCurrency / cleanAmountInput /
+ * formatAmountForInput, hepsi getLocaleSeparators'a dayanıyor) EUR için ondalık
+ * VİRGÜL varsayıyor; yani doğru cevap zaten de-DE'ydi ve gösterim ondan sapıyordu.
+ * XAU/XAG (gram) Türkçe biçimde yazılır — tr-TR.
+ */
+const CURRENCY_LOCALES: Record<string, string> = {
+  TRY: 'tr-TR',
+  USD: 'en-US',
+  EUR: 'de-DE',
+  GBP: 'en-GB',
+  XAU: 'tr-TR',
+  XAG: 'tr-TR',
+};
+
+/** Verilen para biriminin sayı locale'i; kod yoksa ANA para biriminin locale'i. */
+export function getCurrencyLocale(code?: Currency | string | null): string {
+  if (!code) return getCurrentCurrency().locale;
+  return CURRENCY_LOCALES[code] ?? getCurrentCurrency().locale;
+}
+
+/**
+ * Binlik/ondalık ayraçlar. Kod verilmezse AKTİF (ana) para birimine göre.
  * en-US / en-GB (USD/GBP): ondalık '.', binlik ','
  * tr-TR / de-DE (TRY/EUR): ondalık ',', binlik '.'
  */
-function getLocaleSeparators(): { decimal: string; thousands: string } {
-  const locale = getCurrentCurrency().locale;
+export function getLocaleSeparators(code?: Currency | string | null): { decimal: string; thousands: string } {
+  const locale = getCurrencyLocale(code);
   return locale.startsWith('en')
     ? { decimal: '.', thousands: ',' }
     : { decimal: ',', thousands: '.' };
@@ -232,39 +277,16 @@ export function safeParseExchangeRate(value: string | number | null | undefined)
 export function formatCurrency(amount: number, accountCurrency?: Currency | string | null): string {
   const abs = Math.abs(amount);
 
-  // Hesap para birimi verilmişse onu kullan
-  if (accountCurrency) {
-    const symbol = getCurrencySymbol(accountCurrency as Currency);
-
-    // Altın/Gümüş için özel format: "1.234,56 gr"
-    if (isPreciousMetal(accountCurrency as Currency)) {
-      return `${new Intl.NumberFormat('tr-TR', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(abs)} ${symbol}`;
-    }
-
-    // USD/EUR/GBP için İngilizce format: "$1,234.56"
-    if (accountCurrency === 'USD' || accountCurrency === 'EUR' || accountCurrency === 'GBP') {
-      return `${symbol}${new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(abs)}`;
-    }
-
-    // TRY için Türkçe format: "₺1.234,56"
-    return `${symbol}${new Intl.NumberFormat('tr-TR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(abs)}`;
-  }
-
-  // Hesap para birimi verilmemişse kullanıcının ayarına göre formatla
-  const currencyConfig = getCurrentCurrency();
-  return `${currencyConfig.symbol}${new Intl.NumberFormat(currencyConfig.locale, {
+  // Locale TEK eşlemeden (getCurrencyLocale): argümanlı ve argümansız dallar artık
+  // aynı kaynağı kullanıyor, 'en-US' sabiti kaldırıldı.
+  const symbol = getCurrencySymbol(accountCurrency as Currency);
+  const formatted = new Intl.NumberFormat(getCurrencyLocale(accountCurrency), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(abs)}`;
+  }).format(abs);
+
+  // Altın/Gümüş: sembol SONDA ("1.234,56 gr")
+  return isPreciousMetal(accountCurrency as Currency) ? `${formatted} ${symbol}` : `${symbol}${formatted}`;
 }
 
 /**
@@ -278,6 +300,29 @@ export function formatCurrency(amount: number, accountCurrency?: Currency | stri
 export function formatCurrencyWithSign(amount: number, accountCurrency?: Currency | string | null): string {
   const sign = amount >= 0 ? '+' : '-';
   return `${sign}${formatCurrency(amount, accountCurrency)}`;
+}
+
+/**
+ * NEGATİFTE işaretli, pozitifte sade para biçimi.
+ *
+ * NEDEN VAR — `formatCurrency` ilk satırında `Math.abs` yapar, yani İŞARETİ DÜŞÜRÜR.
+ * Yalnız pozitif olabilen tutarlarda bu doğru (sembolden önce eksi istemiyoruz), ama
+ * NET olabilen tutarlarda (iade düşülmüş kategori toplamı, kaynak neti, dönem farkı)
+ * negatif değer POZİTİF görünüyordu. Üstelik bu yüzeylerde renk çoğunlukla sabit
+ * (yeşil "gelir") olduğu için iade > satış olan bir kaynak hem artı hem YEŞİL çıkıyordu.
+ *
+ * `formatCurrencyWithSign`'dan farkı: pozitifte "+" YAZMAZ. Rapor yüzeylerinde her
+ * satırın başına "+" koymak gürültü; asıl istenen negatifin görünmesi.
+ *
+ * Renk de bu fonksiyonla birlikte düşünülmeli — sayı eksiye dönerken rengin yeşil
+ * kalması yalanı sürdürür. Kullanan yüzeyler değere göre renk seçer.
+ *
+ * @example signedCurrencyText(1200)          // "₺1.200,00"
+ * @example signedCurrencyText(-300)          // "-₺300,00"
+ * @example signedCurrencyText(-300, 'USD')   // "-$300.00"
+ */
+export function signedCurrencyText(amount: number, accountCurrency?: Currency | string | null): string {
+  return amount < 0 ? formatCurrencyWithSign(amount, accountCurrency) : formatCurrency(amount, accountCurrency);
 }
 
 /**
@@ -316,6 +361,20 @@ export function formatNumber(amount: number): string {
 }
 
 /**
+ * ADET / SAYAÇ biçimi: binlik ayraçlı TAM SAYI, ana para biriminin locale'inde.
+ *
+ * `n.toLocaleString()` (argümansız) CİHAZ locale'ini kullanır: cihazı en-US olan
+ * Türkçe kullanıcı içe aktarma sonucunda "1,234" görürken hemen yanındaki satır
+ * "1.234" gösteriyordu. `i18n.language === 'tr' ? 'tr-TR' : 'en-US'` kalıbı da yetersiz
+ * (dile bakar, ana para birimine bakmaz — EUR/de-DE kullanıcısını en-US'a düşürür).
+ */
+export function formatCount(value: number): string {
+  return new Intl.NumberFormat(getCurrentCurrency().locale, {
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+/**
  * Miktar (adet/kg/gram) formatla — kullanıcının locale'ine göre ONDALIK ayraçla.
  * Para DEĞİL; sembol eklemez. En fazla 3 ondalık (kg/gram hassasiyeti), sondaki
  * sıfırlar atılır (5 → "5", 5.977 → "5,977" (tr) / "5.977" (en), 5.5 → "5,5").
@@ -342,9 +401,38 @@ export function formatQuantity(value: number | string | null | undefined): strin
  * formatPercentage(45.5) // "45,5%"
  */
 export function formatPercentage(value: number, decimals: number = 1): string {
-  const currencyConfig = getCurrentCurrency();
-  const decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
-  return `${value.toFixed(decimals).replace('.', decimalSeparator)}%`;
+  // `startsWith('tr')` kontrolü getLocaleSeparators ile ÇELİŞİYORDU: EUR (de-DE) ana
+  // para biriminde ondalık virgül beklenirken burada nokta basılıyordu.
+  const { decimal } = getLocaleSeparators();
+  return `${value.toFixed(decimals).replace('.', decimal)}%`;
+}
+
+/**
+ * YÜZDE — işaret KONUMU ve ayraç dile göre (tek kaynak).
+ *
+ * Kod tabanında ~20 yerde `%{{value}}` elle yazılıyordu: Türkçe'de yüzde işareti ÖNE,
+ * İngilizce'de SONA gelir. Türkçe kullanıcı "%45.0" (beklenen "%45,0"), İngilizce
+ * kullanıcı "%45.0" (beklenen "45.0%") görüyordu — Excel/PDF çıktısında da aynı.
+ * Intl `style:'percent'` hem konumu hem ayracı kendisi çözer.
+ *
+ * @param value - yüzde DEĞERİ (45 → "%45" / "45%"), oran DEĞİL
+ *
+ * @example (tr)    formatPercent(45)      // "%45"
+ * @example (tr)    formatPercent(45.5, 1) // "%45,5"
+ * @example (en-US) formatPercent(45.5, 1) // "45.5%"
+ */
+export function formatPercent(value: number, decimals: number = 0): string {
+  const locale = getCurrentCurrency().locale;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'percent',
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(value / 100);
+  } catch {
+    // Hermes'te percent stili beklenmedik şekilde patlarsa eski davranışa düş
+    return formatPercentage(value, decimals);
+  }
 }
 
 /**
@@ -358,32 +446,25 @@ export function formatPercentage(value: number, decimals: number = 1): string {
  */
 export function formatCurrencyCompact(amount: number, accountCurrency?: Currency | string | null): string {
   const abs = Math.abs(amount);
-
-  // Hesap para birimine göre ayarları belirle
-  let symbol: string;
-  let decimalSeparator: string;
-
-  if (accountCurrency) {
-    symbol = getCurrencySymbol(accountCurrency as Currency);
-    // USD/EUR/GBP için nokta (formatCurrency bunlarda en-US formatı kullanır), diğerleri için virgül
-    decimalSeparator = (accountCurrency === 'USD' || accountCurrency === 'EUR' || accountCurrency === 'GBP') ? '.' : ',';
-  } else {
-    const currencyConfig = getCurrentCurrency();
-    symbol = currencyConfig.symbol;
-    decimalSeparator = currencyConfig.locale.startsWith('tr') ? ',' : '.';
-  }
+  const symbol = getCurrencySymbol(accountCurrency as Currency);
+  // Ayraç TEK eşlemeden — eski elle kontrol ('USD'|'EUR'|'GBP' → '.', diğeri ',')
+  // getLocaleSeparators ile çelişiyordu (EUR'da ondalık virgül olmalı).
+  const { decimal } = getLocaleSeparators(accountCurrency);
 
   // Altın/Gümüş için sembol sonda olmalı
   const isMetalCurrency = isPreciousMetal(accountCurrency as Currency);
+  // İşaret KORUNUR: kısaltılmış negatif değer ("−₺1,2M") aksi halde pozitiften
+  // ayırt edilemiyordu (formatCurrency mutlak değer basar).
+  const sign = amount < 0 ? '-' : '';
 
   if (abs >= 1_000_000) {
-    const formatted = (abs / 1_000_000).toFixed(1).replace('.', decimalSeparator);
-    return isMetalCurrency ? `${formatted}M ${symbol}` : `${symbol}${formatted}M`;
+    const formatted = (abs / 1_000_000).toFixed(1).replace('.', decimal);
+    return isMetalCurrency ? `${sign}${formatted}M ${symbol}` : `${sign}${symbol}${formatted}M`;
   }
 
   if (abs >= 10_000) {
-    const formatted = (abs / 1_000).toFixed(1).replace('.', decimalSeparator);
-    return isMetalCurrency ? `${formatted}K ${symbol}` : `${symbol}${formatted}K`;
+    const formatted = (abs / 1_000).toFixed(1).replace('.', decimal);
+    return isMetalCurrency ? `${sign}${formatted}K ${symbol}` : `${sign}${symbol}${formatted}K`;
   }
 
   return formatCurrency(amount, accountCurrency);
@@ -678,9 +759,32 @@ export interface CrossCurrencyDisplay {
  * Hedef taraf: transfer -> hedef_hesap, cari_* -> cari, personel_* -> personel.
  * 'amount' kaynak (hesap) para birimindedir; HEDEF tutar = calculateTargetAmount ile çevrilir.
  */
+/**
+ * İşlemin tutarının YAZILDIĞI para birimi — sunucudaki
+ * COALESCE(hesap.currency, cari.currency, personel.currency, 'TRY') zincirinin
+ * client karşılığı (bkz. migration 20260529010000_fix_report_currency_resolution.sql:142).
+ *
+ * NEDEN GEREKLİ — hesap bacağı OLMAYAN tipler (cari_alis, cari_satis, iadeler,
+ * personel_gider, personel_satis) için tutar karşı tarafın para biriminde okunuyor.
+ * Yalnız hesaptan çözen eski mantık bu tiplerde undefined döndürüyordu → formatCurrency
+ * ANA para birimi sembolünü basıyor, USD cariye kesilen 1.000 USD fatura İşlemler
+ * listesinde "₺1.000" görünüyordu (cari detayında doğru "$1.000").
+ *
+ * Fallback SIRASI önemli: source_currency açıkça yazılmışsa (çapraz-kur kaydı) o
+ * kazanır; sonra hesap; sonra tipe göre entity. Böylece cari_odeme gibi iki bacaklı
+ * tiplerde ana satır yine kaynak hesabın para biriminde kalıyor.
+ */
+export function getIslemCurrency(islem: CrossCurrencyIslemLike): string | undefined {
+  if (islem.source_currency) return islem.source_currency;
+  if (islem.hesap?.currency) return islem.hesap.currency;
+  if (islem.type?.startsWith('cari_') && islem.cari?.currency) return islem.cari.currency;
+  if (islem.type?.startsWith('personel_') && islem.personel?.currency) return islem.personel.currency;
+  return undefined;
+}
+
 export function getCrossCurrencyDisplay(islem: CrossCurrencyIslemLike): CrossCurrencyDisplay {
   const amount = toNumber(islem.amount);
-  const sourceCurrency = islem.source_currency || islem.hesap?.currency || undefined;
+  const sourceCurrency = getIslemCurrency(islem);
 
   // Hedef tarafın para birimini işlem tipine göre çöz
   let targetCurrency: string | undefined;

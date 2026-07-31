@@ -6,9 +6,10 @@
  * Clean, big numbers, no sparklines
  */
 
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { Text } from '@/components/ui';
 import { useAnalyticsSummary } from '@/hooks/useAnalyticsSummary';
 import { useSettings } from '@/hooks/useSettings';
 import { formatCurrency } from '@/lib/currency';
@@ -43,8 +44,10 @@ function KPICard({
 
   return (
     <View style={styles.kpiCard}>
-      <Text style={styles.kpiTitle}>{title}</Text>
+      <Text variant="label" color="muted" style={styles.kpiTitle}>{title}</Text>
       <Text
+        variant="h2"
+        bold
         style={[
           styles.kpiValue,
           value < 0 && styles.kpiValueNegative,
@@ -65,6 +68,8 @@ function KPICard({
                 <TrendingDown size={13} color={colors.error} />
               )}
               <Text
+                variant="label"
+                color="muted"
                 style={[
                   styles.deltaText,
                   isPositive && styles.deltaTextPositive,
@@ -77,14 +82,14 @@ function KPICard({
           ) : (
             <>
               <Minus size={13} color={colors.textMuted} />
-              <Text style={styles.deltaText}>{t('labels.noChange')}</Text>
+              <Text variant="label" color="muted" style={styles.deltaText}>{t('labels.noChange')}</Text>
             </>
           )}
         </View>
       )}
 
       {isInstant && subtitle && (
-        <Text style={styles.kpiSubtitle}>{subtitle}</Text>
+        <Text variant="caption" color="muted" style={styles.kpiSubtitle}>{subtitle}</Text>
       )}
     </View>
   );
@@ -176,16 +181,13 @@ const styles = StyleSheet.create({
   cashRow: {
     borderRadius: borderRadius.lg,
   },
+  // Tipografi/renk artık Text variant'ından geliyor; burada yalnız variant tablosunda
+  // birebir karşılığı OLMAYAN ölçü (13px) ve yerleşim override'ları kalır.
   kpiTitle: {
     fontSize: 13,
-    fontWeight: '500',
-    color: colors.textMuted,
     marginBottom: spacing.xs,
   },
   kpiValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.text,
     marginBottom: spacing.xs,
   },
   kpiValueNegative: {
@@ -198,8 +200,6 @@ const styles = StyleSheet.create({
   },
   deltaText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: colors.textMuted,
   },
   deltaTextPositive: {
     color: colors.success,
@@ -209,6 +209,5 @@ const styles = StyleSheet.create({
   },
   kpiSubtitle: {
     fontSize: 13,
-    color: colors.textMuted,
   },
 });

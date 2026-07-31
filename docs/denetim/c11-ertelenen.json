@@ -1,0 +1,121 @@
+{
+ "cluster": "c11",
+ "ownedFiles": [
+  "src/app/(tabs)/cariler.tsx",
+  "src/app/(tabs)/index.tsx",
+  "src/app/(tabs)/personel.tsx",
+  "src/app/urunler/index.tsx",
+  "src/components/ui/index.ts",
+  "src/lib/tabBarVisibility.ts"
+ ],
+ "findings": [
+  {
+   "file": "src/lib/tabBarVisibility.ts",
+   "line": 55,
+   "title": "mutabakat ve vade rotalarında tab bar vurgusu 'Ana Sayfa'ya atlıyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "getActiveTab'da notlar/arsiv/taksit/yasal için açık kayıtlar var ama 'mutabakat' ve 'vade' yok → ikisi de son satırdaki varsayılan 'home'a düşüyor. Kullanıcı Cariler sekmesinden cari detayına (vurgu: Cariler) girip Mutabakat'ı açtığında vurgu aniden Ana Sayfa'ya kayıyor; aynı şey Cariler mini-dashboard'undan açılan Vade Takibi için de geçerli. Aynı aileden gelen taksit sayfası doğru davranıyor (→ 'daha'), yani kalıp var, iki rota atlanmış.",
+   "evidence": "src/lib/tabBarVisibility.ts:41-58 — `if (first === 'cariler') return 'cariler';` (:41), `if (first === 'taksit') return 'daha';` (:55), 'mutabakat'/'vade' için satır YOK, :58 `return 'home'`. Erişim yolları: src/app/cariler/[id].tsx (mutabakat'a giden ekran, rota 'cariler'e eşleniyor) ve src/app/(tabs)/cariler.tsx:878 `router.push('/vade')`. Bar bu kararı kullanıyor: src/components/ui/PersistentTabBar.tsx:135 `getActiveTab(segments)`.",
+   "fix": "tabBarVisibility.ts'e `if (first === 'mutabakat') return 'cariler';` ve `if (first === 'vade') return 'cariler';` satırlarını ekle (ikisinin de giriş noktası Cariler).",
+   "id": 7,
+   "verifyNote": "tabBarVisibility.ts:46-61 listesi doğrulandı: cariler/personel/urunler/hesaplar/islemler/nakit-akisi/arama/foto-import/raporlar/ayarlar/kategoriler/notlar/arsiv/taksit/yasal açıkça eşlenmiş; 'mutabakat' ve 'vade' YOK → :63 default 'home'. İkisi de gerçek rota (src/app/mutabakat/[cariId].tsx, src/app/vade/index.tsx) ve ikisine de Cariler kolundan giriliyor (cariler/[id].tsx:1560 menü, (tabs)/cariler.tsx:878). Yani Cariler sekmesindeyken vurgu Ana Sayfa'ya atlıyor — gerçek ama yalnız vurgu rengini etkileyen kozmetik bir tutarsızlık, medium abartılı."
+  },
+  {
+   "file": "src/app/urunler/index.tsx",
+   "line": 756,
+   "title": "Ürünler sekmesi yükleniyor durumu tam ekran metin — diğer 3 sekmede Skeleton",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Ürünler sekmesi isLoading iken ERKEN RETURN yapıp ekranın tamamını ortalanmış \"Yükleniyor…\" metniyle değiştiriyor: TabHeader (başlık + Excel/sırala/+EKLE cam butonları) ve yüzen arama çubuğu kayboluyor, veri gelince hepsi bir anda geri geliyor (chrome sıçraması). Diğer üç ana sekmenin hiçbiri erken dönmüyor; header sabit kalıyor ve listenin yerinde SkeletonAccountList çiziliyor. Kullanıcı sekmeler arasında gezerken ürünlerde farklı bir yükleme dili görüyor.",
+   "evidence": "src/app/urunler/index.tsx:756-764 → `if (isLoading) { return (<Screen top><View style={styles.loadingContainer}><Text color=\"secondary\">{t('common:status.loading')}</Text></View></Screen>); }` (TabHeader hiç render edilmiyor). Karşılaştırma: src/app/(tabs)/cariler.tsx:888 `{isLoading && <SkeletonAccountList count={5} />}` ListHeader içinde + cariler.tsx:939 `data={isLoading ? [] : filteredCariler}` (erken return YOK, header 913-934 hep çizili); aynı desen src/app/(tabs)/personel.tsx:692 ve src/app/(tabs)/index.tsx:486.",
+   "fix": "Erken return'ü kaldır; `data={isLoading ? [] : listData}` yap ve listHeaderComponent'in sonuna `{isLoading && <SkeletonAccountList count={5} />}` ekle (SkeletonAccountList zaten '@/components/ui'den export'lu). Böylece header + arama çubuğu yükleme boyunca yerinde kalır.",
+   "id": 43,
+   "verifyNote": "urunler/index.tsx:756-764 gerçekten erken return: `<Screen top><View style={styles.loadingContainer}><Text>Yükleniyor…</Text></View></Screen>` — TabHeader (:768) ve FloatingSearchBar (:811) hiç render edilmiyor. Diğer üç sekmede erken return yok, header sabit ve yerinde SkeletonAccountList çiziliyor (cariler.tsx:888, personel.tsx:694, (tabs)/index.tsx:486). Chrome sıçraması gerçek; medium yerinde."
+  },
+  {
+   "file": "src/app/urunler/index.tsx",
+   "line": 612,
+   "title": "Dönem ok butonlarında hitSlop yok — ortak PeriodNavigator'da var",
+   "category": "erisilebilirlik",
+   "severity": "low",
+   "detail": "Dönem gezinme okları 34x34px yuvarlak butonlar ve hiçbir hitSlop taşımıyor → dokunma hedefi 34px, 44px eşiğinin altında. Rapor sayfalarının ortak PeriodNavigator'ı BİREBİR aynı 34x34 stili kullanıyor (stil yorumu bunu 'ürünler sayfasıyla aynı desen' diye belgeliyor) ama her iki oka da HIT_SLOP.sm veriyor. Yani aynı kontrol, iki yerde farklı dokunulabilirlik.",
+   "evidence": "src/app/urunler/index.tsx:612-620 (`<TouchableOpacity onPress={…} style={styles.periodNavButton}><ChevronLeft size={20} …/>`) ve index.tsx:624-633 (ileri oku, yalnız `disabled` var) — ikisinde de hitSlop yok. Boyut: src/components/urunlerPage/styles.ts:63-72 `periodNavButton: { width: 34, height: 34, borderRadius: 17, … }`. Karşılaştırma: src/components/reports/PeriodNavigator.tsx:169-175 ve 195-201 → `style={styles.navButton}` + `hitSlop={HIT_SLOP.sm}`; aynı ölçüler PeriodNavigator.tsx:366-375 ve oradaki yorum: 'Yuvarlak zeminli ok — dokunma hedefi belirgin (ürünler sayfasıyla aynı desen)'.",
+   "fix": "index.tsx:612 ve 624'teki iki TouchableOpacity'ye `hitSlop={HIT_SLOP.sm}` ekle (HIT_SLOP zaten '@/constants/spacing'den import edilebiliyor).",
+   "id": 47,
+   "verifyNote": "urunler/index.tsx:612-620 ve :624-633 iki ok TouchableOpacity'sinde hitSlop yok; urunlerPage/styles.ts:63-72 periodNavButton 34x34. Aynı ölçüdeki ortak PeriodNavigator.tsx:170-172 ve :196-198 hitSlop={HIT_SLOP.sm} veriyor. Tutarsızlık gerçek ama görünür 34px zeminli buton + tek satırlık düzeltme → low."
+  },
+  {
+   "file": "src/app/urunler/index.tsx",
+   "line": 989,
+   "title": "Miktar/Tutar geçişi liste ile detayda farklı — yorum 'aynı görünüm' diyor ama değil",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Ürün listesindeki ve ürün detayındaki Miktar/Tutar toggle'ı aynı kontrolün iki kopyası ama görsel olarak ayrışmış: listede yazı 12pt/700/letterSpacing 0.3 ve etiketler upperTr ile BÜYÜK harf, dikey padding 5; detayda 14pt/600, letterSpacing yok, etiketler normal harf, dikey padding 6. Kod yorumu ise açıkça 'ürün detay sayfasındaki toggle ile aynı görünüm' diyor — yani niyet tutarlılık, sonuç değil. Listedeki hâli ~26px yüksekliğe düşüyor (hitSlop da yok).",
+   "evidence": "src/app/urunler/index.tsx:989-1015 → yorum 'ürün detay sayfasındaki toggle ile aynı görünüm' + `btn: { paddingVertical: 5 }`, `txt: { fontSize: 12, fontWeight: '700', letterSpacing: 0.3 }`; etiketler index.tsx:644 ve 653'te `upperTr(t('products:stock.quantity'))`. Karşılaştırma: src/app/urunler/[id].tsx:890-905 → `ozetToggleBtn: { paddingVertical: 6 }`, `ozetToggleText: { fontSize: 14, fontWeight: '600' }` (letterSpacing yok); etiketler [id].tsx:554 ve 563'te upperTr'siz `t('products:stock.quantity')`.",
+   "fix": "Tek bir `OzetModeToggle` bileşeni çıkar (ör. src/components/urunlerPage/OzetModeToggle.tsx) ve iki sayfada da onu kullan; punto/padding/harf-durumunu tek yerde karara bağla, butonlara hitSlop ekle.",
+   "id": 48,
+   "verifyNote": "urunler/index.tsx:989 yorumu 'ürün detay sayfasındaki toggle ile aynı görünüm' diyor ama :998-1010 paddingVertical 5 / fontSize 12 / 700 / letterSpacing 0.3 ve etiketler :644,:653'te upperTr'li; [id].tsx:890-902 paddingVertical 6 / fontSize 14 / 600 / letterSpacing yok, etiketler :554,:563'te upperTr'siz. Fark gerçek ama tamamen kozmetik → low."
+  },
+  {
+   "file": "src/app/(tabs)/index.tsx",
+   "line": 395,
+   "title": "Ana sayfada FAB son hesap satırının üstüne biniyor (alt boşluk FAB'ı temizlemiyor)",
+   "category": "alt-bosluk",
+   "severity": "medium",
+   "detail": "Ana sayfa ScrollView'ünün alt boşluğu yalnız `insets.bottom` (yani gerçek safe-area + tab bar). Ama bu ekranda 56px'lik bir GlassFab `bottom = spacing.lg + insets.bottom` ile yüzüyor, yani ekran dibinden itibaren [insets.bottom+16, insets.bottom+72] aralığını kaplıyor. İçerik ise `styles.section` marginBottom'u (spacing['3xl']=32) dahil insets.bottom+32'de bitiyor. Sonuç: sona kadar kaydırıldığında FAB, son hesap satırının sağ tarafını ~40px boyunca örtüyor — o satırın ⋮ (MoreVertical) butonu ve satır açıldığında beliren 'İşlem Yap' / 'İşlemleri Gör' butonları FAB'ın altında kalıyor ve tıklanamıyor. Daha fazla kaydırma imkânı olmadığı için kullanıcı bu satıra erişemiyor.",
+   "evidence": "src/app/(tabs)/index.tsx:395 `contentContainerStyle={{ paddingBottom: insets.bottom }}` + :692 `style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}` + :908-912 `fab: { position:'absolute', right: spacing.lg, zIndex:10 }` + :822 `section.marginBottom: spacing['3xl']`. FAB çapı: src/components/ui/GlassFab.tsx:8 `FAB_SIZE = FLOATING_CONTROL_SIZE` ve GlassSurface.tsx:175 `FLOATING_CONTROL_SIZE = 56`. Karşılaştırma — aynı FAB'a sahip diğer iki ekran boşluğu ekliyor: src/app/(tabs)/personel.tsx:754 `paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE` ve src/app/urunler/index.tsx:797 aynı ifade; FLOATING_SEARCH_CLEARANCE = 56+16 = 72 (src/components/ui/FloatingSearchBar.tsx:34,38) ki bu tam olarak FAB zarfını temizleyen değer.",
+   "fix": "index.tsx:395'i `contentContainerStyle={{ paddingBottom: useContentBottomPadding({ extra: FAB_SIZE + spacing.lg }) }}` yap (hook zaten var: src/hooks/useContentBottomPadding.ts). Böylece hem tab bar hem FAB tek kaynaktan temizlenir ve ekran diğer FAB'lı sekmelerle aynı davranışa gelir.",
+   "id": 52,
+   "verifyNote": "(tabs)/index.tsx:395 contentContainer paddingBottom yalnız insets.bottom; :692 GlassFab bottom = spacing.lg + insets.bottom, çap 56 → [+16,+72] bandı. Son bölüm hesap listesi (:478-618, ScrollView'ün son çocuğu) ve section marginBottom 32 (:822) → sona kaydırınca son satırın sağındaki ⋮ (:569-579) ve açılan aksiyon butonları FAB'ın altında kalıyor. Aynı FAB'a sahip personel/urunler ekranları FLOATING_SEARCH_CLEARANCE ekliyor."
+  },
+  {
+   "file": "src/app/(tabs)/index.tsx",
+   "line": 388,
+   "title": "Header sağ grubunda NotificationBell cam yüzeysiz — yanındaki GlassIconButton camlı",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Ana sayfa header'ının sağ grubu TabHeader'ın GlassContainer'ı içinde: arama butonu GlassIconButton (36px cam daire + GLASS_TINT_CONTROL + fallback'te yeşil halka), hemen yanındaki bildirim çanı ise hiçbir yüzeyi olmayan ham TouchableOpacity. Aynı satırda, aynı çapta, aynı rolde (yardımcı aksiyon) iki buton iki farklı görsel dilde duruyor: biri kapsül içinde, diğeri çıplak ikon. Ayrıca çan 36x36 ve hitSlop'suz — GlassIconButton'ın HIT_SLOP.sm'i yok, dokunma hedefi 44px'in altında kalıyor.",
+   "evidence": "src/app/(tabs)/index.tsx:385-390 `right={<><GlassIconButton onPress={...}><Search/></GlassIconButton><NotificationBell /><AddEntityButton /></>}`. Cam buton tarifi: src/components/ui/GlassIconButton.tsx:40-46 (`GlassSurface` + `tintColor={GLASS_TINT_CONTROL}` + `fallbackStyle` yeşil halka) ve :52 `hitSlop={HIT_SLOP.sm}`, çap :8 `ICON_BUTTON_SIZE = 36`. Çan: src/components/ui/NotificationBell.tsx:203-207 düz `<TouchableOpacity style={styles.bellButton} activeOpacity={0.7}>` ve :320-326 `bellButton: { width:36, height:36 }` — GlassSurface yok, hitSlop yok, accessibilityRole/Label yok. (Ertelenenler listesindeki 'NotificationBell kapatma X'i' bu değil, dropdown içindeki X: NotificationBell.tsx:248,409.)",
+   "fix": "NotificationBell'in çan butonunu GlassIconButton ile sar (rozet/urgentDot mutlak konumlu olduğu için cam yüzeyin çocuğu olarak kalabilir) ya da en azından `hitSlop={HIT_SLOP.sm}` + `accessibilityRole=\"button\"` + `accessibilityLabel` ekle.",
+   "id": 55,
+   "verifyNote": "(tabs)/index.tsx:385-389 doğrulandı: GlassIconButton (ICON_BUTTON_SIZE 36 + GLASS_TINT_CONTROL + HIT_SLOP.sm) ile AddEntityButton arasında NotificationBell ham TouchableOpacity (NotificationBell.tsx:203-207, bellButton 36x36, cam/tint/hitSlop/a11y yok) ve TabHeader.tsx:145-149 sağ grubu GlassContainer içine alıyor. Ertelenmiş madde dropdown'daki kapatma X'i (:248) — bu değil. Gerçek; ancak 95 ile AYNI kusur (iki ajan iki dosyadan bildirmiş), çift sayılmasın diye low."
+  },
+  {
+   "file": "src/app/(tabs)/cariler.tsx",
+   "line": 920,
+   "title": "Header cam butonlarında accessibilityLabel yok (yalnız ana sayfadaki arama butonunda var)",
+   "category": "erisilebilirlik",
+   "severity": "low",
+   "detail": "GlassIconButton yalnız ikon gösteriyor; metin çocuğu olmadığı için VoiceOver/TalkBack butonu adlandıramıyor. Bileşen bunun için `accessibilityLabel` prop'unu açmış ama 7 çağrıdan yalnız 1'i (ana sayfadaki arama) veriyor. Cariler'deki 'bağlantı kabul et' / 'dışa aktar' / 'sırala', personel ve ürünlerdeki 'dışa aktar' / 'sırala' butonları ekran okuyucuda isimsiz kalıyor.",
+   "evidence": "Prop mevcut ve TouchableOpacity'ye aktarılıyor: src/components/ui/GlassIconButton.tsx:15,38,54 `accessibilityLabel={accessibilityLabel}`. Veren tek yer: src/app/(tabs)/index.tsx:385 `<GlassIconButton onPress={...} accessibilityLabel={t('common:search.title')}>`. Vermeyenler: src/app/(tabs)/cariler.tsx:920, :924, :928; src/app/(tabs)/personel.tsx:721, :724; src/app/urunler/index.tsx:773, :778.",
+   "fix": "Altı çağrıya da mevcut i18n anahtarlarından etiket geç: cariler :920 `t('clients:sharing.accept…')`, :924/personel :721/urunler :773 `t('common:buttons.share')` veya export başlığı, :928/:724/:778 `t('common:sort.sortBy')`.",
+   "id": 57,
+   "verifyNote": "GlassIconButton.tsx:15/36/54 accessibilityLabel prop'unu açıp TouchableOpacity'ye geçiriyor ve buton yalnız ikon içeriyor (metin çocuğu yok). cariler.tsx:920/924/928 üç çağrının hiçbiri etiket vermiyor; tek veren index.tsx:385. Ekran okuyucuda isimsiz butonlar — low doğru."
+  },
+  {
+   "file": "src/app/(tabs)/cariler.tsx",
+   "line": 1185,
+   "title": "listContainer'daki paddingBottom ölü değer — inline paddingBottom onu eziyor",
+   "category": "alt-bosluk",
+   "severity": "low",
+   "detail": "Üç liste ekranında da alt boşluk İKİ yerde tanımlı: StyleSheet'te `spacing['3xl'] + FLOATING_SEARCH_CLEARANCE` ve contentContainerStyle dizisinin ikinci elemanında `insets.bottom + FLOATING_SEARCH_CLEARANCE`. Dizide sonraki kazandığı için StyleSheet'teki değer hiç uygulanmıyor; ama okuyan kişi 'alt boşluk 32+72 mi, insets+72 mi' diye iki farklı cevap görüyor. Bugün zararsız, yarın biri yalnız StyleSheet'i düzeltirse sessizce etkisiz kalır (ya da inline kaldırılırsa tab bar yüksekliği kaybolur). islemler/index.tsx bu tuzağı yaşamış ve yorumla açıkça yasaklamış.",
+   "evidence": "src/app/(tabs)/cariler.tsx:1183-1186 `listContainer: { paddingHorizontal: spacing.lg, paddingBottom: spacing['3xl'] + FLOATING_SEARCH_CLEARANCE }` vs :958 `contentContainerStyle={[styles.listContainer, { paddingBottom: insets.bottom + FLOATING_SEARCH_CLEARANCE }]}`. Aynısı: src/app/(tabs)/personel.tsx:992-995 vs :754; src/components/urunlerPage/styles.ts:16-18 vs src/app/urunler/index.tsx:797. Karşı örnek + gerekçe: src/app/islemler/index.tsx:635-640 `flatListContent` içinde 'paddingBottom BURADA DEĞİL: useContentBottomPadding({ search: true }) ile inline veriliyor. Burada da bırakılsaydı üstü örtülen ölü bir değer olurdu…'",
+   "fix": "Üç StyleSheet'ten de `paddingBottom` satırını sil ve inline değeri `useContentBottomPadding({ search: true })` ile değiştir (islemler/index.tsx:165,539 ile aynı tek-kaynak deseni).",
+   "id": 58,
+   "verifyNote": "cariler.tsx:1183-1186 listContainer.paddingBottom = spacing['3xl'] + FLOATING_SEARCH_CLEARANCE, :958 inline paddingBottom onu eziyor → ölü değer. islemler/index.tsx:635-640 tam bu tuzağı yorumla yasaklamış ('üstü örtülen ölü bir değer olurdu'). Bugün zararsız, sözleşme ihlali → low doğru."
+  },
+  {
+   "file": "src/components/ui/index.ts",
+   "line": 13,
+   "title": "Üçüncü bir arama çubuğu varyantı (SearchInput) barrel'dan açık ama ölü",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Kod tabanının arama kuralı iki yüzeyli: ana liste sekmelerinde FloatingSearchBar (altta yüzen, cam), modal/picker içinde ModalSearchBar (üste sabit, cam + GLASS_TINT_CONTROL). SearchInput ise ne cam ne pill — düz kart görünümlü, yanında 'İptal' metin butonu olan üçüncü bir varyant, ve repo'da tek bir tüketicisi yok (yalnız 3 yorum satırında adı geçiyor). '@/components/ui'dan export edildiği için oto-tamamlamada FloatingSearchBar ve ModalSearchBar ile yan yana çıkıyor; yeni bir ekranın yanlışlıkla onu seçmesi arama dilini kıran en kolay yol. Kural, ModalSearchBar'ın kendi başlığında yazılı olduğu halde bariyeri yok.",
+   "evidence": "src/components/ui/index.ts:13 `export { SearchInput } from './SearchInput';` — repo'da import eden dosya yok; tek geçişler yorumlar: src/app/(tabs)/cariler.tsx:78, src/app/arsiv/index.tsx:476, src/hooks/useDebouncedValue.ts:10. Bileşenin kendisi src/components/ui/SearchInput.tsx:111-122 (`container: { backgroundColor: colors.surface, borderRadius: borderRadius.lg, … }`) — cam kullanmıyor. İki meşru yüzey: src/components/ui/FloatingSearchBar.tsx:144-148 (GlassSurface pill) ve src/components/ui/ModalSearchBar.tsx:17-24 (yorumda kural yazılı: 'Modallarda bunun yerine BU statik çubuğu başlığın hemen altına koy') + :45-49 (GlassSurface + GLASS_TINT_CONTROL).",
+   "fix": "src/components/ui/SearchInput.tsx'i ve index.ts:13'teki export'u sil. Saklanacaksa en azından barrel'dan çıkar ve dosya başına 'kullanmayın — FloatingSearchBar/ModalSearchBar' notu düş.",
+   "id": 98,
+   "verifyNote": "src/components/ui/index.ts:13 SearchInput'u export ediyor ama repo'da tek bir tüketicisi yok (grep: yalnız 3 yorum satırı + bileşenin kendisi). Bileşen cam kullanmıyor (SearchInput.tsx:111+ düz surface kartı), yani barrel'dan çıkan üçüncü bir arama dili → yeni ekranın yanlış varyantı seçmesi için açık kapı. Ölü kod + tuzak, low doğru."
+  }
+ ]
+}

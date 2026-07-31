@@ -117,7 +117,9 @@
     "paymentRecorded": "Ödeme kaydedildi",
     "scheduledExpenseCreated": "İleri tarihli gider oluşturuldu",
     "scheduledPaymentCreated": "İleri tarihli ödeme oluşturuldu",
-    "personnelCount": "{{count}} personel"
+    "personnelCount": "{{count}} personel",
+    "personnelCount_one": "{{count}} personel",
+    "personnelCount_other": "{{count}} personel"
   },
   "export": {
     "staffList": {
@@ -136,7 +138,7 @@
     "sharingNotSupported": "Paylaşım bu cihazda desteklenmiyor"
   },
   "search": {
-    "searchPersonnel": "Personel ara...",
+    "searchPersonnel": "Personel arayın",
     "noResults": "Sonuç bulunamadı"
   },
   "filters": {
@@ -196,7 +198,11 @@
     "duplicateTitle": "İzin Hak Edişi Var",
     "duplicateMessage": "Bu güne zaten izin hak edişi girilmiş. Tekrar eklemek istediğinize emin misiniz?",
     "invalidRangeTitle": "Geçersiz Tarih Aralığı",
-    "invalidRangeMessage": "Bitiş tarihi başlangıç tarihinden önce olamaz."
+    "invalidRangeMessage": "Bitiş tarihi başlangıç tarihinden önce olamaz.",
+    "remainingDays_one": "{{count}} gün izin",
+    "remainingDays_other": "{{count}} gün izin",
+    "dayCount_one": "{{count}} gün",
+    "dayCount_other": "{{count}} gün"
   },
   "milestones": {
     "startDate": "İşe Giriş",
@@ -237,6 +243,8 @@
     "selectAccount": "Lütfen hesap seçin",
     "description": "Maaş ödemesi",
     "success": "{{count}} personele ödeme kaydedildi",
-    "partialError": "{{success}} ödeme kaydedildi, {{failed}} başarısız oldu. Başarısız olanlar seçili kaldı; tekrar deneyebilirsiniz (ödenen personel artık seçili değil, çift ödeme olmaz)."
+    "partialError": "{{success}} ödeme kaydedildi, {{failed}} başarısız oldu. Başarısız olanlar seçili kaldı; tekrar deneyebilirsiniz (ödenen personel artık seçili değil, çift ödeme olmaz).",
+    "currencyMismatchTitle": "Para birimi uyuşmuyor",
+    "currencyMismatch": "Seçili hesap {{account}} cinsinden, şu personelin bakiyesi farklı para biriminde: {{names}}. Toplu ödemede kur girilemediği için bu personeli ya {{account}} bakiyeli hesaptan ödeyin ya da personel detayından tek tek ödeyin (orada kur sorulur)."
   }
 }

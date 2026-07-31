@@ -1,23 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  ActivityIndicator,
-  Modal,
-  TextInput,
-  Dimensions,
-  TouchableWithoutFeedback,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Pressable, ActivityIndicator, TextInput, Dimensions, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown, Wallet, X, Search, Check, Users, UserCheck, Bell } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker } from '@/components/ui';
+import { Text, Input, Button, Card, CategoryPicker, CurrencyInput, DateTimePicker, Screen, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -30,26 +19,79 @@ import { IslemType } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
 import { parseDateFromDB, formatDateTimeForDB, formatDateForDB } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
-import { toErrorMessage } from '@/lib/errors';
+import {
+  getTransactionMutationMessageKey,
+  toErrorMessage,
+} from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
-import { usePagePermission } from '@/hooks/usePagePermission';
+import { useRequireOwner } from '@/hooks/usePagePermission';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { useIslemTaksitliMi } from '@/hooks/useTaksit';
+import {
+  canSubmitThroughInstallmentEditGuard,
+  getInstallmentEditGuardReason,
+} from '@/lib/installmentEditGuard';
+
+function PickerModalList({ children }: { children: ReactNode }) {
+  // Bu hook Modal ağacının içinde çalışmalı. Sayfa seviyesinde hesaplanan değer
+  // persistent tab bar payını taşır ve native modal listesinde hayalet boşluk üretir.
+  const contentPaddingBottom = useContentBottomPadding();
+
+  return (
+    <ScrollView
+      style={styles.modalList}
+      contentContainerStyle={[styles.modalListContent, { paddingBottom: contentPaddingBottom }]}
+    >
+      {children}
+    </ScrollView>
+  );
+}
 
 export default function IslemDuzenlePage() {
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common', 'errors', 'clients', 'staff']);
-  const { data: islem, isLoading: islemLoading } = useIslem(id);
-  usePagePermission({ module: 'islemler', action: 'update', createdBy: islem?.created_by });
+  const { isOwner, isletme, user } = useAuthContext();
+  const ownerVerified =
+    isOwner && !!user?.id && isletme?.user_id === user.id;
+  useRequireOwner();
+  const { data: islem, isLoading: islemLoading } = useIslem(
+    ownerVerified ? id : undefined,
+  );
+  const installmentEditQuery = useIslemTaksitliMi(
+    ownerVerified ? id : undefined,
+  );
+  const installmentEditGuardReason = getInstallmentEditGuardReason({
+    required: ownerVerified && !!id,
+    data: installmentEditQuery.data,
+    isSuccess: installmentEditQuery.isSuccess,
+    isFetching: installmentEditQuery.isFetching,
+    isError:
+      installmentEditQuery.isError
+      || installmentEditQuery.isRefetchError,
+  });
+  const installmentGuardMessageShownRef = useRef<string | null>(null);
   const { canDelete } = usePermissions();
   const updateIslem = useUpdateIslem();
   const deleteIslem = useDeleteIslem();
   const createIleriTarihliIslem = useCreateIleriTarihliIslem();
 
-  const { data: hesaplar } = useHesaplar();
-  const { data: cariler } = useCariler();
-  const { data: personelList } = usePersonelList();
+  const { data: hesaplar } = useHesaplar(false, false, ownerVerified);
+  const { data: cariler } = useCariler(
+    undefined,
+    false,
+    false,
+    ownerVerified,
+  );
+  const { data: personelList } = usePersonelList(
+    false,
+    false,
+    ownerVerified,
+  );
 
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -68,6 +110,9 @@ export default function IslemDuzenlePage() {
   const [cariSearchQuery, setCariSearchQuery] = useState('');
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
   const [personelSearchQuery, setPersonelSearchQuery] = useState('');
+  const hesapSearchInputRef = useRef<TextInput>(null);
+  const cariSearchInputRef = useRef<TextInput>(null);
+  const personelSearchInputRef = useRef<TextInput>(null);
 
   const windowHeight = Dimensions.get('window').height;
 
@@ -108,6 +153,43 @@ export default function IslemDuzenlePage() {
       setDate(islem.date);
     }
   }, [islem]);
+
+  useEffect(() => {
+    if (!ownerVerified || !id) {
+      installmentGuardMessageShownRef.current = null;
+      return;
+    }
+    if (
+      installmentEditGuardReason !== 'installment'
+      && installmentEditGuardReason !== 'query_error'
+    ) return;
+
+    const messageKey = `${id}:${installmentEditGuardReason}`;
+    if (installmentGuardMessageShownRef.current === messageKey) return;
+    installmentGuardMessageShownRef.current = messageKey;
+    if (installmentEditGuardReason === 'installment') {
+      Alert.alert(
+        t('transactions:taksit.configTitle'),
+        t('transactions:taksit.editEngel'),
+      );
+    } else {
+      Alert.alert(
+        t('common:status.error'),
+        toErrorMessage(
+          installmentEditQuery.error,
+          t('errors:general.tryAgain'),
+        ),
+      );
+    }
+    router.back();
+  }, [
+    id,
+    installmentEditGuardReason,
+    installmentEditQuery.error,
+    ownerVerified,
+    router,
+    t,
+  ]);
 
   const islemType = islem?.type as IslemType | undefined;
 
@@ -152,9 +234,25 @@ export default function IslemDuzenlePage() {
   };
 
   const handleSubmit = async () => {
-    if (!validate() || !id) return;
+    if (
+      !validate()
+      || !id
+      || !canSubmitThroughInstallmentEditGuard(
+        installmentEditGuardReason,
+      )
+    ) return;
 
     try {
+      const refreshed = await installmentEditQuery.refetch();
+      const refreshedReason = getInstallmentEditGuardReason({
+        required: true,
+        data: refreshed.data,
+        isSuccess: refreshed.isSuccess,
+        isFetching: false,
+        isError: refreshed.isError || refreshed.isRefetchError,
+      });
+      if (refreshedReason !== 'allowed') return;
+
       // İleri tarihli işleme dönüştürülecekse
       if (isIleriTarihli) {
         const selectedDate = date ? parseDateFromDB(date) : new Date();
@@ -197,7 +295,13 @@ export default function IslemDuzenlePage() {
         router.back();
       }
     } catch (error) {
-      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:transaction.updateFailed'));
+      const messageKey = getTransactionMutationMessageKey(error, 'update');
+      Alert.alert(
+        t('common:status.error'),
+        messageKey
+          ? t(messageKey)
+          : toErrorMessage(error, t('errors:transaction.updateFailed')),
+      );
     }
   };
 
@@ -217,7 +321,13 @@ export default function IslemDuzenlePage() {
                 { text: t('common:buttons.ok'), onPress: () => router.back() },
               ]);
             } catch (error) {
-              Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.deleteFailed'));
+              const messageKey = getTransactionMutationMessageKey(error, 'delete');
+              Alert.alert(
+                t('common:status.error'),
+                messageKey
+                  ? t(messageKey)
+                  : toErrorMessage(error, t('transactions:messages.deleteFailed')),
+              );
             }
           },
         },
@@ -225,27 +335,39 @@ export default function IslemDuzenlePage() {
     );
   };
 
-  if (islemLoading) {
+  // Bu ekran ham hesap/cari/personel kaynaklarini birlikte yukler. Paylasimli
+  // projeksiyon tamamlanana kadar sadece sahip baglaminda veri/render acilir.
+  if (!ownerVerified) {
+    return null;
+  }
+
+  if (
+    islemLoading
+    || (
+      ownerVerified
+      && installmentEditGuardReason !== 'allowed'
+    )
+  ) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!islem) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text color="error">{t('transactions:messages.transactionNotFound')}</Text>
           <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
             {t('common:buttons.back')}
           </Button>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -256,16 +378,18 @@ export default function IslemDuzenlePage() {
           headerTitle: t('transactions:titles.editTransaction'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
           >
             {/* Header */}
             <View style={styles.header}>
@@ -450,7 +574,8 @@ export default function IslemDuzenlePage() {
                       </Text>
                       {selectedPersonel && !isLeave && (
                         <Text style={[styles.pickerBalance, { color: Number(selectedPersonel.balance) >= 0 ? colors.success : colors.error }]}>
-                          {formatCurrency(Math.abs(Number(selectedPersonel.balance)))}
+                          {/* Bakiye personelin para biriminde tutulur — ana para biriminin sembolüyle basılmamalı */}
+                          {formatCurrency(Math.abs(Number(selectedPersonel.balance)), selectedPersonel.currency)}
                         </Text>
                       )}
                     </View>
@@ -479,27 +604,6 @@ export default function IslemDuzenlePage() {
               />
             </View>
 
-            {/* Buttons */}
-            <View style={styles.buttons}>
-              <Button
-                variant="outline"
-                size="lg"
-                onPress={() => router.back()}
-                style={styles.button}
-              >
-                {t('common:buttons.cancel')}
-              </Button>
-              <Button
-                variant="primary"
-                size="lg"
-                loading={updateIslem.isPending || createIleriTarihliIslem.isPending || deleteIslem.isPending}
-                onPress={handleSubmit}
-                style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
-              >
-                {isIleriTarihli ? t('transactions:form.convertToScheduled') : t('common:buttons.update')}
-              </Button>
-            </View>
-
             {/* Delete Button */}
             {canDelete('islemler', islem?.created_by ?? null) && (
               <View style={styles.deleteSection}>
@@ -515,8 +619,28 @@ export default function IslemDuzenlePage() {
               </View>
             )}
           </ScrollView>
+
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+            <Button
+              variant="outline"
+              size="lg"
+              onPress={() => router.back()}
+              style={styles.button}
+            >
+              {t('common:buttons.cancel')}
+            </Button>
+            <Button
+              variant="primary"
+              size="lg"
+              loading={updateIslem.isPending || createIleriTarihliIslem.isPending || deleteIslem.isPending}
+              onPress={handleSubmit}
+              style={[styles.button, isIleriTarihli && styles.buttonIleriTarihli]}
+            >
+              {isIleriTarihli ? t('transactions:form.convertToScheduled') : t('common:buttons.update')}
+            </Button>
+          </View>
         </KeyboardAvoidingView>
-      </SafeAreaView>
+      </Screen>
 
       {/* Hesap Seçici Modal */}
       <Modal
@@ -555,9 +679,13 @@ export default function IslemDuzenlePage() {
                 </View>
 
                 {/* Search */}
-                <View style={styles.searchContainer}>
+                <Pressable
+                  style={styles.searchContainer}
+                  onPress={() => hesapSearchInputRef.current?.focus()}
+                >
                   <Search size={20} color={colors.textMuted} />
                   <TextInput
+                    ref={hesapSearchInputRef}
                     style={styles.searchInput}
                     placeholder={t('common:search.searchPlaceholder')}
                     placeholderTextColor={colors.textMuted}
@@ -565,14 +693,20 @@ export default function IslemDuzenlePage() {
                     onChangeText={setHesapSearchQuery}
                   />
                   {hesapSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setHesapSearchQuery('')}>
+                    <TouchableOpacity
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        setHesapSearchQuery('');
+                        hesapSearchInputRef.current?.focus();
+                      }}
+                    >
                       <X size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
-                </View>
+                </Pressable>
 
                 {/* List */}
-                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                <PickerModalList>
                   {filteredHesaplar.map((hesap) => {
                     const isSelected = hesapPickerTarget === 'source'
                       ? hesap.id === hesapId
@@ -619,7 +753,7 @@ export default function IslemDuzenlePage() {
                       <Text style={styles.emptyStateText}>{t('common:search.noResults')}</Text>
                     </View>
                   )}
-                </ScrollView>
+                </PickerModalList>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -659,9 +793,13 @@ export default function IslemDuzenlePage() {
                 </View>
 
                 {/* Search */}
-                <View style={styles.searchContainer}>
+                <Pressable
+                  style={styles.searchContainer}
+                  onPress={() => cariSearchInputRef.current?.focus()}
+                >
                   <Search size={20} color={colors.textMuted} />
                   <TextInput
+                    ref={cariSearchInputRef}
                     style={styles.searchInput}
                     placeholder={t('clients:search.searchClients')}
                     placeholderTextColor={colors.textMuted}
@@ -669,14 +807,20 @@ export default function IslemDuzenlePage() {
                     onChangeText={setCariSearchQuery}
                   />
                   {cariSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setCariSearchQuery('')}>
+                    <TouchableOpacity
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        setCariSearchQuery('');
+                        cariSearchInputRef.current?.focus();
+                      }}
+                    >
                       <X size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
-                </View>
+                </Pressable>
 
                 {/* List */}
-                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                <PickerModalList>
                   {filteredCariler.map((cari) => {
                     const isSelected = cari.id === cariId;
                     return (
@@ -717,7 +861,7 @@ export default function IslemDuzenlePage() {
                       <Text style={styles.emptyStateText}>{t('common:search.noResults')}</Text>
                     </View>
                   )}
-                </ScrollView>
+                </PickerModalList>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -757,9 +901,13 @@ export default function IslemDuzenlePage() {
                 </View>
 
                 {/* Search */}
-                <View style={styles.searchContainer}>
+                <Pressable
+                  style={styles.searchContainer}
+                  onPress={() => personelSearchInputRef.current?.focus()}
+                >
                   <Search size={20} color={colors.textMuted} />
                   <TextInput
+                    ref={personelSearchInputRef}
                     style={styles.searchInput}
                     placeholder={t('staff:search.searchPersonnel')}
                     placeholderTextColor={colors.textMuted}
@@ -767,14 +915,20 @@ export default function IslemDuzenlePage() {
                     onChangeText={setPersonelSearchQuery}
                   />
                   {personelSearchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setPersonelSearchQuery('')}>
+                    <TouchableOpacity
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        setPersonelSearchQuery('');
+                        personelSearchInputRef.current?.focus();
+                      }}
+                    >
                       <X size={18} color={colors.textMuted} />
                     </TouchableOpacity>
                   )}
-                </View>
+                </Pressable>
 
                 {/* List */}
-                <ScrollView style={styles.modalList} contentContainerStyle={styles.modalListContent}>
+                <PickerModalList>
                   {filteredPersonel.map((personel) => {
                     const isSelected = personel.id === personelId;
                     return (
@@ -799,7 +953,8 @@ export default function IslemDuzenlePage() {
                             { color: Number(personel.balance) >= 0 ? colors.success : colors.error },
                           ]}
                         >
-                          {formatCurrency(Math.abs(Number(personel.balance)))}
+                          {/* Bakiye personelin para biriminde tutulur — ana para biriminin sembolüyle basılmamalı */}
+                          {formatCurrency(Math.abs(Number(personel.balance)), personel.currency)}
                         </Text>
                         {isSelected && (
                           <View style={[styles.checkIcon, { backgroundColor: colors.orange }]}>
@@ -815,7 +970,7 @@ export default function IslemDuzenlePage() {
                       <Text style={styles.emptyStateText}>{t('common:search.noResults')}</Text>
                     </View>
                   )}
-                </ScrollView>
+                </PickerModalList>
               </View>
             </TouchableWithoutFeedback>
           </View>
@@ -1026,11 +1181,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 12,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

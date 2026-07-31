@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, StyleSheet, RefreshControl, TouchableOpacity, ActivityIndicator } from 'react-native';
+
+import { ScrollView, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { FileSpreadsheet } from 'lucide-react-native';
@@ -9,6 +9,8 @@ import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { KarsilastirmaTabContent } from '@/components/reports/tabs';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useComparisonReport } from '@/hooks/useComparisonReport';
+import { GlassIconButton, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -22,6 +24,7 @@ export default function KarsilastirmaRaporPage() {
   const report = useComparisonReport(state.period, state.periodOffset);
   const queryClient = useQueryClient();
   const [refreshing, setRefreshing] = useState(false);
+  const contentPaddingBottom = useContentBottomPadding();
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -36,12 +39,10 @@ export default function KarsilastirmaRaporPage() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <TouchableOpacity
+            <GlassIconButton
               style={styles.headerBtn}
               onPress={report.exportPdf}
               disabled={report.isExporting || report.isLoading}
-              activeOpacity={0.7}
-              accessibilityRole="button"
               accessibilityLabel={t('reports:export.exportPDF')}
             >
               {report.isExporting ? (
@@ -49,37 +50,32 @@ export default function KarsilastirmaRaporPage() {
               ) : (
                 <FileSpreadsheet size={18} color={colors.success} />
               )}
-            </TouchableOpacity>
+            </GlassIconButton>
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
+        {/* Alt boşluk KAYDIRMA İÇERİĞİNDE, container'da değil: eskiden
+            SafeAreaView edges={['bottom']} kullanılıyordu ve o NATIVE bileşen
+            _layout'un inset override'ını görmediği için bar yüksekliğini hiç
+            almıyordu — son satır ("ORTALAMA") bar'ın altında kalıyordu. */}
         <ScrollView
           showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
         >
           <ReportPeriodBar state={state} monthlyAsYear dailyAsMonth />
 
           <KarsilastirmaTabContent report={report} />
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  /** Yalnız konum — boyut/görsel GlassIconButton'da. */
   headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: spacing.sm,
   },
 });

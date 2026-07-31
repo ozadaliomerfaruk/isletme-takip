@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, KeyboardAvoidingView, Platform } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import { Copy, Check } from 'lucide-react-native';
-import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Input, Button } from '@/components/ui';
+import { Text, Card, Input, Button, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { RoleSelector } from '@/components/multiUser/RoleSelector';
 import { PermissionEditor } from '@/components/multiUser/PermissionEditor';
 import { colors } from '@/constants/colors';
@@ -19,6 +19,7 @@ import { useRequireOwner } from '@/hooks/usePagePermission';
 export default function DavetOlusturPage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
   const { t } = useTranslation(['multiUser', 'common']);
   useRequireOwner();
   const createInvite = useCreateInvite();
@@ -62,28 +63,40 @@ export default function DavetOlusturPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <>
+      {/* Başlık: kardeş ayarlar ekranlarıyla (paylasilan-isletmeler, islem-gecmisi)
+          aynı yerleşik native header — elle çizilen başlık hizası/geri düğmesi
+          farkı yaratıyordu */}
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          headerTitle: t('multiUser:invites.title'),
+          headerStyle: { backgroundColor: colors.surface },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+        }}
+      />
+      <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex1}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
       >
-      {/* Header */}
-      <View style={styles.header}>
-        <BackButton />
-        <View style={styles.headerCenter}>
-          <Text variant="h3">{t('multiUser:invites.title')}</Text>
-          <Text variant="caption" color="muted">{t('multiUser:invites.subtitle')}</Text>
-        </View>
-        <View style={{ width: 40 }} />
-      </View>
-
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
         contentContainerStyle={styles.scrollContent}
       >
+        {/* Açıklama: native header'a geçerken elle çizilen başlıkla birlikte
+            düşmüştü — metin kullanıcıya görünmeye devam etmeli */}
+        <View style={styles.section}>
+          <Text variant="caption" color="muted">
+            {t('multiUser:invites.subtitle')}
+          </Text>
+        </View>
+
         {!generatedCode ? (
           <>
             {/* Rol Seçimi */}
@@ -116,19 +129,10 @@ export default function DavetOlusturPage() {
                 onChangeText={setMemberName}
                 placeholder={t('multiUser:invites.memberNamePlaceholder')}
                 autoCapitalize="words"
+                maxLength={100}
               />
             </View>
 
-            {/* Oluştur Butonu */}
-            <View style={[styles.section, { marginBottom: spacing['3xl'] }]}>
-              <Button
-                onPress={handleGenerateCode}
-                loading={createInvite.isPending}
-                variant="primary"
-              >
-                {t('multiUser:invites.generateCode')}
-              </Button>
-            </View>
           </>
         ) : (
           /* Kod Oluşturuldu */
@@ -170,35 +174,33 @@ export default function DavetOlusturPage() {
                 </Text>
               </View>
             </Card>
-
-            <View style={styles.doneButtonContainer}>
-              <Button onPress={() => router.back()} variant="secondary">
-                {t('common:buttons.done')}
-              </Button>
-            </View>
           </View>
         )}
       </ScrollView>
+
+      <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+        {generatedCode ? (
+          <Button onPress={() => router.back()} variant="secondary" fullWidth>
+            {t('common:buttons.done')}
+          </Button>
+        ) : (
+          <Button
+            onPress={handleGenerateCode}
+            loading={createInvite.isPending}
+            variant="primary"
+            fullWidth
+          >
+            {t('multiUser:invites.generateCode')}
+          </Button>
+        )}
+      </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </Screen>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  headerCenter: {
-    flex: 1,
-    alignItems: 'center',
-  },
   scrollView: {
     flex: 1,
   },
@@ -243,7 +245,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
   },
-  doneButtonContainer: {
-    marginTop: spacing.lg,
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
 });

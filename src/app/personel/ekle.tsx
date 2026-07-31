@@ -1,32 +1,65 @@
-import { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-} from 'react-native';
+import { useState, type ReactNode } from 'react';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Pressable } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button, Card, BalanceDirectionSelector, type BalanceDirection } from '@/components/ui';
+import { Text, Input, Button, CurrencyPicker, BalanceDirectionSelector, type BalanceDirection, Screen, Modal } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
-import { useCreatePersonel } from '@/hooks/usePersonel';
+import { useCreatePersonel, usePersonelList } from '@/hooks/usePersonel';
+import { useCariler } from '@/hooks/useCariler';
 import { formatDateForDB, ensureValidDate } from '@/lib/date';
 import { parseCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { Currency } from '@/types/database';
-import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { DeviceContactPickerButton } from '@/components/contacts/DeviceContactPickerButton';
+import {
+  findPhoneDuplicateMatches,
+  getPhoneDuplicateWarningCopy,
+  getPhoneValidationMessageKey,
+  preparePhoneForSave,
+} from '@/lib/phone';
+
+/**
+ * Tarih seçici alt sayfası — AYRI BİLEŞEN, çünkü güvenli alan Modal'ın İÇİNDE
+ * okunmalı: ModalInsets yalnız modal ağacının içindeki useSafeAreaInsets'i
+ * gerçek değere düzeltir. Alt boşluk verilmezse 'Tamam' butonu home
+ * indicator'ın altında kalıyor.
+ */
+function DatePickerSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Pressable style={styles.datePickerModalOverlay} onPress={onClose}>
+      <Pressable
+        style={[styles.datePickerModalContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+        onPress={(e) => e.stopPropagation()}
+      >
+        <View style={styles.datePickerModalHeader}>
+          <Text variant="h3">{title}</Text>
+          <TouchableOpacity onPress={onClose}>
+            <X size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+        {children}
+      </Pressable>
+    </Pressable>
+  );
+}
 
 export default function PersonelEklePage() {
   const router = useRouter();
@@ -35,11 +68,13 @@ export default function PersonelEklePage() {
   usePagePermission({ module: 'personel', action: 'create' });
   const { locale, formatDateNative } = useDateFormat();
   const createPersonel = useCreatePersonel();
+  const { data: visibleCariler } = useCariler(undefined, true, true);
+  const { data: visiblePersoneller } = usePersonelList(true, true);
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   // Dile göre varsayılan para birimi
   const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
-  const currencies = getLocalizedCurrencies(i18n.language);
 
   const [firstName, setFirstName] = useState('');
   const [currency, setCurrency] = useState<Currency>(defaultCurrency);
@@ -54,22 +89,27 @@ export default function PersonelEklePage() {
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [balance, setBalance] = useState('');
   const [balanceDirection, setBalanceDirection] = useState<BalanceDirection>('credit');
-  const [errors, setErrors] = useState<{ firstName?: string }>({});
+  const [errors, setErrors] = useState<{ firstName?: string; phone?: string }>({});
 
   const validate = () => {
-    const newErrors: { firstName?: string } = {};
+    const newErrors: { firstName?: string; phone?: string } = {};
+    const phoneResult = preparePhoneForSave(phone);
 
     if (!firstName.trim()) {
       newErrors.firstName = t('staff:validation.firstNameRequired');
     }
+    if (!phoneResult.ok) {
+      newErrors.phone = t(`common:${getPhoneValidationMessageKey(phoneResult.reason)}`);
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      normalizedPhone: phoneResult.ok ? phoneResult.value : null,
+    };
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
+  const persistPersonel = async (normalizedPhone: string | null) => {
     // Bakiye hesaplama
     // debt (bize borç) = personelin bize borcu var = pozitif bakiye (alacağımız var)
     // credit (bize alacak) = bizim personele borcumuz var = negatif bakiye
@@ -84,7 +124,7 @@ export default function PersonelEklePage() {
         first_name: firstName.trim(),
         last_name: lastName.trim() || '',
         currency,
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         position: position.trim() || null,
         salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
@@ -100,8 +140,31 @@ export default function PersonelEklePage() {
     }
   };
 
+  const handleSubmit = async () => {
+    const validation = validate();
+    if (!validation.isValid) return;
+
+    const duplicateMatches = findPhoneDuplicateMatches(validation.normalizedPhone, {
+      cariler: visibleCariler,
+      personeller: visiblePersoneller,
+    });
+    if (duplicateMatches.length > 0) {
+      const warning = getPhoneDuplicateWarningCopy(duplicateMatches, i18n.language);
+      Alert.alert(warning.title, warning.message, [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: warning.confirmLabel,
+          onPress: () => void persistPersonel(validation.normalizedPhone),
+        },
+      ]);
+      return;
+    }
+
+    await persistPersonel(validation.normalizedPhone);
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -113,44 +176,16 @@ export default function PersonelEklePage() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text variant="h2">{t('staff:titles.addPersonnel')}</Text>
-          </View>
+          {/* Sayfa-içi başlık kaldırıldı — native header aynı başlığı zaten yazıyor
+              (cariler/hesaplar ekle formlarıyla aynı temizlik) */}
 
-          {/* Para Birimi Seçimi */}
+          {/* Para Birimi — cari/hesap ekle ile aynı: CurrencyPicker (dropdown + modal) */}
           <View style={styles.section}>
-            <Text variant="label" color="secondary" style={styles.sectionTitle}>
-              {t('staff:form.currency')}
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.currencyGrid}
-            >
-              {currencies.map((curr) => (
-                <Card
-                  key={curr.code}
-                  variant={currency === curr.code ? 'elevated' : 'outlined'}
-                  padding="sm"
-                  onPress={() => setCurrency(curr.code as Currency)}
-                  style={[
-                    styles.currencyCard,
-                    currency === curr.code && styles.currencyCardActive,
-                  ]}
-                >
-                  <Text
-                    variant="body"
-                    style={{
-                      color: currency === curr.code ? colors.primary : colors.text,
-                      fontWeight: currency === curr.code ? '600' : '400',
-                    }}
-                  >
-                    {curr.symbol} {curr.code}
-                  </Text>
-                </Card>
-              ))}
-            </ScrollView>
+            <CurrencyPicker
+              value={currency}
+              onChange={setCurrency}
+              label={t('staff:form.currency')}
+            />
           </View>
 
           {/* Form */}
@@ -176,6 +211,20 @@ export default function PersonelEklePage() {
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
+              error={errors.phone}
+              rightIcon={(
+                <DeviceContactPickerButton
+                  onSelect={(selection) => {
+                    setPhone(selection.phone);
+                    if (!firstName.trim() && selection.firstName) {
+                      setFirstName(selection.firstName);
+                    }
+                    if (!lastName.trim() && selection.lastName) {
+                      setLastName(selection.lastName);
+                    }
+                  }}
+                />
+              )}
             />
 
             <Input
@@ -250,20 +299,10 @@ export default function PersonelEklePage() {
             {/* iOS için DateTimePicker Modal */}
             {Platform.OS === 'ios' && showDatePicker && (
               <Modal visible={showDatePicker} transparent animationType="slide">
-                <Pressable
-                  style={styles.datePickerModalOverlay}
-                  onPress={() => setShowDatePicker(false)}
+                <DatePickerSheet
+                  title={t('staff:form.startDate')}
+                  onClose={() => setShowDatePicker(false)}
                 >
-                  <Pressable
-                    style={styles.datePickerModalContent}
-                    onPress={(e) => e.stopPropagation()}
-                  >
-                    <View style={styles.datePickerModalHeader}>
-                      <Text variant="h3">{t('staff:form.startDate')}</Text>
-                      <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                        <X size={24} color={colors.text} />
-                      </TouchableOpacity>
-                    </View>
                     <DateTimePicker
                       value={ensureValidDate(startDate || new Date())}
                       mode="date"
@@ -286,8 +325,7 @@ export default function PersonelEklePage() {
                     >
                       {t('common:buttons.ok')}
                     </Button>
-                  </Pressable>
-                </Pressable>
+                </DatePickerSheet>
               </Modal>
             )}
 
@@ -340,20 +378,10 @@ export default function PersonelEklePage() {
             {/* iOS için End Date DateTimePicker Modal */}
             {Platform.OS === 'ios' && showEndDatePicker && (
               <Modal visible={showEndDatePicker} transparent animationType="slide">
-                <Pressable
-                  style={styles.datePickerModalOverlay}
-                  onPress={() => setShowEndDatePicker(false)}
+                <DatePickerSheet
+                  title={t('staff:form.endDate')}
+                  onClose={() => setShowEndDatePicker(false)}
                 >
-                  <Pressable
-                    style={styles.datePickerModalContent}
-                    onPress={(e) => e.stopPropagation()}
-                  >
-                    <View style={styles.datePickerModalHeader}>
-                      <Text variant="h3">{t('staff:form.endDate')}</Text>
-                      <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                        <X size={24} color={colors.text} />
-                      </TouchableOpacity>
-                    </View>
                     <DateTimePicker
                       value={ensureValidDate(endDate || new Date())}
                       mode="date"
@@ -376,8 +404,7 @@ export default function PersonelEklePage() {
                     >
                       {t('common:buttons.ok')}
                     </Button>
-                  </Pressable>
-                </Pressable>
+                </DatePickerSheet>
               </Modal>
             )}
 
@@ -401,7 +428,7 @@ export default function PersonelEklePage() {
         </ScrollView>
 
         {/* Sticky footer — kaydet butonu klavyenin altında kalmasın */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
           <Button
             variant="outline"
             size="lg"
@@ -421,7 +448,7 @@ export default function PersonelEklePage() {
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -437,31 +464,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    // Sayfa-içi başlık kaldırıldı; üst boşluk artık içeriğin kendisinde (cariler/ekle deseni)
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
-  },
-  header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
   },
   section: {
     paddingHorizontal: spacing.lg,
     marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    marginBottom: spacing.md,
-  },
-  currencyGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
-  currencyCard: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  currencyCardActive: {
-    borderColor: colors.primary,
-    borderWidth: 2,
   },
   footer: {
     flexDirection: 'row',

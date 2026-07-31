@@ -142,11 +142,6 @@ export function useOcrImport(sessionId: string) {
 
       setProcessingProgress({ current: imageUris.length, total: imageUris.length });
 
-      for (let i = 0; i < results.length; i++) {
-        const parsed = results[i];
-        console.log(`[useOcrImport] Invoice ${i + 1}/${results.length}: ettn="${parsed.ettn}" invNo="${parsed.invoiceNumber}" supplier="${parsed.supplierName}" items=${parsed.items.length}`);
-      }
-
       return results;
     } finally {
       setIsProcessing(false);

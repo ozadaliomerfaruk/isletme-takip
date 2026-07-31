@@ -117,7 +117,7 @@ import {
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatPercent, signedCurrencyText } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { CategoryReportItem, HierarchicalCategoryReportItem } from '@/hooks/useCategoryReport';
 import { useTranslation } from 'react-i18next';
@@ -369,15 +369,19 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
 
         <View style={styles.rightSection}>
           <View style={styles.amountContainer}>
+            {/* Kategori toplamı iade netlendiği için NEGATİF olabilir. formatCurrency
+                işareti düşürdüğünden ve renk yalnız tipe (gelir/gider) bağlı olduğundan
+                negatif bir gelir kategorisi hem artı hem yeşil görünüyordu. Negatifte
+                hem işaret hem renk tersine döner. */}
             <Text
-              color={type === 'gelir' ? 'success' : 'error'}
+              color={item.total < 0 ? (type === 'gelir' ? 'error' : 'success') : (type === 'gelir' ? 'success' : 'error')}
               style={styles.amount}
             >
-              {formatCurrency(item.total)}
+              {signedCurrencyText(item.total)}
             </Text>
             <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
               <Text style={[styles.percentageText, { color: barColor }]}>
-                %{(item.percentage ?? 0).toFixed(1)}
+                {formatPercent(item.percentage ?? 0, 1)}
               </Text>
             </View>
           </View>
@@ -491,7 +495,7 @@ export function HierarchicalCategoryReportCard({
               </Text>
               <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
                 <Text style={[styles.percentageText, { color: barColor }]}>
-                  %{((hasChildren ? item.percentageWithChildren : item.percentage) ?? 0).toFixed(1)}
+                  {formatPercent((hasChildren ? item.percentageWithChildren : item.percentage) ?? 0, 1)}
                 </Text>
               </View>
             </View>
@@ -589,7 +593,7 @@ export function HierarchicalCategoryReportCard({
                         {formatCurrency(child.total)}
                       </Text>
                       <Text variant="caption" color="secondary" style={styles.childPercentage}>
-                        %{(child.percentage ?? 0).toFixed(1)}
+                        {formatPercent(child.percentage ?? 0, 1)}
                       </Text>
                     </View>
                     <ChevronRight size={16} color={colors.textMuted} />

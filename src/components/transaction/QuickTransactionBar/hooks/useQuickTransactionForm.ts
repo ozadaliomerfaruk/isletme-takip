@@ -1,18 +1,22 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { ensureValidDate, parseDateFromDB } from '@/lib/date';
-import { roundCurrency, toNumber, cleanAmountInput } from '@/lib/currency';
+import { roundCurrency, toNumber, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
 import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, UrunItem } from '../types';
 import type { CariType, Currency, BirimType } from '@/types/database';
 import { useIslem } from '@/hooks/useIslemler';
 import { useIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
 import { useUrunHareketlerByIslemId } from '@/hooks/useUrunHareketler';
+import {
+  getCariTypeForApiTransactionType,
+  resolveScopedQuickTransactionDefaultType,
+} from '@/lib/quickTransactionCreateScope';
 import { mapApiTypeToFormState } from '../utils/reverseTypeMapper';
 import { getCategoryType } from '../utils/categoryTypeMapper';
 
 interface Hesap {
   id: string;
   name: string;
-  balance: number;
+  balance?: number;
   currency?: string;
   type?: string;
 }
@@ -45,6 +49,24 @@ interface PendingExchangeData {
   sourceCurrency: Currency;
   targetCurrency: Currency;
   sourceAmount: number;
+  /** Kur onayından sonraki create tekrarlarında kullanılan sabit idempotency anahtarı. */
+  clientIslemId?: string;
+  /** Düzenlemede kur alanına ön-dolacak KAYITLI kur (bkz. ExchangeRateBar.initialRate). */
+  initialRate?: number | null;
+}
+
+/** Düzenlemeye açılan işlemin kur kararını etkileyen açılış değerleri. */
+export interface EditOriginalSnapshot {
+  /** Kayıtlı kur üçlüsü — yalnız çapraz-kurlu kayıtlarda dolu. */
+  exchange: { sourceCurrency: string; targetCurrency: string; exchangeRate: number } | null;
+  /** Kur-ilgili alanların açılış değerleri (değişip değişmediğini anlamak için). */
+  baseline: {
+    amount: number;
+    hesapId: string | null;
+    hedefHesapId: string | null;
+    cariId: string | null;
+    personelId: string | null;
+  };
 }
 
 interface UseQuickTransactionFormReturn {
@@ -54,6 +76,17 @@ interface UseQuickTransactionFormReturn {
   isEditMode: boolean;
   isCopyMode: boolean;
   isLoadingTransaction: boolean;
+  transactionLoadError: unknown | null;
+  /**
+   * Düzenlenen asıl işlem satırının creator'ı. `undefined`, işlem satırı henüz
+   * çözümlenmedi demektir; gerçek DB `NULL` değeri ise `null` olarak korunur.
+   * Submit-anı own/all kontrolü bu ayrımı fail-closed kullanır.
+   */
+  editTransactionCreatedBy: string | null | undefined;
+  /** Full editable product rows loaded successfully (not the read-only presence summary). */
+  productEditDataResolved: boolean;
+  editableProductItemCount: number;
+  loadedCariType: CariType | undefined;
 
   // Form state
   type: TransactionType;
@@ -82,6 +115,8 @@ interface UseQuickTransactionFormReturn {
   // Photo state
   photoUri: string | null;
   setPhotoUri: (uri: string | null) => void;
+  /** Edit açılışında DB'den gelen storage path; yeni seçilen yerel fotoğraftan ayrılır. */
+  originalPhotoPath: string | null;
 
   // Entity IDs
   hedefHesapId: string | null;
@@ -103,8 +138,16 @@ interface UseQuickTransactionFormReturn {
   pendingExchangeData: PendingExchangeData | null;
   setPendingExchangeData: (data: PendingExchangeData | null) => void;
 
+  /**
+   * Düzenlenen işlemin AÇILIŞ hâli — çapraz-kur kararını vermek için.
+   * `exchange`: kayıtlı kur üçlüsü (varsa). `baseline`: kur-ilgili alanların ilk değerleri.
+   * Bunlar olmadan her kaydet basışı kur barını açıp bugünün kuruyla tarihsel kuru eziyordu.
+   */
+  editOriginal: EditOriginalSnapshot | null;
+
   // Urun items (alış/satış/iade işlemlerinde urun hareketi)
   urunItems: UrunItem[];
+  /** Edit açılışında işleme bağlı en az bir ürün hareketi var mıydı? */
   setUrunItems: React.Dispatch<React.SetStateAction<UrunItem[]>>;
   addUrunItem: (item: UrunItem) => void;
   removeUrunItem: (urunId: string) => void;
@@ -172,20 +215,46 @@ export function useQuickTransactionForm({
   // Fetch transaction data for edit/copy mode
   const shouldLoadNormal = (isEditMode || isCopyMode) && !isScheduledTransaction;
   const shouldLoadScheduled = isEditMode && isScheduledTransaction;
-  const { data: normalTransaction, isLoading: isLoadingNormal } = useIslem(
+  const {
+    data: normalTransaction,
+    isLoading: isLoadingNormal,
+    error: normalTransactionError,
+  } = useIslem(
     shouldLoadNormal ? loadSourceId : undefined
   );
-  const { data: scheduledTransaction, isLoading: isLoadingScheduled } = useIleriTarihliIslem(
+  const {
+    data: scheduledTransaction,
+    isLoading: isLoadingScheduled,
+    error: scheduledTransactionError,
+  } = useIleriTarihliIslem(
     shouldLoadScheduled ? loadSourceId : undefined
   );
 
   // Fetch urun hareketler for edit/copy mode (only for normal transactions)
-  const { data: urunHareketler, isLoading: isLoadingUrunHareketler } = useUrunHareketlerByIslemId(
+  const {
+    data: urunHareketler,
+    isLoading: isLoadingUrunHareketler,
+    error: urunHareketlerError,
+  } = useUrunHareketlerByIslemId(
     shouldLoadNormal ? loadSourceId : undefined
   );
 
   // Combined loading state
   const isLoadingTransaction = (isEditMode || isCopyMode) && (isLoadingNormal || isLoadingScheduled || isLoadingUrunHareketler);
+  const transactionLoadError =
+    normalTransactionError
+    ?? scheduledTransactionError
+    ?? urunHareketlerError
+    ?? null;
+  const productEditDataResolved =
+    !shouldLoadNormal
+    || (
+      !isLoadingUrunHareketler
+      && !urunHareketlerError
+      && Array.isArray(urunHareketler)
+    );
+  const editableProductItemCount =
+    Array.isArray(urunHareketler) ? urunHareketler.length : 0;
 
   // Form state
   const [type, setType] = useState<TransactionType>(defaultType);
@@ -196,6 +265,7 @@ export function useQuickTransactionForm({
   const [isScheduled, setIsScheduled] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [originalPhotoPath, setOriginalPhotoPath] = useState<string | null>(null);
 
   // Date end (for leave usage date range)
   const [dateEnd, setDateEnd] = useState<Date | null>(null);
@@ -221,6 +291,10 @@ export function useQuickTransactionForm({
 
   // Exchange rate state
   const [pendingExchangeData, setPendingExchangeData] = useState<PendingExchangeData | null>(null);
+
+  // Düzenlemeye açılan işlemin kur/alan açılış hâli (A6). Copy modda BİLEREK boş kalır:
+  // kopya yeni bir işlem, kuru bugünden alınmalı.
+  const [editOriginal, setEditOriginal] = useState<EditOriginalSnapshot | null>(null);
 
   // Urun items state (alış/satış/iade işlemlerinde urun hareketi)
   const [urunItems, setUrunItems] = useState<UrunItem[]>([]);
@@ -278,6 +352,7 @@ export function useQuickTransactionForm({
     setIsScheduled(false);
     setIsSaving(false);
     setPhotoUri(null);
+    setOriginalPhotoPath(null);
     setHedefHesapId(null);
     setSourceHesapId(null);
     setCariId(null);
@@ -285,6 +360,7 @@ export function useQuickTransactionForm({
     setOdemeHedefType(null);
     setTahsilatHedefType(null);
     setPendingExchangeData(null);
+    setEditOriginal(null);
     setUrunItems([]); // Urun items'ı temizle
     setEditDataLoaded(false);
     setIsCariMode(!!defaultCariId);
@@ -337,7 +413,11 @@ export function useQuickTransactionForm({
     setType(mappedState.type);
     // Emniyet: tutar alanına her zaman 2-ondalık yaz (parseCurrency TR locale'de
     // 3-ondalık değeri ~1000x şişirme riskine karşı defense-in-depth).
-    setAmount(roundCurrency(toNumber(transaction.amount)).toString());
+    // formatAmountForInput ŞART: .toString() JS'in NOKTA'sını yazıyordu, alan ise
+    // cleanAmountInput'tan geçiyor ve o locale ondalığı dışındaki her şeyi SİLİYOR
+    // → TR'de "150.5" alana dokunulduğu anda "1505" oluyordu (10x). roundCurrency
+    // 2-ondalık tavanı için kalıyor; formatAmountForInput ayracı locale'e çeviriyor.
+    setAmount(formatAmountForInput(roundCurrency(toNumber(transaction.amount))));
     setDescription(transaction.description || '');
 
     // Copy mode: set date to today; Edit mode: use original date
@@ -376,6 +456,7 @@ export function useQuickTransactionForm({
     const photoPath = (transaction as { photo_path?: string | null }).photo_path;
     if (photoPath) {
       setPhotoUri(photoPath);
+      setOriginalPhotoPath(photoPath);
     }
 
     // For scheduled transactions in edit mode, mark as scheduled
@@ -384,7 +465,8 @@ export function useQuickTransactionForm({
     }
 
     // Load urun items from urun hareketler (if available)
-    if (urunHareketler && urunHareketler.length > 0) {
+    const hasOriginalUrunHareketler = !!urunHareketler?.length;
+    if (hasOriginalUrunHareketler) {
       const loadedUrunItems: UrunItem[] = urunHareketler.map(hareket => ({
         urunId: hareket.urun_id,
         urunAd: hareket.urunler?.ad || '',
@@ -394,6 +476,28 @@ export function useQuickTransactionForm({
         birim: (hareket.urunler?.birim || 'adet') as BirimType,
       }));
       setUrunItems(loadedUrunItems);
+    }
+
+    // A6: kur kararı için açılış hâlini sakla (yalnız EDIT — kopya yeni işlemdir,
+    // kuru bugünden alınmalı). Bu sayede yalnız açıklama/tarih düzeltilirken kur barı
+    // hiç açılmıyor ve kayıtlı tarihsel kur bozulmadan kalıyor.
+    if (!isCopyMode) {
+      const rawRate = toNumber((transaction as { exchange_rate?: number | string | null }).exchange_rate);
+      const sc = (transaction as { source_currency?: string | null }).source_currency;
+      const tc = (transaction as { target_currency?: string | null }).target_currency;
+      setEditOriginal({
+        exchange:
+          rawRate > 0 && sc && tc
+            ? { sourceCurrency: sc, targetCurrency: tc, exchangeRate: rawRate }
+            : null,
+        baseline: {
+          amount: roundCurrency(toNumber(transaction.amount)),
+          hesapId: transaction.hesap_id || null,
+          hedefHesapId: transaction.hedef_hesap_id || null,
+          cariId: transaction.cari_id || null,
+          personelId: transaction.personel_id || null,
+        },
+      });
     }
 
     setEditDataLoaded(true);
@@ -430,25 +534,41 @@ export function useQuickTransactionForm({
       // Dışarıdan ön-doldurma — copy modda uygulanmaz (kaynak işlem yüklemesi ezilmesin)
       if (!isCopyMode && !prefillAppliedRef.current) {
         prefillAppliedRef.current = true;
-        if (defaultAmount != null) setAmount(roundCurrency(defaultAmount).toString());
+        // bkz. yukarıdaki formatAmountForInput notu (nokta → cleanAmountInput siler)
+        if (defaultAmount != null) setAmount(formatAmountForInput(roundCurrency(defaultAmount)));
         if (defaultDate) setDate(ensureValidDate(defaultDate));
         if (defaultDescription) setDescription(defaultDescription);
       }
       // Personel mode
       if (isPersonelMode && defaultPersonelId) {
         setPersonelId(defaultPersonelId);
-        setType('personel_gider_tab');
+        setType(
+          resolveScopedQuickTransactionDefaultType({
+            scope: 'personel',
+            requestedType: defaultType,
+          }),
+        );
       }
       // Cari mode
       else if (isCariMode && defaultCariId) {
         setCariId(defaultCariId);
         if (defaultCariType === 'tedarikci') {
-          const validTedarikciTypes: TransactionType[] = ['alis', 'odeme', 'alis_iade'];
-          setType(validTedarikciTypes.includes(defaultType) ? defaultType : 'alis');
+          setType(
+            resolveScopedQuickTransactionDefaultType({
+              scope: 'cari',
+              cariType: 'tedarikci',
+              requestedType: defaultType,
+            }),
+          );
           setOdemeHedefType('tedarikci');
         } else {
-          const validMusteriTypes: TransactionType[] = ['satis', 'tahsilat', 'satis_iade'];
-          setType(validMusteriTypes.includes(defaultType) ? defaultType : 'satis');
+          setType(
+            resolveScopedQuickTransactionDefaultType({
+              scope: 'cari',
+              cariType: 'musteri',
+              requestedType: defaultType,
+            }),
+          );
         }
       } else {
         // Normal mode
@@ -529,6 +649,21 @@ export function useQuickTransactionForm({
     isEditMode,
     isCopyMode,
     isLoadingTransaction,
+    transactionLoadError,
+    editTransactionCreatedBy: isEditMode
+      ? isScheduledTransaction
+        ? scheduledTransaction
+          ? scheduledTransaction.created_by ?? null
+          : undefined
+        : normalTransaction
+          ? normalTransaction.created_by ?? null
+          : undefined
+      : undefined,
+    productEditDataResolved,
+    editableProductItemCount,
+    loadedCariType: getCariTypeForApiTransactionType(
+      normalTransaction?.type ?? scheduledTransaction?.type,
+    ) ?? undefined,
 
     // Form state
     type,
@@ -556,6 +691,7 @@ export function useQuickTransactionForm({
     // Photo state
     photoUri,
     setPhotoUri,
+    originalPhotoPath,
 
     // Entity IDs
     hedefHesapId,
@@ -576,6 +712,7 @@ export function useQuickTransactionForm({
     // Exchange rate state
     pendingExchangeData,
     setPendingExchangeData,
+    editOriginal,
 
     // Urun items
     urunItems,

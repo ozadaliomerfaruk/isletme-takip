@@ -7,6 +7,7 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import i18n from 'i18next';
 import { formatCurrency } from './currency';
 import { formatDateTime } from './date';
 
@@ -82,8 +83,12 @@ export async function exportTaksitPlaniToPdf(options: TaksitPlanPdfOptions): Pro
     )
     .join('');
 
+  // lang, aktif dilden: sabit "tr" İngilizce PDF'te yazdırma/erişilebilirlik
+  // katmanına yanlış dil bildiriyordu
+  const htmlLang = escapeHtml(i18n.language || 'tr');
+
   const html = `<!DOCTYPE html>
-<html lang="tr"><head><meta charset="utf-8" />
+<html lang="${htmlLang}"><head><meta charset="utf-8" />
 <style>
   * { box-sizing: border-box; }
   body { font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; color: #1A1A1A; margin: 28px; font-size: 12px; }

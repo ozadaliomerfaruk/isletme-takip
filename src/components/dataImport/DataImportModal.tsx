@@ -1,5 +1,5 @@
 import { useState, type ComponentType } from 'react';
-import { View, ScrollView, TouchableOpacity, Modal, StyleSheet } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import {
   Receipt,
   Building2,
@@ -9,7 +9,7 @@ import {
   X,
   Coins,
 } from 'lucide-react-native';
-import { Text, ModalSearchBar } from '@/components/ui';
+import { Text, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import type { AccountMapping, ParsedTransaction } from '@/lib/excelImport';

@@ -1,0 +1,46 @@
+{
+ "cluster": "c03",
+ "ownedFiles": [
+  "src/app/vade/index.tsx",
+  "src/lib/tabBarScroll.ts",
+  "src/app/(tabs)/_layout.tsx"
+ ],
+ "findings": [
+  {
+   "file": "src/app/vade/index.tsx",
+   "line": 151,
+   "title": "Vade Takibi sayfasının HİÇ header'ı yok — başlık/geri butonu yok, içerik status bar'ın altında",
+   "category": "gorsel-tutarlilik",
+   "severity": "high",
+   "detail": "`vade/index` kök _layout'taki Stack'e KAYIT EDİLMEMİŞ. Kök screenOptions `headerShown: false` olduğundan sayfa içindeki `<Stack.Screen options={{ headerTitle }} />` yalnız başlık metnini geçiyor, header'ı AÇMIYOR. Sonuç: sayfa başlıksız ve geri butonsuz açılıyor (yalnız kenar-swipe ile çıkılabiliyor) ve `<Screen>` `top` prop'u olmadan kullanıldığı için Satış/Alış sekme şeridi çentiğin/status bar'ın altına giriyor. Bu tam olarak taksit sayfaları için bir kez yaşanıp _layout'a yorum notuyla düzeltilen hatanın aynısı; vade atlanmış. Sayfa Cariler sekmesindeki mini-dashboard'dan erişilebiliyor, yani ölü kod değil.",
+   "evidence": "src/app/vade/index.tsx:150-152 `<Stack.Screen options={{ headerTitle: t('transactions:vade.cardTitle') }} />` + `<Screen>` (top yok). src/app/_layout.tsx:321-337 global `headerShown: false`; :410-434 taksit/index ve taksit/[id] AÇIKÇA kayıtlı ve yorum aynen şöyle: \"Taksit sayfaları header'ı buradan alır (sayfa içi Stack.Screen yalnız başlık geçer); kayıt olmadan global headerShown:false yüzünden içerik status bar altına taşıyordu.\" `grep -i vade src/app/_layout.tsx` → eşleşme yok; src/app/vade/ altında _layout.tsx yok. Erişim yolu: src/app/(tabs)/cariler.tsx:878 `onVadePress={() => router.push('/vade' as Href)}` → src/components/cariler/CariMiniDashboard.tsx:127-132.",
+   "fix": "_layout.tsx'e taksit/index kaydının birebir eşini ekle: `<Stack.Screen name=\"vade/index\" options={{ presentation:'card', headerShown:true, headerStyle:{backgroundColor:colors.surface}, headerTintColor:colors.text, headerShadowVisible:false, fullScreenGestureEnabled:false }} />`.",
+   "id": 4,
+   "verifyNote": "src/app/vade/ altında yalnız index.tsx var (_layout yok) ve _layout.tsx'te 'vade' geçen tek satır yok — grep boş. Kök screenOptions headerShown:false (:322), sayfa içi <Stack.Screen options={{headerTitle}}/> header'ı açmaz. <Screen> top prop'suz (:152) → sekme şeridi status bar'a giriyor. Taksit için aynı hata _layout:410-413'te yorumla belgelenip düzeltilmiş, vade atlanmış. Sayfa cariler mini-dashboard'undan erişilebilir."
+  },
+  {
+   "file": "src/lib/tabBarScroll.ts",
+   "line": 58,
+   "title": "Daralmış tab bar, sekme dışı ekranlara taşınıyor ve orada açılamıyor; sekmeye dönüşte ilk kaydırmada yanlış yön okunuyor",
+   "category": "yuzen-kontrol",
+   "severity": "low",
+   "detail": "İki ayrı yan etki: (1) `resetTabBarCollapse` yalnız aktif SEKME değişince çalışıyor; ana sayfadan /islemler, /arama veya /hesaplar/[id]'ye gidildiğinde aktif sekme hâlâ 'home' olduğu için efekt tetiklenmiyor, bar daralmış (yalnız ikon, kenarlardan 34px içeri) halde kalıyor ve bu ekranlarda onScroll bağlı olmadığı için geri açılamıyor. (2) `lastY` modül-düzeyi ve reset'te 0'a çekiliyor; sekme değişimlerinde listeler freezeOnBlur ile kaydırma konumunu koruduğundan, kaydırılmış bir sekmeye dönüp yukarı kaydırınca ilk onScroll olayında dy = y − 0 pozitif çıkıyor ve bar yukarı kaydırmaya rağmen bir kare daralmaya başlıyor (sonraki olaylarda geri açılıyor → titreme).",
+   "evidence": "src/lib/tabBarScroll.ts:16 `let lastY = 0;`, :36-45 `const dy = y - lastY; ... else if (dy > DELTA) next = 1;`, :57-62 `export function resetTabBarCollapse() { lastY = 0; ... }`. Tetikleyici: src/components/ui/PersistentTabBar.tsx:166-168 `useEffect(() => { resetTabBarCollapse(); }, [activeTab])` — activeTab kaynağı src/lib/tabBarVisibility.ts:44-48, orada 'hesaplar' / 'islemler' / 'arama' hepsi 'home' döndürüyor, yani sekme değişmiş sayılmıyor. onScroll yalnız 5 sekmede bağlı (grep useTabBarScroll: cariler.tsx:74, daha.tsx:225, personel.tsx:61, (tabs)/index.tsx:56, urunler/index.tsx:47); islemler/index.tsx:519-540 FlashList'inde ve arama.tsx:914-924 SectionList'inde onScroll yok. Kaydırma konumunun korunduğu: src/app/(tabs)/_layout.tsx:61 `freezeOnBlur: true`.",
+   "fix": "(1) PersistentTabBar'daki effect'i `activeTab` yerine tam rota (segments.join('/')) değişimine bağla ya da _layout'ta rota değişiminde `resetTabBarCollapse()` çağır. (2) `lastY`'yi 0 yerine 'ölçülmedi' (ör. -1) olarak sıfırla ve ilk onScroll olayında yalnız lastY'yi kur, yön kararı verme.",
+   "id": 59,
+   "verifyNote": "tabBarScroll.ts:16/36-45/57-62 ve PersistentTabBar.tsx:135 + :166-168 `useEffect(..., [activeTab])` doğrulandı. (1) hesaplar/islemler/arama/nakit-akisi/foto-import hepsi getActiveTab'de 'home' döndürdüğü için ana sayfadan bu ekranlara geçişte effect tetiklenmiyor; useTabBarScroll yalnız 5 sekmede bağlı (grep: cariler/daha/personel/(tabs)index/urunler) → daralmış bar oralarda açılamıyor. (2) reset lastY=0 yaparken (tabs)/_layout freezeOnBlur:true ile scroll konumu korunuyor → kaydırılmış sekmeye dönüp yukarı kaydırınca ilk olayda dy = y − 0 > DELTA çıkıp bir kare daraltıyor. İkisi de kodla tutarlı, etkisi küçük → low."
+  },
+  {
+   "file": "src/app/(tabs)/_layout.tsx",
+   "line": 62,
+   "title": "Native tab bar display:'none' — HapticTabButton/TabIcon/label stilleri ölü kod",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Sekme çubuğu artık _layout.tsx'te ayrı çizilen PersistentTabBar; (tabs)/_layout.tsx'teki native bar `display:'none'` ile tamamen gizli. Buna rağmen dosyada haptik dokunuş butonu, seçili nokta göstergeli TabIcon bileşeni ve tabBarLabelStyle/tabBarIconStyle ayarları duruyor — hiçbiri kullanıcıya görünmüyor ama her sekme render'ında oluşturuluyor ve 'sekme çubuğu görünümü burada ayarlanır' izlenimi vererek yanlış yere düzeltme yapılmasına davetiye çıkarıyor (gerçek ikon/etiket/haptik PersistentTabBar'da).",
+   "evidence": "src/app/(tabs)/_layout.tsx:62-64 `tabBarStyle: { display: 'none' as const }`; buna rağmen :10-28 `HapticTabButton` (Haptics.impactAsync + activeOpacity 0.7), :30-50 `TabIcon` + `tabIconStyles.dot`, :59 `tabBarButton: HapticTabButton`, :65-75 `tabBarActiveTintColor/tabBarLabelStyle/tabBarIconStyle`, ve her Tabs.Screen'de `tabBarIcon` (:82, :90, :98, :106, :113). Gerçek çizim: src/components/ui/PersistentTabBar.tsx:108-125 (ikon + etiket), :212-214 `tick()` (haptik), :349 `activePill` (seçili göstergesi).",
+   "fix": "HapticTabButton, TabIcon, tabIconStyles ve tabBar* görsel seçeneklerini (tabBarButton/tabBarIcon/tabBarActiveTintColor/tabBarLabelStyle/tabBarIconStyle) sil; `tabBarStyle: { display: 'none' }`, `headerShown: false`, `freezeOnBlur` ve `href` izin kapısı kalsın.",
+   "id": 60,
+   "verifyNote": "(tabs)/_layout.tsx:62-64 tabBarStyle display:'none' — gerçek bar PersistentTabBar. Buna rağmen HapticTabButton (:10-28), TabIcon + dot (:30-50), tabBarActiveTintColor/LabelStyle/IconStyle (:65-75) ve her Tabs.Screen'de tabBarIcon duruyor; hiçbiri görünmüyor. Ölü kod + yanlış yere düzeltme daveti; ertelenen listede değil. low doğru."
+  }
+ ]
+}

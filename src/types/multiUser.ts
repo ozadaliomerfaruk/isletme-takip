@@ -24,7 +24,8 @@ export type ModuleName =
   | 'ayarlar';
 
 // Sade model: tek global yetki seviyesi (kademeli, açık tüm modüllere geçerli).
-//   view = açık modüllerde tüm kayıtları gör; add = + ekle;
+//   view = açık modüllerde tüm kayıtları gör + izinli Excel/PDF çıktısı al
+//   (Cariler açıksa public ekstre linki de paylaşabilir); add = + ekle;
 //   edit_own = + yalnızca kendi eklediğini düzenle/sil; edit_all = + tümünü.
 export type PermissionLevel = 'view' | 'add' | 'edit_own' | 'edit_all';
 

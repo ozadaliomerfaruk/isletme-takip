@@ -1,3 +1,4 @@
+import i18n from 'i18next';
 import { BirimType } from '@/types/database';
 
 /** Turkish character map for normalization (comparison only) */
@@ -43,14 +44,38 @@ export function normalizeTurkish(text: string): string {
 }
 
 /**
- * Türkçe-DOĞRU büyük harfe çevirir (başlık/label'lar için). RN/Hermes
+ * Türkçe kuralıyla KOŞULSUZ büyük harfe çevirir. RN/Hermes
  * toLocaleUpperCase('tr') güvenilmez; kritik iki dönüşümü elle yaparız:
  * küçük i → İ (noktalı), ı → I (noktasız). Gerisi standart toUpperCase
- * (ç→Ç, ş→Ş, ğ→Ğ, ö→Ö, ü→Ü doğru). "Cari"→"CARİ", "Nakit"→"NAKİT", "Gelir"→"GELİR".
- * (textTransform:'uppercase' bu ikisini I/İ olarak bozardı.)
+ * (ç→Ç, ş→Ş, ğ→Ğ, ö→Ö, ü→Ü doğru).
+ *
+ * KULLANICI VERİSİNE uygulanır (DB'ye yazılan kategori adı). Dile duyarlı
+ * OLMAMALI: aksi halde aynı ad İngilizce arayüzde "ISTANBUL", Türkçe arayüzde
+ * "İSTANBUL" olarak yazılır ve aynı kategori iki ayrı kayda bölünür.
+ */
+export function upperTrData(text: string): string {
+  return text.replace(/i/g, 'İ').replace(/ı/g, 'I').toUpperCase();
+}
+
+/**
+ * Görüntüleme için (başlık/label) büyük harfe çevirir — DİLE DUYARLI.
+ * Çağrı yerlerinin neredeyse tamamı doğrudan t() çıkışını sarıyor; Türkçe
+ * kuralı koşulsuz uygulanırsa İngilizce metinde noktalı İ üretilir
+ * ("Optional" → "OPTİONAL"). Bu yüzden yalnız dil tr* iken Türkçe kural.
+ * "Cari"→"CARİ", "Nakit"→"NAKİT" (tr) · "Daily"→"DAILY" (en).
+ * (textTransform:'uppercase' Türkçe'de i/ı'yı I/İ olarak bozardı.)
+ *
+ * KULLANICI VERİSİNİ (kategori/ürün/cari adı) GÖSTERİRKEN DE BU KULLANILIR —
+ * upperTrData DEĞİL, bilinçli olarak. Verinin dili bilinemez; arayüz dili en iyi
+ * vekil: Türkçe arayüz kullanan Türkçe yazar ("içecek" → "İÇECEK"), İngilizce arayüz
+ * kullanan İngilizce yazar ("incoming" → "INCOMING"). upperTrData'yı gösterime
+ * uygulamak İngilizce veriyi bozardı ("İNCOMİNG"). upperTrData YALNIZ YAZMA yolunda
+ * (DB'ye kaydedilen kategori adı) — orada dile duyarlılık aynı kategoriyi iki kayda böler.
  */
 export function upperTr(text: string): string {
-  return text.replace(/i/g, 'İ').replace(/ı/g, 'I').toUpperCase();
+  const isTurkish = (i18n.language ?? '').toLowerCase().startsWith('tr');
+  if (!isTurkish) return text.toUpperCase();
+  return upperTrData(text);
 }
 
 /**

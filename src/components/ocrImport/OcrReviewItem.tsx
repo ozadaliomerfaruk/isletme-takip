@@ -7,7 +7,7 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { OcrParsedItem, MatchTier } from '@/types/ocrImport';
 import { Urun } from '@/types/database';
-import { formatCurrency, formatQuantity, parseCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity, parseCurrency, formatPercent } from '@/lib/currency';
 
 interface OcrReviewItemProps {
   item: OcrParsedItem;
@@ -184,7 +184,7 @@ export function OcrReviewItem({ item, index, onUpdate, onRemove, onChangeProduct
         ) : null}
         {item.vatRate !== null && (
           <Text variant="caption" color="secondary">
-            {t('common:tax.vat')}: %{item.vatRate}
+            {t('common:tax.vat')}: {formatPercent(item.vatRate)}
           </Text>
         )}
       </View>

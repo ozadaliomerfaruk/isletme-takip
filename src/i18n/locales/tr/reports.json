@@ -40,7 +40,7 @@
     "intro": "İşletmenin genel durumunu (tüm varlıkların − borçların) her ayın sonundaki haliyle gösterir. Böylece zaman içinde büyüyor musun, tek bakışta görürsün.",
     "introTabs": "Sekmelerle aynı net varlığı farklı gözle görebilirsin: enflasyona göre (reel), dolar, euro ya da gram altın olarak.",
     "lensDesc": {
-      "nominal": "TL cinsinden birebir tutar.",
+      "nominal": "Tutarın birebir hâli (ana para biriminde).",
       "reel": "Enflasyondan arındırılmış: bugünün lirasıyla gerçek alım gücü. Rakam aynı kalsa bile alım gücü değişmiş olabilir.",
       "usd": "Net varlığın kaç ABD dolarına denk geliyor (o ayki kur kullanılmıştır).",
       "eur": "Net varlığın kaç euroya denk geliyor (o ayki kur kullanılmıştır).",
@@ -56,7 +56,7 @@
     "dragHint": "Basılı tutup kaydır",
     "today": "bugün",
     "monthEnd": "ay sonu",
-    "lensNominal": "Nominal ₺",
+    "lensNominal": "Nominal {{ccy}}",
     "lensReal": "Reel ₺",
     "lensGold": "Gram Altın",
     "shortNominal": "Nominal",
@@ -83,7 +83,7 @@
     "sparseNote": "Baş aylarda kayıt seyrek; bu değerler bugünden geriye hesaplanmıştır (türetilmiş).",
     "conversionIncomplete": "Döviz kurları yüklenemedi; kuru bulunamayan bakiyeler hesaba katılmadı. Değerler eksik olabilir.",
     "updating": "Güncelleniyor…",
-    "footnote": "Geçmiş aylar bugünkü kayıtlardan geriye hesaplanır. Pasif/arşivli cari, personel ve hesapların bakiyeleri ile stok/demirbaş değeri net varlığa DAHİL EDİLMEZ; yalnız bunlara yapılan ödeme/tahsilatın nakit etkisi sayılır. Sonradan silinen işlemler ve tarihsiz açılışlar geçmişe birebir yansımayabilir. Bugünkü değer güncel Genel Durum'la birebir aynıdır.",
+    "footnote": "Geçmiş aylar bugünkü kayıtlardan geriye hesaplanır. Pasif/arşivli cari, personel ve hesapların bakiyeleri ile stok/demirbaş değeri net varlığa DAHİL EDİLMEZ; yalnız bunlara yapılan ödeme/tahsilatın nakit etkisi sayılır. Sonradan silinen işlemler ve tarihsiz açılışlar geçmişe birebir yansımayabilir. Bugünkü değer güncel Genel Durum'la birebir aynıdır. Aylık DEĞİŞİM de aynı kuralla hesaplanır: pasif/arşivli cari, personel ve hesapların işlemleri sayılmaz — bu yüzden bir ayın değişimi, Gelir-Gider raporundaki aynı ayın toplamından farklı çıkabilir (o rapor arşivli kayıtları gösterir).",
     "footnoteFx": "Enflasyon, dolar, euro ve altın verileri Merkez Bankası'ndan (TCMB / EVDS) alınır; her ay o ayki kur/fiyat kullanılır."
   },
   "tabs": {
@@ -98,7 +98,7 @@
   },
   "summary": {
     "generalStatus": "Genel Durum",
-    "conversionIncomplete": "Döviz kurları yüklenemedi; bazı döviz bakiyeleri toplamlara dahil edilmedi.",
+    "conversionIncomplete": "Bazı döviz tutarları çevrilemedi; gösterilen toplamlar eksik veya yaklaşık olabilir.",
     "netValue": "Net Değer",
     "netAssets": "Net Varlık",
     "assets": "Varlıklar",
@@ -118,7 +118,8 @@
     "totalAmount": "Toplam Tutar",
     "transactionCount": "İşlem Sayısı",
     "totalPersonnelDebt": "Personele Borç",
-    "personnelReceivables": "Personelden Alacak"
+    "personnelReceivables": "Personelden Alacak",
+    "currentRateNote": "Yabancı para tutarlar BUGÜNKÜ kurla çevrildi; geçmiş dönemlerde o günün kuru kullanılmaz."
   },
   "sections": {
     "accountBalances": "HESAP BAKİYELERİ",
@@ -136,7 +137,17 @@
     "creditCard": "{{count}} Kredi Kartı",
     "client": "{{count}} Cari",
     "personnel": "{{count}} Personel",
-    "transaction": "{{count}} işlem"
+    "transaction": "{{count}} işlem",
+    "transaction_one": "{{count}} işlem",
+    "transaction_other": "{{count}} işlem",
+    "account_one": "{{count}} Hesap",
+    "account_other": "{{count}} Hesap",
+    "creditCard_one": "{{count}} Kredi Kartı",
+    "creditCard_other": "{{count}} Kredi Kartı",
+    "client_one": "{{count}} Cari",
+    "client_other": "{{count}} Cari",
+    "personnel_one": "{{count}} Personel",
+    "personnel_other": "{{count}} Personel"
   },
   "period": {
     "daily": "Günlük",
@@ -155,7 +166,20 @@
     "startDateTitle": "Başlangıç Tarihi",
     "endDateTitle": "Bitiş Tarihi"
   },
-  "months": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
+  "months": [
+    "Ocak",
+    "Şubat",
+    "Mart",
+    "Nisan",
+    "Mayıs",
+    "Haziran",
+    "Temmuz",
+    "Ağustos",
+    "Eylül",
+    "Ekim",
+    "Kasım",
+    "Aralık"
+  ],
   "categoryDetail": {
     "direct": "(doğrudan)",
     "transactionWithSubcategories": "{{count}} işlem ({{subcategories}} alt kategori)",

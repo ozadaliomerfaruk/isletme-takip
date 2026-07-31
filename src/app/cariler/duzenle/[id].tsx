@@ -7,20 +7,31 @@ import {
   Platform,
   Alert,
   Switch,
+  ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card, Collapsible } from '@/components/ui';
+import { Text, Input, Button, Card, Collapsible, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useCari, useUpdateCari } from '@/hooks/useCariler';
+import { useCari, useCariler, useUpdateCari } from '@/hooks/useCariler';
+import { usePersonelList } from '@/hooks/usePersonel';
 import { Currency } from '@/types/database';
 import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
+import { DeviceContactPickerButton } from '@/components/contacts/DeviceContactPickerButton';
+import {
+  findPhoneDuplicateMatches,
+  getPhoneDuplicateWarningCopy,
+  getPhoneValidationMessageKey,
+  preparePhoneForSave,
+} from '@/lib/phone';
 
 export default function CariDuzenlePage() {
   const router = useRouter();
@@ -31,8 +42,12 @@ export default function CariDuzenlePage() {
 
   const { data: cari, isLoading } = useCari(id);
   usePagePermission({ module: 'cariler', action: 'update', createdBy: cari?.created_by });
+  const { isOwner } = usePermissions();
   const updateCari = useUpdateCari();
+  const { data: visibleCariler } = useCariler(undefined, true, true);
+  const { data: visiblePersoneller } = usePersonelList(true, true);
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   const [name, setName] = useState('');
   const [currency, setCurrency] = useState<Currency>('TRY');
@@ -41,7 +56,7 @@ export default function CariDuzenlePage() {
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState('');
   const [isActive, setIsActive] = useState(true);
-  const [errors, setErrors] = useState<{ name?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
 
   useEffect(() => {
     if (cari) {
@@ -56,28 +71,34 @@ export default function CariDuzenlePage() {
   }, [cari]);
 
   const validate = () => {
-    const newErrors: { name?: string } = {};
+    const newErrors: { name?: string; phone?: string } = {};
+    const phoneResult = preparePhoneForSave(phone, cari?.phone);
 
     if (!name.trim()) {
       newErrors.name = t('clients:validation.nameRequired');
     }
+    if (!phoneResult.ok) {
+      newErrors.phone = t(`common:${getPhoneValidationMessageKey(phoneResult.reason)}`);
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      normalizedPhone: phoneResult.ok ? phoneResult.value : null,
+    };
   };
 
-  const handleSubmit = async () => {
-    if (!validate() || !id) return;
-
+  const persistCari = async (normalizedPhone: string | null) => {
+    if (!id) return;
     try {
       await updateCari.mutateAsync({
         id,
         name: name.trim(),
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         email: email.trim() || null,
         address: address.trim() || null,
         notes: notes.trim() || null,
-        is_active: isActive,
+        ...(isOwner ? { is_active: isActive } : {}),
       });
 
       notifySaved(t('clients:messages.updateSuccess'));
@@ -87,28 +108,60 @@ export default function CariDuzenlePage() {
     }
   };
 
+  const handleSubmit = async () => {
+    const validation = validate();
+    if (!validation.isValid || !id) return;
+
+    // Telefon hiç değişmediyse legacy biçimi koru ve mevcut mükerrer kayıtları
+    // ilgisiz bir alan güncellemesinde yeniden onaylatma.
+    const duplicateMatches = phone === (cari?.phone ?? '')
+      ? []
+      : findPhoneDuplicateMatches(validation.normalizedPhone, {
+          cariler: visibleCariler,
+          personeller: visiblePersoneller,
+          exclude: { entityType: 'cari', id },
+        });
+    if (duplicateMatches.length > 0) {
+      const warning = getPhoneDuplicateWarningCopy(duplicateMatches, i18n.language);
+      Alert.alert(warning.title, warning.message, [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: warning.confirmLabel,
+          onPress: () => void persistCari(validation.normalizedPhone),
+        },
+      ]);
+      return;
+    }
+
+    await persistCari(validation.normalizedPhone);
+  };
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
-          <Text>{t('common:status.loading')}</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text color="secondary" style={{ marginTop: spacing.md }}>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!cari) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
-          <Text>{t('errors:cari.notFound')}</Text>
+          <Text color="error">{t('errors:cari.notFound')}</Text>
+          <Button variant="outline" onPress={() => router.back()} style={{ marginTop: spacing.lg }}>
+            {t('common:buttons.back')}
+          </Button>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -192,6 +245,12 @@ export default function CariDuzenlePage() {
                   keyboardType="phone-pad"
                   value={phone}
                   onChangeText={setPhone}
+                  error={errors.phone}
+                  rightIcon={(
+                    <DeviceContactPickerButton
+                      onSelect={(selection) => setPhone(selection.phone)}
+                    />
+                  )}
                 />
 
                 <Input
@@ -214,28 +273,30 @@ export default function CariDuzenlePage() {
               </Collapsible>
             </View>
 
-            {/* Pasif Mod */}
-            <View style={styles.section}>
-              <View style={styles.passiveModeContainer}>
-                <View style={styles.passiveModeHeader}>
-                  <Text variant="body">{t('common:passiveMode.title')}</Text>
-                  <Switch
-                    value={!isActive}
-                    onValueChange={(value) => setIsActive(!value)}
-                    trackColor={{ false: colors.border, true: colors.warning }}
-                    thumbColor={colors.surface}
-                  />
+            {/* Pasif kayıt yönetimi yalnız işletme sahibine aittir. */}
+            {isOwner && (
+              <View style={styles.section}>
+                <View style={styles.passiveModeContainer}>
+                  <View style={styles.passiveModeHeader}>
+                    <Text variant="body">{t('common:passiveMode.title')}</Text>
+                    <Switch
+                      value={!isActive}
+                      onValueChange={(value) => setIsActive(!value)}
+                      trackColor={{ false: colors.border, true: colors.warning }}
+                      thumbColor={colors.surface}
+                    />
+                  </View>
+                  <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
+                    {t('common:passiveMode.description')}
+                  </Text>
                 </View>
-                <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
-                  {t('common:passiveMode.description')}
-                </Text>
               </View>
-            </View>
+            )}
 
           </ScrollView>
 
           {/* Sticky footer — kaydet butonu klavyenin altında kalmasın (Dilim 1 #5) */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <Button
               variant="outline"
               size="lg"
@@ -255,7 +316,7 @@ export default function CariDuzenlePage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -276,7 +337,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: spacing['3xl'],
+    // Form ekranlarında ilk alanın header'a uzaklığı TEK değer (ekle/düzenle aynı).
+    paddingTop: spacing.md,
     paddingBottom: spacing['3xl'],
   },
   section: {

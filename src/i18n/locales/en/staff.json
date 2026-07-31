@@ -66,7 +66,7 @@
   "actions": {
     "addExpense": "Add Expense",
     "makePayment": "Make Payment",
-    "getCollection": "Receive Payment",
+    "getCollection": "Collect Payment",
     "viewTransactions": "View History",
     "editPersonnel": "Edit Staff Member",
     "deletePersonnel": "Delete Staff Member",
@@ -76,7 +76,7 @@
   "transactionTypes": {
     "expense": "Staff Expense",
     "payment": "Staff Payment",
-    "collection": "Payment from Staff",
+    "collection": "Staff Collection",
     "salary": "Salary",
     "advance": "Advance",
     "bonus": "Bonus",
@@ -85,7 +85,7 @@
   "transactionTitles": {
     "addExpense": "Add Staff Expense",
     "makePayment": "Staff Payment",
-    "getCollection": "Payment from Staff",
+    "getCollection": "Collect Payment",
     "expense": "Staff Expense",
     "payment": "Staff Payment",
     "collection": "Staff Collection"
@@ -111,13 +111,15 @@
     "deleteConfirm": "Are you sure you want to remove this staff member?",
     "deleteWarning": "Only staff members without linked transactions can be deleted.",
     "noPersonnel": "No staff members yet",
-    "addFirstPersonnel": "Get started by adding your first team member",
+    "addFirstPersonnel": "Start by adding your first staff member",
     "noTransactions": "No transactions for this staff member",
     "expenseRecorded": "Expense recorded",
     "paymentRecorded": "Payment recorded",
     "scheduledExpenseCreated": "Scheduled expense created",
     "scheduledPaymentCreated": "Scheduled payment created",
-    "personnelCount": "{{count}} staff members"
+    "personnelCount": "{{count}} staff members",
+    "personnelCount_one": "{{count}} staff member",
+    "personnelCount_other": "{{count}} staff members"
   },
   "export": {
     "staffList": {
@@ -169,7 +171,7 @@
   "transactionLabels": {
     "gider": "Expense",
     "odeme": "Payment",
-    "tahsilat": "Payment Received",
+    "tahsilat": "Collection",
     "satis": "Sale",
     "izinHakki": "Leave Entitlement",
     "izinKullanimi": "Leave Used"
@@ -196,7 +198,11 @@
     "duplicateTitle": "Leave Entitlement Exists",
     "duplicateMessage": "A leave entitlement already exists for this day. Are you sure you want to add another?",
     "invalidRangeTitle": "Invalid Date Range",
-    "invalidRangeMessage": "End date cannot be before start date."
+    "invalidRangeMessage": "End date cannot be before start date.",
+    "remainingDays_one": "{{count}} day leave",
+    "remainingDays_other": "{{count}} days leave",
+    "dayCount_one": "{{count}} day",
+    "dayCount_other": "{{count}} days"
   },
   "milestones": {
     "startDate": "Start Date",
@@ -237,6 +243,8 @@
     "selectAccount": "Please select an account",
     "description": "Salary payment",
     "success": "Payment recorded for {{count}} staff",
-    "partialError": "{{success}} payment(s) recorded, {{failed}} failed. Failed ones stayed selected; you can retry (already-paid staff are no longer selected, so no double payment)."
+    "partialError": "{{success}} payment(s) recorded, {{failed}} failed. Failed ones stayed selected; you can retry (already-paid staff are no longer selected, so no double payment).",
+    "currencyMismatchTitle": "Currency mismatch",
+    "currencyMismatch": "The selected account is in {{account}}, but these staff members' balances are in a different currency: {{names}}. Bulk payment can't ask for an exchange rate, so either pay them from a {{account}} account or pay them individually from the staff detail screen (which asks for the rate)."
   }
 }

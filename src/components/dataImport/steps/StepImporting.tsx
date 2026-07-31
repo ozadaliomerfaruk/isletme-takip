@@ -1,7 +1,7 @@
 import { View, ActivityIndicator } from 'react-native';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import i18n from '@/i18n';
+import { formatCount } from '@/lib/currency';
 import { PhaseItemEnhanced } from '../helpers';
 import { styles } from '../styles';
 
@@ -53,7 +53,7 @@ export function StepImporting({ progress, t }: StepImportingProps) {
           </Text>
         </View>
         <Text variant="caption" color="secondary" style={styles.progressText}>
-          {progress.current.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')} / {progress.total.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
+          {formatCount(progress.current)} / {formatCount(progress.total)}
         </Text>
 
         {progress.phase === 'transactions' && progress.itemsPerSecond > 0 && (

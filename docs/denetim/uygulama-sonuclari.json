@@ -1,0 +1,538 @@
+{
+ "c03": [
+  {
+   "id": 4,
+   "title": "Vade Takibi sayfasının HİÇ header'ı yok — başlık/geri butonu yok, içerik status bar'ın altında",
+   "status": "SKIPPED",
+   "note": "Bulgu doğrulandı: src/app/vade/index.tsx:151 `<Stack.Screen options={{ headerTitle }} />` + :152 `<Screen>` (top prop'suz), src/app/vade/ altında _layout.tsx yok. Ancak önerilen düzeltme (Stack.Screen name=\"vade/index\" kaydı) src/app/_layout.tsx gerektiriyor — o dosya hem ownedFiles dışında hem de başka bir session tarafından düzenleniyor. Alternatif (src/app/vade/_layout.tsx oluşturmak) da küme dışı. vade/index.tsx içinde tek başına yapılacak yama (ör. Screen'e top vermek) _layout kaydı geldiğinde çift boşluk üretirdi, o yüzden hiç dokunulmadı."
+  },
+  {
+   "id": 59,
+   "title": "Daralmış tab bar, sekme dışı ekranlara taşınıyor ve orada açılamıyor; sekmeye dönüşte ilk kaydırmada yanlış yön okunuyor",
+   "status": "FIXED",
+   "note": "Yalnız (2). madde uygulandı (küme içinde olan kısım): lastY artık 0 yerine -1 = 'ölçülmedi' sentinel'i; useTabBarScroll ilk onScroll olayında sadece referansı kurup dönüyor, yön kararı vermiyor; resetTabBarCollapse de -1'e çekiyor. Böylece freezeOnBlur ile kaydırma konumunu koruyan sekmeye dönüp yukarı kaydırınca oluşan bir-karelik yanlış daralma/titreme gitti. Neden'i açıklayan Türkçe yorum eklendi. (1). madde SKIPPED: reset'i tam rotaya bağlamak src/components/ui/PersistentTabBar.tsx veya src/app/_layout.tsx gerektiriyor, ikisi de ownedFiles dışında (_layout.tsx ayrıca başka session'da)."
+  },
+  {
+   "id": 60,
+   "title": "Native tab bar display:'none' — HapticTabButton/TabIcon/label stilleri ölü kod",
+   "status": "FIXED",
+   "note": "(tabs)/_layout.tsx'ten HapticTabButton, TabIcon, tabIconStyles ve tabBarButton/tabBarIcon/tabBarActiveTintColor/tabBarInactiveTintColor/tabBarLabelStyle/tabBarIconStyle seçenekleri silindi; kullanılmayan importlar (View/TouchableOpacity/Platform/StyleSheet, lucide ikonları, expo-haptics, BottomTabBarButtonProps, colors) temizlendi. tabBarStyle display:'none', headerShown:false, freezeOnBlur, her ekranın title'ı ve href izin kapısı korundu — davranış aynı. screenOptions'a 'gerçek bar PersistentTabBar, buraya görsel ayar ekleme' notu düşüldü."
+  }
+ ],
+ "c10": [
+  {
+   "id": 61,
+   "title": "Cam butonların atasına opacity animasyonu uygulanıyor (ALTIN KURAL ihlali)",
+   "status": "FIXED",
+   "note": "Doğrulandı: uiAnimatedStyle = { opacity: backdropOpacity.value } hem header hem bottomActions Animated.View'ine uygulanıyordu; ikisinin de doğrudan çocukları GlassSurface. uiAnimatedStyle üçe ayrıldı: headerAnimatedStyle ve bottomAnimatedStyle artık YALNIZ transform (translateY, backdropOpacity'den interpolate ile ±UI_HIDE_OFFSET=160 — header yukarı, alt çubuk aşağı kayar, UndoSnackbar deseni), hintAnimatedStyle ise opacity'yi koruyor çünkü ipucu satırında cam yok (düz Text). Nedeni açıklayan Türkçe yorum eklendi. NOT: fix metnindeki 'animationType=\"fade\" → \"none\" + kendi geçişin' kısmı UYGULANMADI — bu kod tabanında cam içeren onlarca modal (daha.tsx, DetailActionMenu, ShareCodeModal, CurrencyPicker...) fade kullanıyor, yani yerleşik desen; \"none\" yapmak geçişi tamamen kaldırır (davranış regresyonu) ve elle transform geçişi minimum-diff sınırının dışında. Doğrulanan asıl kusur (sürüklemede cam atasına alpha) giderildi."
+  },
+  {
+   "id": 83,
+   "title": "Uc picker modali ModalSearchBar yerine elle yazilmis arama kutusu kullaniyor",
+   "status": "FIXED",
+   "note": "Üç picker'daki (ürün/cari/hesap) elle yazılmış pickerSearchContainer bloğu '@/components/ui' ModalSearchBar ile değiştirildi, autoFocusDelay={300} verildi (sheet slide animasyonu bitince odaklansın). pickerContainer'daki sabit marginTop: 50 stylesheet'ten kaldırılıp çalışma zamanında { marginTop: insets.top } olarak veriliyor (useSafeAreaInsets eklendi). Üç pickerList'e contentContainerStyle={{ paddingBottom: insets.bottom }} eklendi. Ölü stiller pickerSearchContainer + pickerSearchInput silindi (başka referansı yok, arandı); artık kullanılmayan Search ikonu import'tan çıkarıldı (TextInput hâlâ 391 ve 448'de kullanılıyor, kaldı; borderRadius/spacing hâlâ kullanımda)."
+  },
+  {
+   "id": 84,
+   "title": "Uyari bannerlarinda sari-ustune-sari metin: colors.warning, warningLight zemininde okunmuyor",
+   "status": "FIXED",
+   "note": "notWarningText ve irsaliyeBannerText renkleri colors.warning → colors.warningDark yapıldı; zemin (warningLight), çerçeve ve ikonlar colors.warning olarak bırakıldı — colors.ts:30-37'deki kuralın söylediği tam ayrım bu. Her iki stile kısa Türkçe gerekçe yorumu eklendi."
+  }
+ ],
+ "c02": [
+  {
+   "id": 1,
+   "title": "Yatay filtre çubuğuna alt boşluk uygulanmış — chip'lerin altında ~106px hayalet boşluk",
+   "status": "FIXED",
+   "note": "Doğrulandı: notlar/index.tsx:348 yatay FlatList'in contentContainerStyle'ına contentPaddingBottom veriyordu, filtersContainer (paddingVertical yalnız) flex ile sınırlamıyor. contentContainerStyle={styles.filtersList} haline geri alındı + FlatList üstüne NEDEN yorumu eklendi (yatay şeride alt boşluk verilmez)."
+  },
+  {
+   "id": 2,
+   "title": "Not listesi yüzen arama çubuğu payını kaybetti (son satır çubuğun altında)",
+   "status": "FIXED",
+   "note": "Doğrulandı: :393 dizide iki paddingBottom vardı, sonuncu (search'süz hook = yalnız insets.bottom) kazanıyordu; sayfada FloatingSearchBar :414'te mevcut. :86 useContentBottomPadding({ search: true }) yapıldı, :393 tek boşluğa sadeleştirildi. FLOATING_SEARCH_CLEARANCE import'u KALDI (styles.listContent:549'da hâlâ kullanılıyor), insets de kaldı (FAB bottom'ı kullanıyor) — ikisi de silinmedi."
+  },
+  {
+   "id": 8,
+   "title": "Arşiv listesinin dibinde çift sayılan alt boşluk (~190px boşluk)",
+   "status": "FIXED",
+   "note": "Doğrulandı: ListFooter paddingBottom = spacing.xl + footerInset iken contentContainer zaten insets.bottom + clearance veriyordu. ListFooter artık düz styles.footer (paddingVertical: spacing.xl zaten var, davranış aynı, çift sayım gitti) + NEDEN yorumu. useFooterBottomPadding çağrısı ve import'u kaldırıldı (böylece bayat useMemo dep sorunu da kendiliğinden bitti). :542 useContentBottomPadding({ search: true }) ile değiştirildi; artık kullanılmayan useSafeAreaInsets import'u temizlendi. FLOATING_SEARCH_CLEARANCE import'u kaldı (styles.listContent'te kullanılıyor)."
+  },
+  {
+   "id": 31,
+   "title": "Gelir ekle / işlem düzenle: native header başlığı sayfa içinde tekrar ediyor",
+   "status": "FIXED",
+   "note": "gelir.tsx kısmı yapıldı: :148'deki `<Text variant=\"h2\">{t('transactions:titles.addIncome')}</Text>` kaldırıldı, headerRow justifyContent 'space-between' → 'flex-end' (Bell butonu korundu), kullanılmayan styles.headerTitle silindi (başka referansı yoktu), hesaplar/ekle.tsx:120 üslubunda NEDEN yorumu eklendi. UYARI: bulgunun ikinci yarısı (src/app/islemler/duzenle/[id].tsx:262 başlığının kaldırılması) YAPILMADI — o dosya ownedFiles kümesi dışında."
+  },
+  {
+   "id": 54,
+   "title": "Dil/Para birimi modallarında kartın üstüne basmak modalı kapatıyor",
+   "status": "FIXED",
+   "note": "Doğrulandı: her iki modalda da modalContent düz <View> ve backdrop TouchableOpacity'sinin çocuğu. İki yere de `onStartShouldSetResponder={() => true}` eklendi (arama.tsx:877 kalıbının birebir aynısı) + kısa NEDEN yorumu. Backdrop'u kardeş katmana taşıma alternatifi daha büyük diff olduğu için seçilmedi."
+  },
+  {
+   "id": 56,
+   "title": "UndoSnackbar ile FloatingSearchBar aynı taban çizgisinde — snackbar arama çubuğunu tamamen örtüyor",
+   "status": "FIXED",
+   "note": "Doğrulandı: islemler/index.tsx:544 FloatingSearchBar ve :605 UndoSnackbar koşulsuz aynı ağaçta, snackbar zIndex 999. FloatingSearchBar'a `bottomOffset={undoSnackbar.visible ? spacing.lg + 48 + spacing.sm : spacing.lg}` verildi (prop zaten mevcuttu, ilk çağıran bu) + 48'in nereden geldiğini açıklayan yorum. Aynı çiftin ikinci örneği src/app/urunler/index.tsx'te DÜZELTİLMEDİ — o dosya hem ownedFiles dışında hem de başka session tarafından düzenleniyor."
+  }
+ ],
+ "c08": [
+  {
+   "id": 79,
+   "title": "Hesap silme formu kaydirilamiyor: klavye acilinca onay butonu kirpiliyor",
+   "status": "FIXED",
+   "note": "Dogrulandi: KAV icinde duz View vardi. ScrollView'a cevrildi (contentContainerStyle={[styles.content, {paddingBottom: contentPaddingBottom}]}, keyboardShouldPersistTaps='handled', showsVerticalScrollIndicator={false}); content stili flex:1 -> flexGrow:1; useContentBottomPadding import edildi. Kardes kalip (ayarlar/isletme.tsx) ile ayni. Neden-yorumu eklendi."
+  },
+  {
+   "id": 80,
+   "title": "Kurulum 3/3 tek kaydirilamayan kurulum ekrani; kucuk cihazda 'Simdi degil' cikisi kirpilabilir",
+   "status": "FIXED",
+   "note": "Dogrulandi. Duz View -> ScrollView; content flex:1 -> flexGrow:1 (justifyContent:'center' korundu, normal cihazda gorunum ayni), alt bosluk useContentBottomPadding() ile. Kardes uc kurulum ekraniyla ayni kalip; neden-yorumu eklendi."
+  },
+  {
+   "id": 81,
+   "title": "Elle yazilmis iki alt sheet guvenli alani yok sayiyor (sabit paddingBottom)",
+   "status": "FIXED",
+   "note": "BottomSheet'e tasimak yerine (davranis/gorunum degisirdi) dosya ici SheetBody bileseni eklendi: modal alt agacinda useSafeAreaInsets() okuyup paddingBottom = spacing.lg + insets.bottom veriyor. KRITIK: insets sayfa govdesinden okunamazdi — ModalInsets gercek (tab bar'siz) degeri yalniz Modal'in alt agacina saglıyor, sayfadan okunan deger 72px tab bar'i da icerirdi; bu yuzden ayri bilesen ve nedeni yorumla yazildi. Iki sheet de SheetBody kullaniyor; modalContent'ten sabit paddingBottom kaldirildi ve hardcoded 20 -> borderRadius['2xl'] yapildi."
+  },
+  {
+   "id": 82,
+   "title": "Ayarlar'daki sifre degistirme sifre gucu gostergesini ve zayif-sifre kapisini atliyor",
+   "status": "FIXED",
+   "note": "Fix'in ikinci secenegi uygulandi (birebir gate + gosterge). ChangePasswordModal'a tasimak DAVRANIS degistirirdi (o bilesen AuthContext.changePassword yerine dogrudan supabase.auth.updateUser cagiriyor, farkli basari akisi/pageSheet sunumu) — minimum diff ilkesi geregi tercih edilmedi. Eklenenler: passwordStrength state, validatePassword'e `else if (passwordStrength === 'weak') -> errors:auth.passwordWeak` (ChangePasswordModal.tsx:52-54 ile birebir), newPassword.length>0 iken PasswordStrengthIndicator, basari ve kapatma yollarinda strength reset. Artik zayif sifre kapisi uc yuzeyde ayni."
+  },
+  {
+   "id": 86,
+   "title": "Kullanici/davet satirlarindaki aksiyonlar 23-32px dokunma hedefi, hitSlop yok",
+   "status": "FIXED",
+   "note": "Uc TouchableOpacity'ye de hitSlop={HIT_SLOP.md} eklendi (cancelInvite, switchButton, leaveButton); HIT_SLOP import edildi. leaveButton'un 32x32 olcusu BILEREK degistirilmedi: hitSlop ile etkin hedef 52px olup 44 esigini asiyor (fix'in 'hitSlop ile 44'e tamamla' secenegi) ve boylece satir duzeni/gorunum aynen korunuyor — ayrica komsu yikici butonla ortusme alani buyutulmemis oluyor."
+  },
+  {
+   "id": 87,
+   "title": "Onboarding 'Atla' butonunun dokunma hedefi ~31px, hitSlop da yok",
+   "status": "FIXED",
+   "note": "skipButton'a hitSlop={HIT_SLOP.md} eklendi (padding degistirilmedi ki sag ust hizalama aynen kalsin); HIT_SLOP import edildi + kisa neden-yorumu."
+  },
+  {
+   "id": 88,
+   "title": "verify.tsx Screen primitifini baypas ediyor, ikizi reset-password kullaniyor",
+   "status": "FIXED",
+   "note": "Her iki dal (hata + yukleniyor) <Screen top> ile sarildi; container stilinden backgroundColor kaldirildi (Screen sagliyor), flex:1 + ortalama korundu — ikizi (auth)/reset-password.tsx:103-128 centerContainer ile ayni yapi. colors importu ActivityIndicator icin hala kullaniliyor."
+  },
+  {
+   "id": 89,
+   "title": "SECTORS dizisi kurulum.tsx ile birebir kopyalanmis (ikon + hardcoded hex renkler)",
+   "status": "FIXED",
+   "note": "Yeni tek kaynak: src/constants/sectors.ts (dizi birebir tasindi, sira/ikon/renk degismedi). kurulum.tsx ve ayarlar/isletme.tsx artik oradan import ediyor; iki dosyadaki kullanilmayan lucide ikon import'lari ve LucideIcon tipi temizlendi (isletme.tsx'te Building2 baslik ikonu icin kaldi). Renkler BILINCLI olarak ham hex birakildi: 12 aksanin yalniz 4'unun colors.ts karsiligi var (#10B981/#3B82F6/#EF4444/#6B7280), karisik kullanim listeyi okunmaz kilardi — gerekce dosyanin basindaki yorumda yazili. Gorsel degisiklik yok."
+  }
+ ],
+ "c01": [
+  {
+   "id": 0,
+   "title": "Taksit FAB'ı cam tab bar'ın ARKASINDA kalıyor (insets.bottom yok)",
+   "status": "FIXED",
+   "note": "useSafeAreaInsets eklendi; GlassFab style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}, FAB menüsü bottom = spacing.lg + insets.bottom + FAB_SIZE + spacing.md; styles.fab'tan sabit bottom kaldırıldı (notlar/index.tsx:426 kalıbı). NEDEN yorumu eklendi."
+  },
+  {
+   "id": 3,
+   "title": "Mutabakat raporunun son satırları cam tab bar'ın altında kalıyor",
+   "status": "FIXED",
+   "note": "ReportStep'e useContentBottomPadding() eklendi (erken return'den önce, en üst seviyede) ve FlashList contentContainerStyle={{ ...styles.listContent, paddingBottom: contentPaddingBottom }} yapıldı — FlashList ContentStyle dizi kabul etmediği için spread kullanıldı."
+  },
+  {
+   "id": 5,
+   "title": "Mutabakat dosya-seçme adımının alt boşluğu bar'ı temizlemiyor",
+   "status": "FIXED",
+   "note": "SelectStep'e useContentBottomPadding() eklendi, ScrollView contentContainerStyle={[styles.container, { paddingBottom: contentPaddingBottom }]}."
+  },
+  {
+   "id": 6,
+   "title": "Plan tamamen ödendiğinde taksit listesinin son satırı tab bar'ın altında kalıyor",
+   "status": "FIXED",
+   "note": "taksit/[id].tsx'e useContentBottomPadding() eklendi, FlatList contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}; koşullu footer akış dışı olduğu için çift sayım yok. Gerekçe yorumu eklendi."
+  },
+  {
+   "id": 11,
+   "title": "Mutabakat, alandaki tek ekran olarak <Screen> yerine ham <View> kullanıyor",
+   "status": "FIXED",
+   "note": "Kök <View style={styles.container}> → <Screen> (Screen '@/components/ui'den import edildi), artık kullanılmayan styles.container silindi; blokBirincil'deki elle yazılmış borderRadius: 12 → borderRadius.lg (import'a borderRadius eklendi)."
+  },
+  {
+   "id": 12,
+   "title": "Taksit detay header sağ butonu diğer detay ekranlarından farklı",
+   "status": "FIXED",
+   "note": "hitSlop={HIT_SLOP.md} (import '@/constants/spacing'), ShareIcon size 20→22, color colors.primary→colors.text — hesaplar/[id].tsx:710-715 ile aynı dil. styles.headerBtn kümem dışındaki dosyada olduğu için sadece bu üç değer hizalandı."
+  },
+  {
+   "id": 74,
+   "title": "contentPaddingBottom yanlış ScrollView'a verilmiş",
+   "status": "FIXED",
+   "note": "Yatay chip ScrollView'ün contentContainerStyle'ı yalnız styles.chipRow'a döndü; contentPaddingBottom asıl dikey ScrollView'ün contentContainerStyle'ına taşındı, kısa NEDEN yorumu eklendi."
+  },
+  {
+   "id": 75,
+   "title": "Foto-import fatura listesinin sabit alt aksiyon çubuğu bar'ın altında kalıyor",
+   "status": "FIXED",
+   "note": "useFooterBottomPadding() eklendi, footer style={[styles.footer, { paddingBottom: spacing.md + footerInset }]} (review.tsx:583 ile aynı desen). Ayrıca eslint çıktısını temizlemek için dosyadaki kullanılmayan 'Camera' import'u kaldırıldı."
+  },
+  {
+   "id": 76,
+   "title": "Veri içe aktar 'Atlananlar' sekmesi sabit alt boşluk kullanıyor",
+   "status": "FIXED",
+   "note": "SkippedTab içinde useContentBottomPadding() çağrıldı ve contentContainerStyle={[styles.skippedContent, { paddingBottom: contentPaddingBottom }]} yapıldı (prop plumbing yerine yerinde hook — daha küçük diff). dataImport/styles.ts'teki 32px görsel taban olarak bırakıldı, dosyaya dokunulmadı."
+  },
+  {
+   "id": 77,
+   "title": "Davet oluştur ekranı alt boşluk sözleşmesini hiç uygulamıyor",
+   "status": "FIXED",
+   "note": "useContentBottomPadding() eklendi, ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}; satır 123'teki tek seferlik marginBottom: spacing['3xl'] hack'i kaldırıldı."
+  },
+  {
+   "id": 85,
+   "title": "Aynı klasördeki üç kardeşten yalnız bu ekran kendi başlığını çiziyor",
+   "status": "FIXED",
+   "note": "Elle çizilen header (BackButton + ortalanmış başlık + 40px boş View) ve <Screen top> kaldırıldı; kardeşlerdeki <Stack.Screen options={{ headerShown: true, headerTitle, headerStyle surface, headerTintColor, headerShadowVisible:false }} /> kalıbına çevrildi, kök <Screen> içinde kaldı. KeyboardAvoidingView offset'i native-header ekranlarının kod tabanı standardına (insets.top + 44) hizalandı; artık ölü olan styles.header/headerCenter ve BackButton import'u silindi. Not: native header alt başlık taşımadığı için 'invites.subtitle' satırı düşmüş oldu."
+  }
+ ],
+ "c06": [
+  {
+   "id": 39,
+   "title": "UrunForm'da keyboardVerticalOffset sabit 100",
+   "status": "FIXED",
+   "note": "useSafeAreaInsets eklendi, offset `Platform.OS === 'ios' ? insets.top + 44 : 0` oldu (diger alti formla ayni). Nedenini anlatan kisa TR yorum kondu."
+  },
+  {
+   "id": 44,
+   "title": "Toplu giris/cikis urun secici modalinde alt guvenli alan yok",
+   "status": "FIXED",
+   "note": "Her iki dosyada ScrollView'a contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }} verildi; useSafeAreaInsets import edildi (Modal ModalInsets ile sarili oldugu icin gercek deger doner)."
+  },
+  {
+   "id": 45,
+   "title": "Elle yazilmis arama kutusu — ModalSearchBar baypasi",
+   "status": "FIXED",
+   "note": "toplu-giris + toplu-cikis'ta View+TextInput blogu ModalSearchBar (autoFocusDelay=300) ile degistirildi; searchBar/searchInput stilleri ve artik kullanilmayan Search ikon importu silindi. Placeholder verilmedi cunku ModalSearchBar varsayilani zaten ayni anahtar (common:search.searchPlaceholder) — davranis birebir korundu."
+  },
+  {
+   "id": 46,
+   "title": "Urun detay header butonlarinda hitSlop ve padding yok",
+   "status": "FIXED",
+   "note": "64 ile ayni bulgu; tek duzeltmeyle kapandi: headerRightContainer (gap: spacing.xs, marginRight: spacing.sm) + headerBtn (padding: spacing.xs) stilleri eklendi, iki TouchableOpacity'ye hitSlop={HIT_SLOP.md} verildi."
+  },
+  {
+   "id": 49,
+   "title": "Giris/cikis pill renkleri ham hex",
+   "status": "FIXED",
+   "note": "ProductRow.tsx pillIn/pillOut ham hex'leri colors.errorLight / colors.successLight'a cevrildi ve urun detayindaki pill'lerle ayni tona getirildi (iki dosya artik ayni palet sabitini kullaniyor). Fix'in 'colors.ts'e purchasePillBg/salePillBg semantik adlari ekle + ortak stil modulune tasi' kismi YAPILMADI: src/constants/colors.ts ve yeni bir paylasilan stil dosyasi kume disinda."
+  },
+  {
+   "id": 50,
+   "title": "QuickUrunBar ham react-native Text (RNText) kullaniyor",
+   "status": "FIXED",
+   "note": "`Text as RNText` importu kaldirildi, '@/components/ui' -> Text kullanildi, 21 kullanimin hepsi cevrildi. Mevcut style prop'lari korundu (ui Text'te style dizinin sonunda oldugu icin gorunum birebir ayni; kontrol edildi: her stil anahtari fontSize+color'i acikca veriyor). Fix'in 'sabit fontSize'lari variant'a cevir' kismi YAPILMADI: o stiller src/components/urun/QuickUrunBar/styles.ts icinde, kume disinda."
+  },
+  {
+   "id": 51,
+   "title": "Paylasilan flatListContent alt boslugu cam tab bar'i temizlemiyor",
+   "status": "SKIPPED",
+   "note": "Duzeltme iki parcali: styles.ts'ten paddingBottom'u cikar + ekranda useContentBottomPadding kullan. Ikinci parca src/app/urunler/index.tsx'i gerektiriyor; o dosya hem ownedFiles disinda hem de su anda baska bir session tarafindan duzenleniyor. Yalniz styles.ts tarafini bosaltmak, cagri yerindeki override'a bagimli kalmak demek — es zamanli duzenleme sirasinda o satir degisirse liste alt boslugu sifira duserdi. Deger su an zaten ezildigi icin gorunur bir hata yok."
+  },
+  {
+   "id": 64,
+   "title": "Urun detayi header sag butonlarinda hitSlop/padding yok",
+   "status": "FIXED",
+   "note": "46 ile ayni yer: styles.headerRightContainer + styles.headerBtn eklendi, iki butona hitSlop={HIT_SLOP.md} verildi, satir ici gap:12 kaldirildi, HIT_SLOP '@/constants/spacing'ten import edildi. Fix'in istedigi gibi disa aktarma ikonu da yesil FileSpreadsheet yerine notr Share (colors.text) ile hizalandi — dokundugu sheet (UrunExportSheet) diger uc detay sayfasindaki paylas sheet'iyle ayni islevde."
+  },
+  {
+   "id": 65,
+   "title": "Urun detayinda elle yazilmis alt-sheet menu",
+   "status": "FIXED",
+   "note": "Modal blogu DetailActionMenu ile degistirildi (duzenle / arsivle-arsivden cikar / sil; visible ve iconColor alanlariyla ayni izin ve renk davranisi korundu). modalOverlay/menuContent/menuItem/menuDivider stilleri ve artik kullanilmayan Modal importu silindi. Arsiv satirinin metin rengi artik notr (ikon renkli) — kardes sayfalarla ayni dil."
+  },
+  {
+   "id": 72,
+   "title": "Aylik ozet pill'lerinde palet disi hex renkler",
+   "status": "FIXED",
+   "note": "aylikPillIn -> colors.errorLight, aylikPillOut -> colors.successLight, aylikPillDuzeltme -> colors.warningLight, aylikPillDuzeltmeText -> colors.warningDark."
+  }
+ ],
+ "c09": [
+  {
+   "id": 9,
+   "title": "Not ekleme sheet'inin Kaydet/İptal butonları home-indicator bandına giriyor",
+   "status": "FIXED",
+   "note": "useSafeAreaInsets eklendi; container'a inline `paddingBottom: Math.max(insets.bottom, spacing.xl)` verildi (ActionSheet.tsx:296 kalıbı), StyleSheet'teki sabit paddingBottom kaldırıldı (yerine açıklama yorumu). Modal sarmalayıcısı gerçek inset sağlıyor."
+  },
+  {
+   "id": 25,
+   "title": "AccountReportCard ölü ve eski 'kutu' görsel dilinde kalmış",
+   "status": "FIXED",
+   "note": "Dosya silme yolu seçilemedi: export'u temizlemek src/components/ui/index.ts'i gerektiriyor, o dosya küme dışı ve başka session'da açık. Alternatif uygulandı: container stili IncomeSourceCard.tsx:81-87 ile birebir eşitlendi (borderRadius/marginBottom/borderWidth kaldırıldı, borderBottomWidth:1 eklendi) + aynı 'yapışık düz-liste' yorumu."
+  },
+  {
+   "id": 91,
+   "title": "Screen footer'ı klavyeye duyarsız — sözleşmenin 2. yolu 3. yolla çelişiyor",
+   "status": "FIXED",
+   "note": "Footer artık useFooterBottomPadding kullanıyor. Hook, Screen'in gövdesinde DEĞİL ayrı bir iç ScreenFooter bileşeninde çağrılıyor — Screen her ekranın kökü olduğu için klavye dinleyicisi/yeniden-render'ı footer'sız ekranlara binmesin (gerekçe yorumla yazıldı). Davranış: klavye kapalı → insets.bottom, açık → 0."
+  },
+  {
+   "id": 92,
+   "title": "Hatırlatma saat sheet'i home indicator'ı temizlemiyor",
+   "status": "FIXED",
+   "note": "useSafeAreaInsets import+çağrısı eklendi; modalContent'e inline `paddingBottom: insets.bottom + spacing.md`, StyleSheet'teki sabit spacing['2xl'] kaldırıldı. Kardeş picker'larla aynı kalıp."
+  },
+  {
+   "id": 93,
+   "title": "iOS tarih/saat modalı da sabit alt boşluk kullanıyor",
+   "status": "FIXED",
+   "note": "useSafeAreaInsets eklendi; modalContent'e inline `paddingBottom: insets.bottom + spacing.md`. Sabit spacing['2xl'] kaldırıldı. Ayrıca lint çıktısını temizlemek için kullanılmayan (önceden de ölü) `Button` importu silindi."
+  },
+  {
+   "id": 94,
+   "title": "Picker modallarının kapatma X'i 32px dokunma hedefi + hitSlop yok",
+   "status": "FIXED",
+   "note": "IconPicker, ParentCategoryPicker ve UnitPicker'ın kapatma TouchableOpacity'lerine hitSlop={HIT_SLOP.md} eklendi; HIT_SLOP üç dosyada '@/constants/spacing'ten import edildi (CurrencyPicker kalıbı)."
+  },
+  {
+   "id": 95,
+   "title": "Çan butonu header cam grubunda tek ham TouchableOpacity — hitSlop de yok",
+   "status": "FIXED",
+   "note": "Ham TouchableOpacity GlassIconButton'a çevrildi (nötr cam + GLASS_TINT_CONTROL + HIT_SLOP.sm + accessibilityRole/Label bileşenden geliyor; accessibilityLabel = transactions:scheduled.title). Rozet/urgentDot children olarak camın içinde, mutlak konumlu kaldı. İkon 24→20 yapıldı: komşu arama butonunun ikonuyla (Search size=20) aynı ölçek, 36px kapsül içinde nefes payı. Ölü kalan bellButton stili silindi."
+  },
+  {
+   "id": 96,
+   "title": "Bildirim dropdown'ının üst boşluğu sabit 44px 'safe area' varsayıyor",
+   "status": "FIXED",
+   "note": "useSafeAreaInsets eklendi; dropdown'a inline `paddingTop: insets.top + spacing.md`, StyleSheet'teki `spacing.xl + 44 // Safe area` kaldırıldı. Bileşen ui/Modal içinde olduğu için değer gerçek (override'sız)."
+  },
+  {
+   "id": 97,
+   "title": "OptionRow tüm paletini constants dışında tanımlıyor",
+   "status": "FIXED",
+   "note": "Dosya silinemedi (export src/components/ui/index.ts:31'de, o dosya küme dışı). Palete taşındı: #F5F5F7→colors.surfaceLight, #FEE2E2→colors.errorLight, #1D1D1F→colors.text, #86868B→colors.textMuted (chevron rengi dahil; kontrast 3.1:1→~4.9:1), #C7C7CC→colors.border; ölçüler borderRadius.lg/spacing.sm/spacing.lg/spacing.md/spacing.xs ve fontSize.lg. Karşılığı olmayan iki ham ölçü (paddingVertical 14, minHeight 56) bilinçli korundu — sabitlerde tam eşleşmesi yok, değiştirmek görünümü kaydırırdı."
+  },
+  {
+   "id": 100,
+   "title": "GlassFabMenuItem etiketi ham react-native Text + elle tipografi",
+   "status": "FIXED",
+   "note": "react-native Text importu kaldırılıp './Text' kullanıldı; `<Text variant=\"body\">` (fontSize.lg=16 — komşu ActionSheet optionLabel'ı da 16, 'label' variant'ı 12 ile fazla küçülürdü). menuLabel'da yalnız ölçeğe ait olmayan fark bırakıldı: fontWeight.semibold."
+  },
+  {
+   "id": 101,
+   "title": "ActionSheet ve BottomSheet ModalInsets'i iki kez sarıyor",
+   "status": "FIXED",
+   "note": "Her iki dosyadan elle <ModalInsets> sarmalaması ve importu kaldırıldı; yerindeki yorum 'ui/Modal içeriği ModalInsets ile sarar' olarak kısaltıldı. Davranış aynı (Modal.tsx:22-28 zaten sarıyor)."
+  },
+  {
+   "id": 102,
+   "title": "Beş kardeş picker modalı arasında kapanma jesti üç farklı şekilde",
+   "status": "FIXED",
+   "note": "IconPicker ve ParentCategoryPicker overlay'i UnitPicker'daki iki-katlı TouchableWithoutFeedback kalıbına çevrildi (dış: kapat, iç: dokunuşu yut) + gerekçe yorumu. TouchableWithoutFeedback importu iki dosyaya eklendi; iç blok kalıba uyacak şekilde girintilendi (whitespace)."
+  }
+ ],
+ "c07": [
+  {
+   "id": 32,
+   "title": "Kategori düzenle: 'bulunamadı' durumu yok",
+   "status": "FIXED",
+   "note": "kategoriler/duzenle/[id].tsx: `isLoading` destructure edildi; yükleniyor dalı ActivityIndicator+metin oldu, ayrı `!kategori` dalı eklendi (errors:category.notFound — anahtar tr/en'de zaten vardı) + islemler/duzenle'deki gibi 'Geri' butonu. Neden yorumu Türkçe eklendi."
+  },
+  {
+   "id": 33,
+   "title": "Düzenleme ekranlarının yükleniyor durumu üç farklı dilde",
+   "status": "FIXED",
+   "note": "Kümedeki iki düzenleme ekranı (cariler/duzenle/[id].tsx, kategoriler/duzenle/[id].tsx) islemler/duzenle kalıbına çekildi: ActivityIndicator size=large + 'Yükleniyor' metni; cariler'in notFound dalına da 'Geri' butonu eklendi. Kalan ekranlar KÜME DIŞI, dokunulmadı: hesaplar/duzenle/[id].tsx, personel/duzenle/[id].tsx, urunler/duzenle/[id].tsx, personel/toplu-gider.tsx, personel/toplu-odeme.tsx."
+  },
+  {
+   "id": 38,
+   "title": "Kategori satırındaki düzenle/sil butonları 44px altında",
+   "status": "FIXED",
+   "note": "kategoriler/index.tsx: actionButton padding spacing.sm→spacing.md (18px ikon + 2×12 ≈ 42px hedef), kategoriActions gap spacing.xs→spacing.sm. verifyNote'a uyularak hitSlop EKLENMEDİ: 4-8px aralıkta HIT_SLOP.md komşu (yıkıcı) sil butonuyla çakışırdı; gerekçe koda yorum olarak yazıldı. Fix'te ayrıca önerilen modal X'leri (islemler/duzenle, personel/ekle) küme dışı."
+  },
+  {
+   "id": 40,
+   "title": "Düzenleme formları header'ın 32px altından başlıyor",
+   "status": "FIXED",
+   "note": "cariler/duzenle/[id].tsx scrollContent.paddingTop spacing['3xl']→spacing.md, kategoriler/duzenle/[id].tsx spacing.xl→spacing.md (ekleme formlarındaki değer standart alındı, yorumla belirtildi). Küme dışı kaldı: hesaplar/duzenle, personel/duzenle, kategoriler/ekle, components/urun/UrunForm.tsx."
+  },
+  {
+   "id": 66,
+   "title": "Cari detayında başlangıç bakiyesi satırı elle yazılmış",
+   "status": "FIXED",
+   "note": "cariler/[id].tsx ListFooter'daki elle çizilen satır (44px yuvarlak ikon + variant h3 + İŞARETLİ tutar) ortak <OpeningBalanceRow> ile değiştirildi. 'boş + düzenlenebilir → Ekle CTA' davranışını korumak için OpeningBalanceRow'a opsiyonel `emptyCta` prop'u eklendi (verilmezse mevcut davranış aynı → hesap/personel etkilenmedi; personel/[id].tsx küme dışı olduğu için oraya prop geçilmedi). Ölü kalan stiller (hareketHeader/hareketIcon/hareketInfo/initialBalanceFlatRow/initialBalanceRow/editBalanceBtn/addBalanceCta) ve kullanılmayan CircleDollarSign/Plus import'ları silindi."
+  },
+  {
+   "id": 69,
+   "title": "Cari detayı ProductDetailModal'ın yerel kopyasını taşıyor",
+   "status": "FIXED",
+   "note": "cariler/[id].tsx içindeki yerel ProductDetailModal (159 satır JSX) + productDetailStyles silindi; '@/components/transaction/ProductDetailModal' import edildi (PhotoViewerModal ile aynı doğrudan-dosya üslubu) ve `t` prop'u kaldırıldı (paylaşılan bileşen kendi useTranslation'ını kullanıyor). Kullanımı kalmayan import'lar temizlendi: Package, X, Button, Modal, formatQuantity, useUrunHareketlerByIslemId."
+  },
+  {
+   "id": 71,
+   "title": "Cari özet kartı DetailSummaryCard'ın elle kopyası; 'bağlantılı' vurgusu ölü",
+   "status": "FIXED",
+   "note": "cariler/[id].tsx'teki dark* kart bloğu ortak <DetailSummaryCard> ile değiştirildi (rows dizisi ve tüm hesaplama yorumları aynen korundu; bağlantılı şerit `topStrip` prop'una taşındı). Ölü `summaryCardLinked` stili (taban kartla birebir aynı borderWidth/borderColor) ve artık kullanılmayan darkCard/darkTopRow/darkTitle*/darkBalance*/darkRow*/darkLabel/darkValue* stilleri + DARK_CARD_BG sabiti silindi. DetailSummaryCard'a `highlighted` prop'u EKLENMEDİ: mevcut görsel davranış (ayrım yalnız şeritten) korunsun, davranış değişmesin diye."
+  },
+  {
+   "id": 73,
+   "title": "contentContainerStyle'da çift paddingBottom (ilk değer ölü)",
+   "status": "FIXED",
+   "note": "cariler/[id].tsx:1547 ve hesaplar/[id].tsx:958'de ölü `{ paddingBottom: insets.bottom }` nesnesi diziden çıkarıldı; `insets` her iki dosyada FAB konumu için hâlâ kullanılıyor, import bırakıldı. personel/[id].tsx aynı kalıbı taşıyor ama KÜME DIŞI, dokunulmadı."
+  }
+ ],
+ "c05": [
+  {
+   "id": 28,
+   "title": "Toplu gider: KeyboardAvoidingView'de keyboardVerticalOffset yok",
+   "status": "FIXED",
+   "note": "Dogrulandi: toplu-gider.tsx KAV'de offset yoktu ve dosyada useSafeAreaInsets hic import edilmemisti. useSafeAreaInsets import edilip `const insets = useSafeAreaInsets()` eklendi (yerine olu `windowHeight` satiri gitti) ve KAV'e diger alti formla ayni satir verildi: keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}. Basina NEDEN yorumu konuldu (KAV frame'i ebeveyne gore olculuyor)."
+  },
+  {
+   "id": 29,
+   "title": "Toplu odeme: KeyboardAvoidingView'de keyboardVerticalOffset yok",
+   "status": "FIXED",
+   "note": "Dogrulandi: :250-253 KAV'de offset yoktu, insets zaten :30'da vardi. Ayni offset satiri + ayni NEDEN yorumu eklendi. insets sayfa govdesinde KALDI cunku artik yalniz insets.top icin kullaniliyor (alt bosluk kullanimi #37 ile modal icine tasindi)."
+  },
+  {
+   "id": 30,
+   "title": "Personel ekle: cift baslik (native header + sayfa ici h2)",
+   "status": "FIXED",
+   "note": "Dogrulandi: ScrollView'un en ustundeki <View style={styles.header}><Text variant=\"h2\">{t('staff:titles.addPersonnel')}</Text></View> kaldirildi. Ust bosluk cariler/ekle desenine gore scrollContent.paddingTop: spacing.md ile verildi; kullanilmayan styles.header silindi. Kaldirma nedeni yorumla belgelendi."
+  },
+  {
+   "id": 34,
+   "title": "Personel ekle para birimi: elle yatay kart seridi yerine CurrencyPicker",
+   "status": "FIXED",
+   "note": "Yatay ScrollView + Card seridi (eski :113-146) <CurrencyPicker value={currency} onChange={setCurrency} label={t('staff:form.currency')} /> ile degistirildi. Temizlik: Card importu -> CurrencyPicker, getLocalizedCurrencies importu ve `currencies` degiskeni kaldirildi (dosyada baska kullanimi yok, grep ile dogrulandi), currencyGrid/currencyCard/currencyCardActive/sectionTitle stilleri silindi. personel/duzenle'deki serit KAPSAM DISI birakildi (bulgu yalniz ekle.tsx'i tarif ediyor)."
+  },
+  {
+   "id": 36,
+   "title": "Tarih secici alt sayfasi guvenli alani eklemiyor ('Tamam' home indicator'in ustune biniyor)",
+   "status": "FIXED",
+   "note": "ekle.tsx ve duzenle/[id].tsx'in HER IKISINDE, iki kopya alt sayfa govdesi modul duzeyinde bir `DatePickerSheet` bilesenine alindi; insets orada, yani Modal'in ICINDE okunuyor (ModalInsets yalnizca modal agacindaki okumalari duzeltiyor) ve paddingBottom: Math.max(insets.bottom, spacing.lg) uygulaniyor. Baslik/kapat basligi ve icerik davranisi birebir korundu."
+  },
+  {
+   "id": 37,
+   "title": "Hesap secici alt sayfasinda ~72px hayalet alt bosluk",
+   "status": "FIXED",
+   "note": "Alt sayfa govdesi (overlay dahil) `HesapPickerSheet` bilesenine tasindi ve insets + windowHeight ORADA, Modal'in icinde okunuyor. Sayfa govdesindeki `windowHeight` silindi. Overlay'i de bilesenin icine aldim cunku TouchableWithoutFeedback cocuguna prop klonluyor — fonksiyon bileseni dogrudan cocuk yapilsaydi dokunma kirilirdi. NOT: ortak `useRealInsets()` hook'u onerisi UYGULANMADI (ModalInsets.tsx / ui klasoru kume disinda); ActionSheet.tsx ve CurrencyPicker.tsx'teki ayni desen de kume disi, dokunulmadi."
+  },
+  {
+   "id": 41,
+   "title": "Toplu islem footer'lari farkli zemin/cizgi kullaniyor",
+   "status": "FIXED",
+   "note": "toplu-gider.tsx ve toplu-odeme.tsx footer stilleri kardes formlarla esitlendi: borderTopWidth: 1 -> StyleSheet.hairlineWidth, backgroundColor: colors.surface -> colors.background. Yerlesim/gap/padding degistirilmedi."
+  },
+  {
+   "id": 42,
+   "title": "Tarih secici modal stilleri hardcoded hex/px + iki dosyada kopya",
+   "status": "FIXED",
+   "note": "KISMI (kume siniri): iki dosyada da pickerContainer/pickerTitle/pickerSection/pickerSectionTitle/pickerDoneButton/pickerDoneText sabitlere cevrildi (#FFFFFF -> colors.surface ve colors.white, 16/20/18/14/12/24 -> borderRadius.xl/lg, spacing.xl/lg/md/sm/xs/'2xl', fontSize.xl/md/lg). Tek kozmetik kayma: pickerDoneButton borderRadius 10 -> borderRadius.lg (12). Olu kod: toplu-gider.tsx:29 windowHeight ve artik kullanilmayan Dimensions importu kaldirildi. ORTAK DateTimeSheet bilesenine cikarma YAPILMADI — yeni paylasilan bilesen dosyasi (src/components/ui/...) gerekiyor, kume disinda."
+  },
+  {
+   "id": 62,
+   "title": "Izin gecmisinde CIFT baslik: native Stack header + sayfa ici header",
+   "status": "FIXED",
+   "note": "Dogrulandi (dosyada Stack importu yoktu). Sayfa ici header blogu kaldirildi; kardes detay sayfalarinin desenine gecildi: <Stack.Screen options={{ headerTitle, headerBackVisible: false, headerLeft: () => <BackButton size={28} />, headerRight: () => paylas butonu (yalniz kayit varken) }} />. Kullanilmayan ArrowLeft importu ve header/headerTitleContainer/headerTitle/headerSubtitle/backButton stilleri silindi, HIT_SLOP eklendi. DAVRANIS FARKI: sayfa ici baslikta ikinci satirda gosterilen personel adi native tek-satir baslikta yer bulamadigi icin dustu (bulgunun tarif ettigi blogun parcasiydi)."
+  },
+  {
+   "id": 63,
+   "title": "Izin gecmisi FAB'i hala opak disk; komsusu cam",
+   "status": "FIXED",
+   "note": "Elle yazilmis opak TouchableOpacity FAB'i GlassFab ile degistirildi (renderIcon ile Plus). fabContainer kaldirilip kardes detay sayfalariyla ayni konumlandirmaya gecildi: GlassFab bottom: spacing.lg + insets.bottom, AddNoteButton ayri absolute + 70. styles.fab personel/[id].tsx'teki gibi sadece konumlandirma (position/right/zIndex) oldu; 56/28/colors.primary/shadow/elevation blogu silindi. Cam kuralina uyuldu: opacity/activeOpacity verilmedi."
+  },
+  {
+   "id": 68,
+   "title": "Personel baslangic bakiyesi yetki kontrolu olmadan duzenlenebilir",
+   "status": "FIXED",
+   "note": "Dogrulandi: ListEmpty'de `editable` kosulsuz true idi. `const isBalanceEditable = canUpdate('personel', personel?.created_by ?? null);` turetildi (personel :233'te tanimli, canUpdate :240'ta zaten var) ve editable={isBalanceEditable} + onEdit={isBalanceEditable ? handleOpenEditBalance : undefined} gecildi; useMemo bagimlilik dizisine isBalanceEditable eklendi. hesaplar'daki islemler.length === 0 kosulu EKLENMEDI cunku ListEmpty zaten yalnizca islem yokken render ediliyor. NEDEN yorumu eklendi."
+  }
+ ],
+ "c04": [
+  {
+   "id": 13,
+   "title": "Nakit akışı özel tarih seçicisi min>max koruması yok — iOS'ta belgelenmiş çökme yolu",
+   "status": "FIXED",
+   "note": "Doğrulandı: iOS dalında minimumDate={state.customStartDate} + maximumDate={new Date()}, Android dalında da aynı; hiçbir clamp yok. Elle yazılmış iOS modal + iki Android picker bloğu tamamen silinip paylaşılan <CustomDateRangePicker startDate/endDate/onChange/locale> kullanıldı (gelir-gider ve alis-satis ile aynı desen). Bileşen endMin ile min>max'ı zaten kırpıyor. Aynı hamlede showStartPicker/showEndPicker state'leri, DateTimePicker/Modal/Pressable/Platform/Calendar/X/formatDateForDB/ensureValidDate import'ları ve customDateRow/dateSeparator/datePickerButton/pickerModal* stilleri de gitti."
+  },
+  {
+   "id": 14,
+   "title": "Donut lejandından kategori detayına `type` parametresi geçilmiyor → detay sayfası hep boş açılıyor",
+   "status": "FIXED",
+   "note": "Doğrulandı: onNavigate ikinci argüman almıyordu; WidgetProps.onNavigate imzası (route, params?) zaten destekliyor ve raporlar/index.tsx handleNavigate params'ı `...params` ile yayıyor. handleCategoryPress artık `onNavigate(`/raporlar/kategori/${kategoriId}`, { type: selectedType })` çağırıyor; başına neden'i anlatan kısa Türkçe yorum eklendi. raporlar/index.tsx'te ek değişiklik gerekmedi."
+  },
+  {
+   "id": 15,
+   "title": "Nakit akışında aşağı-çekip-yenile yok (alanın tek istisnası)",
+   "status": "FIXED",
+   "note": "ScrollView'de refreshControl yoktu (dosyada 0 geçiş). gelir-gider deseni birebir uygulandı: `const { refreshing, onRefresh } = usePullToRefresh(cashFlow.refetch);` + RefreshControl (colors + tintColor)."
+  },
+  {
+   "id": 16,
+   "title": "Nakit akışında hata durumu yok — sorgu patlayınca \"giriş yok\" yazıyor",
+   "status": "FIXED",
+   "note": "cashFlow.error hiç okunmuyordu. Skeleton dalından ÖNCE error dalı eklendi: emptyContainer içinde color=\"error\" dataLoadError metni + ghost 'Tekrar dene' butonu (cashFlow.refetch). gelir-gider.tsx:340-348 ile aynı yapı; Button import'u zaten vardı (picker modalından kalan kullanım kalktı, burada yeniden kullanılıyor)."
+  },
+  {
+   "id": 17,
+   "title": "Nakit akışında dönem etiketi tıklanamıyor — kardeş ekranlarda takvim seçici açıyor",
+   "status": "FIXED",
+   "note": "Elle yazılmış dateNav bloğu (sol ok + düz <Text> etiket + sağ ok) paylaşılan <PeriodNavigator period/periodOffset/periodLabel/setPeriodOffset/> ile değiştirildi; etiket artık basılabilir çip ve yıl/ay/gün seçici modallarını açıyor. dateNav/navBtn/dateLabel stilleri ve ChevronLeft/ChevronRight import'ları silindi."
+  },
+  {
+   "id": 18,
+   "title": "Kategori detayında aşağı-çekip-yenile üç daldan yalnız birinde var",
+   "status": "FIXED",
+   "note": "Doğrulandı: kategorisiz ve alt-kategorisiz FlatList'lerde refreshControl yoktu. Alt-kategorili daldakiyle birebir aynı prop (refreshing={refreshing} onRefresh={handleRefresh} colors=[primary] tintColor) iki FlatList'e eklendi; handleRefresh (queryClient.invalidateQueries) üç dal için de geçerli, ek state gerekmedi."
+  },
+  {
+   "id": 19,
+   "title": "Kategori detayı paylaş butonu 34px dokunma hedefi — hitSlop ve erişilebilirlik etiketi yok",
+   "status": "FIXED",
+   "note": "Doğrulandı: ham TouchableOpacity + style={{padding:6}}, hitSlop/accessibility yok. Paylaşılan <ReportExportButton onPress isExporting accessibilityLabel={t('reports:export.exportExcel')} /> ile değiştirildi (HIT_SLOP.md + accessibilityRole/Label hazır geliyor). ShareIcon import'u silindi; ActivityIndicator dosyada başka yerde (liste footer) kullanıldığı için bırakıldı."
+  },
+  {
+   "id": 20,
+   "title": "İki drill-down ekranının yükleniyor durumu farklı: birinde ActivityIndicator, ötekinde Skeleton",
+   "status": "FIXED",
+   "note": "İki loadingContainer bloğu da hesap/[id].tsx desenine çevrildi (3x SkeletonListItem). loadingContainer stili de güncellendi: eski flex:1 + center ortalaması iskelet satırlarını içeriğe daraltacağı için hesap detayındaki stateBox yerleşimi (padding: spacing.xl, gap: spacing.sm) alındı; nedeni Türkçe yorumla yazıldı."
+  },
+  {
+   "id": 21,
+   "title": "Kardeş iki raporda katlanır grup başlığı farklı görünüyor (biri zeminli kart, öteki çıplak satır)",
+   "status": "FIXED",
+   "note": "JSX'ler birebir aynıydı; yeni paylaşılan bileşen src/components/reports/CollapsibleGroupHeader.tsx (label/count/amount/collapsed/onToggle) çıkarıldı ve alis-satis'in zeminli varyantı (surfaceLight + borderRadius.sm + paddingHorizontal + textSecondary) standart alındı. gelir-gider'in groupHeader/groupHeaderLeft/groupHeaderText/groupHeaderAmount ve alis-satis'in categoryHeader* stilleri ile artık kullanılmayan ChevronUp/ChevronDown import'ları silindi. Not: components/reports/index.ts kümemde olmadığı için barrel'a export EKLENMEDİ; iki ekran da PeriodNavigator gibi doğrudan dosya yolundan import ediyor."
+  },
+  {
+   "id": 22,
+   "title": "Nakit akışı dönem okları 34px ve hitSlop'suz",
+   "status": "FIXED",
+   "note": "17 numaralı bulgunun PeriodNavigator geçişiyle kendiliğinden kapandı: oklar artık PeriodNavigator'ın hitSlop={HIT_SLOP.sm} verdiği butonlar."
+  },
+  {
+   "id": 23,
+   "title": "ReportExportButton var ama genel.tsx ve nakit-akisi onu baypas edip kopyasını yazmış (a11y etiketi kayıp)",
+   "status": "FIXED",
+   "note": "Her iki dosyada headerRight <ReportExportButton onPress isExporting accessibilityLabel={t('reports:export.exportExcel')} /> ile değiştirildi (çeviri anahtarı reports.json:212'de doğrulandı). genel.tsx'te styles.headerBtn + ölü container ile birlikte StyleSheet tamamen kalktı; TouchableOpacity/ActivityIndicator/ShareIcon/StyleSheet/HIT_SLOP import'ları silindi. nakit-akisi'nde de headerBtn stili ve ilgili import'lar gitti."
+  },
+  {
+   "id": 24,
+   "title": "Finans widget'ları ham react-native Text kullanıyor — uygulamada bunu yapan tek özellik katmanı",
+   "status": "FIXED",
+   "note": "Üç widget'ta da Text import'u '@/components/ui'a çevrildi ve her metne semantik variant/color verildi (başlık→bodySmall+secondary, toggle/KPI etiketi→label+muted, tutar→h2/h3+bold, lejand/pointer→caption). Ölçüsü variant tablosunda BİREBİR karşılanan tüm hardcoded fontSize/color anahtarları silindi (14/12/18/20 → bodySmall/caption-label/h3+bold/h2+bold); yalnız tabloda karşılığı olmayan 10/11/13px değerleri style override olarak bırakıldı — bunları 12'ye çekmek dashboard/lejand/grafik-etiketi metinlerini sessizce küçültürdü ve davranış-koruma kuralını çiğnerdi. Neden'i her üç StyleSheet'in başına Türkçe yorumla yazdım. TrendChartWidget'taki yAxisText/xAxisLabel Text'e değil grafiğe prop olarak gittiği için dokunulmadı."
+  },
+  {
+   "id": 26,
+   "title": "RefreshControl'da Android renk prop'u iki ekranda eksik → yenileme çemberi gri kalıyor",
+   "status": "FIXED",
+   "note": "hesap/[id].tsx:249 ve net-varlik-trend.tsx:146'daki RefreshControl'lara `colors={[colors.primary]}` eklendi; diğer yedi ekranla aynı."
+  },
+  {
+   "id": 27,
+   "title": "Screen geçişinden kalan ölü stiller: 11 rapor ekranında kullanılmayan `container` + eski dönem-gezgini stilleri",
+   "status": "FIXED",
+   "note": "11 dosyanın hepsinde referanssız `container` anahtarı silindi (index, genel, cari, personel, karsilastirma, gelir-gider, alis-satis, net-varlik-trend, kategori/[id], hesap/[id], nakit-akisi). cari.tsx ve personel.tsx'te StyleSheet tek anahtardan ibaretti → blok tamamen kaldırıldı, StyleSheet import'u da silindi (colors RefreshControl'da hâlâ kullanılıyor). Ayrıca gelir-gider ve alis-satis'teki ölü dateNav/navBtn/dateLabel üçlüsü ve alis-satis'teki productMeta silindi. nakit-akisi'ndeki aynı adlı stiller AKTİF'ti; PeriodNavigator geçişiyle (bulgu 17) ölüleştikleri için orada da kaldırıldılar."
+  }
+ ]
+}

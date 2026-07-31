@@ -1,11 +1,11 @@
-import { View, StyleSheet, TouchableOpacity, ScrollView, Modal, Dimensions } from 'react-native';
+import { Modal } from './Modal';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
 import { useState } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
   X,
   Check,
-  ChevronRight,
   Folder,
   FolderOpen,
   Tag,
@@ -30,7 +30,7 @@ import {
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { upperTr } from '@/lib/turkishTextUtils';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useParentKategoriler } from '@/hooks/useKategoriler';
 import { KategoriType, Kategori } from '@/types/database';
 
@@ -144,106 +144,113 @@ export function ParentCategoryPicker({
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
-            <View style={styles.modalHeader}>
-              <Text variant="h3">{t('categories:form.parentCategory')}</Text>
-              <TouchableOpacity
-                onPress={() => setModalVisible(false)}
-                style={styles.closeButton}
-              >
-                <X size={24} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.categoryGrid}
-              contentContainerStyle={styles.categoryGridContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {/* Ana Kategori (Yok) seçeneği */}
-              <TouchableOpacity
-                style={[
-                  styles.categoryItem,
-                  value === null && styles.categoryItemSelected,
-                ]}
-                onPress={() => handleSelect(null)}
-                activeOpacity={0.7}
-              >
-                <View style={[
-                  styles.categoryItemInner,
-                  { backgroundColor: value === null ? colors.primary + '20' : colors.surfaceLighter }
-                ]}>
-                  <FolderOpen size={24} color={value === null ? colors.primary : colors.textMuted} />
-                </View>
-                <Text
-                  variant="caption"
-                  color={value === null ? 'primary' : 'secondary'}
-                  numberOfLines={2}
-                  style={styles.categoryLabel}
-                >
-                  {t('categories:form.noParent')}
-                </Text>
-                {value === null && (
-                  <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
-                    <Check size={12} color={colors.white} />
-                  </View>
-                )}
-              </TouchableOpacity>
-
-              {/* Mevcut kategoriler */}
-              {availableCategories.map((category) => {
-                const isSelected = value === category.id;
-                const categoryColor = category.color || colors.primary;
-
-                return (
+        {/* Kardeş picker'larla ortak kapanma jesti: dış katman backdrop'a
+            dokununca kapatır, iç katman dokunuşu yutar (bkz. UnitPicker). */}
+        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback onPress={() => {}}>
+              <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+                <View style={styles.modalHeader}>
+                  <Text variant="h3">{t('categories:form.parentCategory')}</Text>
                   <TouchableOpacity
-                    key={category.id}
+                    onPress={() => setModalVisible(false)}
+                    style={styles.closeButton}
+                    hitSlop={HIT_SLOP.md}
+                  >
+                    <X size={24} color={colors.text} />
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView
+                  style={styles.categoryGrid}
+                  contentContainerStyle={styles.categoryGridContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {/* Ana Kategori (Yok) seçeneği */}
+                  <TouchableOpacity
                     style={[
                       styles.categoryItem,
-                      isSelected && styles.categoryItemSelected,
-                      isSelected && { borderColor: categoryColor },
+                      value === null && styles.categoryItemSelected,
                     ]}
-                    onPress={() => handleSelect(category.id)}
+                    onPress={() => handleSelect(null)}
                     activeOpacity={0.7}
                   >
                     <View style={[
                       styles.categoryItemInner,
-                      { backgroundColor: isSelected ? categoryColor + '20' : colors.surfaceLighter }
+                      { backgroundColor: value === null ? colors.primary + '20' : colors.surfaceLighter }
                     ]}>
-                      {getCategoryIcon(category)}
+                      <FolderOpen size={24} color={value === null ? colors.primary : colors.textMuted} />
                     </View>
                     <Text
                       variant="caption"
-                      color={isSelected ? 'primary' : 'secondary'}
+                      color={value === null ? 'primary' : 'secondary'}
                       numberOfLines={2}
                       style={styles.categoryLabel}
                     >
-                      {type === 'urun' ? category.name : upperTr(category.name)}
+                      {t('categories:form.noParent')}
                     </Text>
-                    {isSelected && (
-                      <View style={[styles.checkBadge, { backgroundColor: categoryColor }]}>
+                    {value === null && (
+                      <View style={[styles.checkBadge, { backgroundColor: colors.primary }]}>
                         <Check size={12} color={colors.white} />
                       </View>
                     )}
                   </TouchableOpacity>
-                );
-              })}
 
-              {availableCategories.length === 0 && !isLoading && (
-                <View style={styles.emptyState}>
-                  <Folder size={48} color={colors.textMuted} />
-                  <Text variant="body" color="secondary" style={styles.emptyText}>
-                    {t('categories:messages.noParentCategories')}
-                  </Text>
-                  <Text variant="caption" color="secondary" style={styles.emptySubtext}>
-                    {t('categories:messages.createParentFirst')}
-                  </Text>
-                </View>
-              )}
-            </ScrollView>
+                  {/* Mevcut kategoriler */}
+                  {availableCategories.map((category) => {
+                    const isSelected = value === category.id;
+                    const categoryColor = category.color || colors.primary;
+
+                    return (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[
+                          styles.categoryItem,
+                          isSelected && styles.categoryItemSelected,
+                          isSelected && { borderColor: categoryColor },
+                        ]}
+                        onPress={() => handleSelect(category.id)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[
+                          styles.categoryItemInner,
+                          { backgroundColor: isSelected ? categoryColor + '20' : colors.surfaceLighter }
+                        ]}>
+                          {getCategoryIcon(category)}
+                        </View>
+                        <Text
+                          variant="caption"
+                          color={isSelected ? 'primary' : 'secondary'}
+                          numberOfLines={2}
+                          style={styles.categoryLabel}
+                        >
+                          {type === 'urun' ? category.name : upperTr(category.name)}
+                        </Text>
+                        {isSelected && (
+                          <View style={[styles.checkBadge, { backgroundColor: categoryColor }]}>
+                            <Check size={12} color={colors.white} />
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+
+                  {availableCategories.length === 0 && !isLoading && (
+                    <View style={styles.emptyState}>
+                      <Folder size={48} color={colors.textMuted} />
+                      <Text variant="body" color="secondary" style={styles.emptyText}>
+                        {t('categories:messages.noParentCategories')}
+                      </Text>
+                      <Text variant="caption" color="secondary" style={styles.emptySubtext}>
+                        {t('categories:messages.createParentFirst')}
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </>
   );

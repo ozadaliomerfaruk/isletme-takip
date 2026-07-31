@@ -111,6 +111,7 @@ export interface AnalyticsTrend {
     expense: number;
     net: number;
   };
+  conversionIncomplete: boolean;
   isLoading: boolean;
 }
 

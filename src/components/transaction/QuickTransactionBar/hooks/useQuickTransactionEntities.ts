@@ -3,13 +3,24 @@ import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
+import { useTransactionAccountRefs } from '@/hooks/useCariPaymentAccountRefs';
+import { usePermissions } from '@/hooks/usePermissions';
+import { supportsQuickTransactionProducts } from '@/lib/productSelectionGuard';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import type {
+  QuickTransactionCreateScope,
+  QuickTransactionMinimalAccountScope,
+} from '@/lib/quickTransactionCreateScope';
 import type { TransactionType, TahsilatHedefType, HesapPickerTarget } from '../types';
 import type { CariType, Urun } from '@/types/database';
 
 interface UseQuickTransactionEntitiesOptions {
   // Mode flags
   isCariMode: boolean;
+  minimalAccountReferenceMode?: QuickTransactionMinimalAccountScope;
+  /** @deprecated minimalAccountReferenceMode kullanın. */
+  cariMinimalAccountMode?: boolean;
+  createScope?: QuickTransactionCreateScope;
   defaultCariType?: CariType;
   // Type
   type: TransactionType;
@@ -32,7 +43,7 @@ interface UseQuickTransactionEntitiesOptions {
 interface Hesap {
   id: string;
   name: string;
-  balance: number;
+  balance?: number;
   currency?: string;
   type?: string;
 }
@@ -84,6 +95,9 @@ interface UseQuickTransactionEntitiesReturn {
 
 export function useQuickTransactionEntities({
   isCariMode,
+  minimalAccountReferenceMode,
+  cariMinimalAccountMode = false,
+  createScope,
   defaultCariType,
   type,
   tahsilatHedefType,
@@ -98,12 +112,107 @@ export function useQuickTransactionEntities({
   personelSearchQuery,
   urunSearchQuery,
 }: UseQuickTransactionEntitiesOptions): UseQuickTransactionEntitiesReturn {
-  // Data hooks
-  const { data: hesaplar } = useHesaplar();
-  const { data: tedarikciCariler } = useCariler('tedarikci');
-  const { data: musteriCariler } = useCariler('musteri');
-  const { data: personelList } = usePersonelList();
-  const { data: urunler } = useUrunler();
+  const { canAccessModule } = usePermissions();
+  const accountReferenceScope =
+    minimalAccountReferenceMode
+    ?? (cariMinimalAccountMode ? 'cari' : undefined);
+  const isScopedCariCreate = createScope === 'cari';
+  const isScopedPersonelCreate = createScope === 'personel';
+  const isScopedHesapCreate = createScope === 'hesap';
+  const isCariCashType = type === 'odeme' || type === 'tahsilat';
+  const isPersonelCashType =
+    type === 'personel_odeme_tab' || type === 'personel_tahsilat_tab';
+  const isProductType = supportsQuickTransactionProducts(type);
+
+  const shouldLoadMinimalHesaplar =
+    !!accountReferenceScope
+    && canAccessModule(
+      accountReferenceScope === 'cari' ? 'cariler' : 'personel',
+    )
+    && !canAccessModule('hesaplar')
+    && (
+      (accountReferenceScope === 'cari' && isScopedCariCreate && isCariCashType)
+      || (
+        accountReferenceScope === 'personel'
+        && isScopedPersonelCreate
+        && isPersonelCashType
+      )
+    );
+  const shouldLoadFullHesaplar =
+    canAccessModule('hesaplar')
+    && (
+      !createScope
+      || isScopedHesapCreate
+      || (isScopedCariCreate && isCariCashType)
+      || (isScopedPersonelCreate && isPersonelCashType)
+    );
+  const shouldLoadTedarikciCariler =
+    canAccessModule('cariler')
+    && (
+      !createScope
+      || (isScopedCariCreate && defaultCariType === 'tedarikci')
+    );
+  const shouldLoadMusteriCariler =
+    canAccessModule('cariler')
+    && (
+      !createScope
+      || (isScopedCariCreate && defaultCariType !== 'tedarikci')
+    );
+  const shouldLoadPersonel =
+    canAccessModule('personel')
+    && (!createScope || isScopedPersonelCreate);
+  const shouldLoadUrunler =
+    canAccessModule('urunler')
+    && (
+      !createScope
+      || ((isScopedCariCreate || isScopedHesapCreate) && isProductType)
+    );
+
+  // Keep hook order stable, but enable only the entity families required by the
+  // active scoped create type. Disabled React Query results are masked below.
+  const { data: fullHesaplar } = useHesaplar(
+    false,
+    false,
+    shouldLoadFullHesaplar,
+  );
+  const { data: minimalHesaplar } = useTransactionAccountRefs(
+    accountReferenceScope ?? 'cari',
+    shouldLoadMinimalHesaplar,
+  );
+  const { data: fullTedarikciCariler } = useCariler(
+    'tedarikci',
+    false,
+    false,
+    shouldLoadTedarikciCariler,
+  );
+  const { data: fullMusteriCariler } = useCariler(
+    'musteri',
+    false,
+    false,
+    shouldLoadMusteriCariler,
+  );
+  const { data: fullPersonelList } = usePersonelList(
+    false,
+    false,
+    shouldLoadPersonel,
+  );
+  const { data: fullUrunler } = useUrunler(false, shouldLoadUrunler);
+
+  // `enabled: false` React Query cache'ini bosaltmaz. A live permission/scope
+  // downgrade must therefore cut cached values explicitly as well.
+  const hesaplar = shouldLoadMinimalHesaplar
+    ? minimalHesaplar
+    : shouldLoadFullHesaplar
+      ? fullHesaplar
+      : undefined;
+  const tedarikciCariler = shouldLoadTedarikciCariler
+    ? fullTedarikciCariler
+    : undefined;
+  const musteriCariler = shouldLoadMusteriCariler
+    ? fullMusteriCariler
+    : undefined;
+  const personelList = shouldLoadPersonel ? fullPersonelList : undefined;
+  const urunler = shouldLoadUrunler ? fullUrunler : undefined;
 
   // Check if user has any products (for showing stock button)
   const hasUrunler = useMemo(() => {

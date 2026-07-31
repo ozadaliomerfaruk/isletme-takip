@@ -4,6 +4,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle, ListPlus, Lock, Sparkles } from 'lucide-react-native';
 import { Text } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -71,6 +72,8 @@ export interface ReportStepProps {
   skippedRows: ReadonlySet<number>;
   queueTotal: number;
   onStartQueue: () => void;
+  /** Geniş işlem bağlamında yeni kayıt oluşturma yetkisi */
+  canCreateTransactions: boolean;
 }
 
 const GROUP_TITLE_KEY = {
@@ -90,14 +93,17 @@ export function ReportStep({
   sonuc, ozet, dogrulama, kirmiziDevam, cariType, cariName, currency, guncelBakiyeKurus, fileName, ekstreSatirSayisi,
   hicIslemYok, onFixBalance,
   formatDate, onShare, onRequestPrevStatement,
-  onAddRow, addedRows, skippedRows, queueTotal, onStartQueue,
+  onAddRow, addedRows, skippedRows, queueTotal, onStartQueue, canCreateTransactions,
 }: ReportStepProps) {
   const { t } = useTranslation('mutabakat');
+  // Cam tab bar bu rotada da çiziliyor; sabit 32px son satırları bar'ın altında
+  // bırakıyordu. Hook erken return'den (hicIslemYok) ÖNCE çağrılmalı.
+  const contentPaddingBottom = useContentBottomPadding();
   const [matchedOpen, setMatchedOpen] = useState(false);
   const [kilitliOpen, setKilitliOpen] = useState(false);
   // Toplu ekleme kırmızı-devam durumunda KAPALI (spec 5.3 — asıl felaket senaryosu
   // yanlış ekstre + tek tuşla 90 fatura basmak)
-  const topluKapali = kirmiziDevam;
+  const topluKapali = kirmiziDevam || !canCreateTransactions;
 
   const fmt = useCallback(
     (kurus: number) => formatCurrency(Math.abs(kurus) / 100, currency),
@@ -641,6 +647,7 @@ export function ReportStep({
             formatDate={formatDate}
             added={addedRows.has(item.item.satir.rowIndex)}
             skipped={skippedRows.has(item.item.satir.rowIndex)}
+            canCreateTransactions={canCreateTransactions}
             onPress={() => onAddRow(item.item)}
           />
         );
@@ -690,7 +697,7 @@ export function ReportStep({
           {sonuc.kapanis.onlarinAynaKurus !== null && (
             <SummaryRow label={t('summary.theirs')} value={fmtBakiye(sonuc.kapanis.onlarinAynaKurus)} />
           )}
-          {!uyumlu && !yapilamadi && (
+          {canCreateTransactions && !uyumlu && !yapilamadi && (
             <TouchableOpacity style={styles.miniDuzeltBtn} onPress={onFixBalance} accessibilityRole="button">
               <Text variant="body" bold style={{ color: colors.white }}>
                 {t('mini.duzelt')}
@@ -721,8 +728,8 @@ export function ReportStep({
       renderItem={renderItem}
       getItemType={(item) => item.kind}
       // Savunmacı: renderItem ileride useCallback'lenirse satır durumları donmasın
-      extraData={{ addedRows, skippedRows, matchedOpen, kilitliOpen }}
-      contentContainerStyle={styles.listContent}
+      extraData={{ addedRows, skippedRows, matchedOpen, kilitliOpen, canCreateTransactions }}
+      contentContainerStyle={{ ...styles.listContent, paddingBottom: contentPaddingBottom }}
     />
   );
 }

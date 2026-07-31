@@ -1,21 +1,6 @@
+import { Modal, Text } from '@/components/ui';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import {
-  View,
-  Modal,
-  Animated,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  TextInput,
-  Keyboard,
-  KeyboardEvent,
-  Alert,
-  ActivityIndicator,
-  Text as RNText,
-  Platform,
-  StyleSheet,
-  ScrollView,
-  Dimensions,
-} from 'react-native';
+import { View, Animated, TouchableOpacity, TouchableWithoutFeedback, TextInput, Keyboard, KeyboardEvent, Alert, ActivityIndicator, Platform, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -33,7 +18,7 @@ import { formatDateTimeForDB, ensureValidDate, parseDateFromDB } from '@/lib/dat
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
 
-import { formatCurrency, formatQuantity, formatAmountForInput, parseQuantity, parseCurrency } from '@/lib/currency';
+import { formatCurrency, formatQuantity, formatAmountForInput, parseQuantity, parseCurrency, formatPercent } from '@/lib/currency';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -305,6 +290,8 @@ export function QuickUrunBar({
           kdv_orani: kdvOrani,
           cari_id: selectedCariId,
           date: formatDateTimeForDB(tarih),
+          // Otomatik açıklamada birimin ÇEVİRİSİ kullanılsın (sabit "adet" değil)
+          birim: urun.birim,
         });
 
         handleDismiss();
@@ -379,12 +366,12 @@ export function QuickUrunBar({
               <Package size={20} color={colors.primary} />
             </View>
             <View style={styles.urunDetails}>
-              <RNText style={styles.urunName} numberOfLines={1}>
+              <Text style={styles.urunName} numberOfLines={1}>
                 {urun.ad}
-              </RNText>
-              <RNText style={styles.urunStock}>
+              </Text>
+              <Text style={styles.urunStock}>
                 {t('products:stock.currentStock')}: {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
-              </RNText>
+              </Text>
             </View>
           </View>
           <TouchableOpacity onPress={handleDismiss} style={styles.closeButton}>
@@ -407,7 +394,7 @@ export function QuickUrunBar({
             }}
           >
             <Calendar size={18} color={colors.textSecondary} />
-            <RNText style={styles.dateText}>{formatDateMedium(tarih)}</RNText>
+            <Text style={styles.dateText}>{formatDateMedium(tarih)}</Text>
           </TouchableOpacity>
 
           {/* Amount Input Row */}
@@ -427,7 +414,7 @@ export function QuickUrunBar({
                 onSubmitEditing={urunType === 'duzeltme' ? handleSave : undefined}
               />
             </View>
-            <RNText style={styles.unitLabel}>{getBirimLabel(urun.birim)}</RNText>
+            <Text style={styles.unitLabel}>{getBirimLabel(urun.birim)}</Text>
           </View>
 
           {/* Price Input Row (hidden for adjustment) */}
@@ -445,7 +432,7 @@ export function QuickUrunBar({
                   onSubmitEditing={handleSave}
                 />
               </View>
-              <RNText style={styles.unitLabel}>{getCurrencySymbol(currency)}</RNText>
+              <Text style={styles.unitLabel}>{getCurrencySymbol(currency)}</Text>
             </View>
           )}
 
@@ -467,7 +454,7 @@ export function QuickUrunBar({
               />
               {cariLinkEnabled && (
                 <View style={kdvStyles.row}>
-                  <RNText style={kdvStyles.label}>{t('common:currency.vat')}:</RNText>
+                  <Text style={kdvStyles.label}>{t('common:currency.vat')}:</Text>
                   {KDV_ORANLARI.map((rate) => {
                     const isActive = kdvOrani === rate;
                     const accentColor = urunType === 'giris' ? colors.primary : colors.error;
@@ -481,14 +468,14 @@ export function QuickUrunBar({
                         ]}
                         onPress={() => setKdvOrani(rate)}
                       >
-                        <RNText
+                        <Text
                           style={[
                             kdvStyles.chipText,
                             isActive && { color: accentColor, fontWeight: '700' },
                           ]}
                         >
-                          %{rate}
-                        </RNText>
+                          {formatPercent(rate)}
+                        </Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -510,9 +497,9 @@ export function QuickUrunBar({
             {isPending ? (
               <ActivityIndicator size="small" color={colors.white} />
             ) : (
-              <RNText style={styles.saveButtonText}>
+              <Text style={styles.saveButtonText}>
                 {isEditMode ? t('common:buttons.update') : t('common:buttons.save')}
-              </RNText>
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>
@@ -535,14 +522,14 @@ export function QuickUrunBar({
             }}
             activeOpacity={0.7}
           >
-            <RNText
+            <Text
               style={[
                 styles.tabText,
                 urunType === 'giris' && styles.tabTextGiris,
               ]}
             >
               {t('products:stock.stockIn')}
-            </RNText>
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -560,14 +547,14 @@ export function QuickUrunBar({
             }}
             activeOpacity={0.7}
           >
-            <RNText
+            <Text
               style={[
                 styles.tabText,
                 urunType === 'cikis' && styles.tabTextCikis,
               ]}
             >
               {t('products:stock.stockOut')}
-            </RNText>
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -582,14 +569,14 @@ export function QuickUrunBar({
             }}
             activeOpacity={0.7}
           >
-            <RNText
+            <Text
               style={[
                 styles.tabText,
                 urunType === 'duzeltme' && styles.tabTextDuzeltme,
               ]}
             >
               {t('products:stock.adjustment')}
-            </RNText>
+            </Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -601,7 +588,7 @@ export function QuickUrunBar({
             <View style={styles.datePickerBackdrop}>
               <TouchableWithoutFeedback onPress={() => {}}>
                 <View style={styles.datePickerContainer}>
-                  <RNText style={styles.datePickerTitle}>{t('common:date.date')}</RNText>
+                  <Text style={styles.datePickerTitle}>{t('common:date.date')}</Text>
                   <DateTimePickerRN
                     value={ensureValidDate(tarih)}
                     mode="date"
@@ -616,7 +603,7 @@ export function QuickUrunBar({
                     style={styles.datePickerDoneButton}
                     onPress={() => setShowDatePicker(false)}
                   >
-                    <RNText style={styles.datePickerDoneText}>{t('common:buttons.done')}</RNText>
+                    <Text style={styles.datePickerDoneText}>{t('common:buttons.done')}</Text>
                   </TouchableOpacity>
                 </View>
               </TouchableWithoutFeedback>

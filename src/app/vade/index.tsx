@@ -1,10 +1,10 @@
 import { useMemo, useCallback, useEffect, useRef } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, useLocalSearchParams, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight } from 'lucide-react-native';
-import { Text, EmptyState } from '@/components/ui';
+import { Text, EmptyState, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -33,6 +33,7 @@ const TONE_COLOR = {
 } as const;
 
 export default function VadeTakipPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['transactions', 'common', 'clients']);
   const router = useRouter();
   const { tab: tabParam } = useLocalSearchParams<{ tab?: string }>();
@@ -148,7 +149,7 @@ export default function VadeTakipPage() {
   return (
     <>
       <Stack.Screen options={{ headerTitle: t('transactions:vade.cardTitle') }} />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         {/* Satış / Alış sekmeleri (Taksit Takip ile aynı dil) */}
         <View style={styles.tabs}>
           {(['satis', 'alis'] as const).map((tabKey) => (
@@ -169,7 +170,7 @@ export default function VadeTakipPage() {
           keyExtractor={(item) => item.key}
           renderItem={renderItem}
           ItemSeparatorComponent={VadeSeparator}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           initialNumToRender={12}
           maxToRenderPerBatch={12}
           windowSize={7}
@@ -185,7 +186,7 @@ export default function VadeTakipPage() {
             )
           }
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

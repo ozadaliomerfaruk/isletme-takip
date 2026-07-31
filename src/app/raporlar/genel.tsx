@@ -1,26 +1,27 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { ScrollView, Alert, RefreshControl } from 'react-native';
 import { Stack } from 'expo-router';
-import { Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { GenelTabContent } from '@/components/reports/tabs';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useHesaplar } from '@/hooks/useHesaplar';
+import { useReportHesaplar } from '@/hooks/useHesaplar';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createConversionSum } from '@/hooks/useExchangeRates';
 import { toNumber } from '@/lib/currency';
 import { exportGenelDurumToExcel, GenelDurumExcelTranslations } from '@/lib/reportExcelExport';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
-import { HIT_SLOP } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 export default function GenelRaporPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'general' }); }, []);
   const state = useReportRouteState();
@@ -29,25 +30,35 @@ export default function GenelRaporPage() {
   const { currency: baseCurrency } = useSettings();
   const [isExporting, setIsExporting] = useState(false);
 
-  const { data: hesaplar, refetch: refetchHesaplar } = useHesaplar(false, false);
+  const {
+    data: hesaplar,
+    refetch: refetchHesaplar,
+  } = useReportHesaplar();
   const { data: exchangeRatesData, refetch: refetchRates } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
   const financialSummary = useFinancialSummary();
 
   const { refreshing, onRefresh } = usePullToRefresh(refetchHesaplar, refetchRates);
 
-  const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
-  const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
+  const normalHesaplar = useMemo(
+    () => hesaplar?.filter((hesap) => hesap.type !== 'kredi_karti') || [],
+    [hesaplar],
+  );
+  const krediKartiHesaplar = useMemo(
+    () => hesaplar?.filter((hesap) => hesap.type === 'kredi_karti') || [],
+    [hesaplar],
+  );
 
-  const convertBalance = (h: typeof normalHesaplar[0]) => {
-    const balance = toNumber(h.balance);
-    const currency = h.currency || baseCurrency;
-    if (currency === baseCurrency) return balance;
-    return convertCurrency(balance, currency, baseCurrency, exchangeRates) ?? balance;
+  // Excel'e giden toplamlar EKRANDAKİ ile aynı politikadan geçmeli (GenelTabContent):
+  // kur yoksa kalem hariç tutulur, `?? balance` ile 1:1 eklenmez.
+  const sumBalances = (list: typeof normalHesaplar) => {
+    const sum = createConversionSum(baseCurrency, exchangeRates);
+    list.forEach((h) => sum.add(toNumber(h.balance), h.currency));
+    return sum.total;
   };
 
-  const normalHesaplarToplam = normalHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
-  const krediKartiToplam = krediKartiHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
+  const normalHesaplarToplam = sumBalances(normalHesaplar);
+  const krediKartiToplam = sumBalances(krediKartiHesaplar);
 
   const handleExport = useCallback(async () => {
     if (!isletme) return;
@@ -117,23 +128,17 @@ export default function GenelRaporPage() {
           headerBackVisible: true,
           gestureEnabled: true,
           headerRight: () => (
-            <TouchableOpacity
+            <ReportExportButton
               onPress={handleExport}
-              disabled={isExporting}
-              style={styles.headerBtn}
-              hitSlop={HIT_SLOP.md}
-            >
-              {isExporting ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <ShareIcon size={22} color={colors.text} />
-              )}
-            </TouchableOpacity>
+              isExporting={isExporting}
+              accessibilityLabel={t('reports:export.exportExcel')}
+            />
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -151,17 +156,7 @@ export default function GenelRaporPage() {
             periodLabel={state.periodLabel}
           />
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  headerBtn: {
-    padding: 6,
-  },
-});

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Keyboard,
   Platform,
@@ -6,7 +6,6 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
   type KeyboardEvent,
 } from 'react-native';
 import Animated, {
@@ -15,13 +14,24 @@ import Animated, {
   withTiming,
   FadeIn,
   FadeOut,
+  ZoomIn,
+  ZoomOut,
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { Search, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize, shadows, HIT_SLOP } from '@/constants/spacing';
+import { spacing, shadows, HIT_SLOP } from '@/constants/spacing';
+import {
+  GlassSurface,
+  GlassContainer,
+  GLASS_MERGE_SPACING,
+  FALLBACK_SURFACE,
+  FLOATING_CONTROL_SIZE,
+} from './GlassSurface';
 
-const BAR_HEIGHT = 52;
+/** FAB ile ORTAK yükseklik — alt bölgedeki yüzen kontroller aynı hizada durur. */
+const BAR_HEIGHT = FLOATING_CONTROL_SIZE;
 
 /** Listelerin contentContainer paddingBottom'una eklenecek boşluk —
  *  son satır yüzen arama çubuğunun altında kalmasın. */
@@ -39,6 +49,11 @@ interface FloatingSearchBarProps {
   /** Verilirse mount'ta bu gecikmeyle (ms) input'a odaklanır — sheet açılış
    *  animasyonu bitince klavyeyi açmak için. */
   autoFocusDelay?: number;
+  /** Arama "aktif" (odak VEYA metin var) durumu değişince tetiklenir.
+   *  Sağ altta FAB olan ekranlar bunu dinleyip FAB'ı gizler: aktifken pill tam
+   *  genişliğe açılıp FAB'ın altına girer ve kapatma X'ini tamamen örter
+   *  (X ve FAB aynı boyutta, ikisi de sağda ve aynı taban çizgisinde). */
+  onActiveChange?: (active: boolean) => void;
 }
 
 /**
@@ -53,36 +68,15 @@ export function FloatingSearchBar({
   rightOffset = 0,
   bottomOffset = spacing.lg,
   autoFocusDelay,
+  onActiveChange,
 }: FloatingSearchBarProps) {
+  // Overlay tab bar'ın üstünde kal: insets.bottom (modifiedInsets ile) gerçek safe-area + tab bar
+  // yüksekliğini taşır → çubuk bar'ın arkasında kalmaz, üstünde yüzer.
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation('common');
   const inputRef = useRef<TextInput>(null);
-  const pillRef = useRef<View>(null);
   const [isFocused, setIsFocused] = useState(false);
   const translateY = useSharedValue(0);
-  // Pill'in DİNLENME (translateY=0) konumundaki alt-kenar Y'si (window coords).
-  // Yalnız kalkık DEĞİLken ölçülür → post-transform kirlenmesi olmaz; kaldırma
-  // bundan deterministik hesaplanır → birikimli ofset drift'i yok.
-  const restingBottomRef = useRef<number | null>(null);
-  // Kalkık mı? JS-thread boolean'ı — UI-thread'deki translateY.value okumaya
-  // GÜVENMEYİZ (Reanimated bunu kare-hassas JS'e yansıtmaz → yanlış "dinlenme").
-  const liftedRef = useRef(false);
-  // Bayat async ölçüm koruması: yeni klavye olayı/kapanış gelince bekleyen
-  // measureInWindow callback'i uygulanmasın (aksi halde çubuk havada asılı kalır).
-  const frameToken = useRef(0);
-
-  // Dinlenme konumunu ölç — yalnız kalkık değilken. Pill onLayout'unda (mount +
-  // rotation/layout) ve ilk olayda çağrılır; token+liftedRef ile yarış-korumalı.
-  const measureResting = useCallback(() => {
-    if (liftedRef.current) return;
-    const token = frameToken.current;
-    requestAnimationFrame(() => {
-      if (liftedRef.current || token !== frameToken.current) return;
-      pillRef.current?.measureInWindow((_x, y, _w, h) => {
-        if (liftedRef.current || token !== frameToken.current) return;
-        if (typeof y === 'number' && typeof h === 'number') restingBottomRef.current = y + h;
-      });
-    });
-  }, []);
 
   useEffect(() => {
     if (autoFocusDelay === undefined) return;
@@ -90,41 +84,30 @@ export function FloatingSearchBar({
     return () => clearTimeout(timer);
   }, [autoFocusDelay]);
 
+  // Klavye açılınca çubuğu DOĞRUDAN klavyenin üstüne kaldır — ÖLÇÜMSÜZ, drift-free:
+  // dinlenme konumu (bottomOffset + insets.bottom) BİLİNİYOR → kaldırma = klavye
+  // yüksekliğinden saf hesap. Her açılış AYNI değeri kurar, her kapanış 0 → kümülatif
+  // kayma İMKANSIZ (eski measureInWindow yaklaşımı ölçüm-zamanlamasından drift ediyordu).
   useEffect(() => {
-    // Deterministik + yarış-korumalı: applyFrame ÖLÇMEZ; kararlı restingBottom
-    // önbelleğinden translateY = TAM gereken kaldırmayı kurar. Ölçüm yalnız
-    // measureResting'de (kalkık değilken) yapılır. Her olay frameToken'ı artırır →
-    // bekleyen bayat ölçüm uygulanmaz; kapanışta liftedRef=false + translateY→0.
-    const applyFrame = (kbTop: number, duration: number) => {
-      frameToken.current++;
-      const restingBottom = restingBottomRef.current;
-      if (restingBottom == null) { measureResting(); return; } // henüz ölçülmedi
-      const overlap = restingBottom + spacing.md - kbTop;
-      const next = overlap > 0 ? -overlap : 0;
-      liftedRef.current = next < 0;
-      translateY.value = withTiming(next, { duration });
-    };
-
-    if (Platform.OS === 'ios') {
-      const sub = Keyboard.addListener('keyboardWillChangeFrame', (e: KeyboardEvent) => {
-        applyFrame(e.endCoordinates.screenY, e.duration > 0 ? e.duration : 250);
-      });
-      return () => sub.remove();
-    }
-
-    const show = Keyboard.addListener('keyboardDidShow', (e: KeyboardEvent) => {
-      applyFrame(e.endCoordinates.screenY, 150);
+    const restBottom = bottomOffset + insets.bottom;
+    const GAP = spacing.md;
+    const showEvt = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvt = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const showSub = Keyboard.addListener(showEvt, (e: KeyboardEvent) => {
+      const h = e.endCoordinates?.height ?? 0;
+      const dur = Platform.OS === 'ios' && e.duration > 0 ? e.duration : 220;
+      // Yalnız klavye dinlenme konumundan YÜKSEKse yukarı kaldır (aksi halde 0 = yerinde kal).
+      translateY.value = withTiming(Math.min(0, restBottom - h - GAP), { duration: dur });
     });
-    const hide = Keyboard.addListener('keyboardDidHide', () => {
-      frameToken.current++;       // bekleyen show ölçümünü geçersiz kıl
-      liftedRef.current = false;
-      translateY.value = withTiming(0, { duration: 150 });
+    const hideSub = Keyboard.addListener(hideEvt, (e: KeyboardEvent) => {
+      const dur = Platform.OS === 'ios' && e.duration > 0 ? e.duration : 220;
+      translateY.value = withTiming(0, { duration: dur });
     });
     return () => {
-      show.remove();
-      hide.remove();
+      showSub.remove();
+      hideSub.remove();
     };
-  }, [translateY, measureResting]);
+  }, [translateY, bottomOffset, insets.bottom]);
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateY.value }],
@@ -133,6 +116,11 @@ export function FloatingSearchBar({
   // Aktifken (odak ya da metin varken) pill tam genişliğe açılır ve sağında
   // aramayı tamamen kapatan yuvarlak X belirir (Apple Notes davranışı).
   const isActive = isFocused || value.length > 0;
+
+  // Ekranı haberdar et — FAB'lı ekranlar bu sırada FAB'ı çeker (yoksa X'in üstüne biner).
+  useEffect(() => {
+    onActiveChange?.(isActive);
+  }, [isActive, onActiveChange]);
 
   const handleDismiss = () => {
     onChangeText('');
@@ -144,61 +132,75 @@ export function FloatingSearchBar({
     <Animated.View
       style={[
         styles.wrapper,
-        { right: spacing.lg + (isActive ? 0 : rightOffset), bottom: bottomOffset },
+        { right: spacing.lg + (isActive ? 0 : rightOffset), bottom: bottomOffset + insets.bottom },
         animStyle,
       ]}
       pointerEvents="box-none"
     >
-      <View style={styles.row}>
-        <Pressable
-          ref={pillRef}
-          style={[styles.pill, isFocused && styles.pillFocused]}
-          onLayout={measureResting}
-          // Pill'in NERESİNE basılırsa basılsın arama açılır (yalnız yazı satırı değil)
-          onPress={() => inputRef.current?.focus()}
+      {/* Pill ile kapatma X'i AYNI kontrol grubu → tek GlassContainer'da eritilir
+          (Apple'ın ToolbarItemGroup dili). spacing, aradaki boşluktan (spacing.sm=8)
+          büyük seçildi ki birleşsinler; FAB farklı ağaçta olduğu için etkilenmez. */}
+      <GlassContainer spacing={GLASS_MERGE_SPACING} style={styles.row}>
+        <GlassSurface
+          style={styles.pill}
+          fallbackStyle={[styles.pillFallback, isFocused && styles.pillFallbackFocused]}
+          interactive
         >
-          <Search size={20} color={isFocused ? colors.primary : colors.textMuted} />
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            value={value}
-            onChangeText={onChangeText}
-            placeholder={placeholder ?? t('common:search.searchPlaceholder')}
-            placeholderTextColor={colors.textMuted}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            returnKeyType="search"
-          />
-          {value.length > 0 && (
-            <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
-              {/* İçerideki X: yalnızca yazılanı siler, odak korunur */}
-              <TouchableOpacity
-                onPress={() => {
-                  onChangeText('');
-                  inputRef.current?.focus();
-                }}
-                hitSlop={HIT_SLOP.sm}
-                style={styles.clearButton}
-              >
-                <X size={16} color={colors.textMuted} />
-              </TouchableOpacity>
-            </Animated.View>
-          )}
-        </Pressable>
+          <Pressable
+            style={styles.pillInner}
+            // Pill'in NERESİNE basılırsa basılsın arama açılır (yalnız yazı satırı değil)
+            onPress={() => inputRef.current?.focus()}
+          >
+            <Search size={20} color={isFocused ? colors.primary : colors.textMuted} />
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              value={value}
+              onChangeText={onChangeText}
+              placeholder={placeholder ?? t('common:search.searchPlaceholder')}
+              placeholderTextColor={colors.textMuted}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              returnKeyType="search"
+            />
+            {value.length > 0 && (
+              // Bu X cam yüzeyin TORUNU (pill'in içinde), ATASI değil — alt
+              // katmana alpha vermek cam view'in kendisini etkilemez, fade kalabilir.
+              <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
+                {/* İçerideki X: yalnızca yazılanı siler, odak korunur */}
+                <TouchableOpacity
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    onChangeText('');
+                    inputRef.current?.focus();
+                  }}
+                  hitSlop={HIT_SLOP.sm}
+                  style={styles.clearButton}
+                >
+                  <X size={16} color={colors.textMuted} />
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+          </Pressable>
+        </GlassSurface>
         {isActive && (
-          <Animated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(150)}>
+          // ZoomIn/Out (fade DEĞİL): içerideki buton cam ve cam yüzeyin atasında
+          // alpha<1 malzemeyi çökertiyor. Zoom yalnız transform sürer. Bkz. GlassSurface.
+          <Animated.View entering={ZoomIn.duration(150)} exiting={ZoomOut.duration(150)}>
             {/* Dışarıdaki X: aramayı tamamen kapatır (metin + klavye) */}
-            <TouchableOpacity
-              onPress={handleDismiss}
-              style={styles.dismissButton}
-              hitSlop={HIT_SLOP.sm}
-              accessibilityRole="button"
-            >
-              <X size={20} color={colors.text} />
-            </TouchableOpacity>
+            <GlassSurface style={styles.dismissButton} fallbackStyle={styles.dismissFallback} interactive>
+              <TouchableOpacity
+                onPress={handleDismiss}
+                style={styles.dismissInner}
+                hitSlop={HIT_SLOP.sm}
+                accessibilityRole="button"
+              >
+                <X size={22} color={colors.text} />
+              </TouchableOpacity>
+            </GlassSurface>
           </Animated.View>
         )}
-      </View>
+      </GlassContainer>
     </Animated.View>
   );
 }
@@ -213,26 +215,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  // GEOMETRİ (iki yolda da): cam kendi köşesini native çizer, RN clip yok.
   pill: {
+    flex: 1,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_HEIGHT / 2,
+  },
+  // Cam yolunda arka plan/border/gölge YOK: native rim lighting ve lensing'i
+  // perdeler, pill "yapıştırılmış sticker" gibi durur. Bunlar yalnız fallback'te.
+  pillFallback: {
+    // Yarı saydam (opak beyaz değil): altındaki liste hafifçe seziliyor.
+    // Blur EKLENMEDİ — blur `overflow: hidden` ister, o da gölgeyi yok eder.
+    backgroundColor: FALLBACK_SURFACE,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.lg,
+  },
+  pillFallbackFocused: {
+    borderColor: colors.primary,
+  },
+  // Camda odak göstergesi ÇERÇEVE DEĞİL: büyüteç ikonu yeşile döner (aşağıda,
+  // isFocused ile) — Apple'ın arama alanı da odakta çerçeve eklemez.
+  pillInner: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    height: BAR_HEIGHT,
-    borderRadius: borderRadius.full,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
     paddingHorizontal: spacing.lg,
     gap: spacing.md,
-    ...shadows.lg,
-  },
-  pillFocused: {
-    borderColor: colors.primary,
   },
   input: {
     flex: 1,
     color: colors.text,
-    fontSize: fontSize.lg,
+    // 17 = iOS gövde metni; Apple'ın arama alanı bu puntoyu kullanıyor.
+    // fontSize.lg (16) bir tık küçük kalıyordu — ölçeğe yeni bir adım eklemek
+    // yerine burada sabit, çünkü bu değer iOS'un kendi tipografisine bağlı.
+    fontSize: 17,
     paddingVertical: 0,
   },
   clearButton: {
@@ -244,14 +261,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   dismissButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
+    width: BAR_HEIGHT,
+    height: BAR_HEIGHT,
+    borderRadius: BAR_HEIGHT / 2,
+  },
+  dismissFallback: {
+    backgroundColor: FALLBACK_SURFACE,
     borderWidth: 1,
     borderColor: colors.border,
+    ...shadows.lg,
+  },
+  dismissInner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    ...shadows.lg,
   },
 });

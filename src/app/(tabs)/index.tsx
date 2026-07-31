@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Alert, Pressable, Animated, RefreshControl, ScrollView } from 'react-native';
+import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
   Wallet,
@@ -23,7 +23,7 @@ import {
   History,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader } from '@/components/ui';
+import { Text, Button, EmptyState, NotificationBell, ActionSheet, type ActionSheetOption, SkeletonAccountList, ExpandableCard, FinishSetupCard, AddEntityButton, TabHeader, TAB_HEADER_ESTIMATED_HEIGHT, GlassFab, GlassFabMenuItem, GlassContainer, GlassIconButton, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
@@ -44,19 +44,31 @@ import { useMonthSummary } from '@/hooks/useIslemler';
 import { useCashFlowByCategory } from '@/hooks/useCashFlowByCategory';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, formatConvertedHint, createConversionSum } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSetupProgress, type SetupStepKey } from '@/hooks/useSetupProgress';
 import { SharedIsletmeBanner } from '@/components/ui/SharedIsletmeBanner';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { getAllowedScopedQuickTransactionTypes } from '@/lib/quickTransactionCreateScope';
 
 export default function HomePage() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  // Yüzen FAB'ın zarfı kadar EK boşluk: FAB dip + spacing.lg'de duruyor, yani
+  // [insets.bottom + lg, insets.bottom + lg + FAB_SIZE] bandını kaplıyor. Bu
+  // boşluk olmadan sona kaydırınca son hesap satırının ⋮'ı FAB'ın altında kalıyor.
+  const contentPaddingBottom = useContentBottomPadding({ extra: FAB_SIZE + spacing.lg });
+  const handleTabScroll = useTabBarScroll();
+  const scrollRef = useRef<ScrollView>(null);
+  useRegisterScrollToTop('home', () => scrollRef.current?.scrollTo({ y: 0, animated: true }));
   const { t } = useTranslation(['navigation', 'common', 'accounts', 'transactions', 'reports', 'settings', 'clients', 'staff', 'multiUser']);
   const { getDateRangeLabel } = useDateFormat();
 
   const [isCancelling, setIsCancelling] = useState(false);
+  /** Cam header akıştan çıktığı için yer kaplamıyor → içeriğin üst boşluğu bu.
+   *  Başlangıç değeri çentiği de içerir; onHeightChange ilk layout'ta düzeltir. */
+  const [headerH, setHeaderH] = useState(insets.top + TAB_HEADER_ESTIMATED_HEIGHT);
   const [dailyCashModalVisible, setDailyCashModalVisible] = useState(false);
   const [financialModalVisible, setFinancialModalVisible] = useState(false);
 
@@ -85,15 +97,58 @@ export default function HomePage() {
   const deleteHesap = useDeleteHesap();
 
   // Permissions
-  const { canUpdate, canDelete, canAccessModule } = usePermissions();
-
-  const { isletme, cancelAccountDeletion } = useAuthContext();
+  const {
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    canCreateTransactionType,
+    isOwner,
+  } = usePermissions();
+  const canSeeAccounts = canAccessModule('hesaplar');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeeReports = canAccessModule('raporlar');
+  const accountCreateTypes = useMemo(
+    () => getAllowedScopedQuickTransactionTypes({
+      scope: 'hesap',
+      canCreateTransactionType,
+    }),
+    [canCreateTransactionType],
+  );
+  const canCreateAccountTransactions =
+    canSeeAccounts && accountCreateTypes.length > 0;
+  const canCreateCreditCardTransactions =
+    canCreateTransactionType('gider')
+    || canCreateTransactionType('transfer')
+    || canCreateTransactionType('cari_odeme')
+    || canCreateTransactionType('personel_odeme');
+  const canCreateSupplierTransactions =
+    canSeeCariler && canCreateTransactionType('cari_alis');
+  const canCreateCustomerTransactions =
+    canSeeCariler && canCreateTransactionType('cari_satis');
+  const canCreateDailyCash = canCreateTransactionType('gelir');
+  const canShowTransactionFab =
+    canCreateAccountTransactions
+    || canCreateSupplierTransactions
+    || canCreateCustomerTransactions
+    || canCreateDailyCash;
+  const canSearch =
+    canSeeAccounts ||
+    canSeeCariler ||
+    canAccessModule('personel') ||
+    canAccessModule('urunler') ||
+    canAccessModule('notlar');
+  const {
+    isletme,
+    accountDeletionScheduledAt,
+    cancelAccountDeletion,
+  } = useAuthContext();
   const { currency: baseCurrency } = useSettings();
   const { showToast } = useToast();
   const haptics = useHaptics();
 
   // Gerçek veriler - pasif hesapları da dahil et
-  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } = useHesaplar(true);
+  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } =
+    useHesaplar(true, false, canSeeAccounts);
 
   // Cariler (FAB cari işlem için) — TEK sorgu (aktif tüm cariler) çekilip tipe göre
   // bellekte ayrılır. Önceden musteri + tedarikci ayrı çekiliyordu; useFinancialSummary
@@ -101,7 +156,7 @@ export default function HomePage() {
   // useFinancialSummary ile AYNI query-key'i (undefined,false,false) paylaştığından
   // React Query otomatik dedup eder → 3 sorgu 1'e iner. (Sonuç birebir aynı: client
   // tip filtresi = sunucu .eq('type',...) aktif set üzerinde.)
-  const { data: tumCariler } = useCariler();
+  const { data: tumCariler } = useCariler(undefined, false, false, canSeeCariler);
   const musteriCariler = useMemo(
     () => (tumCariler ?? []).filter((c) => c.type === 'musteri'),
     [tumCariler],
@@ -171,6 +226,11 @@ export default function HomePage() {
   }, [hesaplar]);
 
   // Kategori toplamlarını hesapla (aktif hesaplar, dövizler ana birime çevrilir)
+  // Grup toplamları — TEK politika (createConversionSum): kuru bulunamayan bakiye
+  // HARİÇ tutulur ve bayrak kalkar. Eski hâlde aynı reducer'ın içinde iki farklı yanlış
+  // davranış vardı: kurlar yüklüyken çevrilemeyen bakiye `?? 0` ile SIFIR sayılıyor,
+  // kurlar hiç yüklenmemişse aynı bakiye 1:1 ekleniyordu. Yani 1.000 EUR'luk hesap
+  // duruma göre ya 0 ya 1.000 katkı yapıyor, kullanıcı hangisi olduğunu bilmiyordu.
   const categoryTotals = useMemo(() => {
     const totals: Record<string, number> = {
       nakit: 0,
@@ -179,22 +239,16 @@ export default function HomePage() {
       birikim: 0,
       diger: 0,
     };
+    let incomplete = false;
 
     Object.entries(groupedHesaplar).forEach(([key, accounts]) => {
-      totals[key] = accounts
-        .filter(h => h.is_active)
-        .reduce((acc, h) => {
-          const balance = toNumber(h.balance);
-          const cur = h.currency || baseCurrency;
-          if (cur === baseCurrency) return acc + balance;
-          if (exchangeRates) {
-            return acc + (convertCurrency(balance, cur, baseCurrency, exchangeRates) ?? 0);
-          }
-          return acc + balance;
-        }, 0);
+      const sum = createConversionSum(baseCurrency, exchangeRates);
+      accounts.filter(h => h.is_active).forEach(h => sum.add(toNumber(h.balance), h.currency));
+      totals[key] = sum.total;
+      if (sum.conversionIncomplete) incomplete = true;
     });
 
-    return totals;
+    return { totals, conversionIncomplete: incomplete };
   }, [groupedHesaplar, baseCurrency, exchangeRates]);
 
   // Grup başlık ve ikon tanımları
@@ -206,21 +260,27 @@ export default function HomePage() {
     diger: { label: t('accounts:typeLabels.diger'), icon: <PiggyBank size={20} color={colors.warning} /> },
   };
 
-  const { accounts, payables, receivables, generalStatus } = useFinancialSummary();
+  // conversionIncomplete ana sayfada HİÇ okunmuyordu: Raporlar ve Net Varlık Trendi
+  // uyarıyı gösterirken ana sayfanın manşet sayısı eksik olduğunu söylemiyordu.
+  const { accounts, payables, receivables, generalStatus, conversionIncomplete } =
+    useFinancialSummary(canSeeReports);
 
   // Sabit olarak bulunduğumuz ay (monthly, offset=0)
   const { startDate: currentMonthStart, endDate: currentMonthEnd, label: currentMonthLabel } = getDateRangeLabel('monthly', 0);
-  const { data: monthSummary, refetch: refetchSummary } = useMonthSummary('monthly', 0);
+  const { data: monthSummary, refetch: refetchSummary } =
+    useMonthSummary('monthly', 0, undefined, canSeeReports);
 
   // Nakit akışı hook'u
   const {
     totalInflow,
     totalOutflow,
     netCashFlow,
+    conversionIncomplete: cashFlowConversionIncomplete,
     refetch: refetchCashFlow,
   } = useCashFlowByCategory({
     startDate: currentMonthStart,
     endDate: currentMonthEnd,
+    enabled: canSeeReports,
   });
 
   // Pull-to-refresh (manuel state — arka plan refetch'te spinner gösterme)
@@ -228,18 +288,30 @@ export default function HomePage() {
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([refetchHesaplar(), refetchSummary(), refetchCashFlow()]);
+      const refreshes: Promise<unknown>[] = [];
+      if (canSeeAccounts) refreshes.push(refetchHesaplar());
+      if (canSeeReports) {
+        refreshes.push(refetchSummary(), refetchCashFlow());
+      }
+      await Promise.all(refreshes);
       haptics.success();
     } finally {
       setIsRefreshing(false);
     }
-  }, [refetchHesaplar, refetchSummary, refetchCashFlow, haptics]);
+  }, [
+    canSeeAccounts,
+    canSeeReports,
+    refetchHesaplar,
+    refetchSummary,
+    refetchCashFlow,
+    haptics,
+  ]);
 
   const totalIncome = monthSummary?.income ?? 0;
   const totalExpense = monthSummary?.expense ?? 0;
 
   // Silme planlanmış mı kontrol et
-  const scheduledDeletion = isletme?.scheduled_deletion_at;
+  const scheduledDeletion = accountDeletionScheduledAt;
   const deletionDate = scheduledDeletion ? new Date(scheduledDeletion) : null;
   const daysRemaining = deletionDate
     ? Math.ceil((deletionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
@@ -257,9 +329,15 @@ export default function HomePage() {
             setIsCancelling(true);
             try {
               await cancelAccountDeletion();
-              Alert.alert(t('common:status.success'), t('settings:account.deleteRequestCreatedMessage'));
+              Alert.alert(
+                t('common:status.success'),
+                t('settings:account.deleteRequestCancelledMessage'),
+              );
             } catch (error) {
-              Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
+              Alert.alert(
+                t('common:status.error'),
+                t('settings:messages.cancelDeletionFailed'),
+              );
             } finally {
               setIsCancelling(false);
             }
@@ -374,26 +452,22 @@ export default function HomePage() {
 
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Sabit (sticky) header — scroll dışında, üstte yapışık */}
-      <TabHeader
-        title={isletme?.name ?? t('navigation:tabs.home')}
-        onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
-        right={
-          <>
-            <TouchableOpacity onPress={() => router.push('/arama')} style={styles.headerIconBtn} hitSlop={HIT_SLOP.md}>
-              <Search size={24} color={colors.text} />
-            </TouchableOpacity>
-            <NotificationBell />
-            <AddEntityButton />
-          </>
-        }
-      />
+    // Screen'e `top` VERİLMİYOR — cam modda üst safe-area boşluğunu TabHeader
+    // kendisi taşıyor, Screen de verirse boşluk iki kez sayılır.
+    <Screen>
+      {/* Cam nav bar: header akıştan çıkıp içeriğin ÜSTÜNDE yüzüyor, sayfa onun
+          arkasından akıyor. Bu yüzden header ScrollView'dan SONRA render ediliyor
+          (üstte boyansın) ve içeriğin üst boşluğu ölçülen yüksekliğe eşitleniyor. */}
       <ScrollView
+        ref={scrollRef}
         style={styles.scrollView}
+        contentContainerStyle={{ paddingTop: headerH, paddingBottom: contentPaddingBottom }}
         showsVerticalScrollIndicator={false}
+        onScroll={handleTabScroll}
+        scrollEventThrottle={16}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />
+          // progressViewOffset: spinner cam header'ın ALTINDA belirsin, arkasında değil.
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} progressViewOffset={headerH} colors={[colors.primary]} tintColor={colors.primary} />
         }
       >
         {/* Shared İşletme Banner */}
@@ -426,39 +500,34 @@ export default function HomePage() {
         )}
 
         {/* Dashboard Carousel: Genel Durum → Gelir/Gider → Nakit Akışı */}
-        <DashboardCarousel
-          generalStatus={generalStatus}
-          assets={accounts}
-          receivables={receivables.total}
-          payables={payables.total}
-          onHeroPress={() => {
-            if (!canAccessModule('raporlar')) {
-              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
-              return;
-            }
-            router.push('/raporlar');
-          }}
-          income={totalIncome}
-          expense={totalExpense}
-          onIncomeExpensePress={() => {
-            if (!canAccessModule('raporlar')) {
-              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
-              return;
-            }
-            setFinancialModalVisible(true);
-          }}
-          totalInflow={totalInflow}
-          totalOutflow={totalOutflow}
-          netCashFlow={netCashFlow}
-          onCashFlowPress={() => {
-            if (!canAccessModule('raporlar')) {
-              Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
-              return;
-            }
-            setFinancialModalVisible(true);
-          }}
-          periodBadge={currentMonthLabel}
-        />
+        {canSeeReports && (
+          <DashboardCarousel
+            generalStatus={generalStatus}
+            assets={accounts}
+            receivables={receivables.total}
+            payables={payables.total}
+            onHeroPress={() => router.push('/raporlar')}
+            income={totalIncome}
+            expense={totalExpense}
+            onIncomeExpensePress={() => setFinancialModalVisible(true)}
+            totalInflow={totalInflow}
+            totalOutflow={totalOutflow}
+            netCashFlow={netCashFlow}
+            onCashFlowPress={() => setFinancialModalVisible(true)}
+            periodBadge={currentMonthLabel}
+          />
+        )}
+
+        {/* Kur bulunamayan bakiyeler toplamlardan hariç tutuldu — manşet sayı eksik */}
+        {((canSeeReports && (conversionIncomplete || cashFlowConversionIncomplete)) ||
+          (canSeeAccounts && categoryTotals.conversionIncomplete)) && (
+          <View style={styles.conversionWarning}>
+            <AlertTriangle size={14} color={colors.error} />
+            <Text variant="caption" color="error" style={styles.conversionWarningText}>
+              {t('reports:summary.conversionIncomplete')}
+            </Text>
+          </View>
+        )}
 
         {/* Kurulumu Bitir Kartı */}
         {setup.shouldShow && (
@@ -472,6 +541,7 @@ export default function HomePage() {
         )}
 
         {/* Hesaplar Bölümü */}
+        {canSeeAccounts && (
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text variant="h3" style={styles.sectionTitle}>{t('accounts:titles.accounts')}</Text>
@@ -507,12 +577,12 @@ export default function HomePage() {
                     <View style={{ flex: 1 }} />
                     <Text
                       variant="label"
-                      color={(categoryTotals[groupKey] || 0) >= 0 ? 'primary' : 'error'}
+                      color={(categoryTotals.totals[groupKey] || 0) >= 0 ? 'primary' : 'error'}
                       style={styles.groupTotal}
                       numberOfLines={1}
                       adjustsFontSizeToFit
                     >
-                      {formatCurrency(categoryTotals[groupKey] || 0)}
+                      {formatCurrency(categoryTotals.totals[groupKey] || 0, baseCurrency)}
                     </Text>
                   </View>
 
@@ -556,11 +626,14 @@ export default function HomePage() {
                               >
                                 {formatCurrency(toNumber(hesap.balance), hesap.currency)}
                               </Text>
-                              {hesap.currency !== baseCurrency && exchangeRates && (
-                                <Text variant="caption" color="secondary">
-                                  ~{formatCurrency(convertCurrency(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}
-                                </Text>
-                              )}
+                              {/* Kuru yoksa satır HİÇ çizilmez — eski `?? 0` sıfır olmayan
+                                  bakiyeyi "~₺0,00" gösteriyordu */}
+                              {(() => {
+                                const hint = formatConvertedHint(toNumber(hesap.balance), hesap.currency, baseCurrency, exchangeRates);
+                                return hint ? (
+                                  <Text variant="caption" color="secondary">{hint}</Text>
+                                ) : null;
+                              })()}
                             </View>
                             <TouchableOpacity
                               onPress={(e) => {
@@ -577,22 +650,26 @@ export default function HomePage() {
                         }
                       >
                         <View style={styles.actionButtons}>
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            icon={<Zap size={16} color={colors.surface} />}
-                            onPress={() => {
-                              if (hesap.type === 'kredi_karti') {
-                                setCreditCardForTransaction(hesap);
-                              } else {
-                                setSelectedHesapId(hesap.id);
-                                setHesapQuickBarVisible(true);
-                              }
-                            }}
-                            style={styles.actionButton}
-                          >
-                            {t('common:archive.actions.makeTransaction')}
-                          </Button>
+                          {(hesap.type === 'kredi_karti'
+                            ? canCreateCreditCardTransactions
+                            : canCreateAccountTransactions) && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={<Zap size={16} color={colors.surface} />}
+                              onPress={() => {
+                                if (hesap.type === 'kredi_karti') {
+                                  setCreditCardForTransaction(hesap);
+                                } else {
+                                  setSelectedHesapId(hesap.id);
+                                  setHesapQuickBarVisible(true);
+                                }
+                              }}
+                              style={styles.actionButton}
+                            >
+                              {t('common:archive.actions.makeTransaction')}
+                            </Button>
+                          )}
                           <Button
                             variant="outline"
                             size="sm"
@@ -612,10 +689,29 @@ export default function HomePage() {
             </View>
           )}
         </View>
+        )}
       </ScrollView>
 
+      <TabHeader
+        glass
+        onHeightChange={setHeaderH}
+        title={isletme?.name ?? t('navigation:tabs.home')}
+        onTitlePress={() => router.push('/ayarlar/paylasilan-isletmeler')}
+        right={
+          <>
+            {canSearch && (
+              <GlassIconButton onPress={() => router.push('/arama')} accessibilityLabel={t('common:search.search')}>
+                <Search size={20} color={colors.text} />
+              </GlassIconButton>
+            )}
+            {isOwner && <NotificationBell />}
+            <AddEntityButton />
+          </>
+        }
+      />
+
       {/* FAB Menü - Backdrop */}
-      {showFabMenu && (
+      {canShowTransactionFab && showFabMenu && (
         <Pressable style={StyleSheet.absoluteFill} onPress={closeFabMenu}>
           <Animated.View
             style={[
@@ -627,42 +723,56 @@ export default function HomePage() {
       )}
 
       {/* FAB Menü - Seçenekler (yukarı doğru açılır) */}
-      {showFabMenu && (
-        <View style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + 56 + spacing.md }]}>
+      {canShowTransactionFab && showFabMenu && (
+        <GlassContainer
+          spacing={GLASS_MERGE_SPACING}
+          style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
+        >
           {[
             {
+              visible: canCreateAccountTransactions,
+              label: t('accounts:actions.addTransaction'),
+              icon: <Zap size={18} color={colors.primary} />,
+              onPress: () => handleFabMenuOption(() => {
+                setSelectedHesapId(null);
+                setHesapQuickBarVisible(true);
+              }),
+            },
+            {
+              visible: canCreateSupplierTransactions,
               label: t('clients:types.tedarikci'),
               icon: <Truck size={18} color={colors.warning} />,
               onPress: () => handleFabMenuOption(() => {
                 setCariPickerMode('supplier');
                 setShowCariPicker(true);
               }),
-              index: 2,
             },
             {
+              visible: canCreateCustomerTransactions,
               label: t('clients:types.musteri'),
               icon: <UserCheck size={18} color={colors.success} />,
               onPress: () => handleFabMenuOption(() => {
                 setCariPickerMode('customer');
                 setShowCariPicker(true);
               }),
-              index: 1,
             },
             {
+              visible: canCreateDailyCash,
               label: t('transactions:dailyCash.enterButton'),
               icon: <Banknote size={18} color={colors.primary} />,
               onPress: () => handleFabMenuOption(() => setDailyCashModalVisible(true)),
-              index: 0,
             },
-          ].map((item) => (
+          ].filter((item) => item.visible).map((item, index) => (
             <Animated.View
               key={item.label}
               style={{
-                opacity: fabAnim,
+                // OPACITY YOK: içerideki satır cam (GlassFabMenuItem) ve cam
+                // yüzeyin atasında alpha<1 malzemeyi çökertiyor — yazı görünür,
+                // kapsül kaybolur. Geçiş yalnız transform ile. Bkz. GlassSurface.
                 transform: [{
                   translateY: fabAnim.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [20 + item.index * 10, 0],
+                    outputRange: [20 + index * 10, 0],
                   }),
                 }, {
                   scale: fabAnim.interpolate({
@@ -672,48 +782,45 @@ export default function HomePage() {
                 }],
               }}
             >
-              <TouchableOpacity
-                style={styles.fabMenuItem}
-                onPress={item.onPress}
-                activeOpacity={0.7}
-              >
-                <View style={styles.fabMenuIcon}>{item.icon}</View>
-                <Text style={styles.fabMenuLabel}>{item.label}</Text>
-              </TouchableOpacity>
+              <GlassFabMenuItem icon={item.icon} label={item.label} onPress={item.onPress} />
             </Animated.View>
           ))}
-        </View>
+        </GlassContainer>
       )}
 
       {/* FAB Button */}
-      <TouchableOpacity
+      {canShowTransactionFab && (
+      <GlassFab
         style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
         onPress={() => {
           haptics.light();
           setShowFabMenu((prev) => !prev);
         }}
-        activeOpacity={0.8}
-      >
-        <Animated.View style={{
-          transform: [{
-            rotate: fabAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: ['0deg', '45deg'],
-            }),
-          }],
-        }}>
-          <Plus size={24} color={colors.surface} />
-        </Animated.View>
-      </TouchableOpacity>
+        renderIcon={({ color, size }) => (
+          <Animated.View style={{
+            transform: [{
+              rotate: fabAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: ['0deg', '45deg'],
+              }),
+            }],
+          }}>
+            <Plus size={size} color={color} />
+          </Animated.View>
+        )}
+      />
+      )}
 
       {/* DailyCashModal */}
+      {canCreateDailyCash && (
       <DailyCashModal
         visible={dailyCashModalVisible}
         onDismiss={() => setDailyCashModalVisible(false)}
       />
+      )}
 
       {/* CreditCardTransactionBar */}
-      {creditCardForTransaction && (
+      {canCreateCreditCardTransactions && creditCardForTransaction && (
         <CreditCardTransactionBar
           visible={!!creditCardForTransaction}
           onDismiss={() => setCreditCardForTransaction(null)}
@@ -722,6 +829,7 @@ export default function HomePage() {
       )}
 
       {/* Hesap QuickTransactionBar */}
+      {canCreateAccountTransactions && (
       <QuickTransactionBar
         visible={hesapQuickBarVisible}
         onDismiss={() => {
@@ -729,13 +837,16 @@ export default function HomePage() {
           setSelectedHesapId(null);
         }}
         defaultHesapId={selectedHesapId || undefined}
+        createScope="hesap"
         onSuccess={() => {
           setHesapQuickBarVisible(false);
           setSelectedHesapId(null);
         }}
       />
+      )}
 
       {/* Hesap Action Sheet */}
+      {canSeeAccounts && (
       <ActionSheet
         visible={actionSheetVisible}
         onClose={() => {
@@ -746,8 +857,10 @@ export default function HomePage() {
         options={hesapActionSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
+      )}
 
       {/* Cari Picker (FAB'dan açılır) */}
+      {(canCreateSupplierTransactions || canCreateCustomerTransactions) && (
       <CariPickerSheet
         visible={showCariPicker}
         onDismiss={() => setShowCariPicker(false)}
@@ -756,22 +869,28 @@ export default function HomePage() {
         selectedId={null}
         mode={cariPickerMode}
       />
+      )}
 
       {/* Cari QuickTransactionBar (cari seçildikten sonra açılır) */}
+      {(canCreateSupplierTransactions || canCreateCustomerTransactions) && (
       <QuickTransactionBar
         visible={!!selectedCariForQuickBar}
         onDismiss={() => setSelectedCariForQuickBar(null)}
         defaultCariId={selectedCariForQuickBar?.id}
         defaultCariType={selectedCariForQuickBar?.type}
+        createScope="cari"
         onSuccess={() => setSelectedCariForQuickBar(null)}
       />
+      )}
 
       {/* Financial Detail Modal */}
+      {canSeeReports && (
       <FinancialDetailModal
         visible={financialModalVisible}
         onDismiss={() => setFinancialModalVisible(false)}
       />
-    </SafeAreaView>
+      )}
+    </Screen>
   );
 }
 
@@ -782,6 +901,18 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  // Raporlar > Genel'deki uyarı satırıyla aynı dil (GenelTabContent.conversionWarning)
+  conversionWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  conversionWarningText: {
+    flex: 1,
+    lineHeight: 16,
   },
   header: {
     flexDirection: 'row',
@@ -794,12 +925,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  headerIconBtn: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  // headerIconBtn → GlassIconButton'a taşındı.
   deletionWarning: {
     backgroundColor: colors.error,
     marginHorizontal: spacing.lg,
@@ -907,20 +1033,10 @@ const styles = StyleSheet.create({
   moreButton: {
     padding: spacing.xs,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
   fabMenuContainer: {
@@ -930,31 +1046,5 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     zIndex: 9,
   },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    gap: spacing.sm,
-  },
-  fabMenuIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabMenuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  // fabMenuItem / fabMenuIcon / fabMenuLabel → GlassFabMenuItem'a taşındı.
 });

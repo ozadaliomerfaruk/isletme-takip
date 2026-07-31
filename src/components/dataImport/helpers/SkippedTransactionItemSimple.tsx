@@ -1,8 +1,8 @@
 import { View } from 'react-native';
 import { AlertTriangle } from 'lucide-react-native';
 import { Text } from '@/components/ui';
+import { formatCurrency } from '@/lib/currency';
 import { colors } from '@/constants/colors';
-import i18n from '@/i18n';
 import { useTranslation } from 'react-i18next';
 import type { SkippedTransaction } from '@/hooks/useDataImport';
 import { styles } from '../styles';
@@ -45,7 +45,7 @@ export function SkippedTransactionItemSimple({ item }: { item: SkippedTransactio
           marginTop: 4,
         }}
       >
-        {transaction.isExpense ? '-' : '+'}{transaction.amount.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
+        {transaction.isExpense ? '-' : '+'}{formatCurrency(transaction.amount, transaction.currency)}
       </Text>
 
       <View style={styles.skipReasonContainer}>

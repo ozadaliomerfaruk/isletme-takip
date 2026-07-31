@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Modal, Switch, Linking } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, Switch, Linking } from 'react-native';
+import { useTabBarScroll, useRegisterScrollToTop } from '@/lib/tabBarScroll';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import {
   Receipt,
@@ -27,10 +28,11 @@ import {
   HelpCircle,
   Heart,
   CalendarClock,
+  Clock3,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { Text, Card, Avatar } from '@/components/ui';
+import { Text, Card, Avatar, Screen, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
 import { useQueryClient } from '@tanstack/react-query';
@@ -43,9 +45,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useReview } from '@/contexts/ReviewContext';
 import * as Notifications from 'expo-notifications';
-import { registerForPushNotificationsAsync, savePushToken, removePushToken } from '@/lib/notifications';
-
-const NOTIFICATIONS_ENABLED_KEY = '@defter_notifications_enabled';
+import {
+  disableNotificationsForUser,
+  NOTIFICATIONS_ENABLED_KEY,
+  registerForPushNotificationsAsync,
+  savePushToken,
+  setNotificationsEnabledPreference,
+} from '@/lib/notifications';
+import { isOwnerOrManagerRole } from '@/lib/permissionNavigation';
 
 interface MenuItemProps {
   icon: React.ReactNode;
@@ -88,9 +95,27 @@ const languageOptions: { code: SupportedLanguage; label: string }[] = [
 export default function DahaPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { signOut, user, isletme, isOwner } = useAuthContext();
+  const {
+    signOut,
+    user,
+    isletme,
+    isOwner,
+    currentUserRole,
+  } = useAuthContext();
   const { t } = useTranslation(['settings', 'common', 'navigation', 'auth', 'errors', 'multiUser', 'help', 'transactions']);
   const { canAccessModule } = usePermissions();
+  const canSeeReports = canAccessModule('raporlar');
+  const canSeeNotes = canAccessModule('notlar');
+  const canSeeArchive = canAccessModule('arsiv');
+  const canSeeTransactions = canAccessModule('islemler');
+  const canSeeCariTracking = canAccessModule('cariler');
+  const canManageCategories =
+    isOwnerOrManagerRole(isOwner, currentUserRole);
+  const showTransactionSection =
+    canSeeTransactions
+    || canSeeCariTracking
+    || canSeeReports
+    || canSeeNotes;
   const { openWriteReview } = useReview();
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [currencyModalVisible, setCurrencyModalVisible] = useState(false);
@@ -114,6 +139,10 @@ export default function DahaPage() {
   };
 
   const handleCurrencyChange = async (currencyCode: CurrencyCode) => {
+    if (!isOwner) {
+      setCurrencyModalVisible(false);
+      return;
+    }
     await setCurrency(currencyCode);
     // Invalidate all queries so dashboard and other screens re-render with new currency
     queryClient.invalidateQueries();
@@ -141,6 +170,9 @@ export default function DahaPage() {
   // pushGranted: OS bildirim izni verili mi (push'un ve iOS "Bildirimler" satırının ön koşulu)
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [pushGranted, setPushGranted] = useState(false);
+  const [notificationToggleBusy, setNotificationToggleBusy] =
+    useState(false);
+  const notificationToggleBusyRef = useRef(false);
 
   useEffect(() => {
     AsyncStorage.getItem(NOTIFICATIONS_ENABLED_KEY).then((val) => {
@@ -157,14 +189,24 @@ export default function DahaPage() {
   // İSTEYEBİLİR (sonra iOS "Bildirimler" satırı kalıcı belirir, kullanıcı oradan yönetir).
   // İzin reddedilmişse uygulamadan tekrar sorulamaz → iOS Ayarlar'a yönlendiririz.
   const handleNotificationToggle = async (value: boolean) => {
-    if (value) {
+    if (notificationToggleBusyRef.current) return;
+    notificationToggleBusyRef.current = true;
+    setNotificationToggleBusy(true);
+
+    try {
+      if (value) {
       // AÇ: OS iznini iste/sağla + push token'ı kaydet
+      await setNotificationsEnabledPreference(true);
       const token = await registerForPushNotificationsAsync({ promptIfNeeded: true });
       if (token) {
-        if (user) await savePushToken(user.id, token);
+        const saved = user ? await savePushToken(user.id, token) : false;
+        if (!saved) {
+          await disableNotificationsForUser(user?.id ?? null);
+          setNotificationsEnabled(false);
+          return;
+        }
         setPushGranted(true);
         setNotificationsEnabled(true);
-        await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'true');
         return;
       }
       // Token alınamadı (izin yok / fiziksel cihaz değil) → nedenini kontrol et
@@ -174,7 +216,7 @@ export default function DahaPage() {
       } catch { /* sessiz geç */ }
       setPushGranted(false);
       setNotificationsEnabled(false);
-      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'false');
+      await setNotificationsEnabledPreference(false);
       if (status === 'denied') {
         Alert.alert(
           t('settings:notifications.permissionTitle'),
@@ -185,11 +227,14 @@ export default function DahaPage() {
           ]
         );
       }
-    } else {
+      } else {
       // KAPAT: yerel hatırlatmaları durdur + push token'ı sil (bildirim gelmesin)
       setNotificationsEnabled(false);
-      await AsyncStorage.setItem(NOTIFICATIONS_ENABLED_KEY, 'false');
-      if (user) await removePushToken(user.id);
+        await disableNotificationsForUser(user?.id ?? null);
+      }
+    } finally {
+      notificationToggleBusyRef.current = false;
+      setNotificationToggleBusy(false);
     }
   };
 
@@ -220,49 +265,84 @@ export default function DahaPage() {
   const businessName = isletme?.name || t('common:appName');
   const userEmail = user?.email || '';
 
+  const insets = useSafeAreaInsets();
+  const handleTabScroll = useTabBarScroll();
+  const scrollRef = useRef<ScrollView>(null);
+  useRegisterScrollToTop('daha', () => scrollRef.current?.scrollTo({ y: 0, animated: true }));
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <Screen top>
+      <ScrollView ref={scrollRef} style={styles.scrollView} contentContainerStyle={{ paddingBottom: insets.bottom }} showsVerticalScrollIndicator={false} onScroll={handleTabScroll} scrollEventThrottle={16}>
         <SharedIsletmeBanner />
         {/* Profile Card */}
         <View style={styles.profileSection}>
-          <TouchableOpacity
-            style={styles.profileCard}
-            onPress={() => router.push('/ayarlar/isletme')}
-            activeOpacity={0.7}
-          >
-            <Avatar name={businessName} size={48} />
-            <View style={styles.profileInfo}>
-              <Text variant="h3" numberOfLines={1}>{businessName}</Text>
-              {userEmail ? (
-                <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
-              ) : null}
+          {isOwner ? (
+            <TouchableOpacity
+              style={styles.profileCard}
+              onPress={() => router.push('/ayarlar/isletme')}
+              activeOpacity={0.7}
+            >
+              <Avatar name={businessName} size={48} />
+              <View style={styles.profileInfo}>
+                <Text variant="h3" numberOfLines={1}>{businessName}</Text>
+                {userEmail ? (
+                  <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
+                ) : null}
+              </View>
+              <ChevronRight size={20} color={colors.textMuted} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.profileCard}>
+              <Avatar name={businessName} size={48} />
+              <View style={styles.profileInfo}>
+                <Text variant="h3" numberOfLines={1}>{businessName}</Text>
+                {userEmail ? (
+                  <Text variant="caption" color="muted" numberOfLines={1}>{userEmail}</Text>
+                ) : null}
+              </View>
             </View>
-            <ChevronRight size={20} color={colors.textMuted} />
-          </TouchableOpacity>
+          )}
         </View>
 
         {/* İşlemler & Raporlar */}
+        {showTransactionSection && (
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
             {t('settings:sections.transactionsReports')}
           </Text>
           <Card padding="none">
-            <MenuItem
-              icon={<Receipt size={22} color={colors.primary} />}
-              label={t('navigation:menu.allTransactions')}
-              onPress={() => router.push('/islemler')}
-            />
-            <View style={styles.divider} />
-            {/* Faz 3: Taksit Takip */}
-            <MenuItem
-              icon={<CalendarClock size={22} color={colors.orange} />}
-              label={t('transactions:taksit.title')}
-              onPress={() => router.push('/taksit' as Href)}
-            />
-            {canAccessModule('raporlar') && (
+            {canSeeTransactions && (
               <>
+                <MenuItem
+                  icon={<Receipt size={22} color={colors.primary} />}
+                  label={t('navigation:menu.allTransactions')}
+                  onPress={() => router.push('/islemler')}
+                />
+              </>
+            )}
+            {canSeeTransactions && canSeeCariTracking && (
+              <View style={styles.divider} />
+            )}
+            {canSeeCariTracking && (
+              <>
+                <MenuItem
+                  icon={<CalendarClock size={22} color={colors.orange} />}
+                  label={t('transactions:taksit.title')}
+                  onPress={() => router.push('/taksit' as Href)}
+                />
                 <View style={styles.divider} />
+                <MenuItem
+                  icon={<Clock3 size={22} color={colors.warning} />}
+                  label={t('transactions:vade.cardTitle')}
+                  onPress={() => router.push('/vade' as Href)}
+                />
+              </>
+            )}
+            {canSeeReports && (
+              <>
+                {(canSeeTransactions || canSeeCariTracking) && (
+                  <View style={styles.divider} />
+                )}
                 <MenuItem
                   icon={<BarChart3 size={22} color={colors.info} />}
                   label={t('navigation:menu.reports')}
@@ -270,9 +350,11 @@ export default function DahaPage() {
                 />
               </>
             )}
-            {canAccessModule('notlar') && (
+            {canSeeNotes && (
               <>
-                <View style={styles.divider} />
+                {(canSeeTransactions || canSeeCariTracking || canSeeReports) && (
+                  <View style={styles.divider} />
+                )}
                 <MenuItem
                   icon={<StickyNote size={22} color={colors.warning} />}
                   label={t('navigation:menu.notes')}
@@ -282,21 +364,25 @@ export default function DahaPage() {
             )}
           </Card>
         </View>
+        )}
 
         {/* Ayarlar */}
+        {(canManageCategories || isOwner || canSeeArchive) && (
         <View style={styles.section}>
           <Text variant="label" color="secondary" style={styles.sectionTitle}>
             {t('settings:titles.settings').toUpperCase()}
           </Text>
           <Card padding="none">
-            <MenuItem
-              icon={<Tag size={22} color={colors.success} />}
-              label={t('navigation:menu.categories')}
-              onPress={() => router.push('/kategoriler')}
-            />
+            {canManageCategories && (
+              <MenuItem
+                icon={<Tag size={22} color={colors.success} />}
+                label={t('navigation:menu.categories')}
+                onPress={() => router.push('/kategoriler')}
+              />
+            )}
             {isOwner && (
               <>
-                <View style={styles.divider} />
+                {canManageCategories && <View style={styles.divider} />}
                 <MenuItem
                   icon={<Upload size={22} color={colors.primary} />}
                   label={t('navigation:menu.importData')}
@@ -304,14 +390,21 @@ export default function DahaPage() {
                 />
               </>
             )}
-            <View style={styles.divider} />
-            <MenuItem
-              icon={<Archive size={22} color={colors.textSecondary} />}
-              label={t('common:archive.title')}
-              onPress={() => router.push('/arsiv' as Href)}
-            />
+            {canSeeArchive && (
+              <>
+                {(canManageCategories || isOwner) && (
+                  <View style={styles.divider} />
+                )}
+                <MenuItem
+                  icon={<Archive size={22} color={colors.textSecondary} />}
+                  label={t('common:archive.title')}
+                  onPress={() => router.push('/arsiv' as Href)}
+                />
+              </>
+            )}
           </Card>
         </View>
+        )}
 
         {/* Çoklu Kullanıcı */}
         <View style={styles.section}>
@@ -350,13 +443,17 @@ export default function DahaPage() {
               onPress={() => setLanguageModalVisible(true)}
             />
             <View style={styles.divider} />
-            <MenuItem
-              icon={<Coins size={22} color={colors.success} />}
-              label={t('settings:currency.title')}
-              subtitle={t(`settings:currency.${currency}`)}
-              onPress={() => setCurrencyModalVisible(true)}
-            />
-            <View style={styles.divider} />
+            {isOwner && (
+              <>
+                <MenuItem
+                  icon={<Coins size={22} color={colors.success} />}
+                  label={t('settings:currency.title')}
+                  subtitle={t(`settings:currency.${currency}`)}
+                  onPress={() => setCurrencyModalVisible(true)}
+                />
+                <View style={styles.divider} />
+              </>
+            )}
             <View style={styles.menuItem}>
               <View style={styles.menuIcon}>
                 <Bell size={22} color={colors.primary} />
@@ -372,6 +469,7 @@ export default function DahaPage() {
               <Switch
                 value={pushGranted && notificationsEnabled}
                 onValueChange={handleNotificationToggle}
+                disabled={notificationToggleBusy}
                 trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={colors.white}
               />
@@ -428,7 +526,7 @@ export default function DahaPage() {
             <View style={styles.divider} />
             <MenuItem
               icon={<ScrollText size={22} color={colors.textSecondary} />}
-              label={t('navigation:menu.kvkk')}
+              label={t('navigation:menu.privacyNotice')}
               onPress={() => router.push('/yasal/kvkk')}
             />
           </Card>
@@ -476,7 +574,9 @@ export default function DahaPage() {
           activeOpacity={1}
           onPress={() => setLanguageModalVisible(false)}
         >
-          <View style={styles.modalContent}>
+          {/* Kart backdrop'un çocuğu — responder'ı burada yakalamazsak karta yapılan
+              dokunuş ebeveyne bubble edip modalı kapatıyor (bkz. arama.tsx:877) */}
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
               <Text variant="h3">{t('settings:language.selectLanguage')}</Text>
               <TouchableOpacity onPress={() => setLanguageModalVisible(false)}>
@@ -508,6 +608,7 @@ export default function DahaPage() {
       </Modal>
 
       {/* Currency Selection Modal */}
+      {isOwner && (
       <Modal
         visible={currencyModalVisible}
         transparent
@@ -519,7 +620,8 @@ export default function DahaPage() {
           activeOpacity={1}
           onPress={() => setCurrencyModalVisible(false)}
         >
-          <View style={styles.modalContent}>
+          {/* Aynı gerekçe: kart dokunuşu backdrop'a sızıp modalı kapatmasın */}
+          <View style={styles.modalContent} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
               <Text variant="h3">{t('settings:currency.selectCurrency')}</Text>
               <TouchableOpacity onPress={() => setCurrencyModalVisible(false)}>
@@ -549,8 +651,9 @@ export default function DahaPage() {
           </View>
         </TouchableOpacity>
       </Modal>
+      )}
 
-    </SafeAreaView>
+    </Screen>
   );
 }
 

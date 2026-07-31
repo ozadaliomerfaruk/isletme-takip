@@ -40,7 +40,7 @@
     "intro": "Shows your business's net worth (all assets − debts) as of each month-end, so you can see at a glance whether you're growing over time.",
     "introTabs": "Use the tabs to view the same net worth through a different lens: inflation-adjusted (real), US dollars, euros, or grams of gold.",
     "lensDesc": {
-      "nominal": "The plain amount in Turkish lira.",
+      "nominal": "The plain amount in your main currency.",
       "reel": "Inflation-adjusted: real purchasing power in today's lira. Even if the number stays the same, its buying power may have changed.",
       "usd": "How many US dollars your net worth is worth (at that month's rate).",
       "eur": "How many euros your net worth is worth (at that month's rate).",
@@ -56,7 +56,7 @@
     "dragHint": "Press & drag",
     "today": "today",
     "monthEnd": "month end",
-    "lensNominal": "Nominal ₺",
+    "lensNominal": "Nominal {{ccy}}",
     "lensReal": "Real ₺",
     "lensGold": "Gold (g)",
     "shortNominal": "Nominal",
@@ -83,14 +83,14 @@
     "sparseNote": "Records are sparse in the earliest months; these values are reconstructed backward from today (derived).",
     "conversionIncomplete": "Exchange rates could not be loaded; balances without a rate were excluded. Values may be incomplete.",
     "updating": "Updating…",
-    "footnote": "Past months are recalculated backward from today's records. Balances of inactive/archived contacts, personnel and accounts, as well as inventory/fixed-asset value, are NOT included in net worth; only the cash effect of payments/collections to them is counted. Deleted transactions and undated openings may not reflect exactly in history. Today's value matches your current net worth exactly.",
+    "footnote": "Past months are recalculated backward from today's records. Balances of inactive/archived contacts, personnel and accounts, as well as inventory/fixed-asset value, are NOT included in net worth; only the cash effect of payments/collections to them is counted. Deleted transactions and undated openings may not reflect exactly in history. Today's value matches your current net worth exactly. The monthly CHANGE follows the same rule: transactions of passive/archived contacts, staff and accounts are excluded — so a month's change can differ from the same month in the Income-Expense report (that report includes archived records).",
     "footnoteFx": "Inflation, USD, EUR and gold data come from the Turkish Central Bank (TCMB / EVDS); each month uses its own period rate."
   },
   "tabs": {
     "general": "General",
     "expenseAnalysis": "Expense",
     "incomeAnalysis": "Income",
-    "client": "Client",
+    "client": "Contact",
     "personnel": "Staff",
     "comparison": "Compare",
     "summary": "Summary",
@@ -98,9 +98,9 @@
   },
   "summary": {
     "generalStatus": "General Status",
-    "conversionIncomplete": "Exchange rates unavailable; some foreign-currency balances were excluded from totals.",
-    "netValue": "Net Value",
-    "netAssets": "Net Assets",
+    "conversionIncomplete": "Some foreign-currency amounts could not be converted; displayed totals may be incomplete or approximate.",
+    "netValue": "Net Worth",
+    "netAssets": "Total Assets",
     "assets": "Assets",
     "liabilities": "Liabilities",
     "receivables": "Receivables",
@@ -118,12 +118,13 @@
     "totalAmount": "Total Amount",
     "transactionCount": "Transaction Count",
     "totalPersonnelDebt": "Staff Debt",
-    "personnelReceivables": "Staff Receivables"
+    "personnelReceivables": "Staff Receivables",
+    "currentRateNote": "Foreign-currency amounts are converted at TODAY's rate; past periods do not use the rate of that day."
   },
   "sections": {
     "accountBalances": "ACCOUNT BALANCES",
     "creditCardBalances": "CREDIT CARD BALANCES",
-    "clientStatus": "CLIENT STATUS",
+    "clientStatus": "CONTACT STATUS",
     "personnelStatus": "STAFF STATUS",
     "categoryDistribution": "CATEGORY DISTRIBUTION",
     "categoryFilter": "CATEGORY FILTER",
@@ -136,7 +137,17 @@
     "creditCard": "{{count}} Credit Cards",
     "client": "{{count}} Contacts",
     "personnel": "{{count}} Staff",
-    "transaction": "{{count}} transactions"
+    "transaction": "{{count}} transactions",
+    "transaction_one": "{{count}} transaction",
+    "transaction_other": "{{count}} transactions",
+    "account_one": "{{count}} Account",
+    "account_other": "{{count}} Accounts",
+    "creditCard_one": "{{count}} Credit Card",
+    "creditCard_other": "{{count}} Credit Cards",
+    "client_one": "{{count}} Contact",
+    "client_other": "{{count}} Contacts",
+    "personnel_one": "{{count}} Staff Member",
+    "personnel_other": "{{count}} Staff"
   },
   "period": {
     "daily": "Daily",
@@ -144,7 +155,7 @@
     "monthly": "Monthly",
     "yearly": "Yearly",
     "custom": "Custom",
-    "instant": "Instant",
+    "instant": "Current",
     "total": "Total",
     "selectPeriod": "Select Period",
     "selectYear": "Select Year",
@@ -155,7 +166,20 @@
     "startDateTitle": "Start Date",
     "endDateTitle": "End Date"
   },
-  "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  "months": [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December"
+  ],
   "categoryDetail": {
     "direct": "(direct)",
     "transactionWithSubcategories": "{{count}} transactions ({{subcategories}} subcategories)",
@@ -204,7 +228,7 @@
     "expense": "Expense",
     "byCategory": "By Category",
     "byAccount": "By Account",
-    "byClient": "By Client"
+    "byClient": "By Contact"
   },
   "export": {
     "export": "Export",
@@ -263,7 +287,7 @@
     "period": "Period"
   },
   "entityPicker": {
-    "selectClient": "Select Client",
+    "selectClient": "Select Contact",
     "selectStaff": "Select Staff",
     "selected": "Selected",
     "viewAll": "View all",

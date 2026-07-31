@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatPercent, signedCurrencyText } from '@/lib/currency';
 import { useSettings } from '@/hooks/useSettings';
 import type { IncomeSourceItem } from '@/hooks/useAccountReport';
 
@@ -52,17 +52,20 @@ export function IncomeSourceCard({ item, onPress }: IncomeSourceCardProps) {
 
         <View style={styles.rightSection}>
           <View style={styles.amountContainer}>
-            <Text color="success" style={styles.amount}>
-              {formatCurrency(item.totalNative, item.currency)}
+            {/* Net NEGATİF olabilir (iade > satış). formatCurrency işareti düşürdüğü
+                ve renk sabit "success" olduğu için böyle bir kaynak hem artı hem
+                YEŞİL görünüyordu — yani zarar kâr gibi okunuyordu. */}
+            <Text color={item.totalNative < 0 ? 'error' : 'success'} style={styles.amount}>
+              {signedCurrencyText(item.totalNative, item.currency)}
             </Text>
             {showBase && (
               <Text variant="caption" color="secondary" style={styles.baseAmount}>
-                ≈ {formatCurrency(item.total, baseCurrency)}
+                ≈ {signedCurrencyText(item.total, baseCurrency)}
               </Text>
             )}
             <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
               <Text style={[styles.percentageText, { color: barColor }]}>
-                %{(item.percentage ?? 0).toFixed(1)}
+                {formatPercent(item.percentage ?? 0, 1)}
               </Text>
             </View>
           </View>

@@ -1,8 +1,8 @@
 import { View } from 'react-native';
 import { Tag } from 'lucide-react-native';
 import { Text } from '@/components/ui';
+import { formatCurrency } from '@/lib/currency';
 import { colors } from '@/constants/colors';
-import i18n from '@/i18n';
 import type { ParsedTransaction } from '@/lib/excelImport';
 import { styles } from '../styles';
 
@@ -42,7 +42,7 @@ export function TransactionItem({ transaction }: { transaction: ParsedTransactio
           fontWeight: '600',
         }}
       >
-        {transaction.isExpense ? '-' : '+'}{transaction.amount.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
+        {transaction.isExpense ? '-' : '+'}{formatCurrency(transaction.amount, transaction.currency)}
       </Text>
     </View>
   );

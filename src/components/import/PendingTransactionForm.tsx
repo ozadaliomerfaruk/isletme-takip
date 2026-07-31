@@ -12,18 +12,7 @@
  */
 
 import React, { useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Animated,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Platform,
-  ScrollView,
-  Dimensions,
-} from 'react-native';
+import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, ScrollView, Dimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Calendar,
@@ -41,7 +30,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 
-import { Text, CategoryPicker } from '@/components/ui';
+import { Text, CategoryPicker, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';

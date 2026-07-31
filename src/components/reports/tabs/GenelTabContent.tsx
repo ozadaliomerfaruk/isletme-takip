@@ -14,25 +14,29 @@ import { Text, Card } from '@/components/ui';
 import { SkeletonSummaryCard, SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize, fontWeight } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
 import { toNumber } from '@/lib/currency';
-import { useHesaplar } from '@/hooks/useHesaplar';
-import { useCariler } from '@/hooks/useCariler';
-import { usePersonelList } from '@/hooks/usePersonel';
+import { useReportHesaplar } from '@/hooks/useHesaplar';
+import { useReportCariler } from '@/hooks/useCariler';
+import { useReportPersonelList } from '@/hooks/usePersonel';
 import { useFinancialSummary } from '@/hooks/useFinancialSummary';
 import { useSettings } from '@/hooks/useSettings';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, createConversionSum, formatConvertedHint } from '@/hooks/useExchangeRates';
 import type { TabContentProps } from './types';
+import { usePermissions } from '@/hooks/usePermissions';
 
 export function GenelTabContent(_props: TabContentProps) {
   const router = useRouter();
   const segments = useSegments();
   const { t } = useTranslation(['reports', 'common']);
   const { currency: baseCurrency } = useSettings();
+  const { canAccessModule } = usePermissions();
+  const canOpenCariler = canAccessModule('cariler');
+  const canOpenPersonel = canAccessModule('personel');
 
-  const { data: hesaplar } = useHesaplar();
-  const { data: cariler } = useCariler();
-  const { data: personelList } = usePersonelList();
+  const { data: hesaplar } = useReportHesaplar();
+  const { data: cariler } = useReportCariler();
+  const { data: personelList } = useReportPersonelList();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
   const financialSummary = useFinancialSummary();
@@ -63,15 +67,22 @@ export function GenelTabContent(_props: TabContentProps) {
   const normalHesaplar = hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
   const krediKartiHesaplar = hesaplar?.filter(h => h.type === 'kredi_karti') || [];
 
-  const convertBalance = (h: typeof normalHesaplar[0]) => {
-    const balance = toNumber(h.balance);
-    const currency = h.currency || baseCurrency;
-    if (currency === baseCurrency) return balance;
-    return convertCurrency(balance, currency, baseCurrency, exchangeRates) ?? balance;
+  // Alt toplamlar üst karttaki politikayla AYNI olmalı: kur yoksa kalem hariç tutulur.
+  // Eski `?? balance` 1:1 ekliyordu → aynı ekranda üst kart bakiyeyi hariç tutup uyarı
+  // gösterirken alt toplam onu çevrilmemiş hâliyle içeriyordu (iki sayı çelişiyordu).
+  const sumBalances = (list: typeof normalHesaplar) => {
+    const sum = createConversionSum(baseCurrency, exchangeRates);
+    list.forEach((h) => sum.add(toNumber(h.balance), h.currency));
+    return sum.total;
   };
 
-  const normalHesaplarToplam = normalHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
-  const krediKartiToplam = krediKartiHesaplar.reduce((acc, h) => acc + convertBalance(h), 0);
+  const normalHesaplarToplam = sumBalances(normalHesaplar);
+  const krediKartiToplam = sumBalances(krediKartiHesaplar);
+
+  /** Net/fark kolonları: negatifte işaret ŞART (renk tek ayırt edici olmamalı).
+   *  Pozitifte '+' basmıyoruz — net durum kartlarında yerleşik dil işaretsiz pozitif. */
+  const signedCurrency = (v: number) =>
+    v < 0 ? formatCurrencyWithSign(v, baseCurrency) : formatCurrency(v, baseCurrency);
 
   return (
     <>
@@ -94,7 +105,10 @@ export function GenelTabContent(_props: TabContentProps) {
                 { color: netValue >= 0 ? colors.success : colors.error },
               ]}
             >
-              {netValue >= 0 ? '+' : ''}{formatCurrency(netValue, baseCurrency)}
+              {/* formatCurrency MUTLAK değer basar: pozitifte '+' varken negatifte hiçbir
+                  işaret çıkmıyordu → −50.000 ile +50.000 birebir aynı metin, tek ayırt
+                  edici renk. formatCurrencyWithSign iki yönde de işaret koyar. */}
+              {formatCurrencyWithSign(netValue, baseCurrency)}
             </Text>
             <Text variant="caption" color="secondary">
               {t('reports:summary.netValue')}
@@ -198,11 +212,12 @@ export function GenelTabContent(_props: TabContentProps) {
                   <Text variant="label" color={balance >= 0 ? 'primary' : 'error'} style={styles.accountAmount}>
                     {formatCurrency(balance, hesapCurrency)}
                   </Text>
-                  {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
-                    <Text variant="caption" color="secondary">
-                      ~{formatCurrency(convertBalance(hesap), baseCurrency)}
-                    </Text>
-                  )}
+                  {/* Kur yoksa satır HİÇ çizilmez — convertBalance 1:1'e düşüp ham
+                      tutarı baz para birimi etiketiyle yazıyordu */}
+                  {balance !== 0 && (() => {
+                    const hint = formatConvertedHint(balance, hesapCurrency, baseCurrency, exchangeRates);
+                    return hint ? <Text variant="caption" color="secondary">{hint}</Text> : null;
+                  })()}
                 </View>
               </View>
             );
@@ -237,11 +252,10 @@ export function GenelTabContent(_props: TabContentProps) {
                     <Text variant="label" color="error" style={styles.accountAmount}>
                       {formatCurrency(Math.abs(balance), hesapCurrency)}
                     </Text>
-                    {hesapCurrency !== baseCurrency && exchangeRates && balance !== 0 && (
-                      <Text variant="caption" color="secondary">
-                        ~{formatCurrency(Math.abs(convertBalance(hesap)), baseCurrency)}
-                      </Text>
-                    )}
+                    {balance !== 0 && (() => {
+                      const hint = formatConvertedHint(Math.abs(balance), hesapCurrency, baseCurrency, exchangeRates);
+                      return hint ? <Text variant="caption" color="secondary">{hint}</Text> : null;
+                    })()}
                   </View>
                 </View>
               );
@@ -255,7 +269,15 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.clientStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => goToTab(router, segments, '/(tabs)/cariler')}>
+        <TouchableOpacity
+          activeOpacity={canOpenCariler ? 0.8 : 1}
+          disabled={!canOpenCariler}
+          onPress={
+            canOpenCariler
+              ? () => goToTab(router, segments, '/(tabs)/cariler')
+              : undefined
+          }
+        >
           <Card>
             <View style={styles.accountHeader}>
               <Building2 size={20} color={colors.warning} />
@@ -287,7 +309,7 @@ export function GenelTabContent(_props: TabContentProps) {
                 {t('reports:summary.netStatus')}
               </Text>
               <Text variant="h3" color={totalReceivables - totalPayables >= 0 ? 'success' : 'error'} style={styles.cardTotal}>
-                {formatCurrency(totalReceivables - totalPayables, baseCurrency)}
+                {signedCurrency(totalReceivables - totalPayables)}
               </Text>
             </View>
           </Card>
@@ -299,7 +321,15 @@ export function GenelTabContent(_props: TabContentProps) {
         <Text variant="label" color="secondary" style={styles.sectionTitle}>
           {t('reports:sections.personnelStatus')}
         </Text>
-        <TouchableOpacity activeOpacity={0.8} onPress={() => goToTab(router, segments, '/(tabs)/personel')}>
+        <TouchableOpacity
+          activeOpacity={canOpenPersonel ? 0.8 : 1}
+          disabled={!canOpenPersonel}
+          onPress={
+            canOpenPersonel
+              ? () => goToTab(router, segments, '/(tabs)/personel')
+              : undefined
+          }
+        >
           <Card>
             <View style={styles.accountHeader}>
               <Users size={20} color={colors.info} />
@@ -331,7 +361,7 @@ export function GenelTabContent(_props: TabContentProps) {
                 {t('reports:summary.netStatus')}
               </Text>
               <Text variant="h3" color={personelReceivables - personelDebt >= 0 ? 'success' : 'error'} style={styles.cardTotal}>
-                {formatCurrency(personelReceivables - personelDebt, baseCurrency)}
+                {signedCurrency(personelReceivables - personelDebt)}
               </Text>
             </View>
           </Card>

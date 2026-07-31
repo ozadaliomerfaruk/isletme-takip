@@ -18,7 +18,7 @@
     "connectionLost": "Connection lost",
     "timeout": "Request timed out",
     "serverError": "Server error",
-    "serverUnavailable": "Server is unavailable. Please try again later.",
+    "serverUnavailable": "The server cannot be reached right now. Please try again.",
     "serviceUnavailable": "Service is unavailable",
     "connectionError": "Connection error",
     "requestFailed": "Request failed"

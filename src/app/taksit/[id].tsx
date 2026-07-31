@@ -1,13 +1,14 @@
 import { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, FlatList, ActivityIndicator, RefreshControl, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CheckCircle2, CalendarClock, Share as ShareIcon } from 'lucide-react-native';
-import { Text, Button, EmptyState } from '@/components/ui';
+import { Text, Button, EmptyState, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanDetay, type TaksitSatirDetay } from '@/hooks/useTaksit';
@@ -26,6 +27,10 @@ import type { EntityListExportOptions } from '@/lib/excelExport';
 export default function TaksitDetayPage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t } = useTranslation(['transactions', 'common']);
+  const footerInset = useFooterBottomPadding();
+  // Alt boşluğu pratikte footer veriyordu ama footer YALNIZ açık taksit varken
+  // çiziliyor; plan tamamen ödendiğinde son satır cam bar'ın altında kalıyordu.
+  const contentPaddingBottom = useContentBottomPadding();
   const { data: detay, isLoading, refetch, isRefetching } = useTaksitPlanDetay(id);
   const { isletme } = useAuthContext();
 
@@ -46,6 +51,11 @@ export default function TaksitDetayPage() {
     () => (detay?.taksitler ?? []).filter((tk) => tk.kalan <= 0).length,
     [detay],
   );
+
+  // Sabit alt aksiyon çubuğu akışın İÇİNDE (listenin kardeşi) ve kendi
+  // footerInset'ini zaten taşıyor; footer varken listeye ayrıca inset vermek
+  // alt boşluğu ÇİFT sayar → pay footer'ın (alt boşluk sözleşmesi md. 2).
+  const footerVar = !!(detay?.type && ilkAcik);
 
   const currency = detay?.currency ?? 'TRY';
 
@@ -225,14 +235,14 @@ export default function TaksitDetayPage() {
           // Ödeme Planı PDF paylaşımı — plan yüklüyse aktif
           headerRight: detay
             ? () => (
-                <TouchableOpacity onPress={handleOpenPdfPreview} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <ShareIcon size={20} color={colors.primary} />
+                <TouchableOpacity onPress={handleOpenPdfPreview} hitSlop={HIT_SLOP.md}>
+                  <ShareIcon size={22} color={colors.text} />
                 </TouchableOpacity>
               )
             : undefined,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         {/* Özet başlık */}
         {detay && (
           <View style={styles.summary}>
@@ -249,7 +259,10 @@ export default function TaksitDetayPage() {
           data={detay?.taksitler ?? []}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: footerVar ? spacing['3xl'] : contentPaddingBottom },
+          ]}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
           ListEmptyComponent={
@@ -266,7 +279,7 @@ export default function TaksitDetayPage() {
 
         {/* Tahsil Et / Öde — açık taksit varsa */}
         {detay?.type && ilkAcik && (
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.lg + footerInset }]}>
             <Button onPress={() => setTahsilVisible(true)} fullWidth>
               {`${detay.type === 'cari_satis' ? t('transactions:vade.tahsilEt') : t('transactions:vade.ode')} · ${formatCurrency(ilkAcik.kalan, currency)}`}
             </Button>
@@ -294,7 +307,7 @@ export default function TaksitDetayPage() {
           onDismiss={() => setPdfPreview(null)}
           onShare={handleSharePdf}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

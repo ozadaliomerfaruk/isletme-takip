@@ -47,7 +47,7 @@
   },
   "unitPicker": {
     "title": "Birim Seç",
-    "search": "Birim ara..."
+    "search": "Birim arayın"
   },
   "notFoundDescription": "Bu ürün mevcut değil veya silinmiş olabilir.",
   "detayOzet": {
@@ -65,6 +65,7 @@
     "salesReturn": "Satış İadesi",
     "adjustment": "Düzeltme",
     "quantity": "Miktar",
+    "autoDescription": "{{name}} - {{qty}} {{unit}}",
     "amount": "Tutar",
     "unitPrice": "Birim Fiyat",
     "monthlyReport": "Aylık Özet",
@@ -105,7 +106,7 @@
     "message": "\"{{name}}\" adında bir ürün zaten kayıtlı. Yine de yeni bir ürün olarak eklensin mi?"
   },
   "search": {
-    "placeholder": "Ürün, kategori ara..."
+    "placeholder": "Ürün, kategori arayın"
   },
   "filter": {
     "all": "Tümü",
@@ -165,6 +166,8 @@
     "selectProduct": "Ürün Seç",
     "noProducts": "Henüz ürün eklenmedi",
     "noEntries": "En az bir ürün için miktar girin",
+    "currencyMismatchTitle": "Para birimi uyuşmuyor",
+    "currencyMismatch": "Cari bağlı toplu kayıtta tüm ürünler AYNI para biriminde olmalı; seçili satırlarda {{currencies}} var. Farklı para birimli ürünleri ayrı ayrı kaydedin ya da cari bağlantısını kaldırın (yalnız stok girer).",
     "success": "{{count}} adet ürün hareketi kaydedildi",
     "partialError": "{{success}} ürün kaydedildi, {{failed}} başarısız oldu. Başarısız satırlar ekranda kaldı; tekrar deneyebilirsiniz (kaydedilenler çıkarıldı, çift kayıt olmaz).",
     "selectAll": "Tümünü Seç",

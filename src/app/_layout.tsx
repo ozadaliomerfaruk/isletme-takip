@@ -8,7 +8,12 @@ import { SafeAreaProvider, SafeAreaInsetsContext, useSafeAreaInsets } from 'reac
 import { View, ActivityIndicator, StyleSheet, Platform, AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
-import { queryClient, asyncStoragePersister, CACHE_BUSTER } from '@/lib/queryClient';
+import {
+  queryClient,
+  asyncStoragePersister,
+  CACHE_BUSTER,
+  neverDehydrateMutation,
+} from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { ReviewProvider } from '@/contexts/ReviewContext';
@@ -16,17 +21,21 @@ import { ToastContainer, Text } from '@/components/ui';
 import { ChangePasswordModal } from '@/components/auth';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { WifiOff } from 'lucide-react-native';
-import { PersistentTabBar } from '@/components/ui/PersistentTabBar';
+import { ServerOff, WifiOff } from 'lucide-react-native';
+import { PersistentTabBar, TAB_BAR_CONTENT_HEIGHT } from '@/components/ui/PersistentTabBar';
 import { goToTab } from '@/lib/tabNav';
+import { isTabBarVisible } from '@/lib/tabBarVisibility';
+import { RealInsetsContext } from '@/components/ui/ModalInsets';
 import { colors } from '@/constants/colors';
 import {
-  registerForPushNotificationsAsync,
-  savePushToken,
   addNotificationListeners,
 } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { logEvent } from '@/lib/appEvents';
+import {
+  resolvePushTokenRegistrationUserId,
+  usePushTokenRegistration,
+} from '@/hooks/usePushTokenRegistration';
 
 // Initialize i18n
 import '@/i18n';
@@ -89,7 +98,15 @@ function NavDepthLogger() {
 }
 
 function RootLayoutNav() {
-  const { user, initialized, needsPasswordReset, clearPasswordReset } = useAuthContext();
+  const {
+    user,
+    initialized,
+    needsPasswordReset,
+    clearPasswordReset,
+    ownIsletme,
+    isletmeLoading,
+    accountDeletionScheduledAt,
+  } = useAuthContext();
   const segments = useSegments();
   // Bildirim listener'ı [router] bağımlılıklı effect closure'ında yaşıyor; segments'i doğrudan okursa
   // BAYAT değer yakalar. Her render'da güncellenen ref üzerinden okunur (goToTab için güncel bağlam).
@@ -102,10 +119,27 @@ function RootLayoutNav() {
   // Kurulum akışı (v1.5): yalnızca YENİ işletme oluşturulduğunda true olur (setupFlow).
   // useSyncExternalStore → kurulum tamamlanınca kapı anında kapanır, geri sıçrama olmaz.
   const needsSetup = useSyncExternalStore(subscribeNeedsSetup, getNeedsSetupSync);
-  const pushTokenRegistered = useRef(false);
+  usePushTokenRegistration(resolvePushTokenRegistrationUserId({
+    userId: user?.id ?? null,
+    ownIsletmeId: ownIsletme?.id ?? null,
+    isletmeLoading,
+    accountDeletionScheduledAt,
+  }));
   const insets = useSafeAreaInsets();
-  const modifiedInsets = useMemo(() => ({ ...insets, bottom: 0 }), [insets]);
-  const isOffline = useNetworkStatus();
+  // OVERLAY tab bar: bar artık akıştan çıkıp içeriğin ÜSTÜNDE float ediyor (gerçek cam efekti).
+  // Eskiden bottom:0'dı (akıştaki bar boşluğu yönetiyordu); şimdi ekranların alt-boşluğu bar'ı
+  // temizlemeli → bottom = gerçek safe-area + bar görsel yüksekliği. insets.bottom kullanan tüm
+  // ekranlar (FAB'lar + inset-bağlı listeler) böylece otomatik bar'ın üstünde kalır.
+  // Override YALNIZ bar çizildiğinde: giriş/onboarding gibi bar'ın olmadığı
+  // rotalarda hayalet bir alt boşluk kalmasın. Görünürlük kararı
+  // PersistentTabBar ile AYNI kaynaktan (tabBarVisibility) geliyor — ayrı
+  // hesaplanırsa ikisi kaçınılmaz olarak ayrışır.
+  const tabBarVisible = isTabBarVisible(segments as string[]);
+  const modifiedInsets = useMemo(
+    () => ({ ...insets, bottom: insets.bottom + (tabBarVisible ? TAB_BAR_CONTENT_HEIGHT : 0) }),
+    [insets, tabBarVisible]
+  );
+  const { status: networkStatus } = useNetworkStatus();
 
   // Session tracking: Türkiye saatine göre günde 1 kez kayıt
   const SESSION_DATE_KEY = '@defter_last_session_date';
@@ -150,24 +184,6 @@ function RootLayoutNav() {
     // Kurulum bayrağını AsyncStorage'dan yükle (yeni işletme oluşturulmuşsa true)
     loadNeedsSetup();
   }, []);
-
-  // Push notification ayarları
-  useEffect(() => {
-    if (!user || pushTokenRegistered.current) return;
-
-    const setupPushNotifications = async () => {
-      // promptIfNeeded:false — açılışta sistem izni İSTENMEZ; yalnızca izni zaten
-      // vermiş kullanıcıların token'ı tazelenir. Yeni kullanıcıya izin, ilk işlem
-      // sonrası kutlama ekranındaki pre-prompt ile sorulur (kurulum-tamam.tsx).
-      const token = await registerForPushNotificationsAsync({ promptIfNeeded: false });
-      if (token) {
-        await savePushToken(user.id, token);
-        pushTokenRegistered.current = true;
-      }
-    };
-
-    setupPushNotifications();
-  }, [user]);
 
   // Session tracking: cold start + her foreground'da kontrol
   useEffect(() => {
@@ -247,6 +263,13 @@ function RootLayoutNav() {
     const inAuthGroup = segments[0] === '(auth)';
     const inOnboarding = segments[0] === 'onboarding';
     const inVerify = segments[0] === 'verify';
+    // Gizlilik ve bölgesel gizlilik hakları metinleri, kişisel veri alınmadan önce kayıt ekranından
+    // okunabilmeli. Bu rotaları yalnız oturum açmış kullanıcılara kapatmak
+    // aydınlatmayı kayıt sonrasına bırakıyordu.
+    const inLegal = segments[0] === 'yasal';
+    const inAccountDeletion =
+      segments[0] === 'ayarlar'
+      && (segments as readonly string[])[1] === 'hesap-sil';
     const inKurulum = segments[0]?.startsWith('kurulum') ?? false;
     // Kurulum sırasında "ekle" ekranlarına (cari/personel/hesap) gidilebilsin —
     // rehberli oluşturma adımı buraya yönlendirir; guard başa atmamalı.
@@ -254,9 +277,21 @@ function RootLayoutNav() {
       (segments[0] === 'cariler' || segments[0] === 'personel' || segments[0] === 'hesaplar') &&
       (segments as readonly string[])[1] === 'ekle';
 
-    if (!user && !inAuthGroup && !inOnboarding && !inVerify) {
+    if (!user && !inAuthGroup && !inOnboarding && !inVerify && !inLegal) {
       // Kullanici giris yapmamis, login'e yonlendir
       router.replace('/(auth)/login');
+    } else if (
+      user
+      && accountDeletionScheduledAt
+      && !ownIsletme
+      && !inAccountDeletion
+      && !inLegal
+      && !needsPasswordReset
+    ) {
+      // Shared-only/no-owned hesapta bekleyen silme talebi varken giriş yeni
+      // bir işletme oluşturmamalı. Kullanıcı yalnız talebi iptal edebilir,
+      // hukuki sayfaları okuyabilir veya çıkış yapabilir.
+      router.replace('/ayarlar/hesap-sil');
     } else if (user && inAuthGroup && !needsPasswordReset) {
       // Kullanici giris yapmis ve sifre sifirlama modunda degil
       if (showOnboarding) {
@@ -275,7 +310,18 @@ function RootLayoutNav() {
       // inSetupCreate: kurulumun "ekle" adimlari haric (oraya gidebilmeli).
       router.replace('/kurulum');
     }
-  }, [user, segments, initialized, onboardingChecked, showOnboarding, needsSetup, needsPasswordReset, router]);
+  }, [
+    user,
+    segments,
+    initialized,
+    onboardingChecked,
+    showOnboarding,
+    needsSetup,
+    needsPasswordReset,
+    ownIsletme,
+    accountDeletionScheduledAt,
+    router,
+  ]);
 
   // Yukleniyor - sadece initialized ve onboardingChecked kontrol et
   // loading'i burada kontrol etmiyoruz çünkü login/logout sırasında da true oluyor
@@ -291,13 +337,11 @@ function RootLayoutNav() {
     <>
       <StatusBar style="dark" />
       <ToastContainer />
-      {isOffline && (
-        <View style={[layoutStyles.offlineBanner, { paddingTop: insets.top }]}>
-          <WifiOff size={14} color={colors.white} />
-          <Text style={layoutStyles.offlineText}>{t('errors:network.noConnection')}</Text>
-        </View>
-      )}
       <View style={{ flex: 1 }}>
+      {/* GERÇEK insets ayrıca yayınlanıyor: modallar (ayrı native pencerede
+          açıldıkları için tab bar oralarda çizilmez) alt ağaçları için bunu
+          kullanır — bkz. ModalInsets. */}
+      <RealInsetsContext.Provider value={insets}>
       <SafeAreaInsetsContext.Provider value={modifiedInsets}>
       <Stack
         screenOptions={{
@@ -305,10 +349,10 @@ function RootLayoutNav() {
           contentStyle: { backgroundColor: colors.background },
           animation: 'slide_from_right',
           gestureEnabled: true,
-          // Twitter-tarzı: ekranın HERHANGİ bir yerinden sola-swipe ile geri (yalnız kenar değil).
-          // ⚠️ Yatay hareket kullanan yüzeylerle (SwipeableRow, DashboardCarousel, yatay chip/scroll,
-          // grafik scrub) çakışabilir — cihaz testi şart.
-          fullScreenGestureEnabled: true,
+          // KENARDAN swipe-back (standart iOS): yalnız ekranın sol kenarından başlayan sola-swipe
+          // geri döner. Tam-ekran swipe (kullanıcı kararı, geri alındı) çok hassastı — aşağı
+          // kaydırırken/yatay yüzeylerde (SwipeableRow, carousel, grafik scrub) yanlışlıkla geri dönüyordu.
+          fullScreenGestureEnabled: false,
           freezeOnBlur: true, // PERF (P0-3): üstüne ekran gelen kök-Stack ekranlarını dondur (bkz. enableFreeze)
           headerBackTitle: t('common:buttons.back'),
           headerBackVisible: true,
@@ -327,336 +371,6 @@ function RootLayoutNav() {
         <Stack.Screen name="kurulum-ilk-kayit" options={{ headerShown: false, animation: 'slide_from_right', gestureEnabled: false }} />
         <Stack.Screen name="kurulum-tamam" options={{ headerShown: false, animation: 'fade', gestureEnabled: false }} />
         <Stack.Screen name="verify" options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen
-          name="hesaplar/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('accounts:titles.accountTransactions'),
-            headerShadowVisible: false,
-            // SwipeableRow (satır kaydır-düzenle/sil) tam-ekran back jestiyle çakışır;
-            // bu ekranda tam-ekran back kapalı — geri gitme kenar-kaydırmayla çalışır.
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="cariler/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('clients:titles.clientTransactions'),
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="personel/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('staff:titles.personnelTransactions'),
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:titles.allTransactions'),
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="notlar/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('navigation:screens.notes'),
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        {/* Taksit sayfaları header'ı buradan alır (sayfa içi Stack.Screen yalnız başlık
-            geçer); kayıt olmadan global headerShown:false yüzünden içerik status bar
-            altına taşıyordu. */}
-        <Stack.Screen
-          name="taksit/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="taksit/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="hesaplar/ekle"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('accounts:titles.addAccount'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="cariler/ekle"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('clients:titles.addClient'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="personel/ekle"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('staff:titles.addPersonnel'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* İşlem Formları */}
-        <Stack.Screen
-          name="islemler/gelir"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:titles.addIncome'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="islemler/duzenle/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('transactions:titles.editTransaction'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* Raporlar */}
-        <Stack.Screen
-          name="raporlar/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.reports'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/kategori/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.categoryDetail'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/hesap/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/genel"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.overview'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/gelir-gider"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.categoryDistribution'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/cari"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.clientReport'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/personel"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.personnelReport'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/karsilastirma"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.comparison'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/alis-satis"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:titles.purchaseSales'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="raporlar/net-varlik-trend"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerBackVisible: true,
-            gestureEnabled: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('reports:netWorthTrend.title'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* Nakit Akışı */}
-        <Stack.Screen
-          name="nakit-akisi/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            fullScreenGestureEnabled: false, // grafik scrub cakismasi - kenardan swipe geri calisir
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('common:dashboard.cashFlow'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* Kategoriler */}
-        <Stack.Screen
-          name="kategoriler/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('categories:titles.categories'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="kategoriler/ekle"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('categories:titles.addCategory'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="kategoriler/duzenle/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('categories:titles.editCategory'),
-            headerShadowVisible: false,
-          }}
-        />
         {/* Ayarlar */}
         <Stack.Screen
           name="ayarlar/isletme"
@@ -699,7 +413,7 @@ function RootLayoutNav() {
             headerShown: true,
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
-            headerTitle: t('navigation:menu.kvkk'),
+            headerTitle: t('navigation:menu.privacyNotice'),
             headerShadowVisible: false,
           }}
         />
@@ -726,74 +440,6 @@ function RootLayoutNav() {
             headerShadowVisible: false,
           }}
         />
-        {/* Düzenleme Sayfaları */}
-        <Stack.Screen
-          name="hesaplar/duzenle/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('accounts:titles.editAccount'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="cariler/duzenle/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('clients:titles.editClient'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="personel/duzenle/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('staff:titles.editPersonnel'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="personel/toplu-gider"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('staff:bulkSalary.title'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="personel/toplu-odeme"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('staff:bulkPayment.title'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="personel/izin-gecmisi/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('staff:leave.leaveHistory'),
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
         {/* Hesap Silme */}
         <Stack.Screen
           name="ayarlar/hesap-sil"
@@ -803,106 +449,6 @@ function RootLayoutNav() {
             headerStyle: { backgroundColor: colors.surface },
             headerTintColor: colors.text,
             headerTitle: t('settings:account.deleteAccount'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* Veri İçe Aktar */}
-        <Stack.Screen
-          name="ayarlar/data-import/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('settings:dataImport.title'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* Mutabakat */}
-        <Stack.Screen
-          name="mutabakat/[cariId]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('mutabakat:title'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* Arşiv */}
-        <Stack.Screen
-          name="arsiv/index"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('common:archive.title'),
-            headerShadowVisible: false,
-          }}
-        />
-        {/* Ürünler */}
-        <Stack.Screen
-          name="urunler/index"
-          options={{
-            presentation: 'card',
-            headerShown: false,
-          }}
-        />
-        <Stack.Screen
-          name="urunler/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('products:stock.movements'),
-            headerShadowVisible: false,
-            fullScreenGestureEnabled: false,
-          }}
-        />
-        <Stack.Screen
-          name="urunler/ekle"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('products:addProduct'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="urunler/duzenle/[id]"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('products:editProduct'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="urunler/toplu-giris"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('products:bulk.stockIn'),
-            headerShadowVisible: false,
-          }}
-        />
-        <Stack.Screen
-          name="urunler/toplu-cikis"
-          options={{
-            presentation: 'card',
-            headerShown: true,
-            headerStyle: { backgroundColor: colors.surface },
-            headerTintColor: colors.text,
-            headerTitle: t('products:bulk.stockOut'),
             headerShadowVisible: false,
           }}
         />
@@ -932,7 +478,29 @@ function RootLayoutNav() {
         />
       </Stack>
       </SafeAreaInsetsContext.Provider>
+      </RealInsetsContext.Provider>
       <PersistentTabBar />
+      {(networkStatus === 'disconnected' || networkStatus === 'backend_unreachable') && (
+        <View
+          testID="network-status-banner"
+          pointerEvents="none"
+          accessibilityRole="alert"
+          style={[layoutStyles.networkBanner, { paddingTop: insets.top }]}
+        >
+          {networkStatus === 'disconnected' ? (
+            <WifiOff size={14} color={colors.white} />
+          ) : (
+            <ServerOff size={14} color={colors.white} />
+          )}
+          <Text style={layoutStyles.networkBannerText}>
+            {t(
+              networkStatus === 'disconnected'
+                ? 'errors:network.noConnection'
+                : 'errors:network.serverUnavailable'
+            )}
+          </Text>
+        </View>
+      )}
       {__DEV__ && <NavDepthLogger />}
       </View>
 
@@ -960,11 +528,15 @@ export default function RootLayout() {
             // Uygulama sürümü değişince cache'i geçersiz kıl (şema kayması güvenliği)
             buster: CACHE_BUSTER,
             dehydrateOptions: {
+              // Yazma işlemleri hiçbir koşulda diske kuyruklanmaz; reconnect'te
+              // kullanıcının haberi olmadan finansal mutation oynatılmasını engeller.
+              shouldDehydrateMutation: neverDehydrateMutation,
               // Yalnız BAŞARILI sorguları diske yaz; ayrıca Map/Set gibi JSON'a
               // serileşMEYEN verileri DIŞLA — persist edilirse JSON.stringify onları {}
               // yapar, rehydrate'te .get/.has fonksiyon olmadığından render crash eder.
               shouldDehydrateQuery: (query) => {
                 if (query.state.status !== 'success') return false;
+                if (query.meta?.persist === false) return false;
                 const data = query.state.data;
                 if (data instanceof Map || data instanceof Set) return false;
                 return true;
@@ -997,7 +569,13 @@ const styles = StyleSheet.create({
 });
 
 const layoutStyles = StyleSheet.create({
-  offlineBanner: {
+  networkBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    elevation: 1000,
     backgroundColor: colors.error,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1005,7 +583,7 @@ const layoutStyles = StyleSheet.create({
     paddingVertical: 6,
     gap: 6,
   },
-  offlineText: {
+  networkBannerText: {
     color: colors.white,
     fontSize: 13,
     fontWeight: '600',

@@ -1,25 +1,28 @@
 import { upperTr } from '@/lib/turkishTextUtils';
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { logEvent } from '@/lib/appEvents';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
 import { Stack, useRouter, Href } from 'expo-router';
-import { Package, ShoppingCart, Store, ChevronDown, ChevronUp } from 'lucide-react-native';
+import { Package, ShoppingCart, Store } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, Card, Button } from '@/components/ui';
+import { Text, TabFilter, Card, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { CollapsibleGroupHeader } from '@/components/reports/CollapsibleGroupHeader';
 import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useProductReport, ProductReportItem } from '@/hooks/useProductReport';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
 import { PeriodType } from '@/hooks/useIslemler';
 // Alış-Satış işlem tipleri (useProductReport ile uyumlu)
-const PURCHASE_TYPES = ['cari_alis'];
-const SALE_TYPES = ['cari_satis', 'personel_satis'];
-import { formatCurrency, formatQuantity } from '@/lib/currency';
+const PURCHASE_TYPES = ['cari_alis', 'cari_alis_iade'];
+const SALE_TYPES = ['cari_satis', 'personel_satis', 'cari_satis_iade'];
+import { formatCurrency, formatQuantity, formatPercent } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
 import { exportProductReportToExcel, ProductExcelTranslations } from '@/lib/reportExcelExport';
 import { supabase } from '@/lib/supabase';
@@ -28,13 +31,17 @@ import { IslemWithRelations } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type ReportDirection = 'alis' | 'satis';
 
 export default function AlisSatisRaporPage() {
-  usePagePermission({ module: 'raporlar' });
+  return <AlisSatisRaporContent />;
+}
+
+function AlisSatisRaporContent() {
+  const contentPaddingBottom = useContentBottomPadding();
   useEffect(() => { logEvent('report_viewed', { report_type: 'purchase_sales' }); }, []);
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common', 'products']);
@@ -50,9 +57,32 @@ export default function AlisSatisRaporPage() {
     { label: upperTr(t('reports:period.custom')), value: 'custom' },
   ];
 
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const {
+    canAccessModule,
+    canExportModule,
+    isOwner,
+  } = usePermissions();
+  const canExport = canExportModule('raporlar');
+  const canOpenProductDetails = canAccessModule('urunler');
   const { currency: baseCurrency } = useSettings();
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
   const [isExporting, setIsExporting] = useState(false);
+  const latestExportAccessRef = useRef({
+    canExport,
+    isletmeId: isletme?.id ?? null,
+    userId: user?.id ?? null,
+  });
+  latestExportAccessRef.current = {
+    canExport,
+    isletmeId: isletme?.id ?? null,
+    userId: user?.id ?? null,
+  };
+
+  useEffect(() => () => {
+    latestExportAccessRef.current.canExport = false;
+  }, []);
 
   const alisRaporu = useProductReport('alis', {
     startDate: state.dateRange.startDate,
@@ -117,9 +147,11 @@ export default function AlisSatisRaporPage() {
   };
 
   const handleExport = useCallback(async () => {
-    if (!isletme) return;
+    if (!isletme || !canExport) return;
     setIsExporting(true);
     try {
+      const expectedIsletmeId = isletme.id;
+      const expectedUserId = user?.id ?? null;
       const translations: ProductExcelTranslations = {
         reportTitle: t('common:export.productExcel.reportTitle'),
         period: t('common:export.excel.period'),
@@ -149,46 +181,61 @@ export default function AlisSatisRaporPage() {
         noDataError: t('common:export.noDataToExport'),
       };
 
-      // Fetch actual transactions for detailed export
       const { startDate, endDate } = state.dateRange;
-      const endDateTime = new Date(endDate + 'T00:00:00');
-      endDateTime.setDate(endDateTime.getDate() + 1);
-      const endDateNextDay = formatDateForDB(endDateTime);
+      let purchaseTxns: IslemWithRelations[] | undefined;
+      let saleTxns: IslemWithRelations[] | undefined;
 
-      const buildQuery = (types: string[]) => () => {
-        return supabase
-          .from('islemler')
-          .select(`
-            *,
-            hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
-            hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
-            kategori:kategoriler(id,name),
-            cari:cariler(id,name,type,is_active),
-            personel:personel(id,first_name,last_name,is_active)
-          `)
-          .eq('isletme_id', isletme.id)
-          .in('type', types)
-          .gte('date', startDate)
-          .lt('date', endDateNextDay)
-          .order('date', { ascending: true });
-      };
+      if (isOwner) {
+        // Owner'ın mevcut detay sayfası korunur. Shared reports-only export,
+        // ek geniş SELECT çalıştırmadan ekrandaki dar product aggregate'ını yazar.
+        const endDateTime = new Date(endDate + 'T00:00:00');
+        endDateTime.setDate(endDateTime.getDate() + 1);
+        const endDateNextDay = formatDateForDB(endDateTime);
+        const buildQuery = (types: string[]) => () =>
+          supabase
+            .from('islemler')
+            .select(`
+              *,
+              hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
+              hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
+              kategori:kategoriler(id,name),
+              cari:cariler(id,name,type,is_active),
+              personel:personel(id,first_name,last_name,is_active)
+            `)
+            .eq('isletme_id', isletme.id)
+            .in('type', types)
+            .gte('date', startDate)
+            .lt('date', endDateNextDay)
+            .order('date', { ascending: true })
+            .order('id', { ascending: true });
 
-      // Detay satirlari ozet (get_product_report) ile TUTARLI olsun: pasif
-      // hesap/cari/personel islemlerini disla (NULL-guvenli: yalniz is_active === false).
-      const excludePassive = (islem: IslemWithRelations) => {
-        if (islem.hesap?.is_active === false) return false;
-        if (islem.hedef_hesap?.is_active === false) return false;
-        if (islem.cari?.is_active === false) return false;
-        if (islem.personel?.is_active === false) return false;
-        return true;
-      };
+        const excludePassive = (islem: IslemWithRelations) => {
+          if (islem.hesap?.is_active === false) return false;
+          if (islem.hedef_hesap?.is_active === false) return false;
+          if (islem.cari?.is_active === false) return false;
+          if (islem.personel?.is_active === false) return false;
+          return true;
+        };
+        const [purchaseTxnsRaw, saleTxnsRaw] = await Promise.all([
+          fetchAllPages<IslemWithRelations>(buildQuery(PURCHASE_TYPES)),
+          fetchAllPages<IslemWithRelations>(buildQuery(SALE_TYPES)),
+        ]);
+        purchaseTxns = purchaseTxnsRaw.filter(excludePassive);
+        saleTxns = saleTxnsRaw.filter(excludePassive);
+      }
 
-      const [purchaseTxnsRaw, saleTxnsRaw] = await Promise.all([
-        fetchAllPages<IslemWithRelations>(buildQuery(PURCHASE_TYPES)),
-        fetchAllPages<IslemWithRelations>(buildQuery(SALE_TYPES)),
-      ]);
-      const purchaseTxns = purchaseTxnsRaw.filter(excludePassive);
-      const saleTxns = saleTxnsRaw.filter(excludePassive);
+      const latestAccess = latestExportAccessRef.current;
+      if (
+        !latestAccess.canExport
+        || latestAccess.isletmeId !== expectedIsletmeId
+        || latestAccess.userId !== expectedUserId
+      ) {
+        Alert.alert(
+          t('common:status.error'),
+          t('common:errors.permissionDenied'),
+        );
+        return;
+      }
 
       await exportProductReportToExcel({
         isletmeName: isletme.name,
@@ -206,6 +253,7 @@ export default function AlisSatisRaporPage() {
         purchaseTransactions: purchaseTxns,
         saleTransactions: saleTxns,
         baseCurrency,
+        exchangeRates,
         translations,
       });
     } catch (error) {
@@ -213,7 +261,19 @@ export default function AlisSatisRaporPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [isletme, alisRaporu, satisRaporu, state.dateRange, state.periodLabel, baseCurrency, t]);
+  }, [
+    isletme,
+    user?.id,
+    canExport,
+    isOwner,
+    alisRaporu,
+    satisRaporu,
+    state.dateRange,
+    state.periodLabel,
+    baseCurrency,
+    exchangeRates,
+    t,
+  ]);
 
   return (
     <>
@@ -223,16 +283,21 @@ export default function AlisSatisRaporPage() {
           headerBackVisible: true,
           gestureEnabled: true,
           headerRight: () => (
-            <ReportExportButton
-              onPress={handleExport}
-              isExporting={isExporting}
-              accessibilityLabel={t('reports:export.exportExcel')}
-            />
+            canExport
+              ? (
+                  <ReportExportButton
+                    onPress={handleExport}
+                    isExporting={isExporting}
+                    accessibilityLabel={t('reports:export.exportExcel')}
+                  />
+                )
+              : null
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -243,6 +308,9 @@ export default function AlisSatisRaporPage() {
             />
           }
         >
+          {/* Kur bulunamadıysa toplamlar çevrilmemiş — sessiz kalmıyor */}
+          <ConversionIncompleteWarning visible={activeReport.conversionIncomplete} />
+
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter
@@ -394,26 +462,13 @@ export default function AlisSatisRaporPage() {
                 return (
                   <View key={group.key}>
                     {showCategoryHeader && (
-                      <TouchableOpacity
-                        style={styles.categoryHeader}
-                        onPress={() => toggleCategory(group.key)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.categoryHeaderLeft}>
-                          {isCollapsed
-                            ? <ChevronDown size={16} color={colors.textSecondary} />
-                            : <ChevronUp size={16} color={colors.textSecondary} />}
-                          <Text variant="body" style={styles.categoryHeaderText}>
-                            {group.name}
-                          </Text>
-                          <Text variant="caption" color="secondary">
-                            ({group.items.length})
-                          </Text>
-                        </View>
-                        <Text variant="body" style={styles.categoryHeaderAmount}>
-                          {formatCurrency(group.totalAmount)}
-                        </Text>
-                      </TouchableOpacity>
+                      <CollapsibleGroupHeader
+                        label={group.name}
+                        count={group.items.length}
+                        amount={formatCurrency(group.totalAmount)}
+                        collapsed={isCollapsed}
+                        onToggle={() => toggleCategory(group.key)}
+                      />
                     )}
                     {!isCollapsed && group.items.map((item) => (
                       <ProductReportCard
@@ -421,7 +476,14 @@ export default function AlisSatisRaporPage() {
                         item={item}
                         direction={selectedDirection}
                         t={t}
-                        onPress={() => router.push(`/urunler/${item.urunId}` as Href)}
+                            onPress={
+                              canOpenProductDetails
+                                ? () =>
+                                    router.push(
+                                      `/urunler/${item.urunId}` as Href,
+                                    )
+                                : undefined
+                            }
                       />
                     ))}
                   </View>
@@ -430,7 +492,7 @@ export default function AlisSatisRaporPage() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
@@ -476,7 +538,7 @@ function ProductReportCard({
             {formatCurrency(item.toplamTutar)}
           </Text>
           <Text variant="caption" color="secondary" style={{ textAlign: 'right' }}>
-            %{item.percentage}
+            {formatPercent(item.percentage)}
           </Text>
         </View>
       </View>
@@ -491,10 +553,6 @@ function ProductReportCard({
 // ---- Styles ----
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   periodFilter: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -503,22 +561,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-  },
-  dateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  navBtn: {
-    padding: spacing.xs,
-  },
-  dateLabel: {
-    fontWeight: '600',
-    color: colors.primary,
-    minWidth: 140,
-    textAlign: 'center',
   },
   summaryTabs: {
     flexDirection: 'row',
@@ -581,31 +623,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.xs,
-    marginTop: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.sm,
-  },
-  categoryHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    flex: 1,
-  },
-  categoryHeaderText: {
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  categoryHeaderAmount: {
-    fontWeight: '700',
-    color: colors.text,
-  },
   productList: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
@@ -640,11 +657,6 @@ const styles = StyleSheet.create({
   },
   productInfo: {
     flex: 1,
-  },
-  productMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
   },
   productAmount: {
     alignItems: 'flex-end',

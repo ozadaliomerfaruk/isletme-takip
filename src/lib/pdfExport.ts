@@ -1,5 +1,5 @@
 import { formatCurrency, toNumber } from './currency';
-import { formatDateShort } from './date';
+import { formatDateShort, getLocale } from './date';
 import { IslemWithRelations, Currency } from '@/types/database';
 import {
   EntityType,
@@ -158,8 +158,11 @@ export function generatePdfHtml(options: PdfExportOptions): string {
   const { entityType, entityName, isletmeName, startDate, endDate, entityCurrency, cariType, phone, translations } = options;
   const data = prepareStatementData(options);
   const now = new Date();
-  const dateStr = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  // Antet tarih/saati de kullanıcı locale'inden: sabit 'tr-TR' hem tablo satırlarıyla
+  // (formatDateShort) hem de PdfExportSheet önizlemesiyle çelişiyordu.
+  const pdfLocale = getLocale();
+  const dateStr = now.toLocaleDateString(pdfLocale, { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const timeStr = now.toLocaleTimeString(pdfLocale, { hour: '2-digit', minute: '2-digit' });
   const startFmt = formatDateShort(startDate);
   const endFmt = formatDateShort(endDate);
 

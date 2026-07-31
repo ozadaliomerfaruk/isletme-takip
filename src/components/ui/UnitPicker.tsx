@@ -1,5 +1,6 @@
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions } from 'react-native';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { Modal } from './Modal';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
+import { useState, useMemo, useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import {
@@ -18,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { Text } from './Text';
 import { ModalSearchBar } from './ModalSearchBar';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { BirimType } from '@/types/database';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 
@@ -208,6 +209,7 @@ export function UnitPicker({
                   <TouchableOpacity
                     onPress={handleCloseModal}
                     style={styles.closeButton}
+                    hitSlop={HIT_SLOP.md}
                   >
                     <X size={24} color={colors.text} />
                   </TouchableOpacity>

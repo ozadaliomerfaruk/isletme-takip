@@ -1,15 +1,9 @@
 import { useCallback, useMemo } from 'react';
-import {
-  View,
-  Modal,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Platform,
-} from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { ensureValidDate } from '@/lib/date';
 import { styles } from '../styles';

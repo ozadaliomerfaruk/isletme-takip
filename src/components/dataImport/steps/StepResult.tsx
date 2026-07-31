@@ -10,6 +10,7 @@ import {
 import { Text, Card, Button } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
+import { formatCount } from '@/lib/currency';
 import type { ImportPreview } from '@/lib/excelImport';
 import { groupSkippedByReason } from '@/lib/excelImport';
 import type { SkippedTransaction } from '@/hooks/useDataImport';
@@ -99,24 +100,24 @@ export function StepResult({
         <Card style={styles.rowSummaryCard}>
           <View style={styles.rowSummaryRow}>
             <Text variant="body" color="secondary">{t('dataImport.results.transaction')}</Text>
-            <Text variant="body" style={{ fontWeight: '600' }}>{result.transactionsCreated.toLocaleString()}</Text>
+            <Text variant="body" style={{ fontWeight: '600' }}>{formatCount(result.transactionsCreated)}</Text>
           </View>
           {result.startingBalancesApplied > 0 && (
             <View style={styles.rowSummaryRow}>
               <Text variant="body" color="secondary">{t('dataImport.results.startingBalance')}</Text>
-              <Text variant="body" style={{ fontWeight: '600', color: colors.info }}>{result.startingBalancesApplied.toLocaleString()}</Text>
+              <Text variant="body" style={{ fontWeight: '600', color: colors.info }}>{formatCount(result.startingBalancesApplied)}</Text>
             </View>
           )}
           {result.startingBalancesUpdated > 0 && (
             <View style={styles.rowSummaryRow}>
               <Text variant="body" color="secondary">{t('dataImport.results.startingBalancesUpdated')}</Text>
-              <Text variant="body" style={{ fontWeight: '600', color: colors.success }}>{result.startingBalancesUpdated.toLocaleString()}</Text>
+              <Text variant="body" style={{ fontWeight: '600', color: colors.success }}>{formatCount(result.startingBalancesUpdated)}</Text>
             </View>
           )}
           {result.skipped > 0 && (
             <View style={styles.rowSummaryRow}>
               <Text variant="body" color="secondary">{t('dataImport.results.skipped')}</Text>
-              <Text variant="body" style={{ fontWeight: '600', color: colors.warning }}>{result.skipped.toLocaleString()}</Text>
+              <Text variant="body" style={{ fontWeight: '600', color: colors.warning }}>{formatCount(result.skipped)}</Text>
             </View>
           )}
           {preview?.silentlySkipped && preview.silentlySkipped.length > 0 && (
@@ -128,14 +129,14 @@ export function StepResult({
                 {t('dataImport.silentlySkipped.title')} {showSilentlySkipped ? '▲' : '▼'}
               </Text>
               <Text variant="body" style={{ fontWeight: '600', color: colors.textMuted }}>
-                {preview.silentlySkipped.length.toLocaleString()}
+                {formatCount(preview.silentlySkipped.length)}
               </Text>
             </TouchableOpacity>
           )}
           <View style={styles.rowSummaryDivider} />
           <View style={styles.rowSummaryRow}>
             <Text variant="label">{t('dataImport.results.totalRows')}</Text>
-            <Text variant="label" style={{ fontWeight: '700' }}>{result.totalRowsProcessed.toLocaleString()}</Text>
+            <Text variant="label" style={{ fontWeight: '700' }}>{formatCount(result.totalRowsProcessed)}</Text>
           </View>
         </Card>
       )}

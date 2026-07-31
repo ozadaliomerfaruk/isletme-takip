@@ -29,10 +29,54 @@ export const queryKeys = {
     detail: (id: string) => ['islem', id] as const,
     byCari: (cariId: string, isletmeId: string) =>
       ['islemler', 'cari', cariId, isletmeId] as const,
+    cariProjection: (
+      isletmeId: string,
+      cariId: string,
+      userId: string,
+      canSeeAllUsersData: boolean,
+    ) =>
+      [
+        'islemler',
+        'cari-projection-v1',
+        isletmeId,
+        cariId,
+        userId,
+        canSeeAllUsersData,
+      ] as const,
     byHesap: (hesapId: string, isletmeId: string) =>
       ['islemler', 'hesap', hesapId, isletmeId] as const,
+    hesapProjection: (
+      isletmeId: string,
+      hesapId: string,
+      userId: string,
+      permissionFingerprint: string,
+    ) =>
+      [
+        'islemler',
+        'hesap-projection-v1',
+        isletmeId,
+        hesapId,
+        userId,
+        permissionFingerprint,
+      ] as const,
     byPersonel: (personelId: string, isletmeId: string) =>
       ['islemler', 'personel', personelId, isletmeId] as const,
+    personelProjection: (
+      isletmeId: string,
+      personelId: string,
+      userId: string,
+      permissionFingerprint: string,
+      mode: 'paged' | 'all' | 'leave',
+    ) =>
+      [
+        'islemler',
+        'personel-projection-v1',
+        isletmeId,
+        personelId,
+        userId,
+        permissionFingerprint,
+        mode,
+      ] as const,
     allByCari: (cariId: string, isletmeId: string) =>
       ['islemler', 'cari', 'all', cariId, isletmeId] as const,
     allByPersonel: (personelId: string, isletmeId: string) =>
@@ -82,6 +126,13 @@ export const queryKeys = {
     all: () => ['hesaplar'] as const,
     list: (isletmeId: string, includePassive?: boolean, includeArchived?: boolean) =>
       ['hesaplar', isletmeId, includePassive, includeArchived] as const,
+    // Shared Cari/Personel işlem akışında kullanılan BAKİYESİZ hesap referansları.
+    // Normal Hesap[] liste key'iyle aynı cache satırını asla paylaşmaz.
+    transactionReferences: (isletmeId: string, scope: 'cari' | 'personel') =>
+      ['hesaplar', 'transaction-references', isletmeId, scope] as const,
+    // Eski Cariler-only çağrıları için anahtar korunur.
+    cariCashReferences: (isletmeId: string) =>
+      ['hesaplar', 'cari-cash-references', isletmeId] as const,
     detail: (id: string, isletmeId?: string) => ['hesap', id, isletmeId] as const,
     archived: (isletmeId: string) => ['hesaplar', 'archived', isletmeId] as const,
   },
@@ -110,6 +161,18 @@ export const queryKeys = {
   kategoriler: {
     all: () => ['kategoriler'] as const,
     list: (isletmeId: string, type?: string) => ['kategoriler', isletmeId, type] as const,
+    pickerReferences: (
+      isletmeId: string,
+      userId: string,
+      type?: string,
+    ) =>
+      [
+        'kategoriler',
+        'picker-references-v1',
+        isletmeId,
+        userId,
+        type ?? null,
+      ] as const,
     detail: (id: string) => ['kategori', id] as const,
   },
 
@@ -117,46 +180,286 @@ export const queryKeys = {
   reports: {
     monthSummary: (isletmeId: string, period: string, offset: number, startDate: string, endDate: string) =>
       ['month-summary', isletmeId, period, offset, startDate, endDate] as const,
-    allKategoriler: (isletmeId: string, type: string) =>
-      ['all-kategoriler', isletmeId, type] as const,
-    categoryReport: (isletmeId: string, type: string, source: string, startDate: string, endDate: string) =>
-      ['category-report', isletmeId, type, source, startDate, endDate] as const,
+    allKategoriler: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      type: string,
+    ) =>
+      [
+        'all-kategoriler',
+        'scoped-v1',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        type,
+      ] as const,
+    categoryReport: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      type: string,
+      source: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'category-report',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        type,
+        source,
+        startDate,
+        endDate,
+      ] as const,
     accountReport: (isletmeId: string, type: string, startDate: string, endDate: string) =>
       ['account-report', isletmeId, type, startDate, endDate] as const,
     accountTransactions: (isletmeId: string, hesapId: string, type: string, startDate: string, endDate: string) =>
       ['account-transactions', isletmeId, hesapId, type, startDate, endDate] as const,
-    incomeBySource: (isletmeId: string, startDate: string, endDate: string) =>
-      ['income-by-source', isletmeId, startDate, endDate] as const,
+    incomeBySource: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'income-by-source',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        startDate,
+        endDate,
+      ] as const,
     networthTrend: (isletmeId: string, monthsBack: number) =>
       ['networth-trend', isletmeId, monthsBack] as const,
     networthOpening: (isletmeId: string, monthsBack: number) =>
       ['networth-opening', isletmeId, monthsBack] as const,
     economicIndicators: (startMonth: string, endMonth: string) =>
       ['economic-indicators', startMonth, endMonth] as const,
-    incomeSourceTransactions: (isletmeId: string, kind: string, sourceId: string, startDate: string, endDate: string) =>
-      ['income-source-transactions', isletmeId, kind, sourceId, startDate, endDate] as const,
-    categoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
-      ['category-report-returns', isletmeId, type, startDate, endDate] as const,
-    hierarchicalCategoryReport: (isletmeId: string, type: string, source: string, startDate: string, endDate: string) =>
-      ['hierarchical-category-report', isletmeId, type, source, startDate, endDate] as const,
-    hierarchicalCategoryReportReturns: (isletmeId: string, type: string, startDate: string, endDate: string) =>
-      ['hierarchical-category-report-returns', isletmeId, type, startDate, endDate] as const,
-    categoryTransactions: (isletmeId: string, kategoriId: string, type: string, source: string, startDate: string, endDate: string, includeReturns = false) =>
-      ['category-transactions', isletmeId, kategoriId, type, source, startDate, endDate, includeReturns] as const,
-    multiCategoryTransactions: (isletmeId: string, kategoriIds: string, type: string, source: string, startDate: string, endDate: string, includeReturns = false) =>
-      ['multi-category-transactions', isletmeId, kategoriIds, type, source, startDate, endDate, includeReturns] as const,
-    subCategories: (isletmeId: string, parentKategoriId: string, type: string) =>
-      ['sub-categories', isletmeId, parentKategoriId, type] as const,
-    subCategoryReportRpc: (isletmeId: string, kategoriIds: string, type: string, source: string, startDate: string, endDate: string) =>
-      ['sub-category-report-rpc', isletmeId, kategoriIds, type, source, startDate, endDate] as const,
-    subCategoryReportReturns: (isletmeId: string, kategoriIds: string, type: string, startDate: string, endDate: string) =>
-      ['sub-category-report-returns', isletmeId, kategoriIds, type, startDate, endDate] as const,
+    incomeSourceTransactions: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      kind: string,
+      sourceId: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'income-source-transactions',
+        'scoped-v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        kind,
+        sourceId,
+        startDate,
+        endDate,
+      ] as const,
+    categoryReportReturns: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      type: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'category-report-returns',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        type,
+        startDate,
+        endDate,
+      ] as const,
+    hierarchicalCategoryReport: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      type: string,
+      source: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'hierarchical-category-report',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        type,
+        source,
+        startDate,
+        endDate,
+      ] as const,
+    hierarchicalCategoryReportReturns: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      type: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'hierarchical-category-report-returns',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        type,
+        startDate,
+        endDate,
+      ] as const,
+    categoryTransactions: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      kategoriId: string,
+      type: string,
+      source: string,
+      startDate: string,
+      endDate: string,
+      includeReturns = false,
+    ) =>
+      [
+        'category-transactions',
+        'scoped-v1',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        kategoriId,
+        type,
+        source,
+        startDate,
+        endDate,
+        includeReturns,
+      ] as const,
+    multiCategoryTransactions: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      kategoriIds: string,
+      type: string,
+      source: string,
+      startDate: string,
+      endDate: string,
+      includeReturns = false,
+    ) =>
+      [
+        'multi-category-transactions',
+        'scoped-v1',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        kategoriIds,
+        type,
+        source,
+        startDate,
+        endDate,
+        includeReturns,
+      ] as const,
+    subCategories: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      parentKategoriId: string,
+      type: string,
+    ) =>
+      [
+        'sub-categories',
+        'scoped-v1',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        parentKategoriId,
+        type,
+      ] as const,
+    subCategoryReportRpc: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      kategoriIds: string,
+      type: string,
+      source: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'sub-category-report-rpc',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        kategoriIds,
+        type,
+        source,
+        startDate,
+        endDate,
+      ] as const,
+    subCategoryReportReturns: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      kategoriIds: string,
+      type: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'sub-category-report-returns',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        kategoriIds,
+        type,
+        startDate,
+        endDate,
+      ] as const,
     cashFlowByCategory: (isletmeId: string, startDate: string, endDate: string) =>
       ['cash-flow-by-category', isletmeId, startDate, endDate] as const,
-    productReport: (isletmeId: string, direction: string, startDate: string, endDate: string) =>
-      ['product-report', isletmeId, direction, startDate, endDate] as const,
-    productReportReturns: (isletmeId: string, direction: string, startDate: string, endDate: string) =>
-      ['product-report-returns', isletmeId, direction, startDate, endDate] as const,
+    productReport: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      direction: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'product-report',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        direction,
+        startDate,
+        endDate,
+      ] as const,
+    productReportReturns: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      direction: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'product-report-returns',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        direction,
+        startDate,
+        endDate,
+      ] as const,
   },
 
   // Dashboard
@@ -208,7 +511,8 @@ export const queryKeys = {
   // Ürünler (Ürün Yönetimi)
   urunler: {
     all: () => ['urunler'] as const,
-    list: (isletmeId: string) => ['urunler', isletmeId] as const,
+    list: (isletmeId: string, includeArchived?: boolean) =>
+      ['urunler', isletmeId, includeArchived] as const,
     detail: (id: string) => ['urun', id] as const,
     archived: (isletmeId: string) => ['urunler', 'archived', isletmeId] as const,
   },
@@ -267,6 +571,7 @@ export const queryKeys = {
   multiUser: {
     all: () => ['multi-user'] as const,
     users: (isletmeId: string) => ['isletme-users', isletmeId] as const,
+    creatorLabels: (isletmeId: string) => ['isletme-users', 'creator-labels', isletmeId] as const,
     invites: (isletmeId: string) => ['isletme-invites', isletmeId] as const,
     sharedIsletmeler: (userId: string) => ['shared-isletmeler', userId] as const,
     roleTemplates: () => ['role-templates'] as const,
@@ -281,10 +586,40 @@ export const queryKeys = {
   // Notlar
   notlar: {
     all: () => ['notlar'] as const,
-    list: (isletmeId: string, entityType?: string, entityId?: string) =>
-      ['notlar', isletmeId, entityType, entityId] as const,
-    byEntity: (isletmeId: string, entityType: string, entityId: string) =>
-      ['notlar', 'byEntity', isletmeId, entityType, entityId] as const,
+    list: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      entityType?: string,
+      entityId?: string,
+      allowedEntityTypes?: readonly string[],
+    ) =>
+      [
+        'notlar',
+        'scoped-v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        entityType,
+        entityId,
+        allowedEntityTypes ?? null,
+      ] as const,
+    byEntity: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      entityType: string,
+      entityId: string,
+    ) =>
+      [
+        'notlar',
+        'byEntity-v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        entityType,
+        entityId,
+      ] as const,
   },
 
   // Arşiv
@@ -302,6 +637,18 @@ export const queryKeys = {
   personelLeaveQuotas: {
     all: () => ['personel-leave-quotas'] as const,
     list: (isletmeId: string) => ['personel-leave-quotas', isletmeId] as const,
+    projection: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+    ) =>
+      [
+        'personel-leave-quotas',
+        'projection-v1',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+      ] as const,
   },
 
   // Kalan Kullanım
@@ -355,6 +702,11 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'personel-detail',
       'personel-leave-quotas',
       'month-summary',
+      // Ana rapor ekranı mounted kalırken QTB/yeni işlem kaydı yapılabiliyor.
+      // Bu iki key deferred kalırsa aktif widget stale işaretleniyor ama refetch
+      // edilmiyor; kullanıcı eski KPI/trendi görmeye devam ediyor.
+      'analytics-periods',
+      'analytics-trend',
       // Raporlar: işlem değişimi tüm kategori/hesap/gelir-kaynak/ürün raporlarını etkiler.
       // raporlar/kategori/[id] VE raporlar/hesap/[id] ekranları QuickTransactionBar'ı gömülü
       // barındırdığı için işlem o ekran MOUNTED iken düzenlenebiliyor; deferred
@@ -387,8 +739,6 @@ const invalidationMap: Record<string, InvalidationConfig> = {
     ],
     deferred: [
       'dashboard',
-      'analytics-periods',
-      'analytics-trend',
     ],
   },
 
@@ -427,6 +777,8 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'account-transactions',
       'income-by-source',
       'income-source-transactions',
+      'product-report',
+      'product-report-returns',
       // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
       'archive',
     ],
@@ -444,6 +796,8 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'cariler',
       'cari',
       'islemler',
+      'product-report',
+      'product-report-returns',
       // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
       'archive',
     ],
@@ -469,6 +823,8 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'personel-detail',
       'personel-leave-quotas',
       'islemler',
+      'product-report',
+      'product-report-returns',
       // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
       'archive',
     ],

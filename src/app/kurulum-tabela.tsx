@@ -5,13 +5,13 @@
  * adla ön-doldurulur, değiştirilebilir). Sonra → rehberli oluşturma (ilk kayıt).
  */
 import { useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Store } from 'lucide-react-native';
 
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -19,6 +19,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { logEvent } from '@/lib/appEvents';
 
 export default function KurulumTabela() {
+  const footerInset = useFooterBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['auth']);
   const { isletme, refreshIsletme } = useAuthContext();
@@ -46,7 +47,17 @@ export default function KurulumTabela() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
+      {/* Klavye açılınca "Devam" butonu klavyenin ALTINDA kalıyordu: bu ekranda
+          KeyboardAvoidingView hiç yoktu ve footer ekranın dibinde sabitti.
+          (Kurulumda tab bar kaldırılınca buton 72px daha aşağı indi ve sorun
+          görünür hale geldi — sebebi o değil, o yalnız açığa çıkardı.)
+          footerInset klavye açıkken zaten 0 döner; KAV ile birlikte buton
+          klavyenin tam üstüne oturur. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <Text variant="caption" style={styles.stepLabel}>
@@ -73,19 +84,19 @@ export default function KurulumTabela() {
         />
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: spacing.lg + footerInset }]}>
         <Button variant="primary" size="lg" fullWidth onPress={handleContinue} loading={saving}>
           {t('auth:setup.tabela.continue')}
         </Button>
       </View>
-    </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  keyboardView: {
     flex: 1,
-    backgroundColor: colors.background,
   },
   scroll: {
     flexGrow: 1,

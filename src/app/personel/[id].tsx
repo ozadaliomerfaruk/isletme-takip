@@ -1,6 +1,7 @@
-import { useState, useCallback, useMemo, useEffect, memo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef, memo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, Linking } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -19,7 +20,7 @@ import {
   BarChart3,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { SwipeableRow, SwipeableProvider } from '@/components/ui/SwipeableRow';
@@ -30,8 +31,9 @@ import { formatTime } from '@/lib/date';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import type { TransactionType } from '@/components/transaction/TransactionTypeTabs';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
+import { ProductDetailModal } from '@/components/transaction/ProductDetailModal';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
-import { NoteRow } from '@/components/notes/NoteRow';
+import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, parseCurrency, formatAmountForInput, toNumber, getCrossCurrencyDisplay, roundCurrency, calculateTargetAmount } from '@/lib/currency';
@@ -50,16 +52,44 @@ import { buildWhatsAppUrl, buildTelUrl } from '@/lib/phone';
 import { MessageCircle } from 'lucide-react-native';
 import { usePersonelLeaveQuotas } from '@/hooks/usePersonelLeaveQuotas';
 import { useUnarchivePersonel } from '@/hooks/useArchive';
-import { useIslemlerByPersonel, useDeleteIslem } from '@/hooks/useIslemler';
+import {
+  useIslemlerByPersonel,
+  useDeleteIslem,
+  type PersonelTransactionRow,
+} from '@/hooks/useIslemler';
 import { useIleriTarihliIslemlerByPersonel } from '@/hooks/useIleriTarihliIslemler';
-import { IslemWithRelations, Not } from '@/types/database';
+import { Not } from '@/types/database';
 import { LeaveQuotaCard } from '@/components/personel/LeaveQuotaCard';
 import { isLeaveType } from '@/constants/islemTypes';
-import { toErrorMessage, isLinkedRecordsError } from '@/lib/errors';
+import {
+  getTransactionActionDeniedMessageKey,
+  getTransactionMutationMessageKey,
+  isLinkedRecordsError,
+  toErrorMessage,
+} from '@/lib/errors';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { getEntityPerspectiveColor, getEntityPerspectivePrefix } from '@/lib/transactionColors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { useTransactionCreatorLabelResolver } from '@/hooks/useTransactionCreatorLabels';
+import {
+  isPersonelIslemListRow,
+  toPersonelTransactionCreatorSource,
+} from '@/lib/personelTransactionProjection';
+import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
+import {
+  getTransactionProductMutationDecision,
+  type TransactionProductMutationDecision,
+} from '@/lib/transactionProductMutationGate';
+import {
+  useUrunKalemlerByIslemIds,
+  type UrunKalemOzet,
+} from '@/hooks/useUrunHareketler';
+
+const PERSONEL_TRANSACTION_DELETE_PERMISSION_REVOKED = Object.assign(
+  new Error('Personnel transaction delete permission revoked'),
+  { code: '42501' as const },
+);
 
 // ============================================================================
 // PURE HELPER FUNCTIONS (module-level, no re-creation per render)
@@ -89,7 +119,7 @@ function getHareketLabelKey(type: string): string {
 // ============================================================================
 
 interface PersonelTransactionItemProps {
-  islem: IslemWithRelations;
+  islem: PersonelTransactionRow;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
   onCopy: (id: string) => void;
@@ -97,15 +127,12 @@ interface PersonelTransactionItemProps {
   currency?: string;
   deleteLabel: string;
   copyLabel: string;
-  canEdit?: boolean;
-  currentUserId?: string;
+  canDelete?: boolean;
+  canCopy?: boolean;
+  creatorText?: string | null;
   runningBalanceText?: string | null;
   runningBalanceNegative?: boolean;
-}
-
-function getCreatorName(islem: IslemWithRelations): string | null {
-  if (!islem.creator) return null;
-  return islem.creator.display_name || islem.creator.email || null;
+  urunItems?: UrunKalemOzet[];
 }
 
 /**
@@ -114,7 +141,7 @@ function getCreatorName(islem: IslemWithRelations): string | null {
  * computeBalanceOps personel bacağını `converted()` ile hareket ettirdiği için bakiye
  * bununla uzlaşır (cari'deki getCariDisplayAmount ile aynı desen).
  */
-function getPersonelDisplayAmount(islem: IslemWithRelations): number {
+function getPersonelDisplayAmount(islem: PersonelTransactionRow): number {
   const amount = toNumber(islem.amount);
   const { source_currency, target_currency, exchange_rate } = islem;
   if (source_currency && target_currency && source_currency !== target_currency && exchange_rate) {
@@ -150,10 +177,12 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
   currency,
   deleteLabel,
   copyLabel,
-  canEdit = true,
-  currentUserId,
+  canDelete = true,
+  canCopy = true,
+  creatorText,
   runningBalanceText,
   runningBalanceNegative,
+  urunItems,
 }: PersonelTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
@@ -178,13 +207,29 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
       ? `${islem.type === 'personel_odeme' ? '→' : '←'} ${islem.hesap.name}`
       : null
     : null;
-  const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
   // Cross-currency (ör. EUR hesaptan TL personele ödeme): ana satır personel(hedef) pb,
   // alt satır kaynak hesabın pb. Cross-currency değilse mevcut davranış (subText null).
-  const xc = getCrossCurrencyDisplay(islem);
+  const xc = getCrossCurrencyDisplay(
+    isPersonelIslemListRow(islem)
+      ? {
+          type: islem.type,
+          amount: islem.amount,
+          source_currency: islem.source_currency,
+          target_currency: islem.target_currency,
+          exchange_rate: islem.exchange_rate,
+        }
+      : islem,
+  );
 
   return (
-    <SwipeableRow onDelete={canEdit ? handleDelete : undefined} onCopy={canEdit ? handleCopy : undefined} enabled={canEdit} deleteLabel={deleteLabel} copyLabel={copyLabel} flush>
+    <SwipeableRow
+      onDelete={canDelete ? handleDelete : undefined}
+      onCopy={canCopy ? handleCopy : undefined}
+      enabled={canDelete || canCopy}
+      deleteLabel={deleteLabel}
+      copyLabel={copyLabel}
+      flush
+    >
       <TransactionRow
         id={islem.id}
         type={islem.type}
@@ -201,6 +246,9 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
         runningBalanceNegative={isIzin ? undefined : runningBalanceNegative}
         overrideColor={getEntityPerspectiveColor(islem.type)}
         overridePrefix={getEntityPerspectivePrefix(islem.type)}
+        hasUrunler={(urunItems?.length ?? 0) > 0}
+        urunCount={urunItems?.length ?? 0}
+        urunItems={urunItems}
         onPress={onPress}
       />
     </SwipeableRow>
@@ -208,10 +256,12 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 }, (prev, next) => {
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
-    && prev.canEdit === next.canEdit
-    && prev.currentUserId === next.currentUserId
+    && prev.canDelete === next.canDelete
+    && prev.canCopy === next.canCopy
+    && prev.creatorText === next.creatorText
     && prev.runningBalanceText === next.runningBalanceText
-    && prev.runningBalanceNegative === next.runningBalanceNegative;
+    && prev.runningBalanceNegative === next.runningBalanceNegative
+    && prev.urunItems === next.urunItems;
 });
 
 // ============================================================================
@@ -219,6 +269,7 @@ const PersonelTransactionItem = memo(function PersonelTransactionItem({
 // ============================================================================
 
 export default function PersonelHareketleriPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { id, expandIslemId } = useLocalSearchParams<{ id: string; expandIslemId?: string }>();
   const router = useRouter();
   const { t } = useTranslation(['staff', 'common', 'errors', 'multiUser']);
@@ -230,13 +281,148 @@ export default function PersonelHareketleriPage() {
 
   const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
+  const islemIdList = useMemo(
+    () => (islemler || []).map((transaction) => transaction.id),
+    [islemler],
+  );
+  const {
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+  } = useUrunKalemlerByIslemIds(
+    islemIdList,
+    true,
+  );
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
   const { data: entityNotes } = useNotlarByEntity('personel', id!);
   // İzin kotası: KANONİK kaynak (tüm izin satırları, sayfalamasız) — ana sayfa ve izin
   // geçmişiyle birebir aynı; paginated `islemler`'den hesaplanmaz (scroll'a göre oynamaz).
   const { data: leaveQuotas } = usePersonelLeaveQuotas();
-  const { canUpdate, canDelete, canAccessModule } = usePermissions();
+  const {
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    canCreateTransactions,
+    canCreateTransactionType,
+    isOwner,
+  } = usePermissions();
+  const canCreatePersonelTransactions =
+    canCreateTransactionType('personel_gider');
   const { user, isletme } = useAuthContext();
+  const isActiveTenantTransaction = useCallback(
+    (transaction: PersonelTransactionRow): boolean => {
+      if (!isletme?.id) return false;
+
+      // Shared projection tenant/entity kimliklerini bilerek istemciye taşımaz.
+      // Bu satırlar aktif işletme + personel parametreli RPC'den gelir; owner'ın
+      // tam satırında ise tenant eşitliğini doğrudan yeniden doğrularız.
+      return isPersonelIslemListRow(transaction)
+        ? transaction.projection_source === 'personel-v1'
+        : transaction.isletme_id === isletme.id;
+    },
+    [isletme?.id],
+  );
+  const getTransactionMutationDecision = useCallback((
+    transaction: PersonelTransactionRow,
+    action: 'update' | 'delete',
+  ): TransactionProductMutationDecision => {
+    const createdBy = transaction.created_by ?? null;
+    if (!isActiveTenantTransaction(transaction)) {
+      return {
+        allowed: false,
+        reason: 'transaction_denied',
+        hasProductItems: isProductItemsResolved
+          ? getProductItemCount(transaction.id) > 0
+          : null,
+        useProductMutationV3: false,
+      };
+    }
+    return getTransactionProductMutationDecision({
+      type: transaction.type,
+      productItemsResolved: isProductItemsResolved,
+      productItemCount: getProductItemCount(transaction.id),
+      isOwner,
+      canAccessModule,
+      canMutateTransaction:
+        action === 'update'
+          ? canUpdate('islemler', createdBy)
+          : canDelete('islemler', createdBy),
+      canMutateProduct:
+        action === 'update'
+          ? canUpdate('urunler', createdBy)
+          : canDelete('urunler', createdBy),
+    });
+  }, [
+    canAccessModule,
+    canDelete,
+    canUpdate,
+    getProductItemCount,
+    isActiveTenantTransaction,
+    isOwner,
+    isProductItemsResolved,
+  ]);
+  const canUpdateTransactionRecord = useCallback(
+    (transaction: PersonelTransactionRow): boolean =>
+      getTransactionMutationDecision(transaction, 'update').allowed,
+    [getTransactionMutationDecision],
+  );
+  const canDeleteTransactionRecord = useCallback(
+    (transaction: PersonelTransactionRow): boolean =>
+      getTransactionMutationDecision(transaction, 'delete').allowed,
+    [getTransactionMutationDecision],
+  );
+  const canUpdateTransaction = useCallback((islemId: string): boolean => {
+    const transaction = (islemler || []).find((item) => item.id === islemId);
+    return !!transaction && canUpdateTransactionRecord(transaction);
+  }, [canUpdateTransactionRecord, islemler]);
+  const resolveCreatorLabel = useTransactionCreatorLabelResolver();
+  const resolvePersonelCreatorLabel = useCallback(
+    (transaction: PersonelTransactionRow) =>
+      resolveCreatorLabel(
+        isPersonelIslemListRow(transaction)
+          ? toPersonelTransactionCreatorSource(
+              transaction,
+              isletme?.id,
+            )
+          : transaction,
+      ),
+    [isletme?.id, resolveCreatorLabel],
+  );
+  const showTransactionUpdateDenied = useCallback((islemId: string) => {
+    const transaction = (islemler || []).find((item) => item.id === islemId);
+    if (!transaction) {
+      Alert.alert(
+        t('common:status.error'),
+        t('common:errors.transactionNotFound'),
+      );
+      return;
+    }
+    const createdBy = transaction.created_by ?? null;
+    const hasSourceAccess = canAccessTransactionSources(
+      [transaction.type],
+      canAccessModule,
+    );
+    const canUpdateRecord = canUpdateTransactionRecord(transaction);
+    const messageKey = getTransactionActionDeniedMessageKey('update', {
+      createdBy,
+      currentUserId: user?.id,
+      canActOnOwnRecord:
+        isActiveTenantTransaction(transaction)
+        && hasSourceAccess
+        && !!user?.id
+        && canUpdate('islemler', user.id),
+      canActOnRecord: canUpdateRecord,
+    });
+    Alert.alert(t('common:status.error'), t(messageKey));
+  }, [
+    canAccessModule,
+    canUpdate,
+    canUpdateTransactionRecord,
+    isActiveTenantTransaction,
+    islemler,
+    t,
+    user?.id,
+  ]);
   const deleteIslem = useDeleteIslem();
   const deletePersonel = useDeletePersonel();
   const updatePersonel = useUpdatePersonel();
@@ -252,12 +438,81 @@ export default function PersonelHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
+  const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
+  const productDetailTransaction = productDetailIslemId
+    ? (islemler || []).find((transaction) => transaction.id === productDetailIslemId)
+    : undefined;
+  const canEditProductDetailTransaction =
+    !!productDetailTransaction
+    && canUpdateTransactionRecord(productDetailTransaction);
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
   const [notePhotoPath, setNotePhotoPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (canCreatePersonelTransactions) return;
+
+    setQuickBarVisible(false);
+    setQuickBarDefaultType(undefined);
+  }, [canCreatePersonelTransactions]);
+
+  useEffect(() => {
+    if (isOwner) return;
+
+    setShowCopyBar(false);
+    setCopySourceId(null);
+    setShowShareOptions(false);
+  }, [isOwner]);
+
+  const canRenderEditTransactionBar =
+    !!editTransactionId && canUpdateTransaction(editTransactionId);
+
+  useEffect(() => {
+    if (!showEditBar || canRenderEditTransactionBar) return;
+
+    setShowEditBar(false);
+    setEditTransactionId(null);
+  }, [canRenderEditTransactionBar, showEditBar]);
+
+  const tryOpenTransaction = useCallback((islemId: string): boolean => {
+    if (!isProductItemsResolved) return false;
+    if (getProductItemCount(islemId) > 0) {
+      setProductDetailIslemId(islemId);
+      return true;
+    }
+    if (!canUpdateTransaction(islemId)) {
+      showTransactionUpdateDenied(islemId);
+      return true;
+    }
+    setEditTransactionId(islemId);
+    setShowEditBar(true);
+    return true;
+  }, [
+    canUpdateTransaction,
+    getProductItemCount,
+    isProductItemsResolved,
+    showTransactionUpdateDenied,
+  ]);
+
+  const requestTransactionOpen = useCallback((islemId: string) => {
+    if (tryOpenTransaction(islemId)) {
+      setPendingTransactionOpenId(null);
+      return;
+    }
+    setPendingTransactionOpenId(islemId);
+  }, [tryOpenTransaction]);
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId) return;
+    if (tryOpenTransaction(pendingTransactionOpenId)) {
+      setPendingTransactionOpenId(null);
+    }
+  }, [pendingTransactionOpenId, tryOpenTransaction]);
+
   const {
-    editingNoteId, setEditingNoteId, editingNote,
+    setEditingNoteId, editingNote,
     handleNoteUpdate, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask,
     isUpdatingNote,
   } = useDetailNoteHandlers({ entityType: 'personel', entityId: id!, entityNotes, isletmeId: isletme?.id });
@@ -268,12 +523,28 @@ export default function PersonelHareketleriPage() {
     undoDelete,
     dismissDelete,
     snackbar: undoSnackbar,
-  } = useUndoDelete<IslemWithRelations>({
-    onCommitDelete: async (id: string) => {
-      await deleteIslem.mutateAsync(id);
+  } = useUndoDelete<PersonelTransactionRow>({
+    onCommitDelete: async (transactionId: string) => {
+      const transaction = (islemler || []).find(
+        (item) => item.id === transactionId,
+      );
+      if (!transaction) {
+        throw PERSONEL_TRANSACTION_DELETE_PERMISSION_REVOKED;
+      }
+      const decision = getTransactionMutationDecision(transaction, 'delete');
+      if (!decision.allowed) {
+        throw PERSONEL_TRANSACTION_DELETE_PERMISSION_REVOKED;
+      }
+      await deleteIslem.mutateAsync({
+        id: transactionId,
+        useCariProductV3: decision.useProductMutationV3,
+      });
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? toErrorMessage(error) : t('errors:transaction.deleteFailed');
+      const messageKey = getTransactionMutationMessageKey(error, 'delete');
+      const message = messageKey
+        ? t(messageKey)
+        : toErrorMessage(error, t('errors:transaction.deleteFailed'));
       Alert.alert(t('common:status.error'), message);
     },
   });
@@ -282,11 +553,15 @@ export default function PersonelHareketleriPage() {
   const [expandHandled, setExpandHandled] = useState(false);
   useEffect(() => {
     if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
-      setEditTransactionId(expandIslemId);
-      setShowEditBar(true);
+      requestTransactionOpen(expandIslemId);
       setExpandHandled(true);
     }
-  }, [expandIslemId, expandHandled, islemler]);
+  }, [
+    expandIslemId,
+    expandHandled,
+    islemler,
+    requestTransactionOpen,
+  ]);
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -301,9 +576,14 @@ export default function PersonelHareketleriPage() {
 
   const fullName = personel ? `${personel.first_name} ${personel.last_name ?? ''}`.trim() : t('common:status.loading');
 
+  // Açılış/yürüyen bakiye yalnız bütün sayfalar yüklendiyse doğrudur. İlk
+  // keyset/offset sayfasından hesaplamak, "Daha fazla" yüklenirken satır
+  // bakiyelerini geriye dönük oynatır ve yanlış bir açılış bakiyesi gösterir.
+  const showHistoricalBalances = !hasNextPage && !isFetchingNextPage;
+
   // Memoized başlangıç bakiyesi hesaplaması
   const initialBalance = useMemo(() => {
-    if (!personel || !islemler) return 0;
+    if (!showHistoricalBalances || !personel || !islemler) return 0;
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
@@ -311,21 +591,21 @@ export default function PersonelHareketleriPage() {
     });
 
     return toNumber(personel.balance) - totalEffect;
-  }, [personel, islemler]);
+  }, [showHistoricalBalances, personel, islemler]);
 
   // Yürüyen bakiye: her işlem satırında O İŞLEMDEN SONRAKİ personel bakiyesi.
   // islemler date DESC (=görüntü sırası) → en yeni işlemden sonraki bakiye = güncel;
   // aşağı indikçe etki geri çıkarılır. initialBalance ile AYNI effect tablosu.
   const runningBalanceMap = useMemo(() => {
     const map: Record<string, number> = {};
-    if (!personel || !islemler) return map;
+    if (!showHistoricalBalances || !personel || !islemler) return map;
     let bal = toNumber(personel.balance);
     for (const islem of islemler) {
       map[islem.id] = bal; // bu işlemden SONRAKİ bakiye
       bal = roundCurrency(bal - personelBalanceEffect(islem.type, getPersonelDisplayAmount(islem)));
     }
     return map;
-  }, [personel, islemler]);
+  }, [showHistoricalBalances, personel, islemler]);
 
   // İzin kotası KANONİK kaynaktan (usePersonelLeaveQuotas) — sayfalı `islemler` listesine
   // bağlı DEĞİL; böylece kart ana sayfa/izin geçmişiyle aynı değeri verir ve scroll'la oynamaz.
@@ -343,8 +623,23 @@ export default function PersonelHareketleriPage() {
     router.push({ pathname: '/personel/izin-gecmisi/[id]', params: { id: id! } });
   }, [id]);
 
+  // Açılış bakiyesi düzenleme YETKİYE bağlı (hesap/cari detayıyla aynı kural):
+  // güncelleme yetkisi olmayan üye kalem ikonunu görmemeli, satır da tıklanmamalı.
+  const canUpdatePersonelRecord =
+    !!personel && canUpdate('personel', personel.created_by ?? null);
+  const isBalanceEditable = canUpdatePersonelRecord;
+  const isBalanceEditableRef = useRef(isBalanceEditable);
+  isBalanceEditableRef.current = isBalanceEditable;
+
+  useEffect(() => {
+    if (isBalanceEditable) return;
+    setEditBalanceModalVisible(false);
+  }, [isBalanceEditable]);
+
   // Başlangıç bakiyesi düzenleme
   const handleOpenEditBalance = useCallback(() => {
+    if (!isBalanceEditableRef.current) return;
+
     // Personelde: pozitif = credit (biz borçluyuz), negatif = debt (personel bize borçlu)
     setBalanceDirection(initialBalance >= 0 ? 'credit' : 'debt');
     setNewInitialBalance(formatAmountForInput(Math.abs(initialBalance)));
@@ -352,6 +647,11 @@ export default function PersonelHareketleriPage() {
   }, [initialBalance]);
 
   const handleSaveInitialBalance = useCallback(() => {
+    if (!isBalanceEditableRef.current) {
+      setEditBalanceModalVisible(false);
+      return;
+    }
+
     const absoluteAmount = roundCurrency(parseCurrency(newInitialBalance) || 0);
     // Personelde: credit = pozitif (biz borçluyuz), debt = negatif (personel bize borçlu)
     const newInitial = balanceDirection === 'credit' ? absoluteAmount : -absoluteAmount;
@@ -364,6 +664,11 @@ export default function PersonelHareketleriPage() {
         {
           text: t('common:buttons.confirm'),
           onPress: async () => {
+            if (!isBalanceEditableRef.current) {
+              setEditBalanceModalVisible(false);
+              return;
+            }
+
             try {
               if (!personel) return;
               const transactionEffect = Number(personel.balance) - initialBalance;
@@ -387,23 +692,21 @@ export default function PersonelHareketleriPage() {
 
   // Stable callback handlers for memoized item
   const handlePressIslem = useCallback((islemId: string) => {
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, []);
+    requestTransactionOpen(islemId);
+  }, [requestTransactionOpen]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = (islemler || []).find(i => i.id === islemId);
-    if (islem) {
+    if (islem && canDeleteTransactionRecord(islem)) {
       const labelKey = getHareketLabelKey(islem.type);
       const desc = islem.description || (labelKey.includes(':') ? t(labelKey) : t(`transactions:types.${islem.type}`));
       requestDelete(islemId, islem, desc);
     }
-  }, [islemler, requestDelete, t]);
+  }, [canDeleteTransactionRecord, islemler, requestDelete, t]);
 
   const handleEditIslem = useCallback((islemId: string) => {
-    setEditTransactionId(islemId);
-    setShowEditBar(true);
-  }, []);
+    requestTransactionOpen(islemId);
+  }, [requestTransactionOpen]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
     setCopySourceId(islemId);
@@ -438,6 +741,13 @@ export default function PersonelHareketleriPage() {
   }, [deletePersonel, id, router, t]);
 
   const handleUnarchive = useCallback(async () => {
+    if (!canUpdatePersonelRecord) {
+      Alert.alert(
+        t('common:status.error'),
+        t('common:errors.permissionDenied'),
+      );
+      return;
+    }
     try {
       await unarchivePersonel.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
@@ -445,33 +755,32 @@ export default function PersonelHareketleriPage() {
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  }, [unarchivePersonel, id, t, router]);
+  }, [canUpdatePersonelRecord, unarchivePersonel, id, t, router]);
 
   // Header right buttons
   const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
       <TouchableOpacity
-        onPress={() => {
-          // Rapor sayfası 'raporlar' modülüne bağlı. İzinsiz üye için sayfaya HİÇ gitme
-          // (flaş + veri-çekme olmadan) — doğrudan "Erişim Engellendi" uyarısı ver.
-          if (!canAccessModule('raporlar')) {
-            Alert.alert(t('multiUser:permissions.denied'), t('multiUser:permissions.noModuleAccess'));
-            return;
-          }
-          router.push({ pathname: '/raporlar/personel', params: { personelId: id } });
-        }}
+        onPress={() =>
+          router.push({
+            pathname: '/raporlar/personel',
+            params: { personelId: id },
+          })
+        }
         style={styles.headerBtn}
         hitSlop={HIT_SLOP.md}
       >
         <BarChart3 size={22} color={colors.text} />
       </TouchableOpacity>
-      <TouchableOpacity
-        onPress={() => setShowShareOptions(true)}
-        style={styles.headerBtn}
-        hitSlop={HIT_SLOP.md}
-      >
-        <ShareIcon size={22} color={colors.text} />
-      </TouchableOpacity>
+      {isOwner && (
+        <TouchableOpacity
+          onPress={() => setShowShareOptions(true)}
+          style={styles.headerBtn}
+          hitSlop={HIT_SLOP.md}
+        >
+          <ShareIcon size={22} color={colors.text} />
+        </TouchableOpacity>
+      )}
       <TouchableOpacity
         onPress={() => setShowMenu(true)}
         style={styles.headerBtn}
@@ -480,7 +789,7 @@ export default function PersonelHareketleriPage() {
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>
     </View>
-  ), [id, canAccessModule, t, router]);
+  ), [id, isOwner, router]);
 
   // ============================================================================
   // FlatList renderItem + key extractor
@@ -578,7 +887,11 @@ export default function PersonelHareketleriPage() {
   const deleteLabel = t('common:buttons.delete');
   const copyLabel = t('common:buttons.copy');
 
-  const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
+  const renderTransactionItem = useCallback(({
+    item,
+  }: {
+    item: TransactionListItem<PersonelTransactionRow>;
+  }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
     }
@@ -598,19 +911,22 @@ export default function PersonelHareketleriPage() {
     if (item.type === 'note') {
       const noteData = item.data as Not;
       return (
-        <SwipeableRow onDelete={() => handleNoteDelete(item.data.id)} deleteLabel={deleteLabel} flush>
-          <NoteRow
-            note={noteData}
-            onEdit={() => setEditingNoteId(item.data.id)}
-            onToggleComplete={handleToggleNoteCompletion}
-            onMarkAsTask={handleMarkAsTask}
-            onPhotoPress={setNotePhotoPath}
-          />
-        </SwipeableRow>
+        <NoteListRow
+          note={noteData}
+          onEditId={setEditingNoteId}
+          onDeleteId={handleNoteDelete}
+          onToggleComplete={handleToggleNoteCompletion}
+          onMarkAsTask={handleMarkAsTask}
+          onPhotoPress={setNotePhotoPath}
+          deleteLabel={deleteLabel}
+          contextModule="personel"
+          flush
+        />
       );
     }
     const islem = item.data;
-    const canEditItem = canDelete('islemler', islem.created_by ?? null);
+    const canDeleteItem = canDeleteTransactionRecord(islem);
+    const canCopyItem = isOwner && canCreateTransactions;
     const rbVal = runningBalanceMap[islem.id];
     const itemRunningBalanceText = rbVal !== undefined
       ? `${t('transactions:bakiyeSatir')} ${formatCurrency(Math.abs(rbVal), personel?.currency)}`
@@ -626,15 +942,20 @@ export default function PersonelHareketleriPage() {
         currency={personel?.currency}
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
-        canEdit={canEditItem}
-        currentUserId={user?.id}
+        canDelete={canDeleteItem}
+        canCopy={canCopyItem}
+        creatorText={resolvePersonelCreatorLabel(islem)}
         runningBalanceText={itemRunningBalanceText}
         runningBalanceNegative={itemRunningBalanceNegative}
+        urunItems={getUrunItems(islem.id)}
       />
     );
-  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, canDelete, user?.id, runningBalanceMap]);
+  }, [handlePressIslem, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, setEditingNoteId, formatDateMedium, t, personel?.currency, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransactionRecord, resolvePersonelCreatorLabel, runningBalanceMap, getUrunItems]);
 
-  const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
+  const keyExtractor = useCallback(
+    (item: TransactionListItem<PersonelTransactionRow>) => item.key,
+    [],
+  );
 
   // ============================================================================
   // FlatList Header (personel summary + action buttons + ileri tarihli + section title)
@@ -704,7 +1025,9 @@ export default function PersonelHareketleriPage() {
         {personel.is_archived && (
           <View style={styles.bannerContainer}>
             <ArchivedBanner
-              onUnarchive={handleUnarchive}
+              onUnarchive={
+                canUpdatePersonelRecord ? handleUnarchive : undefined
+              }
               loading={unarchivePersonel.isPending}
             />
           </View>
@@ -715,12 +1038,11 @@ export default function PersonelHareketleriPage() {
           <LeaveQuotaCard
             hakEdilenGun={leaveQuota.hakEdilen}
             kullanilanGun={leaveQuota.kullanilan}
-            onAddLeave={handleAddLeave}
+            onAddLeave={canCreatePersonelTransactions ? handleAddLeave : undefined}
             onCardPress={handleViewLeaveHistory}
           />
         )}
 
-        {/* İleri Tarihli İşlemler — sıkı alt boşluk: işlem listesi izin kartına yapışık başlar */}
         <View style={[styles.section, styles.sectionTight]}>
           <IleriTarihliIslemlerSection
             ileriTarihliIslemler={ileriTarihliIslemler}
@@ -734,7 +1056,7 @@ export default function PersonelHareketleriPage() {
         </View>
       </View>
     );
-  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, handleViewLeaveHistory, t, formatDateShort]);
+  }, [personel, fullName, baseCurrency, exchangeRates, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, handleUnarchive, unarchivePersonel.isPending, leaveQuota, handleAddLeave, handleViewLeaveHistory, t, formatDateShort, canCreatePersonelTransactions, canUpdatePersonelRecord]);
 
   // ============================================================================
   // FlatList Footer (başlangıç bakiyesi kartı)
@@ -759,16 +1081,18 @@ export default function PersonelHareketleriPage() {
           </View>
         )}
         {/* Başlangıç Bakiyesi — standart işlem satırı dili (işlemli → kilitli/salt) */}
-        <OpeningBalanceRow
-          label={t('staff:details.initialBalance')}
-          subtitle={`${t('staff:details.personelRecord')} • ${formatDateShort(personel.created_at)}`}
-          amount={initialBalance}
-          currency={personel?.currency}
-        />
+        {showHistoricalBalances && (
+          <OpeningBalanceRow
+            label={t('staff:details.initialBalance')}
+            subtitle={`${t('staff:details.personelRecord')} • ${formatDateShort(personel.created_at)}`}
+            amount={initialBalance}
+            currency={personel?.currency}
+          />
+        )}
         <View style={styles.footerSpacer} />
       </View>
     );
-  }, [personel, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort]);
+  }, [personel, initialBalance, t, hasNextPage, fetchNextPage, isFetchingNextPage, formatDateShort, showHistoricalBalances]);
 
   // ============================================================================
   // FlatList Empty component
@@ -779,17 +1103,19 @@ export default function PersonelHareketleriPage() {
     return (
       <View>
         {/* Başlangıç Bakiyesi — standart işlem satırı dili; işlem yokken düzenlenir */}
-        <OpeningBalanceRow
-          label={t('staff:details.initialBalance')}
-          subtitle={personel ? `${t('staff:details.personelRecord')} • ${formatDateShort(personel.created_at)}` : ''}
-          amount={initialBalance}
-          currency={personel?.currency}
-          editable
-          onEdit={handleOpenEditBalance}
-        />
+        {showHistoricalBalances && (
+          <OpeningBalanceRow
+            label={t('staff:details.initialBalance')}
+            subtitle={personel ? `${t('staff:details.personelRecord')} • ${formatDateShort(personel.created_at)}` : ''}
+            amount={initialBalance}
+            currency={personel?.currency}
+            editable={isBalanceEditable}
+            onEdit={isBalanceEditable ? handleOpenEditBalance : undefined}
+          />
+        )}
       </View>
     );
-  }, [islemlerLoading, personel, initialBalance, handleOpenEditBalance, t, formatDateShort]);
+  }, [islemlerLoading, personel, initialBalance, isBalanceEditable, handleOpenEditBalance, t, formatDateShort, showHistoricalBalances]);
 
   // ============================================================================
   // LOADING / NOT FOUND STATES
@@ -797,23 +1123,23 @@ export default function PersonelHareketleriPage() {
 
   if (personelLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!personel) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <EmptyState
           icon={<UserCircle size={48} color={colors.textMuted} />}
           title={t('errors:personel.notFound')}
           description={t('staff:details.notFoundDescription')}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -827,9 +1153,9 @@ export default function PersonelHareketleriPage() {
           headerLeft: () => <BackButton size={28} />,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <SwipeableProvider>
-          <FlatList
+          <FlatList<TransactionListItem<PersonelTransactionRow>>
             data={groupedData}
             keyExtractor={keyExtractor}
             renderItem={renderTransactionItem}
@@ -841,7 +1167,7 @@ export default function PersonelHareketleriPage() {
             maxToRenderPerBatch={10}
             windowSize={7}
             removeClippedSubviews={false}
-            contentContainerStyle={styles.flatListContent}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: contentPaddingBottom }]}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
           />
@@ -857,15 +1183,24 @@ export default function PersonelHareketleriPage() {
         />
 
         {/* Quick Transaction Bar - Create Mode */}
+        {canCreatePersonelTransactions && (
         <QuickTransactionBar
           visible={quickBarVisible}
           onDismiss={() => { setQuickBarVisible(false); setQuickBarDefaultType(undefined); }}
           defaultType={quickBarDefaultType}
           defaultPersonelId={personel?.id}
+          createScope="personel"
+          minimalAccountReferenceMode={
+            !isOwner && !canAccessModule('hesaplar')
+              ? 'personel'
+              : undefined
+          }
           onSuccess={() => { setQuickBarVisible(false); setQuickBarDefaultType(undefined); }}
         />
+        )}
 
         {/* Quick Transaction Bar - Edit Mode */}
+        {canRenderEditTransactionBar && (
         <QuickTransactionBar
           visible={showEditBar}
           onDismiss={() => {
@@ -876,13 +1211,32 @@ export default function PersonelHareketleriPage() {
           transactionId={editTransactionId ?? undefined}
           isScheduledTransaction={false}
           defaultPersonelId={personel?.id}
+          createScope="personel"
+          minimalAccountReferenceMode={
+            !isOwner && !canAccessModule('hesaplar')
+              ? 'personel'
+              : undefined
+          }
           onSuccess={() => {
             setShowEditBar(false);
             setEditTransactionId(null);
           }}
         />
+        )}
+
+        <ProductDetailModal
+          islemId={productDetailIslemId}
+          currency={personel.currency}
+          onDismiss={() => setProductDetailIslemId(null)}
+          onEdit={canEditProductDetailTransaction ? (islemId) => {
+            setProductDetailIslemId(null);
+            setEditTransactionId(islemId);
+            setShowEditBar(true);
+          } : undefined}
+        />
 
         {/* Copy Transaction Bar */}
+        {isOwner && (
         <QuickTransactionBar
           visible={showCopyBar}
           onDismiss={() => {
@@ -897,20 +1251,23 @@ export default function PersonelHareketleriPage() {
             setCopySourceId(null);
           }}
         />
+        )}
 
-        <DetailExportSection
-          visible={showShareOptions}
-          onDismiss={() => setShowShareOptions(false)}
-          entityType="personel"
-          entityId={id!}
-          entityName={fullName}
-          entityCurrency={personel.currency}
-          currentBalance={Number(personel.balance)}
-          phone={personel.phone ?? undefined}
-        />
+        {isOwner && (
+          <DetailExportSection
+            visible={showShareOptions}
+            onDismiss={() => setShowShareOptions(false)}
+            entityType="personel"
+            entityId={id!}
+            entityName={fullName}
+            entityCurrency={personel.currency}
+            currentBalance={Number(personel.balance)}
+            phone={personel.phone ?? undefined}
+          />
+        )}
 
         <BalanceEditorModal
-          visible={editBalanceModalVisible}
+          visible={editBalanceModalVisible && isBalanceEditable}
           onDismiss={() => setEditBalanceModalVisible(false)}
           title={t('staff:balance.editTitle')}
           warning={t('staff:balance.editWarning')}
@@ -928,21 +1285,19 @@ export default function PersonelHareketleriPage() {
         />
 
         {/* Floating Not Ekle + Yeni İşlem FAB */}
-        {!personel.is_archived && (
-          <>
-            <AddNoteButton
-              entityType="personel"
-              entityId={id!}
-              style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
-            />
-            <TouchableOpacity
-              style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-              onPress={() => setQuickBarVisible(true)}
-              activeOpacity={0.8}
-            >
-              <Zap size={24} color={colors.surface} />
-            </TouchableOpacity>
-          </>
+        {personel.is_active !== false && (
+          <AddNoteButton
+            entityType="personel"
+            entityId={id!}
+            style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
+          />
+        )}
+        {!personel.is_archived && canCreatePersonelTransactions && (
+          <GlassFab
+            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+            onPress={() => setQuickBarVisible(true)}
+            renderIcon={({ color, size }) => <Zap size={size} color={color} />}
+          />
         )}
 
         <UndoSnackbar
@@ -976,7 +1331,7 @@ export default function PersonelHareketleriPage() {
           photoPath={notePhotoPath}
           onClose={() => setNotePhotoPath(null)}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
@@ -1045,20 +1400,10 @@ const styles = StyleSheet.create({
   balanceInfo: {
     alignItems: 'flex-end',
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
   section: {

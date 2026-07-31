@@ -12,8 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { Text, Card } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
+import { formatCurrency } from '@/lib/currency';
 import type { PendingIslem } from '@/types/database';
-import i18n from '@/i18n';
 
 export interface SkippedTransactionCardProps {
   item: PendingIslem;
@@ -72,7 +72,7 @@ export function SkippedTransactionCard({
         ]}
       >
         {raw.isExpense ? '-' : '+'}
-        {raw.amount.toLocaleString(i18n.language === 'tr' ? 'tr-TR' : 'en-US')}
+        {formatCurrency(raw.amount)}
       </Text>
 
       {/* Skip reason */}

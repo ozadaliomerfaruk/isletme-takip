@@ -51,10 +51,9 @@ export function useTaksitPlanListesi(enabled = true) {
 }
 
 /**
- * İşlemin taksit planı var mı? — QTB edit'te vade segmentini kilitlemek için
- * hafif kontrol. Sunucudaki update_islem_atomik taksitli işlemde vade'yi
- * SESSİZCE koruduğundan (taksit satırlarıyla senkron kalmalı), kullanıcının
- * boşuna vade değiştirip "güncellenmedi" yaşamaması için UI'da engellenir.
+ * İşlemin taksit planı var mı? — QTB edit girişini kapatmak için hafif kontrol.
+ * Sunucu, plan bütünlüğünü korumak için taksitli işlemin tutar/tip/cari değişimini
+ * reddeder; istemci de kullanıcı formu doldurmadan önce aynı sözleşmeyi açıklar.
  */
 export function useIslemTaksitliMi(islemId: string | undefined) {
   const { isletme } = useAuthContext();
@@ -62,6 +61,9 @@ export function useIslemTaksitliMi(islemId: string | undefined) {
   return useQuery({
     queryKey: queryKeys.taksit.byIslem(islemId ?? '', isletme?.id ?? ''),
     enabled: !!islemId && !!isletme?.id,
+    // Edit kapısı eski `false` cache'ine güvenmemeli; ekran her açıldığında
+    // sunucudaki güncel plan varlığını yeniden doğrular.
+    refetchOnMount: 'always',
     queryFn: async (): Promise<boolean> => {
       if (!islemId || !isletme?.id) return false;
       const { data, error } = await supabase

@@ -1,0 +1,316 @@
+import { type ComponentType, type ReactNode } from 'react';
+import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { BlurView } from 'expo-blur';
+
+/**
+ * ⚠️ ALTIN KURAL — CAM YÜZEYE VE ATALARINA `opacity` UYGULAMA.
+ *
+ * Cam gerçek bir UIVisualEffectView. View'ün kendisinde ya da HERHANGİ bir
+ * atasında alpha < 1 olursa sistem onu offscreen render pass'e alır; cam o anda
+ * arkasındaki içeriği ÖRNEKLEYEMEZ ve malzeme çöküp düz/açık bir yüzeye döner.
+ * (Apple bunu UIVisualEffectView dokümantasyonunda ayrıca uyarı olarak yazıyor.)
+ *
+ * Belirtisi sinsi: yüzey "bazen beyaz bazen doğru renkte" görünür — beyaz olanlar
+ * fade animasyonunun içine denk gelen anlardır. Ayırt edici kanıt, İÇERİĞİN
+ * görünüp YÜZEYİN kaybolmasıdır: düz bir solmada ikisi birlikte solardı; metin
+ * RN katmanı olduğu için lineer solar, cam malzemesi ise komple çöker.
+ *
+ * DOĞRUSU: görünürlük geçişini TRANSFORM ile ver (kayma / ölçek) — offscreen
+ * tetiklemez. Fade şartsa camın kendisine değil İÇİNDEKİ katmana uygula, ya da
+ * malzeme geçişi için glassEffectStyle'ın { style, animate: true } config'ini kullan.
+ *
+ * ---
+ *
+ * iOS 26 Liquid Glass (UIGlassEffect) için TEK erişim noktası.
+ *
+ * Neden tek dosya: cam native modül — iOS 26 altı, Android ve modülü içermeyen
+ * eski dev client'larda YOK. Her yüzeyde ayrı ayrı "var mı?" dalı yazmak aynı
+ * fallback mantığını N kez kopyalamak demekti. Kullanılabilirlik kontrolü ve
+ * cam-yoksa görünümü burada bir kez tanımlı.
+ *
+ * require guard'lı: modül binary'de yoksa import patlamasın, sessizce fallback.
+ */
+let glassMod: {
+  GlassView: ComponentType<Record<string, unknown>>;
+  GlassContainer: ComponentType<Record<string, unknown>>;
+  isLiquidGlassAvailable: () => boolean;
+} | null = null;
+try {
+  // Koşullu yükleme: modül binary'de yoksa statik import bundle'ı patlatır,
+  // require try/catch ile yakalanabilir.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  glassMod = require('expo-glass-effect');
+} catch {
+  glassMod = null;
+}
+
+/** Gerçek liquid glass bu cihazda çiziliyor mu (iOS 26+ ve modül mevcut). */
+export let LIQUID_GLASS = false;
+try {
+  LIQUID_GLASS = Platform.OS === 'ios' && !!glassMod?.isLiquidGlassAvailable?.();
+} catch {
+  LIQUID_GLASS = false;
+}
+
+/**
+ * Animasyonlu cam view — köşe/boyut animasyonu sürecek yüzeyler için
+ * (ör. daralan tab bar). Cam yoksa null; çağıran taraf fallback'e düşer.
+ */
+export const AnimatedGlassView =
+  LIQUID_GLASS && glassMod ? Animated.createAnimatedComponent(glassMod.GlassView) : null;
+
+/**
+ * Cam elemanları birbirine ERİTEN kapsayıcı (UIGlassEffectContainer).
+ *
+ * `spacing`, elemanların birbirini etkilemeye başladığı mesafe. Apple'ın kendi
+ * örneğindeki (Landmarks/BadgesView) kalibrasyon: rozetler arası boşluk 14,
+ * rozet yığını ile buton arası 20, container spacing 16 → yani spacing,
+ * BİRLEŞMESİNİ istediğin boşluktan büyük, AYRI kalmasını istediğinden küçük
+ * seçilir. Cam yoksa düz View — çocukları etkilemez, düzen aynı kalır.
+ *
+ * NOT: Apple'ın açılış morph'u `glassEffectID` + namespace ile çalışır;
+ * expo-glass-effect bu API'yi dışa vermiyor → bizde yalnız yakınlık-erimesi var.
+ */
+export function GlassContainer({
+  spacing,
+  style,
+  pointerEvents,
+  children,
+}: {
+  spacing?: number;
+  style?: StyleProp<ViewStyle>;
+  pointerEvents?: 'auto' | 'none' | 'box-none' | 'box-only';
+  children?: ReactNode;
+}) {
+  // Cam yoksa düz View — `spacing` aktarılmaz (View tanımaz), düzen aynı kalır.
+  if (!LIQUID_GLASS || !glassMod) {
+    return (
+      <View style={style} pointerEvents={pointerEvents}>
+        {children}
+      </View>
+    );
+  }
+  const GC = glassMod.GlassContainer;
+  return (
+    <GC spacing={spacing} style={style} pointerEvents={pointerEvents}>
+      {children}
+    </GC>
+  );
+}
+
+// ============================================================================
+// SAYDAMLIK AYARLARI — yüzen kontrol katmanının tamamı buradan ayarlanır.
+// İki YOL var ve ayrı ayrı ayarlanır:
+//   • Cam yolu (iOS 26+): GLASS_TINT
+//   • Fallback (iOS<26, Android, camsız dev client): FALLBACK_* değerleri
+// Artırırken sınır OKUNABİLİRLİK: bar'ın altından koyu/yoğun bir liste
+// satırı geçerken sekme yazıları ve arama placeholder'ı hâlâ okunmalı.
+// ============================================================================
+
+/**
+ * Camın üstündeki tint. TINT YOK: camın en saydam hali, sistem neyi çiziyorsa o.
+ * Buradan daha ileri gitmenin tek yolu `glassEffectStyle`'ı 'clear'a çevirmek
+ * (GlassSurface prop'u) — o da açık zeminde fazla kaybolabilir, cihazda görülmeli.
+ */
+export const GLASS_TINT = 'transparent';
+
+/**
+ * KÜÇÜK, AYRIK kontroller için tint (header yuvarlak butonları gibi).
+ *
+ * GLASS_TINT ('transparent') büyük yüzeyler için doğru — kapsül şekli native rim
+ * lighting ile okunuyor. 36px'lik bir daire ise açık zeminde tint'siz kaybolur.
+ *
+ * Neden FAB'lardaki "doygun disk + cam" tarifi burada KULLANILMIYOR: opak disk
+ * GlassContainer erimesine katılmaz, oysa bu butonların işi tam olarak erimek
+ * (yan yana duran yardımcı aksiyonlar tek kapsül olur). Ayrım:
+ *   birincil aksiyon → doygun disk + cam (tekil durur, göze çarpar)
+ *   yardımcı kontrol → nötr cam + bu tint (erir, geri planda kalır)
+ */
+export const GLASS_TINT_CONTROL = 'rgba(255,255,255,0.22)';
+
+/**
+ * '#RRGGBB' → 'rgba(r,g,b,a)'. Hex değilse olduğu gibi döner.
+ * Semantik renkten cam tint'i türetmek için (ör. hata toast'ı kırmızıya çalar).
+ */
+export function withAlpha(color: string, alpha: number): string {
+  if (!color.startsWith('#') || color.length !== 7) return color;
+  const r = parseInt(color.slice(1, 3), 16);
+  const g = parseInt(color.slice(3, 5), 16);
+  const b = parseInt(color.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+/** Fallback'te blur üstüne konan frost katmanı (tab bar gibi blur'lu yüzeyler). */
+export const FALLBACK_FROST =
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.70)';
+
+/**
+ * Fallback'te blur'suz yüzeylerin (arama pill'i, kapatma X'i) arka planı.
+ * Yarı saydam: altındaki liste seziliyor ama metin okunur kalıyor.
+ * Android'de blur yok → daha opak, yoksa yazı zeminde kaybolur.
+ */
+export const FALLBACK_SURFACE =
+  Platform.OS === 'ios' ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.80)';
+
+/**
+ * Fallback blur yoğunluğu. Saydamlıkta en güçlü kaldıraç BUDUR: frost katmanını
+ * kısmak bir yere kadar gider, asıl beyazlatmayı blur'un kendisi yapar.
+ *
+ * SINIR: düştükçe arkadaki içerik bulanık değil KESKİN görünmeye başlar; o
+ * noktadan sonra "cam" değil "yarı saydam plastik" hissi verir. 32 civarı bu
+ * eşiğe yakın — daha da saydam isteniyorsa blur'u değil FALLBACK_SURFACE'ı düşür.
+ */
+export const FALLBACK_BLUR_INTENSITY = Platform.OS === 'ios' ? 32 : 24;
+
+/**
+ * Alt bölgedeki YÜZEN KONTROLLERİN ortak yüksekliği: FAB, arama pill'i ve
+ * kapatma X'i. Üçü de aynı taban çizgisine (bottom = spacing.lg + insets.bottom)
+ * çıpalı olduğundan, yükseklik eşit olunca DİKEY MERKEZLERİ de tam hizalanır.
+ *
+ * Neden ortak sabit: eskiden üçü ayrı ayrı yazılıydı (56 / 52 / 44) ve gözle
+ * görülür şekilde ayrışmışlardı. Cam erimesi merkez hizasına duyarlıdır —
+ * hizasızsa birleşme akışkan değil "yamuk damla" görünür.
+ */
+export const FLOATING_CONTROL_SIZE = 56;
+
+/**
+ * GlassContainer için ortak `spacing`. Apple'ın kalibrasyonu (Landmarks/
+ * BadgesView): rozet arası 14 < spacing 16 < yığın↔buton 20 — yani spacing,
+ * BİRLEŞMESİNİ istediğin boşluktan büyük, AYRI kalmasını istediğinden küçük.
+ *
+ * Bizim boşluklarımız: grup içi spacing.sm = 8 (arama pill'i↔X, FAB menü
+ * satırları, header buton grubu), gruplar arası spacing.md = 12 (menü↔FAB).
+ * 8 < 10 < 12 → grup içi erir, gruplar ayrı kalır.
+ *
+ * ⚠️ TAVAN 13. İki FAB arası tam 14px (ana FAB 56 @ bottom+16, not FAB'ı 44 @
+ * bottom+86 → 86−72=14). Bu sabit 14'e yaklaşırsa o ikisi erimeye başlar ve
+ * prominent FAB'ların OPAK DİSKİ erimeye katılamadığı için sonuç "yamuk damla"
+ * olur. Yükseltmeden önce hem bu 14'ü hem grup-içi boşlukları kontrol et.
+ */
+export const GLASS_MERGE_SPACING = 10;
+
+export interface GlassSurfaceProps {
+  /**
+   * HER İKİ yolda uygulanan stil: geometri (boyut, köşe yarıçapı, flex).
+   * Görsel dolgu (arka plan, border, gölge) buraya DEĞİL fallbackStyle'a —
+   * cam yolunda bunlar native rim lighting'i perdeler.
+   *
+   * (Bir ara "cam yüzeye açık ölçü şart" diye not düşülmüştü; o teşhis YANLIŞ
+   * çıktı — UndoSnackbar'ın görünmemesinin sebebi ölçüsü değil, overlay tab
+   * bar'ın arkasında konumlanmasıydı. Boyutunu içeriğinden alan cam yüzey
+   * sorunsuz çalışıyor.)
+   */
+  style?: StyleProp<ViewStyle>;
+  /** YALNIZ cam yokken uygulanır: bugünkü opak görünüm (bg + border + gölge). */
+  fallbackStyle?: StyleProp<ViewStyle>;
+  /**
+   * 'regular' = standart cam; 'clear' = daha saydam (medya üstü içerik için).
+   * Odak/etkin durumu renkli çerçeveyle değil bu geçişle vermek native dildir.
+   */
+  glassStyle?: 'regular' | 'clear';
+  /**
+   * Camın üstündeki tint. Verilmezse GLASS_TINT ('transparent').
+   *
+   * KURAL — yeni bir cam yüzey eklerken buna bak:
+   *  • BÜYÜK yüzey (tab bar, arama çubuğu): tint'siz çalışır; kapsül şekli
+   *    native rim lighting ile zaten okunur.
+   *  • KOYU zemin üstündeki yüzey (PhotoViewer): tint'siz çalışır; cam koyu
+   *    içerikten ayrışır.
+   *  • KÜÇÜK/TEKİL yüzey + AÇIK zemin (yuvarlak ikon butonu, yüzen çubuk):
+   *    TINT ŞART. Tint'siz bırakılırsa yüzey GÖRÜNMEZ olur — arama pill'i,
+   *    FAB'lar ve UndoSnackbar sırasıyla bu tuzağa düştü. Açık temada
+   *    (arka plan #F5F5F5, kartlar beyaz) tint yalnız estetik değil, yüzeyin
+   *    VAR OLMASINI sağlayan şey.
+   */
+  tintColor?: string;
+  /**
+   * Camın açık/koyu görünümü. Uygulama açık temaya sabitli (app.json
+   * userInterfaceStyle: light) olduğundan 'auto' her yerde açık cam demek —
+   * ama KOYU zeminlerde (fotoğraf görüntüleyici gibi) cam koyu olmalı, yoksa
+   * açık cam koyu içeriğin üstünde yabancı durur.
+   */
+  colorScheme?: 'auto' | 'light' | 'dark';
+  /**
+   * iOS 26'nın kendi dokunma tepkisi: cam parmağın altında hafifçe kabarıp
+   * parlar. VARSAYILAN AÇIK — bu his liquid glass'ın ayrılmaz parçası, her
+   * yüzeyde standart olmalı; kapatmak bilinçli bir istisna olsun.
+   *
+   * ÖNEMLİ: efekt yalnız cam view DOKUNUŞU GÖRÜRSE çalışır. İçerik camın
+   * ÇOCUĞU olmalı; camı arka planda bırakıp dokunuşu üstteki bir kardeş
+   * katmana verirsen bu prop hiçbir şey yapmaz.
+   */
+  interactive?: boolean;
+  /**
+   * Cam yokken altına BlurView koy. Varsayılan false — çoğu yüzeyin fallback'i
+   * bugünkü opak görünüm olmalı (blur, arkası hareketli olan yüzeyler için).
+   */
+  fallbackBlur?: boolean;
+  fallbackIntensity?: number;
+  /** fallbackBlur ile birlikte: blur üstüne konan düz katman (okunabilirlik). */
+  fallbackOverlay?: string;
+  children?: ReactNode;
+}
+
+/**
+ * Tek bir cam yüzey. Animasyon gerekmeyen yerler için (arama pill'i, yuvarlak
+ * ikon butonları, fotoğraf üstü kontroller). Animasyon gereken yerler
+ * AnimatedGlassView'i doğrudan kullanır.
+ *
+ * Cam yolunda ÜSTÜNE düz katman/gölge/border KOYMA: native rim lighting ve
+ * lensing perdelenir, yüzey "yapıştırılmış sticker" gibi durur.
+ */
+export function GlassSurface({
+  style,
+  fallbackStyle,
+  glassStyle = 'regular',
+  tintColor = GLASS_TINT,
+  colorScheme,
+  interactive = true,
+  fallbackBlur = false,
+  fallbackIntensity = FALLBACK_BLUR_INTENSITY,
+  fallbackOverlay,
+  children,
+}: GlassSurfaceProps) {
+  if (LIQUID_GLASS && glassMod) {
+    const GV = glassMod.GlassView;
+    return (
+      <GV
+        glassEffectStyle={glassStyle}
+        tintColor={tintColor}
+        colorScheme={colorScheme}
+        isInteractive={interactive}
+        style={[styles.glass, style]}
+      >
+        {children}
+      </GV>
+    );
+  }
+
+  // Fallback: iOS<26 + Android + camsız dev client.
+  // Blur varsa köşeyi RN kırpmalı (cam yolunda bunu native köşe yapıyordu);
+  // blur yoksa kırpma YOK — gölge overflow:hidden ile birlikte çizilmez.
+  return (
+    <View style={[fallbackBlur && styles.clip, style, fallbackStyle]}>
+      {fallbackBlur ? (
+        <>
+          <BlurView intensity={fallbackIntensity} tint="light" style={StyleSheet.absoluteFill} />
+          {fallbackOverlay ? (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: fallbackOverlay }]} />
+          ) : null}
+        </>
+      ) : null}
+      {children}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  glass: {
+    borderCurve: 'continuous',
+  },
+  clip: {
+    overflow: 'hidden',
+    borderCurve: 'continuous',
+  },
+});

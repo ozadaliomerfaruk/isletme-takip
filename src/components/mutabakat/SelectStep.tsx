@@ -2,6 +2,7 @@ import { View, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } fro
 import { useTranslation } from 'react-i18next';
 import { FileSpreadsheet, Scale, Upload } from 'lucide-react-native';
 import { Text } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency } from '@/lib/currency';
@@ -17,10 +18,12 @@ interface SelectStepProps {
 
 export function SelectStep({ cariName, balance, balanceLabel, currency, onPickFile, picking }: SelectStepProps) {
   const { t } = useTranslation('mutabakat');
+  // Cam tab bar bu rotada da çiziliyor; sabit 32px alt notları/CTA'yı temizlemiyordu
+  const contentPaddingBottom = useContentBottomPadding();
   const steps = [t('select.step1'), t('select.step2'), t('select.step3')];
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={[styles.container, { paddingBottom: contentPaddingBottom }]}>
       {/* Hero */}
       <View style={styles.hero}>
         <View style={styles.heroIcon}>

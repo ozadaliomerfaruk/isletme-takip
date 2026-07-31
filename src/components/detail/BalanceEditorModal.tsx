@@ -1,6 +1,13 @@
-import { Modal, TouchableOpacity, View, TextInput, StyleSheet } from 'react-native';
+import {
+  TouchableOpacity,
+  View,
+  TextInput,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { X } from 'lucide-react-native';
-import { Text, Button, BalanceDirectionSelector } from '@/components/ui';
+import { Text, Button, BalanceDirectionSelector, Modal } from '@/components/ui';
 import type { BalanceDirection } from '@/components/ui/BalanceDirectionSelector';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -55,79 +62,87 @@ export function BalanceEditorModal({
       animationType="fade"
       onRequestClose={onDismiss}
     >
-      <TouchableOpacity
-        style={styles.overlay}
-        activeOpacity={1}
-        onPress={onDismiss}
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={styles.content} onStartShouldSetResponder={() => true}>
-          <View style={styles.header}>
-            <Text variant="h3">{title}</Text>
-            <TouchableOpacity onPress={onDismiss}>
-              <X size={24} color={colors.textMuted} />
-            </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
+          onPress={onDismiss}
+        >
+          <View style={styles.content} onStartShouldSetResponder={() => true}>
+            <View style={styles.header}>
+              <Text variant="h3">{title}</Text>
+              <TouchableOpacity onPress={onDismiss}>
+                <X size={24} color={colors.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {subtitle && (
+              <Text variant="caption" color="secondary" style={styles.subtitle}>
+                {subtitle}
+              </Text>
+            )}
+
+            {warning && (
+              <Text variant="caption" color="secondary" style={styles.warning}>
+                {warning}
+              </Text>
+            )}
+
+            <View style={styles.fieldContainer}>
+              <Text variant="label" style={{ marginBottom: spacing.xs }}>
+                {directionLabel}
+              </Text>
+              <BalanceDirectionSelector
+                value={balanceDirection}
+                onChange={onDirectionChange}
+                variant={directionVariant}
+              />
+            </View>
+
+            <View style={inputLabel ? styles.fieldContainer : undefined}>
+              {inputLabel && <Text variant="label">{inputLabel}</Text>}
+              <TextInput
+                style={styles.input}
+                value={inputValue}
+                onChangeText={onInputChange}
+                keyboardType="decimal-pad"
+                placeholder={placeholder}
+                placeholderTextColor={colors.textMuted}
+                autoFocus={autoFocus}
+              />
+            </View>
+
+            <View style={styles.buttons}>
+              <Button
+                variant={cancelVariant}
+                onPress={onDismiss}
+                style={{ flex: 1 }}
+              >
+                {cancelLabel}
+              </Button>
+              <Button
+                variant="primary"
+                onPress={onSave}
+                loading={isSaving}
+                style={{ flex: 1 }}
+              >
+                {saveLabel}
+              </Button>
+            </View>
           </View>
-
-          {subtitle && (
-            <Text variant="caption" color="secondary" style={styles.subtitle}>
-              {subtitle}
-            </Text>
-          )}
-
-          {warning && (
-            <Text variant="caption" color="secondary" style={styles.warning}>
-              {warning}
-            </Text>
-          )}
-
-          <View style={styles.fieldContainer}>
-            <Text variant="label" style={{ marginBottom: spacing.xs }}>
-              {directionLabel}
-            </Text>
-            <BalanceDirectionSelector
-              value={balanceDirection}
-              onChange={onDirectionChange}
-              variant={directionVariant}
-            />
-          </View>
-
-          <View style={inputLabel ? styles.fieldContainer : undefined}>
-            {inputLabel && <Text variant="label">{inputLabel}</Text>}
-            <TextInput
-              style={styles.input}
-              value={inputValue}
-              onChangeText={onInputChange}
-              keyboardType="decimal-pad"
-              placeholder={placeholder}
-              placeholderTextColor={colors.textMuted}
-              autoFocus={autoFocus}
-            />
-          </View>
-
-          <View style={styles.buttons}>
-            <Button
-              variant={cancelVariant}
-              onPress={onDismiss}
-              style={{ flex: 1 }}
-            >
-              {cancelLabel}
-            </Button>
-            <Button
-              variant="primary"
-              onPress={onSave}
-              loading={isSaving}
-              style={{ flex: 1 }}
-            >
-              {saveLabel}
-            </Button>
-          </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',

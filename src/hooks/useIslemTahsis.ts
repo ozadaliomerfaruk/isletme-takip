@@ -3,6 +3,12 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { roundCurrency } from '@/lib/currency';
+import { usePermissions } from '@/hooks/usePermissions';
+
+function useCanSeeCariler(): boolean {
+  const { canAccessModule } = usePermissions();
+  return canAccessModule('cariler');
+}
 
 /**
  * Tahsis defteri (Faz 2) okuma hook'ları.
@@ -29,12 +35,13 @@ const BOS_OZET: CariTahsisOzeti = { taksitKalanlari: {} };
  */
 export function useCariTahsisOzeti(cariId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const canSeeCariler = useCanSeeCariler();
 
   return useQuery({
     queryKey: queryKeys.islemTahsis.byCari(cariId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!cariId && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!cariId && !!isletme?.id,
     queryFn: async (): Promise<CariTahsisOzeti> => {
-      if (!cariId || !isletme?.id) return BOS_OZET;
+      if (!canSeeCariler || !cariId || !isletme?.id) return BOS_OZET;
 
       const { data, error } = await supabase.rpc('get_cari_taksit_kalan', {
         p_isletme_id: isletme.id,
@@ -66,12 +73,13 @@ export interface CariVadeliBorc {
  */
 export function useCariVadeliBorclar(cariId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const canSeeCariler = useCanSeeCariler();
 
   return useQuery({
     queryKey: queryKeys.islemTahsis.vadeliBorclar(cariId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!cariId && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!cariId && !!isletme?.id,
     queryFn: async (): Promise<CariVadeliBorc[]> => {
-      if (!cariId || !isletme?.id) return [];
+      if (!canSeeCariler || !cariId || !isletme?.id) return [];
       const { data, error } = await supabase
         .from('islemler')
         .select('id, amount, type, vade_tarihi, description')
@@ -103,12 +111,13 @@ export interface CariVadeRozet {
  */
 export function useCariVadeRozet(enabled = true) {
   const { isletme } = useAuthContext();
+  const canSeeCariler = useCanSeeCariler();
 
   return useQuery({
     queryKey: queryKeys.islemTahsis.vadeRozet(isletme?.id ?? ''),
-    enabled: enabled && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!isletme?.id,
     queryFn: async (): Promise<Record<string, CariVadeRozet>> => {
-      if (!isletme?.id) return {};
+      if (!canSeeCariler || !isletme?.id) return {};
       const { data, error } = await supabase.rpc('get_cari_vade_rozet', {
         p_isletme_id: isletme.id,
       });
@@ -160,10 +169,11 @@ export interface CariVadeDetayBirim {
  */
 export function useCariVadeDetay(cariId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const canSeeCariler = useCanSeeCariler();
 
   return useQuery({
     queryKey: queryKeys.islemTahsis.vadeDetay(cariId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!cariId && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!cariId && !!isletme?.id,
     queryFn: async (): Promise<CariVadeDetayBirim[]> => {
       if (!cariId || !isletme?.id) return [];
       const { data, error } = await supabase.rpc('get_cari_vade_detay', {
@@ -187,12 +197,13 @@ export function useCariVadeDetay(cariId: string | undefined, enabled = true) {
  */
 export function useCariIslemKalan(cariId: string | undefined, enabled = true) {
   const { isletme } = useAuthContext();
+  const canSeeCariler = useCanSeeCariler();
 
   return useQuery({
     queryKey: queryKeys.islemTahsis.islemKalan(cariId ?? '', isletme?.id ?? ''),
-    enabled: enabled && !!cariId && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!cariId && !!isletme?.id,
     queryFn: async (): Promise<Record<string, number>> => {
-      if (!cariId || !isletme?.id) return {};
+      if (!canSeeCariler || !cariId || !isletme?.id) return {};
       const { data, error } = await supabase.rpc('get_cari_islem_kalan', {
         p_isletme_id: isletme.id,
         p_cari_id: cariId,
@@ -212,12 +223,13 @@ export function useCariIslemKalan(cariId: string | undefined, enabled = true) {
  */
 export function useVadeListesi(enabled = true) {
   const { isletme } = useAuthContext();
+  const canSeeCariler = useCanSeeCariler();
 
   return useQuery({
     queryKey: queryKeys.islemTahsis.vadeListe(isletme?.id ?? ''),
-    enabled: enabled && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!isletme?.id,
     queryFn: async (): Promise<VadeBirim[]> => {
-      if (!isletme?.id) return [];
+      if (!canSeeCariler || !isletme?.id) return [];
       const { data, error } = await supabase.rpc('get_vade_listesi', {
         p_isletme_id: isletme.id,
       });
@@ -243,12 +255,13 @@ export interface VadeOzetSatiri {
 /** İşletme geneli V.G./yaklaşan vade özeti (para birimi bazında — karışık toplam yok). */
 export function useVadeOzet(enabled = true) {
   const { isletme } = useAuthContext();
+  const canSeeCariler = useCanSeeCariler();
 
   return useQuery({
     queryKey: queryKeys.islemTahsis.vadeOzet(isletme?.id ?? ''),
-    enabled: enabled && !!isletme?.id,
+    enabled: enabled && canSeeCariler && !!isletme?.id,
     queryFn: async (): Promise<VadeOzetSatiri[]> => {
-      if (!isletme?.id) return [];
+      if (!canSeeCariler || !isletme?.id) return [];
       const { data, error } = await supabase.rpc('get_vade_ozet', {
         p_isletme_id: isletme.id,
       });

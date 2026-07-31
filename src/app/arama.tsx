@@ -1,18 +1,6 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  SectionList,
-  Keyboard,
-  Platform,
-  Modal,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, TextInput, TouchableOpacity, Pressable, SectionList, Keyboard, Platform, ActivityIndicator, ScrollView } from 'react-native';
 import type { StyleProp, TextStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, Href } from 'expo-router';
 import DateTimePickerRN, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import {
@@ -39,7 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BackButton } from '@/components/ui/BackButton';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, Screen, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -57,6 +45,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useFilteredIslemler } from '@/hooks/useIslemler';
 import { useNotlar } from '@/hooks/useNotlar';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import type { Hesap, Cari, Personel, Urun, IslemWithRelations, Not } from '@/types/database';
 
@@ -120,6 +109,32 @@ export default function AramaPage() {
     const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products', 'transactions']);
   const { formatDateNative, locale } = useDateFormat();
   const haptics = useHaptics();
+  const { canAccessModule, isOwner } = usePermissions();
+  const canSearchAccounts = canAccessModule('hesaplar');
+  const canSearchCariler = canAccessModule('cariler');
+  const canSearchPersonel = canAccessModule('personel');
+  const canSearchProducts = canAccessModule('urunler');
+  const canSearchNotes = canAccessModule('notlar');
+  // İşlem araması sunucudaki yetkili, bakiyesiz projeksiyondan gelir. Açık kaynak
+  // modüllerin satırları aranabilir; kapalı modüller sorgu sonucuna hiç girmez.
+  const canSearchTransactions = canAccessModule('islemler');
+  const allowedTypeKeys = useMemo(() => {
+    const keys: string[] = [];
+    if (canSearchAccounts) keys.push('hesap');
+    if (canSearchCariler) keys.push('cari');
+    if (canSearchPersonel) keys.push('personel');
+    if (canSearchProducts) keys.push('urun');
+    if (canSearchNotes) keys.push('not');
+    if (canSearchTransactions) keys.push('islem');
+    return keys;
+  }, [
+    canSearchAccounts,
+    canSearchCariler,
+    canSearchPersonel,
+    canSearchProducts,
+    canSearchNotes,
+    canSearchTransactions,
+  ]);
   const searchInputRef = useRef<TextInput>(null);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
@@ -132,20 +147,29 @@ export default function AramaPage() {
   const [dateTo, setDateTo] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState<'from' | 'to' | null>(null);
   const [tempDate, setTempDate] = useState(new Date());
-  const [enabledTypes, setEnabledTypes] = useState<Set<string>>(new Set(['hesap', 'cari', 'personel', 'urun', 'not', 'islem']));
+  const [enabledTypes, setEnabledTypes] = useState<Set<string>>(
+    () => new Set(allowedTypeKeys),
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const queryRef = useRef(query);
   queryRef.current = query;
 
   useEffect(() => {
     const timer = setTimeout(() => searchInputRef.current?.focus(), 100);
-    AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((val) => {
-      if (val) setRecentSearches(JSON.parse(val));
-    });
+    if (isOwner) {
+      AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((val) => {
+        if (val) setRecentSearches(JSON.parse(val));
+      });
+    } else {
+      // Geçmiş arama terimi kapatılmış bir modülün adını taşıyabilir. Shared
+      // kullanıcıda kalıcı arama geçmişi göstermeyerek permission daralmasını kapat.
+      setRecentSearches([]);
+      AsyncStorage.removeItem(RECENT_SEARCHES_KEY).catch(() => {});
+    }
     return () => {
       clearTimeout(timer);
       const q = queryRef.current.trim();
-      if (q.length >= 2) {
+      if (isOwner && q.length >= 2) {
         AsyncStorage.getItem(RECENT_SEARCHES_KEY).then((raw) => {
           const prev: string[] = raw ? JSON.parse(raw) : [];
           const next = [q, ...prev.filter(s => s !== q)].slice(0, MAX_RECENT_SEARCHES);
@@ -153,9 +177,15 @@ export default function AramaPage() {
         });
       }
     };
-  }, []);
+  }, [isOwner]);
+
+  useEffect(() => {
+    // Permission yüklenince veya daralınca yasak chip'leri state'ten de çıkar.
+    setEnabledTypes(new Set(allowedTypeKeys));
+  }, [allowedTypeKeys]);
 
   const saveRecentSearch = useCallback(async (term: string) => {
+    if (!isOwner) return;
     const trimmed = term.trim();
     if (trimmed.length < 2) return;
     const raw = await AsyncStorage.getItem(RECENT_SEARCHES_KEY);
@@ -163,7 +193,7 @@ export default function AramaPage() {
     const next = [trimmed, ...prev.filter(s => s !== trimmed)].slice(0, MAX_RECENT_SEARCHES);
     await AsyncStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
     setRecentSearches(next);
-  }, []);
+  }, [isOwner]);
 
   const clearRecentSearches = useCallback(() => {
     setRecentSearches([]);
@@ -185,12 +215,15 @@ export default function AramaPage() {
     setExpandedSections(new Set());
   }, [query]);
 
-  const { data: hesaplar = [] } = useHesaplar(true, true);
-  const { data: musteriCariler = [] } = useCariler('musteri', true, true);
-  const { data: tedarikciCariler = [] } = useCariler('tedarikci', true, true);
-  const { data: personelList = [] } = usePersonelList(true, true);
-  const { data: notlar = [] } = useNotlar();
-  const { data: urunler = [] } = useUrunler(true);
+  const { data: hesaplar = [] } = useHesaplar(true, true, canSearchAccounts);
+  const { data: musteriCariler = [] } =
+    useCariler('musteri', true, true, canSearchCariler);
+  const { data: tedarikciCariler = [] } =
+    useCariler('tedarikci', true, true, canSearchCariler);
+  const { data: personelList = [] } =
+    usePersonelList(true, true, canSearchPersonel);
+  const { data: notlar = [] } = useNotlar(undefined, undefined, canSearchNotes);
+  const { data: urunler = [] } = useUrunler(true, canSearchProducts);
 
   const parsedMin = useMemo(() => {
     const v = parseCurrency(minAmount);
@@ -213,6 +246,7 @@ export default function AramaPage() {
     // kaydırıyordu (16 Tem seçince "15" gidiyor → bitiş günü işlemleri filtreden düşüyordu).
     dateFrom: dateFrom ? formatDateForDB(dateFrom) : null,
     dateTo: dateTo ? formatDateForDB(dateTo) : null,
+    enabled: canSearchTransactions,
   });
 
   const amountInRange = useCallback((amount: number): boolean => {
@@ -260,16 +294,21 @@ export default function AramaPage() {
     setShowDatePicker(null);
   }, []);
 
-  const isSearching = query !== debouncedQuery || islemFetching;
+  const isSearching =
+    query !== debouncedQuery || (canSearchTransactions && islemFetching);
 
-  const allEntityTypes = useMemo(() => [
-    { key: 'hesap', label: t('common:labels.account') },
-    { key: 'cari', label: t('clients:titles.clients') },
-    { key: 'personel', label: t('common:labels.staff') },
-    { key: 'urun', label: t('products:title') },
-    { key: 'not', label: t('common:notes.title') },
-    { key: 'islem', label: t('common:labels.transactions') },
-  ] as const, [t]);
+  const allEntityTypes = useMemo(() => {
+    const types = [
+      { key: 'hesap', label: t('common:labels.account') },
+      { key: 'cari', label: t('clients:titles.clients') },
+      { key: 'personel', label: t('common:labels.staff') },
+      { key: 'urun', label: t('products:title') },
+      { key: 'not', label: t('common:notes.title') },
+      { key: 'islem', label: t('common:labels.transactions') },
+    ] as const;
+    const allowed = new Set(allowedTypeKeys);
+    return types.filter(({ key }) => allowed.has(key));
+  }, [allowedTypeKeys, t]);
 
   const toggleEntityType = useCallback((key: string) => {
     setEnabledTypes(prev => {
@@ -365,6 +404,14 @@ export default function AramaPage() {
 
   const handleItemPress = useCallback(
     async (item: SearchResultItem) => {
+      const allowed =
+        (item.type === 'hesap' && canSearchAccounts) ||
+        ((item.type === 'musteri' || item.type === 'tedarikci') && canSearchCariler) ||
+        (item.type === 'personel' && canSearchPersonel) ||
+        (item.type === 'urun' && canSearchProducts) ||
+        (item.type === 'not' && canSearchNotes) ||
+        (item.type === 'islem' && canSearchTransactions);
+      if (!allowed) return;
       haptics.selection();
       Keyboard.dismiss();
       if (query.trim().length >= 2) await saveRecentSearch(query);
@@ -384,12 +431,19 @@ export default function AramaPage() {
           break;
         case 'islem': {
           const islem = item.data;
-          if (islem.hesap_id) {
-            router.push({ pathname: `/hesaplar/[id]`, params: { id: islem.hesap_id, expandIslemId: islem.id } } as Href);
-          } else if (islem.cari_id) {
-            router.push({ pathname: `/cariler/[id]`, params: { id: islem.cari_id, expandIslemId: islem.id } } as Href);
-          } else if (islem.personel_id) {
-            router.push({ pathname: `/personel/[id]`, params: { id: islem.personel_id, expandIslemId: islem.id } } as Href);
+          if (islem.cari?.id && canSearchCariler) {
+            router.push({ pathname: `/cariler/[id]`, params: { id: islem.cari.id, expandIslemId: islem.id } } as Href);
+          } else if (islem.personel?.id && canSearchPersonel) {
+            router.push({ pathname: `/personel/[id]`, params: { id: islem.personel.id, expandIslemId: islem.id } } as Href);
+          } else if (canSearchAccounts) {
+            // Ham FK kapalı/pasif bir kaynağa ait olabilir. Yalnız RPC'nin
+            // gerçekten döndürdüğü açık hesap relation'ı navigasyon hedefidir;
+            // counterparty etiketi hiçbir zaman link hedefi yapılmaz.
+            const openAccountId =
+              islem.hesap?.id ?? islem.hedef_hesap?.id ?? null;
+            if (openAccountId) {
+              router.push({ pathname: `/hesaplar/[id]`, params: { id: openAccountId, expandIslemId: islem.id } } as Href);
+            }
           }
           break;
         }
@@ -398,7 +452,18 @@ export default function AramaPage() {
           break;
       }
     },
-    [router, haptics, query, saveRecentSearch]
+    [
+      router,
+      haptics,
+      query,
+      saveRecentSearch,
+      canSearchAccounts,
+      canSearchCariler,
+      canSearchPersonel,
+      canSearchProducts,
+      canSearchNotes,
+      canSearchTransactions,
+    ]
   );
 
   const toggleSection = useCallback((sectionType: string) => {
@@ -574,6 +639,9 @@ export default function AramaPage() {
       const name = `${islem.personel.first_name} ${islem.personel.last_name ?? ''}`.trim();
       if (name) return name;
     }
+    // Bağlı modül kapalıysa yalnız düz metin karşı-taraf etiketi gösterilir.
+    // Bu alanın ID'si yoktur ve handleItemPress tarafından route edilmez.
+    if (islem.counterparty_name) return islem.counterparty_name;
     if (islem.kategori?.name) return upperTr(islem.kategori.name); // kategori display-uppercase; cari/personel/hesap ADLARI değişmez
     if (islem.hesap?.name) return islem.hesap.name;
     return getShortTypeLabel(islem.type);
@@ -714,11 +782,14 @@ export default function AramaPage() {
   const hasActiveAdvancedFilters = hasAmountFilter || hasDateFilter || hasEntityFilter;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <Screen top>
       {/* Search Bar */}
       <View style={styles.searchBar}>
         <BackButton icon={ArrowLeft} style={styles.backBtn} />
-        <View style={styles.searchInputContainer}>
+        <Pressable
+          style={styles.searchInputContainer}
+          onPress={() => searchInputRef.current?.focus()}
+        >
           <Search size={18} color={colors.textMuted} />
           <TextInput
             ref={searchInputRef}
@@ -735,14 +806,18 @@ export default function AramaPage() {
           )}
           {query.length > 0 && !isSearching && (
             <TouchableOpacity
-              onPress={() => setQuery('')}
+              onPress={(event) => {
+                event.stopPropagation();
+                setQuery('');
+                searchInputRef.current?.focus();
+              }}
               hitSlop={HIT_SLOP.sm}
               style={styles.clearButton}
             >
               <X size={14} color={colors.textMuted} />
             </TouchableOpacity>
           )}
-        </View>
+        </Pressable>
         <TouchableOpacity
           onPress={() => setShowFilters(!showFilters)}
           hitSlop={HIT_SLOP.sm}
@@ -993,7 +1068,7 @@ export default function AramaPage() {
           )}
         </View>
       )}
-    </SafeAreaView>
+    </Screen>
   );
 }
 

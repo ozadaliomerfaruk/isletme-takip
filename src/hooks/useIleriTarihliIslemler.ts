@@ -2,18 +2,32 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { usePermissions } from '@/hooks/usePermissions';
 import {
   IleriTarihliIslem,
   IleriTarihliIslemInsert,
   IleriTarihliIslemUpdate,
   IleriTarihliIslemWithRelations,
-  IslemInsert,
+  Islem,
 } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
-import { computeBalanceOps } from '@/lib/islemBalanceOps';
+import { parseCrossCurrencyRateRequiredError } from '@/lib/crossCurrency';
 import { cancelTransactionReminder } from '@/lib/notifications';
+import { isSameScheduledCreate } from '@/lib/mutationIdentity';
 import i18n from '@/i18n';
+
+/**
+ * Tamamlama girdisi. exchangeRate YALNIZ çapraz-kurlu planlarda gerekir; ilk deneme
+ * kursuz yapılır, hook CrossCurrencyRateRequiredError fırlatırsa çağıran ekran kuru
+ * sorup aynı id ile tekrar dener.
+ */
+export interface CompleteIleriTarihliInput {
+  id: string;
+  exchangeRate?: number | null;
+  /** İlk kur isteminde server'ın verdiği snapshot tokenı. */
+  expectedToken?: string | null;
+}
 
 // ============================================================================
 // QUERY HOOKS
@@ -96,10 +110,20 @@ export function useIleriTarihliIslem(id: string | undefined) {
  */
 export function useIleriTarihliIslemlerByHesap(hesapId: string) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
 
-  return useQuery({
-    queryKey: queryKeys.ileriTarihliIslemler.byHesap(hesapId, isletme?.id || ''),
+  const result = useQuery({
+    queryKey: [
+      ...queryKeys.ileriTarihliIslemler.byHesap(hesapId, isletme?.id || ''),
+      'module-access',
+      canSeeHesaplar,
+    ] as const,
     queryFn: async () => {
+      // Hesap modülü açıksa ilgili hesabın bütün satırları creator'dan bağımsız
+      // okunur. Kapalı kaynakların ilişkileri yalnız dar ad/tip alanları taşır;
+      // bakiye bu select'e dahil değildir.
+      if (!canSeeHesaplar) return [];
       if (!isletme || !hesapId) return [];
 
       const { data, error } = await supabase
@@ -120,8 +144,17 @@ export function useIleriTarihliIslemlerByHesap(hesapId: string) {
       if (error) throw error;
       return data as IleriTarihliIslemWithRelations[];
     },
-    enabled: !!isletme && !!hesapId,
+    enabled: canSeeHesaplar && !!isletme && !!hesapId,
+    meta: {
+      persist: false,
+      query_purpose: 'ileri-tarihli:hesap-module-scoped',
+    },
   });
+
+  return {
+    ...result,
+    data: canSeeHesaplar ? result.data ?? [] : [],
+  };
 }
 
 /**
@@ -162,11 +195,20 @@ export function useIleriTarihliIslemlerByCari(cariId: string) {
  */
 export function useIleriTarihliIslemlerByPersonel(personelId: string) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeePersonel = canAccessModule('personel');
 
-  return useQuery({
-    queryKey: queryKeys.ileriTarihliIslemler.byPersonel(personelId, isletme?.id || ''),
+  const result = useQuery({
+    queryKey: [
+      ...queryKeys.ileriTarihliIslemler.byPersonel(
+        personelId,
+        isletme?.id || '',
+      ),
+      'module-access',
+      canSeePersonel,
+    ] as const,
     queryFn: async () => {
-      if (!isletme || !personelId) return [];
+      if (!canSeePersonel || !isletme || !personelId) return [];
 
       const { data, error } = await supabase
         .from('ileri_tarihli_islemler')
@@ -186,8 +228,17 @@ export function useIleriTarihliIslemlerByPersonel(personelId: string) {
       if (error) throw error;
       return data as IleriTarihliIslemWithRelations[];
     },
-    enabled: !!isletme && !!personelId,
+    enabled: canSeePersonel && !!isletme && !!personelId,
+    meta: {
+      persist: false,
+      query_purpose: 'ileri-tarihli:personel-module-scoped',
+    },
   });
+
+  return {
+    ...result,
+    data: canSeePersonel ? result.data ?? [] : [],
+  };
 }
 
 /**
@@ -266,7 +317,31 @@ export function useCreateIleriTarihliIslem() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Aynı client UUID'li ilk insert sunucuda commit olup HTTP cevabı kaybolmuş olabilir.
+        // Kör upsert mevcut veriyi ezebilir; yalnız birebir aynı pending/notified satırı başarı say.
+        if (error.code === '23505' && input.id) {
+          const { data: existing, error: existingError } = await supabase
+            .from('ileri_tarihli_islemler')
+            .select('*')
+            .eq('id', input.id)
+            .eq('isletme_id', isletme.id)
+            .maybeSingle();
+
+          if (existingError) throw existingError;
+          if (
+            existing
+            && isSameScheduledCreate(
+              existing as IleriTarihliIslem,
+              input,
+              isletme.id,
+            )
+          ) {
+            return existing as IleriTarihliIslem;
+          }
+        }
+        throw error;
+      }
       return data as IleriTarihliIslem;
     },
     onSuccess: (data) => {
@@ -303,10 +378,12 @@ export function useUpdateIleriTarihliIslem() {
         .update(updates)
         .eq('id', id)
         .eq('isletme_id', isletme.id)
+        .in('status', ['pending', 'notified'])
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error(i18n.t('common:errors.transactionNotFound'));
       return data as IleriTarihliIslem;
     },
     onSuccess: () => {
@@ -326,16 +403,20 @@ export function useDeleteIleriTarihliIslem() {
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      // Önce hatırlatıcıyı iptal et
-      await cancelTransactionReminder(id);
-
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('ileri_tarihli_islemler')
         .delete()
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .in('status', ['pending', 'notified'])
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) throw new Error(i18n.t('common:errors.transactionNotFound'));
+
+      // Reminder yalnız kaynak satır gerçekten silindikten sonra kaldırılır.
+      await cancelTransactionReminder(id);
     },
     onSuccess: () => {
       invalidateRelatedQueries(queryClient, 'ileriTarihliIslem');
@@ -351,128 +432,100 @@ export function useCompleteIleriTarihliIslem() {
   const { isletme } = useAuthContext();
 
   return useMutation({
-    mutationFn: async (id: string): Promise<IslemInsert | null> => {
+    // Finansal mutation global retry ile körlemesine yeniden çalıştırılmaz. RPC kendi
+    // içinde idempotenttir; olası "commit oldu, cevap kayboldu" durumu aşağıdaki tek,
+    // salt-okunur source probe ile doğrulanır.
+    retry: false,
+    mutationFn: async ({
+      id,
+      exchangeRate,
+      expectedToken,
+    }: CompleteIleriTarihliInput): Promise<Islem> => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
 
-      // 0. Hatırlatıcıyı iptal et (varsa)
+      const completionAt = formatDateTimeForDB(new Date());
+
+      // Tek yazma çağrısı: server satırı FOR UPDATE kilitler; güncel kaynaktan işlem
+      // ve bakiye bacaklarını türetir; insert+bakiye+tahsis+status'u tek transaction yapar.
+      // İstemci p_new_row veya p_balance_ops GÖNDERMEZ.
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'complete_ileri_tarihli_islem_atomik',
+        {
+          p_isletme_id: isletme.id,
+          p_ileri_id: id,
+          p_exchange_rate: exchangeRate ?? null,
+          p_expected_token: expectedToken ?? null,
+          // Eski istemcinin cihaz-yerel tarih + saat davranışını korur. RPC parametresi
+          // timestamp without time zone olduğu için offset DB kolonuna kaydırılmadan,
+          // cihazdaki görünen yerel saat bileşenleriyle yazılır.
+          p_completion_at: completionAt,
+        }
+      );
+
+      if (rpcError) {
+        const mappedError = mapScheduledCompletionError(rpcError);
+        if (mappedError) throw mappedError;
+
+        // Yalnız tanınmayan/transport hatasında bounded probe: RPC sunucuda commit
+        // olmuş ama HTTP cevabı kaybolmuşsa exact deterministic source başarıdır.
+        const { data: existing, error: sourceProbeError } = await supabase
+          .from('islemler')
+          .select('*')
+          .eq('isletme_id', isletme.id)
+          .eq('source_ileri_id', id)
+          .maybeSingle();
+
+        if (sourceProbeError) throw rpcError;
+
+        if (existing) {
+          const { data: scheduled, error: scheduledProbeError } = await supabase
+            .from('ileri_tarihli_islemler')
+            .select('*')
+            .eq('id', id)
+            .eq('isletme_id', isletme.id)
+            .maybeSingle();
+
+          if (
+            scheduledProbeError
+            || !scheduled
+            || !isExactScheduledCompletion(
+              existing as Islem,
+              isletme.id,
+              id,
+              scheduled as IleriTarihliIslem,
+              exchangeRate ?? null,
+            )
+          ) {
+            throw new Error(i18n.t('transactions:scheduled.existingRecordConflict'));
+          }
+          await cancelTransactionReminder(id);
+          return existing as Islem;
+        }
+
+        throw rpcError;
+      }
+
+      const completedIslem = rpcData as Islem | null;
+      if (!completedIslem) {
+        throw new Error(i18n.t('common:errors.transactionCreationFailed'));
+      }
+
+      if (
+        !isExactScheduledCompletion(
+          completedIslem,
+          isletme.id,
+          id,
+          undefined,
+          exchangeRate ?? null,
+        )
+      ) {
+        throw new Error(i18n.t('transactions:scheduled.existingRecordConflict'));
+      }
+
+      // Yerel reminder yalnız dayanıklı, exact finansal kayıt doğrulandıktan sonra
+      // iptal edilir. Bildirim API'si kendi hatasını yutar; finansal başarıyı bozmaz.
       await cancelTransactionReminder(id);
-
-      // 1. İleri tarihli işlemi al (relations ile birlikte - para birimi belirlemek için)
-      const { data: ileriIslem, error: fetchError } = await supabase
-        .from('ileri_tarihli_islemler')
-        .select(`
-          *,
-          hesap:hesaplar!hesap_id(currency),
-          hedef_hesap:hesaplar!hedef_hesap_id(currency),
-          cari:cariler!cari_id(currency),
-          personel:personel!personel_id(currency)
-        `)
-        .eq('id', id)
-        .eq('isletme_id', isletme.id)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (!ileriIslem) throw new Error(i18n.t('common:errors.transactionNotFound'));
-
-      // 1b. ATOMİK "CLAIM": satırı yalnızca hâlâ tamamlanmamışken (pending/notified)
-      // 'completed' yap. Bu koşullu UPDATE Postgres'te atomiktir; aynı satır için
-      // yarışan iki tetikleme (çift dokunma, iki cihaz, çevrimdışı retry) olursa
-      // SADECE biri satırı kaplar (claimed.length === 1), diğeri 0 satır günceller
-      // ve aşağıdaki insert/bakiye adımlarına HİÇ ulaşamaz. Böylece çift kayıt ve
-      // çift sayılan bakiye engellenir.
-      const previousStatus = ileriIslem.status;
-      const { data: claimed, error: claimError } = await supabase
-        .from('ileri_tarihli_islemler')
-        .update({ status: 'completed' })
-        .eq('id', id)
-        .eq('isletme_id', isletme.id)
-        .in('status', ['pending', 'notified'])
-        .select('id');
-
-      if (claimError) throw claimError;
-      if (!claimed || claimed.length === 0) {
-        // Satır başka bir aksiyon tarafından zaten tamamlanmış (veya silinmiş).
-        // Kullanıcı açısından işlem zaten kaydedilmiş demektir -> sessiz başarı.
-        return null;
-      }
-
-      // 2. Para birimlerini belirle (cross-currency desteği)
-      const hesapCurrency = ileriIslem.hesap?.currency || 'TRY';
-      const hedefHesapCurrency = ileriIslem.hedef_hesap?.currency || 'TRY';
-      const cariCurrency = ileriIslem.cari?.currency || 'TRY';
-      const personelCurrency = ileriIslem.personel?.currency || 'TRY';
-
-      // Source/target currency belirleme (işlem tipine göre)
-      let sourceCurrency = hesapCurrency;
-      let targetCurrency = hesapCurrency;
-
-      if (ileriIslem.type === 'transfer') {
-        sourceCurrency = hesapCurrency;
-        targetCurrency = hedefHesapCurrency;
-      } else if (ileriIslem.type.startsWith('cari_')) {
-        sourceCurrency = hesapCurrency;
-        targetCurrency = cariCurrency;
-      } else if (ileriIslem.type.startsWith('personel_')) {
-        sourceCurrency = hesapCurrency;
-        targetCurrency = personelCurrency;
-      }
-
-      // 3. Gerçek işlem olarak oluştur
-      const islemData: IslemInsert = {
-        isletme_id: isletme.id,
-        type: ileriIslem.type,
-        amount: ileriIslem.amount,
-        description: ileriIslem.description,
-        date: formatDateTimeForDB(new Date()), // Bugünün tarihi + saat (timezone dahil)
-        hesap_id: ileriIslem.hesap_id,
-        hedef_hesap_id: ileriIslem.hedef_hesap_id,
-        kategori_id: ileriIslem.kategori_id,
-        cari_id: ileriIslem.cari_id,
-        personel_id: ileriIslem.personel_id,
-        source_currency: sourceCurrency,
-        target_currency: targetCurrency,
-        exchange_rate: ileriIslem.exchange_rate,
-        // Çift kayıt koruması: bu islem'i kaynak ileri tarihli satıra bağla.
-        // DB'deki partial UNIQUE index, aynı kaynaktan ikinci bir islem
-        // oluşturulmasını imkânsız kılar.
-        source_ileri_id: id,
-      };
-
-      const { data: newIslem, error: insertError } = await supabase
-        .from('islemler')
-        .insert(islemData)
-        .select()
-        .single();
-
-      if (insertError) {
-        // Rollback: claim'i geri al (satırı eski durumuna döndür) ki kullanıcı
-        // tekrar deneyebilsin. (UNIQUE ihlali = zaten kaydedilmiş demektir.)
-        await supabase
-          .from('ileri_tarihli_islemler')
-          .update({ status: previousStatus })
-          .eq('id', id)
-          .eq('isletme_id', isletme.id);
-        throw insertError;
-      }
-      if (!newIslem) throw new Error(i18n.t('common:errors.transactionCreationFailed'));
-
-      // 4. Bakiyeleri güncelle
-      try {
-        await updateBalancesForIslem(islemData);
-      } catch (balanceError) {
-        // Rollback: oluşturulan işlemi sil ve claim'i geri al
-        await supabase.from('islemler').delete().eq('id', newIslem.id);
-        await supabase
-          .from('ileri_tarihli_islemler')
-          .update({ status: previousStatus })
-          .eq('id', id)
-          .eq('isletme_id', isletme.id);
-        throw balanceError;
-      }
-
-      // Not: Satır 1b'de atomik olarak 'completed' yapıldığı için ayrı bir
-      // status güncelleme adımına gerek yoktur.
-      return islemData;
+      return completedIslem;
     },
     onSuccess: () => {
       // Hem ileri tarihli işlemler hem de normal işlemler invalidate et
@@ -482,55 +535,119 @@ export function useCompleteIleriTarihliIslem() {
   });
 }
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
+function mapScheduledCompletionError(error: unknown): Error | null {
+  const rateRequired = parseCrossCurrencyRateRequiredError(error);
+  if (rateRequired) return rateRequired;
 
-async function safeIncrementBalance(tableName: string, rowId: string, amount: number) {
-  const { error } = await supabase.rpc('increment_balance', {
-    table_name: tableName,
-    row_id: rowId,
-    amount: amount,
-  });
+  const code =
+    error !== null
+      && typeof error === 'object'
+      && 'code' in error
+      && typeof (error as { code?: unknown }).code === 'string'
+      ? (error as { code: string }).code
+      : null;
+  const message =
+    error instanceof Error
+      ? error.message
+      : error !== null
+        && typeof error === 'object'
+        && 'message' in error
+        && typeof (error as { message?: unknown }).message === 'string'
+        ? (error as { message: string }).message
+        : '';
 
-  if (error) {
-    if (__DEV__) {
-      console.error(`Bakiye güncelleme hatası (${tableName}):`, error);
-    }
-    throw new Error(i18n.t('common:errors.balanceUpdateFailed', { message: error.message }));
+  if (message.includes('SCHEDULED_LINKED_CARI_UNSUPPORTED')) {
+    return new Error(i18n.t('transactions:scheduled.linkedCariUnsupported'));
   }
+  if (code === '23505' || message.includes('SCHEDULED_SOURCE_CONFLICT')) {
+    return new Error(i18n.t('transactions:scheduled.existingRecordConflict'));
+  }
+  if (message.includes('SCHEDULED_NOT_COMPLETABLE')) {
+    return new Error(i18n.t('transactions:scheduled.completionInProgress'));
+  }
+  if (message.includes('SCHEDULED_NOT_FOUND')) {
+    return new Error(i18n.t('common:errors.transactionNotFound'));
+  }
+  if (message.includes('SCHEDULED_STATUS_CONFLICT')) {
+    return new Error(i18n.t('transactions:scheduled.completionStateFailed'));
+  }
+  if (message.includes('SCHEDULED_COMPLETION_CHANGED')) {
+    return new Error(i18n.t('transactions:scheduled.completionChanged'));
+  }
+  if (
+    code?.startsWith('22')
+    || code === '23502'
+    || code === '23503'
+    || message.includes('SCHEDULED_ENTITY_SCOPE_MISMATCH')
+  ) {
+    return new Error(i18n.t('transactions:scheduled.completionDataInvalid'));
+  }
+  if (code === '42501') {
+    return new Error(i18n.t('common:errors.permissionDenied'));
+  }
+
+  return null;
 }
 
-// Tamamlanan ileri tarihli işlemin bakiye etkisi. Deltalar TEK KAYNAK computeBalanceOps'tan
-// (normal create/update/delete ile AYNI; çapraz-para matematiği dahil) — eski buradaki
-// switch ile 13 tipte birebir aynıydı, tekrar kaldırıldı.
-//
-// KISMİ-BAŞARI KORUMASI: iki-bacaklı tiplerde (transfer/cari_odeme/tahsilat/personel_*) bir
-// bacak (ör. 2.'si flaky ağda) patlarsa, o ana kadar uygulanan bacaklar GERİ ALINIR. Aksi
-// halde çağıran catch islem satırını silse bile leg-1 orphan bakiye kalıyordu → kaynak hesap
-// kayıtsız borçlanır ve satır 'pending'e döndüğünden tekrar-tamamlamada İKİNCİ kez uygulanıp
-// çift borçlanma oluyordu (bug taraması: partial-state-money).
-async function updateBalancesForIslem(islem: IslemInsert) {
-  const ops = computeBalanceOps(islem);
-  const applied: typeof ops = [];
-  try {
-    for (const op of ops) {
-      await safeIncrementBalance(op.t, op.id, op.d);
-      applied.push(op);
-    }
-  } catch (err) {
-    for (const op of applied.reverse()) {
-      try {
-        await safeIncrementBalance(op.t, op.id, -op.d);
-      } catch {
-        /* best-effort geri alma */
-      }
-    }
-    throw err;
-  }
-}
+function isExactScheduledCompletion(
+  islem: Islem,
+  isletmeId: string,
+  scheduledId: string,
+  scheduled?: IleriTarihliIslem,
+  expectedExchangeRate: number | null = null,
+): boolean {
+  const withTargetPointer = islem as Islem & {
+    hedef_islem_id?: string | null;
+  };
+  const hasTargetPointerField = Object.prototype.hasOwnProperty.call(
+    withTargetPointer,
+    'hedef_islem_id',
+  );
+  const actualRate = islem.exchange_rate;
+  const hasKnownCurrencies =
+    typeof islem.source_currency === 'string'
+    && typeof islem.target_currency === 'string';
+  const isCrossCurrency =
+    hasKnownCurrencies
+    && islem.source_currency !== islem.target_currency;
+  const rateMatches =
+    expectedExchangeRate === null
+      ? isCrossCurrency
+        ? actualRate !== null
+          && Number.isFinite(Number(actualRate))
+          && Number(actualRate) > 0
+        : hasKnownCurrencies && actualRate === null
+      : actualRate !== null
+        && Number.isFinite(Number(actualRate))
+        && Math.round(Number(actualRate) * 100_000_000)
+          === Math.round(expectedExchangeRate * 100_000_000);
 
-// Not: reverseBalancesForIslem kaldırıldı — eski tamamlama akışında, son status
-// güncellemesi başarısız olursa bakiyeleri geri almak için kullanılıyordu. Yeni
-// akışta status atomik "claim" ile en başta ayarlandığından (1b), bakiyeler
-// uygulandıktan SONRA başarısız olabilecek bir adım kalmadı; bu yüzden gerek yok.
+  const identityAndFinancialNullsMatch =
+    islem.id === scheduledId &&
+    islem.isletme_id === isletmeId &&
+    islem.source_ileri_id === scheduledId &&
+    islem.photo_path === null &&
+    islem.date_end === null &&
+    islem.vade_tarihi === null &&
+    hasTargetPointerField &&
+    withTargetPointer.hedef_islem_id === null &&
+    rateMatches;
+
+  if (!identityAndFinancialNullsMatch) return false;
+  if (!scheduled) return true;
+
+  return (
+    scheduled.id === scheduledId &&
+    scheduled.isletme_id === isletmeId &&
+    scheduled.status === 'completed' &&
+    islem.type === scheduled.type &&
+    Math.round(Number(islem.amount) * 100)
+      === Math.round(Number(scheduled.amount) * 100) &&
+    (islem.description ?? null) === (scheduled.description ?? null) &&
+    islem.hesap_id === scheduled.hesap_id &&
+    islem.hedef_hesap_id === scheduled.hedef_hesap_id &&
+    islem.kategori_id === scheduled.kategori_id &&
+    islem.cari_id === scheduled.cari_id &&
+    islem.personel_id === scheduled.personel_id
+  );
+}

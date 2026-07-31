@@ -14,7 +14,7 @@ import {
   KeyboardEvent,
   Easing,
 } from 'react-native';
-import { roundCurrency } from '@/lib/currency';
+import { roundCurrency, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
 import { ensureValidDate } from '@/lib/date';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -90,7 +90,10 @@ export function usePendingFormState({ pendingIslem, visible, onDismiss }: Pendin
       const amountVal = corrections.amount ?? raw.amount;
       // Tutar 3+ ondalık olabilir (OCR); 2 ondalığa yuvarla ki parseCurrency TR
       // locale'de noktayı binlik ayracı sanıp ~1000x şişirmesin.
-      setAmount(amountVal != null ? roundCurrency(amountVal).toString() : '');
+      // formatAmountForInput: alan artık cleanAmountInput'tan geçiyor ve locale
+      // ondalığı dışındaki ayracı SİLİYOR — .toString() ile yazılan "150.5" TR'de
+      // ilk dokunuşta "1505" oluyordu (10x). roundCurrency 2-ondalık tavanı için.
+      setAmount(amountVal != null ? formatAmountForInput(roundCurrency(amountVal)) : '');
 
       setDescription(corrections.description ?? raw.description ?? '');
 
@@ -325,8 +328,11 @@ export function usePendingFormState({ pendingIslem, visible, onDismiss }: Pendin
 
   // Amount change handler
   const handleAmountChange = useCallback((text: string) => {
-    const cleaned = text.replace(/[^0-9,.]/g, '');
-    setAmount(cleaned);
+    // Merkezî temizleyici: locale'e göre binliği atar, ondalığı 2 haneye kısar ve tek
+    // ayraç bırakır. Ham regex (birden çok ayraç + sınırsız ondalık) parseCurrency'nin
+    // "3-ondalık" tuzağına düşüp tutarı ~1000x şişirebiliyordu — init'teki
+    // roundCurrency yalnız OCR değerini koruyordu, elle düzeltmeyi değil.
+    setAmount(cleanAmountInput(text));
   }, []);
 
   return {

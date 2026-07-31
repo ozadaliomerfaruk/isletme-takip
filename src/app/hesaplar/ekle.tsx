@@ -7,10 +7,11 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
-import { Text, Input, Button, Card, CurrencyPicker } from '@/components/ui';
+import { Text, Input, Button, Card, CurrencyPicker, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useCreateHesap } from '@/hooks/useHesaplar';
@@ -18,6 +19,7 @@ import { HesapType, Currency } from '@/types/database';
 import { DEFAULT_CURRENCY } from '@/constants/currencies';
 import { useTranslation } from 'react-i18next';
 import { toErrorMessage } from '@/lib/errors';
+import { getNeedsSetupSync } from '@/lib/setupFlow';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
@@ -30,6 +32,7 @@ export default function HesapEklePage() {
   usePagePermission({ module: 'hesaplar', action: 'create' });
   const createHesap = useCreateHesap();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
   const { canUseBirikim } = usePermissions();
 
   // Birikim tipi yalnızca birikim iznine sahip kullanıcıya gösterilir (RLS ile uyumlu).
@@ -83,15 +86,22 @@ export default function HesapEklePage() {
       });
 
       notifySaved(t('accounts:messages.createSuccess'));
-      // Kayıt sonrası oluşturulan hesabın detayına git (geri = liste).
-      router.replace({ pathname: '/hesaplar/[id]', params: { id: created.id } });
+      if (getNeedsSetupSync()) {
+        // Kurulum akışı sürüyor: _layout'un kapısı kurulum bitmeden 'hesaplar/ekle'
+        // dışına çıkışa izin vermiyor; detaya replace edilince kapı kullanıcıyı
+        // sektör ekranına (/kurulum) geri atıyordu. back() → rehberli oluşturma listesi.
+        router.back();
+      } else {
+        // Kayıt sonrası oluşturulan hesabın detayına git (geri = liste).
+        router.replace({ pathname: '/hesaplar/[id]', params: { id: created.id } });
+      }
     } catch (error) {
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('errors:account.createFailed'));
     }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -99,10 +109,11 @@ export default function HesapEklePage() {
       >
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom, spacing['3xl']) + spacing.xl }
-          ]}
+          // Güvenli alan payı BURADA GEREKMİYOR: footer kaydırmanın DIŞINDA,
+          // sabit duruyor ve alt boşluğu kendisi taşıyor. insets.bottom
+          // eklenirse (artık tab bar yüksekliğini de içeriyor) form gereksiz
+          // yere kısalır — klavye açıkken boşluk iyice büyür.
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -195,8 +206,14 @@ export default function HesapEklePage() {
 
         </ScrollView>
 
-        {/* Sticky footer — kaydet butonu klavyenin altında kalmasın */}
-        <View style={styles.footer}>
+        {/* Sticky footer — kaydet butonu klavyenin altında kalmasın.
+            Alt boşluk FOOTER'IN KENDİSİNDE (Screen'in `footer` prop'u DEĞİL):
+            footer KeyboardAvoidingView'ün İÇİNDE kalmak zorunda, yoksa klavye
+            açılınca yükselmez.
+            Güvenli alan payı KLAVYEYE DUYARLI (bkz. useFooterBottomPadding):
+            klavye açıkken tab bar/home indicator klavyenin altında kalır,
+            eklenirse footer ile klavye arasında kocaman boşluk açılır. */}
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
           <Button
             variant="outline"
             size="lg"
@@ -216,7 +233,7 @@ export default function HesapEklePage() {
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

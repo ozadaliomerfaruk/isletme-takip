@@ -1,6 +1,5 @@
-import { useState, useCallback, useMemo, memo } from 'react';
+import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
 import {
@@ -15,7 +14,8 @@ import {
   EyeOff,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Card, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState, ActionSheet, type ActionSheetOption } from '@/components/ui';
+import { Text, Card, FloatingSearchBar, FLOATING_SEARCH_CLEARANCE, EmptyState, ActionSheet, type ActionSheetOption, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber, formatQuantity } from '@/lib/currency';
@@ -219,22 +219,39 @@ const UrunRow = memo(function UrunRow({ data, onOpen, onMore }: { data: Urun } &
 });
 
 export default function ArsivPage() {
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const router = useRouter();
   const { t } = useTranslation(['common', 'accounts', 'clients', 'staff', 'products']);
-  const { canUpdate, canDelete } = usePermissions();
+  const { canUpdate, canDelete, canAccessModule } = usePermissions();
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeUrunler = canAccessModule('urunler');
   const [activeTab, setActiveTab] = useState<TabType>('hepsi');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionSheetVisible, setActionSheetVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<{ id: string; type: TabType; name: string; created_by?: string | null } | null>(null);
 
-  // Data queries (koşulsuz — sayaçlar bu dizilerin uzunluğundan türetiliyor, ayrı useArchiveCounts
-  // fan-out'u YOK: eskiden her açılışta 5 ekstra HEAD count isteği atıyordu, kaldırıldı).
-  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } = useArchivedHesaplar();
-  const { data: tedarikciler, isLoading: tedarikciLoading, refetch: refetchTedarikciler } = useArchivedCariler('tedarikci');
-  const { data: musteriler, isLoading: musteriLoading, refetch: refetchMusteriler } = useArchivedCariler('musteri');
-  const { data: personelList, isLoading: personelLoading, refetch: refetchPersonel } = useArchivedPersonel();
-  const { data: urunler, isLoading: urunlerLoading, refetch: refetchUrunler } = useArchivedUrunler();
-  const { refreshing, onRefresh } = usePullToRefresh(refetchHesaplar, refetchTedarikciler, refetchMusteriler, refetchPersonel, refetchUrunler);
+  // Her arşiv kaynağı kendi modül kapısıyla sorgulanır. Sekmeyi gizleyip sorguyu
+  // çalıştırmak stale cache veya devtools üzerinden kapalı veriyi sızdırır.
+  const { data: hesaplar, isLoading: hesaplarLoading, refetch: refetchHesaplar } =
+    useArchivedHesaplar(canSeeHesaplar);
+  const { data: tedarikciler, isLoading: tedarikciLoading, refetch: refetchTedarikciler } =
+    useArchivedCariler('tedarikci', canSeeCariler);
+  const { data: musteriler, isLoading: musteriLoading, refetch: refetchMusteriler } =
+    useArchivedCariler('musteri', canSeeCariler);
+  const { data: personelList, isLoading: personelLoading, refetch: refetchPersonel } =
+    useArchivedPersonel(canSeePersonel);
+  const { data: urunler, isLoading: urunlerLoading, refetch: refetchUrunler } =
+    useArchivedUrunler(canSeeUrunler);
+  const noRefetch = useCallback(async () => undefined, []);
+  const { refreshing, onRefresh } = usePullToRefresh(
+    canSeeHesaplar ? refetchHesaplar : noRefetch,
+    canSeeCariler ? refetchTedarikciler : noRefetch,
+    canSeeCariler ? refetchMusteriler : noRefetch,
+    canSeePersonel ? refetchPersonel : noRefetch,
+    canSeeUrunler ? refetchUrunler : noRefetch,
+  );
 
   // Mutations
   const unarchiveHesap = useUnarchiveHesap();
@@ -259,17 +276,39 @@ export default function ArsivPage() {
   );
   const totalArchived = counts.hesaplar + counts.tedarikci + counts.musteri + counts.personel + counts.urunler;
 
-  const tabs = useMemo(
-    () => [
+  const tabs = useMemo(() => {
+    const visibleTabs = [
       { key: 'hepsi' as TabType, label: t('common:archive.tabs.all'), count: totalArchived },
-      { key: 'hesaplar' as TabType, label: t('common:archive.tabs.accounts'), count: counts.hesaplar },
-      { key: 'tedarikci' as TabType, label: t('common:archive.tabs.suppliers'), count: counts.tedarikci },
-      { key: 'musteri' as TabType, label: t('common:archive.tabs.customers'), count: counts.musteri },
-      { key: 'personel' as TabType, label: t('common:archive.tabs.staff'), count: counts.personel },
-      { key: 'urunler' as TabType, label: t('common:archive.tabs.products'), count: counts.urunler },
-    ],
-    [t, totalArchived, counts]
-  );
+    ];
+    if (canSeeHesaplar) {
+      visibleTabs.push({ key: 'hesaplar', label: t('common:archive.tabs.accounts'), count: counts.hesaplar });
+    }
+    if (canSeeCariler) {
+      visibleTabs.push(
+        { key: 'tedarikci', label: t('common:archive.tabs.suppliers'), count: counts.tedarikci },
+        { key: 'musteri', label: t('common:archive.tabs.customers'), count: counts.musteri },
+      );
+    }
+    if (canSeePersonel) {
+      visibleTabs.push({ key: 'personel', label: t('common:archive.tabs.staff'), count: counts.personel });
+    }
+    if (canSeeUrunler) {
+      visibleTabs.push({ key: 'urunler', label: t('common:archive.tabs.products'), count: counts.urunler });
+    }
+    return visibleTabs;
+  }, [
+    t,
+    totalArchived,
+    counts,
+    canSeeHesaplar,
+    canSeeCariler,
+    canSeePersonel,
+    canSeeUrunler,
+  ]);
+
+  useEffect(() => {
+    if (!tabs.some((tab) => tab.key === activeTab)) setActiveTab('hepsi');
+  }, [tabs, activeTab]);
 
   const isLoading =
     (activeTab === 'hepsi' && (hesaplarLoading || tedarikciLoading || musteriLoading || personelLoading || urunlerLoading)) ||
@@ -308,6 +347,14 @@ export default function ArsivPage() {
 
   const handleOpen = useCallback(
     (kind: ArchiveKind, id: string) => {
+      if (
+        (kind === 'hesap' && !canSeeHesaplar) ||
+        (kind === 'cari' && !canSeeCariler) ||
+        (kind === 'personel' && !canSeePersonel) ||
+        (kind === 'urun' && !canSeeUrunler)
+      ) {
+        return;
+      }
       switch (kind) {
         case 'hesap':
           router.push(`/hesaplar/${id}`);
@@ -323,7 +370,7 @@ export default function ArsivPage() {
           break;
       }
     },
-    [router]
+    [router, canSeeHesaplar, canSeeCariler, canSeePersonel, canSeeUrunler]
   );
 
   const handleUnarchive = useCallback(async () => {
@@ -470,7 +517,7 @@ export default function ArsivPage() {
   );
 
   // Header (arama + sekmeler) — memoize'lı ELEMENT (islemler deseni): aynı tip aynı konumda
-  // reconcile edildiğinden SearchInput yazarken focus'unu KAYBETMEZ.
+  // reconcile edildiğinden arama alanı yazarken focus'unu KAYBETMEZ.
   const ListHeader = useMemo(
     () => (
       <View>
@@ -515,6 +562,8 @@ export default function ArsivPage() {
 
   const ListFooter = useMemo(
     () =>
+      // Footer'a alt inset EKLENMEZ: onu zaten contentContainerStyle taşıyor,
+      // burada tekrar eklenirse "N kayıt" yazısının altında çift boşluk kalır.
       totalArchived > 0 ? (
         <View style={styles.footer}>
           <Text variant="caption" color="secondary">
@@ -526,7 +575,7 @@ export default function ArsivPage() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <FlashList
         data={listData}
         keyExtractor={keyExtractor}
@@ -536,7 +585,7 @@ export default function ArsivPage() {
         ListEmptyComponent={ListEmpty}
         ListFooterComponent={ListFooter}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
         // Klavye açıkken kaydırma: dokunuşlar klavyeyi "yakalamasın" (handled) ve
         // sürüklerken klavye temizce kapansın (on-drag). Bunlar olmadan yüzen arama
         // çubuğu, yarım-kalan klavye kare olaylarıyla ekran dışına fırlıyordu.
@@ -565,7 +614,7 @@ export default function ArsivPage() {
         options={actionSheetOptions}
         cancelLabel={t('common:buttons.cancel')}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 

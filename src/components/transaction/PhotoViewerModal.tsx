@@ -5,18 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Modal,
-  View,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  useWindowDimensions,
-  Alert,
-  StatusBar,
-  Share,
-} from 'react-native';
+import { View, Image, TouchableOpacity, StyleSheet, ActivityIndicator, useWindowDimensions, Alert, StatusBar, Share } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Trash2, RefreshCw, Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -35,12 +24,18 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-import { Text } from '@/components/ui';
+import { Text, GlassSurface, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
+
+/** Sil butonunun cam tint'i — kırmızı kalsın ama malzeme cam olsun. */
+const DELETE_TINT = 'rgba(239,68,68,0.55)'; // colors.error #EF4444
 import { useGetPhotoUrl } from '@/hooks/useIslemPhoto';
 
 const DISMISS_THRESHOLD = 150;
+
+/** Sürüklemede header'ın yukarı, alt çubuğun aşağı kayacağı mesafe (kendi yüksekliklerinden fazla). */
+const UI_HIDE_OFFSET = 160;
 
 interface PhotoViewerModalProps {
   /** Whether modal is visible */
@@ -121,7 +116,6 @@ export function PhotoViewerModal({
 
       getPhotoUrl.mutate(photoPath, {
         onSuccess: (url) => {
-          console.log('[PhotoViewer] Got signed URL:', url);
           setImageUrl(url);
         },
         onError: (error) => {
@@ -160,6 +154,7 @@ export function PhotoViewerModal({
   const handleShare = async () => {
     if (!imageUrl) return;
 
+    let temporaryShareUri: string | null = null;
     setIsSharing(true);
     try {
       const isAvailable = await Sharing.isAvailableAsync();
@@ -175,9 +170,12 @@ export function PhotoViewerModal({
       const filename = photoPath?.split('/').pop() || 'photo.webp';
       const localUri = `${FileSystem.cacheDirectory}${filename}`;
 
+      // downloadAsync hata verse veya 200 dışı dönse bile kısmi cache dosyasını finally temizle.
+      temporaryShareUri = localUri;
       const downloadResult = await FileSystem.downloadAsync(imageUrl, localUri);
 
       if (downloadResult.status === 200) {
+        temporaryShareUri = downloadResult.uri;
         await Sharing.shareAsync(downloadResult.uri, {
           mimeType: 'image/webp',
           dialogTitle: t('photo.shareTitle'),
@@ -196,6 +194,13 @@ export function PhotoViewerModal({
         Alert.alert(t('status.error'), t('photo.shareError'));
       }
     } finally {
+      if (temporaryShareUri) {
+        try {
+          await FileSystem.deleteAsync(temporaryShareUri, { idempotent: true });
+        } catch {
+          // Paylaşım tamamlandı; cache temizliği kullanıcı akışını başarısız göstermemeli.
+        }
+      }
       setIsSharing(false);
     }
   };
@@ -339,8 +344,41 @@ export function PhotoViewerModal({
     backgroundColor: `rgba(0, 0, 0, ${backdropOpacity.value * 0.95})`,
   }));
 
-  // Header/footer opacity (fade out during dismiss)
-  const uiAnimatedStyle = useAnimatedStyle(() => ({
+  /**
+   * OPACITY YOK — bilinçli. Header ve alt aksiyon çubuğunun ÇOCUKLARI
+   * GlassSurface; bir ATADA alpha < 1 olursa sistem view'i offscreen render'a
+   * alıyor, cam o anda arkasını ÖRNEKLEYEMİYOR ve malzeme çöküyor (ikon/yazı
+   * havada asılı kalır, yüzey kaybolur). Sürüklemede gizlenme bu yüzden yalnız
+   * TRANSFORM ile: header yukarı, alt çubuk aşağı kayar (UndoSnackbar deseni).
+   */
+  const headerAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          backdropOpacity.value,
+          [0.3, 1],
+          [-UI_HIDE_OFFSET, 0],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  const bottomAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          backdropOpacity.value,
+          [0.3, 1],
+          [UI_HIDE_OFFSET, 0],
+          Extrapolation.CLAMP
+        ),
+      },
+    ],
+  }));
+
+  // İpucu yazısı cam DEĞİL (düz Text) — burada opacity güvenli.
+  const hintAnimatedStyle = useAnimatedStyle(() => ({
     opacity: backdropOpacity.value,
   }));
 
@@ -360,31 +398,36 @@ export function PhotoViewerModal({
       <GestureHandlerRootView style={styles.flex}>
         <Animated.View style={[styles.container, backdropAnimatedStyle]}>
           {/* Header with proper safe area */}
-          <Animated.View style={[styles.header, { paddingTop: insets.top + 8 }, uiAnimatedStyle]}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={onClose}
-              hitSlop={HIT_SLOP.lg}
-            >
-              <X size={24} color="#FFFFFF" />
-            </TouchableOpacity>
+          <Animated.View style={[styles.header, { paddingTop: insets.top + 8 }, headerAnimatedStyle]}>
+            {/* colorScheme="dark": fotoğrafın koyu zemininde açık cam yabancı durur. */}
+            <GlassSurface style={styles.roundButton} colorScheme="dark">
+              <TouchableOpacity
+                style={styles.roundButtonInner}
+                onPress={onClose}
+                hitSlop={HIT_SLOP.lg}
+              >
+                <X size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </GlassSurface>
 
             <Text style={styles.title}>{t('photo.title')}</Text>
 
             {/* Share button in header */}
             {!isImageLoading && (
-              <TouchableOpacity
-                style={styles.shareButton}
-                onPress={handleShare}
-                disabled={isSharing}
-                hitSlop={HIT_SLOP.lg}
-              >
-                {isSharing ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <ShareIcon size={22} color="#FFFFFF" />
-                )}
-              </TouchableOpacity>
+              <GlassSurface style={styles.roundButton} colorScheme="dark">
+                <TouchableOpacity
+                  style={styles.roundButtonInner}
+                  onPress={handleShare}
+                  disabled={isSharing}
+                  hitSlop={HIT_SLOP.lg}
+                >
+                  {isSharing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <ShareIcon size={22} color="#FFFFFF" />
+                  )}
+                </TouchableOpacity>
+              </GlassSurface>
             )}
             {isImageLoading && <View style={styles.placeholder} />}
           </Animated.View>
@@ -411,32 +454,47 @@ export function PhotoViewerModal({
 
           {/* Bottom actions */}
           {hasActions && !isImageLoading && (
-            <Animated.View style={[styles.bottomActions, { paddingBottom: insets.bottom + 16 }, uiAnimatedStyle]}>
+            <Animated.View style={[styles.bottomActions, { paddingBottom: insets.bottom + 16 }, bottomAnimatedStyle]}>
               {onChange && (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.changeButton]}
-                  onPress={handleChange}
-                  disabled={isAnyLoading}
+                <GlassSurface
+                  style={styles.actionButton}
+                  fallbackStyle={styles.changeButtonFallback}
+                  colorScheme="dark"
                 >
-                  <RefreshCw size={18} color="#FFFFFF" />
-                  <Text style={styles.buttonText}>{t('photo.change')}</Text>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionButtonInner}
+                    onPress={handleChange}
+                    disabled={isAnyLoading}
+                  >
+                    <RefreshCw size={18} color="#FFFFFF" />
+                    <Text style={styles.buttonText}>{t('photo.change')}</Text>
+                  </TouchableOpacity>
+                </GlassSurface>
               )}
               {onDelete && (
-                <TouchableOpacity
-                  style={[styles.actionButton, styles.deleteButton]}
-                  onPress={handleDelete}
-                  disabled={isAnyLoading}
+                /* Yıkıcı aksiyon: cam ama KIRMIZI tint'li — malzeme değişse de
+                   uyarı ağırlığı korunsun (nötr cam olsa "sil" sıradanlaşırdı). */
+                <GlassSurface
+                  style={styles.actionButton}
+                  fallbackStyle={styles.deleteButtonFallback}
+                  tintColor={DELETE_TINT}
+                  colorScheme="dark"
                 >
-                  {actionLoading ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Trash2 size={18} color="#FFFFFF" />
-                      <Text style={styles.buttonText}>{t('photo.delete')}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.actionButtonInner}
+                    onPress={handleDelete}
+                    disabled={isAnyLoading}
+                  >
+                    {actionLoading ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Trash2 size={18} color="#FFFFFF" />
+                        <Text style={styles.buttonText}>{t('photo.delete')}</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </GlassSurface>
               )}
             </Animated.View>
           )}
@@ -447,7 +505,7 @@ export function PhotoViewerModal({
               style={[
                 styles.hintContainer,
                 { bottom: hasActions ? insets.bottom + 80 : insets.bottom + 16 },
-                uiAnimatedStyle
+                hintAnimatedStyle
               ]}
             >
               <Text style={styles.hintText}>{t('photo.zoomHint')}</Text>
@@ -476,9 +534,14 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255, 255, 255, 0.2)',
     zIndex: 10,
   },
-  closeButton: {
+  /** Cam yuvarlak buton (kapat / paylaş) — geometri; dokunma yüzeyi içeride. */
+  roundButton: {
     width: 44,
     height: 44,
+    borderRadius: 22,
+  },
+  roundButtonInner: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -486,12 +549,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  shareButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   placeholder: {
     width: 44,
@@ -526,19 +583,22 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     zIndex: 10,
   },
+  // Geometri camda, satır düzeni içeride (cam yolunda dolgu/gölge EKLENMEZ).
   actionButton: {
     flex: 1,
+    borderRadius: borderRadius.md,
+  },
+  actionButtonInner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.sm,
     paddingVertical: spacing.md,
-    borderRadius: borderRadius.md,
   },
-  changeButton: {
+  changeButtonFallback: {
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
-  deleteButton: {
+  deleteButtonFallback: {
     backgroundColor: colors.error,
   },
   buttonText: {

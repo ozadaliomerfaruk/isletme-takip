@@ -1,4 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { useRequireOwner } from '@/hooks/usePagePermission';
 import {
   View,
   ScrollView,
@@ -6,14 +8,14 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Crypto from 'expo-crypto';
 import * as XLSX from 'xlsx';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import {
   parseExcelFile,
   autoClassifyAccounts,
@@ -48,6 +50,14 @@ import { SkippedTab } from '@/components/dataImport/SkippedTab';
 import { Step1Select, Step2Preview, StepImporting, StepResult } from '@/components/dataImport/steps';
 
 export default function VeriIceAktarPage() {
+  // SAYFA KAPISI: içe aktarma owner-only bir akış — "Daha" menüsündeki giriş
+  // zaten {isOwner && ...} ile gizli (daha.tsx). Ama deep-link ya da geri/ileri
+  // navigasyonla bu ekran doğrudan açılabiliyordu; guard yoktu.
+  // Asıl koruma sunucuda (undo_import_batch owner guard'ı); bu istemci katmanı
+  // savunma derinliği ve kullanıcıya anlaşılır geri bildirim içindir.
+  useRequireOwner();
+
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
@@ -490,7 +500,22 @@ export default function VeriIceAktarPage() {
   const handleExportSkipped = async () => {
     if (!result?.skippedTransactions.length) return;
     try {
-      const buffer = exportSkippedTransactionsToExcel(result.skippedTransactions);
+      // Başlıklar ve sayfa adı çağırandan geçer (dosya tamamen Türkçe başlıklıydı)
+      const buffer = exportSkippedTransactionsToExcel(result.skippedTransactions, {
+        rowNo: t('settings:dataImport.skippedExcel.rowNo'),
+        reason: t('settings:dataImport.skippedExcel.reason'),
+        date: t('settings:dataImport.skippedExcel.date'),
+        type: t('settings:dataImport.skippedExcel.type'),
+        description: t('settings:dataImport.skippedExcel.description'),
+        category: t('settings:dataImport.skippedExcel.category'),
+        account: t('settings:dataImport.skippedExcel.account'),
+        staff: t('settings:dataImport.skippedExcel.staff'),
+        supplier: t('settings:dataImport.skippedExcel.supplier'),
+        customer: t('settings:dataImport.skippedExcel.customer'),
+        counterAccount: t('settings:dataImport.skippedExcel.counterAccount'),
+        amount: t('settings:dataImport.skippedExcel.amount'),
+        sheetName: t('settings:dataImport.skippedExcel.sheetName'),
+      });
       const uint8Array = new Uint8Array(buffer);
       let binary = '';
       const chunkSize = 8192;
@@ -564,7 +589,7 @@ export default function VeriIceAktarPage() {
 
   // Render
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       {/* Tabs */}
       <View style={styles.tabContainer}>
         <TouchableOpacity
@@ -604,7 +629,8 @@ export default function VeriIceAktarPage() {
           t={t}
         />
       ) : (
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
           {step === 'select' && (
             <Step1Select
               onDownloadTemplate={handleDownloadTemplate}
@@ -694,6 +720,6 @@ export default function VeriIceAktarPage() {
         pendingIslem={selectedPendingItem}
         onSuccess={handlePendingFormSuccess}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }

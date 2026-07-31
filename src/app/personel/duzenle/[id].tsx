@@ -1,25 +1,16 @@
-import { useState, useEffect } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  Modal,
-  Pressable,
-  Switch,
-} from 'react-native';
+import { useState, useEffect, type ReactNode } from 'react';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Pressable, Switch } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Calendar, X } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, Screen, Modal } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
-import { usePersonelById, useUpdatePersonel } from '@/hooks/usePersonel';
+import { usePersonelById, usePersonelList, useUpdatePersonel } from '@/hooks/usePersonel';
+import { useCariler } from '@/hooks/useCariler';
 import { formatDateForDB, parseDateFromDB, ensureValidDate } from '@/lib/date';
 import { parseCurrency } from '@/lib/currency';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -28,6 +19,49 @@ import { getLocalizedCurrencies } from '@/constants/currencies';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
+import { DeviceContactPickerButton } from '@/components/contacts/DeviceContactPickerButton';
+import {
+  findPhoneDuplicateMatches,
+  getPhoneDuplicateWarningCopy,
+  getPhoneValidationMessageKey,
+  preparePhoneForSave,
+} from '@/lib/phone';
+
+/**
+ * Tarih seçici alt sayfası — AYRI BİLEŞEN, çünkü güvenli alan Modal'ın İÇİNDE
+ * okunmalı: ModalInsets yalnız modal ağacının içindeki useSafeAreaInsets'i
+ * gerçek değere düzeltir. Alt boşluk verilmezse 'Tamam' butonu home
+ * indicator'ın altında kalıyor.
+ */
+function DatePickerSheet({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const insets = useSafeAreaInsets();
+
+  return (
+    <Pressable style={styles.datePickerModalOverlay} onPress={onClose}>
+      <Pressable
+        style={[styles.datePickerModalContent, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+        onPress={(e) => e.stopPropagation()}
+      >
+        <View style={styles.datePickerModalHeader}>
+          <Text variant="h3">{title}</Text>
+          <TouchableOpacity onPress={onClose}>
+            <X size={24} color={colors.text} />
+          </TouchableOpacity>
+        </View>
+        {children}
+      </Pressable>
+    </Pressable>
+  );
+}
 
 export default function PersonelDuzenlePage() {
   const router = useRouter();
@@ -39,8 +73,12 @@ export default function PersonelDuzenlePage() {
 
   const { data: personel, isLoading } = usePersonelById(id);
   usePagePermission({ module: 'personel', action: 'update', createdBy: personel?.created_by });
+  const { isOwner } = usePermissions();
   const updatePersonel = useUpdatePersonel();
+  const { data: visibleCariler } = useCariler(undefined, true, true);
+  const { data: visiblePersoneller } = usePersonelList(true, true);
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   const [firstName, setFirstName] = useState('');
   const [currency, setCurrency] = useState<Currency>('TRY');
@@ -54,7 +92,7 @@ export default function PersonelDuzenlePage() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
   const [isActive, setIsActive] = useState(true);
-  const [errors, setErrors] = useState<{ firstName?: string }>({});
+  const [errors, setErrors] = useState<{ firstName?: string; phone?: string }>({});
 
   useEffect(() => {
     if (personel) {
@@ -72,31 +110,37 @@ export default function PersonelDuzenlePage() {
   }, [personel]);
 
   const validate = () => {
-    const newErrors: { firstName?: string } = {};
+    const newErrors: { firstName?: string; phone?: string } = {};
+    const phoneResult = preparePhoneForSave(phone, personel?.phone);
 
     if (!firstName.trim()) {
       newErrors.firstName = t('staff:validation.firstNameRequired');
     }
+    if (!phoneResult.ok) {
+      newErrors.phone = t(`common:${getPhoneValidationMessageKey(phoneResult.reason)}`);
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      normalizedPhone: phoneResult.ok ? phoneResult.value : null,
+    };
   };
 
-  const handleSubmit = async () => {
-    if (!validate() || !id) return;
-
+  const persistPersonel = async (normalizedPhone: string | null) => {
+    if (!id) return;
     try {
       await updatePersonel.mutateAsync({
         id,
         first_name: firstName.trim(),
         last_name: lastName.trim() || '',
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         position: position.trim() || null,
         salary: salary ? parseCurrency(salary) : null,
         start_date: startDate ? formatDateForDB(startDate) : null,
         end_date: endDate ? formatDateForDB(endDate) : null,
         notes: notes.trim() || null,
-        is_active: isActive,
+        ...(isOwner ? { is_active: isActive } : {}),
       });
 
       notifySaved(t('staff:messages.updateSuccess'));
@@ -106,28 +150,54 @@ export default function PersonelDuzenlePage() {
     }
   };
 
+  const handleSubmit = async () => {
+    const validation = validate();
+    if (!validation.isValid || !id) return;
+
+    const duplicateMatches = phone === (personel?.phone ?? '')
+      ? []
+      : findPhoneDuplicateMatches(validation.normalizedPhone, {
+          cariler: visibleCariler,
+          personeller: visiblePersoneller,
+          exclude: { entityType: 'personel', id },
+        });
+    if (duplicateMatches.length > 0) {
+      const warning = getPhoneDuplicateWarningCopy(duplicateMatches, i18n.language);
+      Alert.alert(warning.title, warning.message, [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: warning.confirmLabel,
+          onPress: () => void persistPersonel(validation.normalizedPhone),
+        },
+      ]);
+      return;
+    }
+
+    await persistPersonel(validation.normalizedPhone);
+  };
+
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!personel) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('errors:personel.notFound')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -186,6 +256,12 @@ export default function PersonelDuzenlePage() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                error={errors.phone}
+                rightIcon={(
+                  <DeviceContactPickerButton
+                    onSelect={(selection) => setPhone(selection.phone)}
+                  />
+                )}
               />
 
               <Input
@@ -237,20 +313,10 @@ export default function PersonelDuzenlePage() {
               {/* iOS için DateTimePicker Modal */}
               {Platform.OS === 'ios' && showDatePicker && (
                 <Modal visible={showDatePicker} transparent animationType="slide">
-                  <Pressable
-                    style={styles.datePickerModalOverlay}
-                    onPress={() => setShowDatePicker(false)}
+                  <DatePickerSheet
+                    title={t('staff:form.startDate')}
+                    onClose={() => setShowDatePicker(false)}
                   >
-                    <Pressable
-                      style={styles.datePickerModalContent}
-                      onPress={(e) => e.stopPropagation()}
-                    >
-                      <View style={styles.datePickerModalHeader}>
-                        <Text variant="h3">{t('staff:form.startDate')}</Text>
-                        <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                          <X size={24} color={colors.text} />
-                        </TouchableOpacity>
-                      </View>
                       <DateTimePicker
                         value={ensureValidDate(startDate || new Date())}
                         mode="date"
@@ -273,8 +339,7 @@ export default function PersonelDuzenlePage() {
                       >
                         {t('common:buttons.ok')}
                       </Button>
-                    </Pressable>
-                  </Pressable>
+                  </DatePickerSheet>
                 </Modal>
               )}
 
@@ -327,20 +392,10 @@ export default function PersonelDuzenlePage() {
               {/* iOS için End Date DateTimePicker Modal */}
               {Platform.OS === 'ios' && showEndDatePicker && (
                 <Modal visible={showEndDatePicker} transparent animationType="slide">
-                  <Pressable
-                    style={styles.datePickerModalOverlay}
-                    onPress={() => setShowEndDatePicker(false)}
+                  <DatePickerSheet
+                    title={t('staff:form.endDate')}
+                    onClose={() => setShowEndDatePicker(false)}
                   >
-                    <Pressable
-                      style={styles.datePickerModalContent}
-                      onPress={(e) => e.stopPropagation()}
-                    >
-                      <View style={styles.datePickerModalHeader}>
-                        <Text variant="h3">{t('staff:form.endDate')}</Text>
-                        <TouchableOpacity onPress={() => setShowEndDatePicker(false)}>
-                          <X size={24} color={colors.text} />
-                        </TouchableOpacity>
-                      </View>
                       <DateTimePicker
                         value={ensureValidDate(endDate || new Date())}
                         mode="date"
@@ -363,8 +418,7 @@ export default function PersonelDuzenlePage() {
                       >
                         {t('common:buttons.ok')}
                       </Button>
-                    </Pressable>
-                  </Pressable>
+                  </DatePickerSheet>
                 </Modal>
               )}
 
@@ -385,28 +439,30 @@ export default function PersonelDuzenlePage() {
               )}
             </View>
 
-            {/* Pasif Mod */}
-            <View style={styles.section}>
-              <View style={styles.passiveModeContainer}>
-                <View style={styles.passiveModeHeader}>
-                  <Text variant="body">{t('common:passiveMode.title')}</Text>
-                  <Switch
-                    value={!isActive}
-                    onValueChange={(value) => setIsActive(!value)}
-                    trackColor={{ false: colors.border, true: colors.warning }}
-                    thumbColor={colors.surface}
-                  />
+            {/* Pasif kayıt yönetimi yalnız işletme sahibine aittir. */}
+            {isOwner && (
+              <View style={styles.section}>
+                <View style={styles.passiveModeContainer}>
+                  <View style={styles.passiveModeHeader}>
+                    <Text variant="body">{t('common:passiveMode.title')}</Text>
+                    <Switch
+                      value={!isActive}
+                      onValueChange={(value) => setIsActive(!value)}
+                      trackColor={{ false: colors.border, true: colors.warning }}
+                      thumbColor={colors.surface}
+                    />
+                  </View>
+                  <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
+                    {t('common:passiveMode.description')}
+                  </Text>
                 </View>
-                <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
-                  {t('common:passiveMode.description')}
-                </Text>
               </View>
-            </View>
+            )}
 
           </ScrollView>
 
           {/* Sticky footer — güncelle butonu klavyenin altında kalmasın */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <Button
               variant="outline"
               size="lg"
@@ -426,7 +482,7 @@ export default function PersonelDuzenlePage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

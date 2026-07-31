@@ -1,4 +1,8 @@
 import { CariType, Currency, BirimType } from '@/types/database';
+import type {
+  QuickTransactionCreateScope,
+  QuickTransactionMinimalAccountScope,
+} from '@/lib/quickTransactionCreateScope';
 import { TransactionType, TransactionTabMode } from '../TransactionTypeTabs';
 
 // Re-export for convenience
@@ -98,6 +102,19 @@ export interface QuickTransactionBarProps {
   copySourceId?: string;
   // Override auto-detected tab mode (e.g. 'personel_izin' for leave-only tabs)
   tabModeOverride?: TransactionTabMode;
+  /**
+   * Same-tenant create surfaces may opt into transaction-type-scoped tabs and
+   * entity queries. Edit/copy and linked-cari flows intentionally ignore it.
+   */
+  createScope?: QuickTransactionCreateScope;
+  /**
+   * Sabit Cari/Personel bağlamında, Hesaplar modülü kapalıyken bakiye içermeyen
+   * hesap referanslarını kullanır. Bu yalnız veri kaynağını daraltır; kategori,
+   * vade/taksit ve izin verilen ürün alanlarını kapatmaz.
+   */
+  minimalAccountReferenceMode?: QuickTransactionMinimalAccountScope;
+  /** @deprecated minimalAccountReferenceMode="cari" kullanın. */
+  cariMinimalAccountMode?: boolean;
 }
 
 // Exchange rate data for cross-currency transactions
@@ -105,6 +122,13 @@ export interface PendingExchangeData {
   sourceCurrency: Currency;
   targetCurrency: Currency;
   sourceAmount: number;
+  /** Kur onayından sonraki create tekrarlarında kullanılan sabit idempotency anahtarı. */
+  clientIslemId?: string;
+  /**
+   * Kur alanının ön-dolacağı değer. Düzenlemede işlemin KAYITLI kuru geçilir;
+   * null/undefined ise bar bugünün kuruyla dolar (yeni kayıt davranışı).
+   */
+  initialRate?: number | null;
 }
 
 // Form state (for future hook extraction)

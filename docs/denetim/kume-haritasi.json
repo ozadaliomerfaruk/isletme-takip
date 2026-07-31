@@ -1,0 +1,241 @@
+{
+ "c01": {
+  "ownedFiles": [
+   "src/app/taksit/index.tsx",
+   "src/app/taksit/[id].tsx",
+   "src/components/mutabakat/ReportStep.tsx",
+   "src/components/mutabakat/SelectStep.tsx",
+   "src/app/mutabakat/[cariId].tsx",
+   "src/app/ayarlar/davet-olustur.tsx",
+   "src/app/ayarlar/islem-gecmisi.tsx",
+   "src/components/dataImport/SkippedTab.tsx",
+   "src/components/dataImport/styles.ts",
+   "src/app/ayarlar/data-import/index.tsx",
+   "src/components/ocrImport/OcrInvoiceList.tsx"
+  ],
+  "findingIds": [
+   0,
+   3,
+   5,
+   6,
+   11,
+   12,
+   74,
+   75,
+   76,
+   77,
+   85
+  ],
+  "count": 11
+ },
+ "c02": {
+  "ownedFiles": [
+   "src/app/notlar/index.tsx",
+   "src/app/arsiv/index.tsx",
+   "src/app/islemler/index.tsx",
+   "src/app/islemler/gelir.tsx",
+   "src/app/(tabs)/daha.tsx"
+  ],
+  "findingIds": [
+   1,
+   2,
+   8,
+   31,
+   54,
+   56
+  ],
+  "count": 6
+ },
+ "c03": {
+  "ownedFiles": [
+   "src/app/vade/index.tsx",
+   "src/lib/tabBarScroll.ts",
+   "src/app/(tabs)/_layout.tsx"
+  ],
+  "findingIds": [
+   4,
+   59,
+   60
+  ],
+  "count": 3
+ },
+ "c04": {
+  "ownedFiles": [
+   "src/app/nakit-akisi/index.tsx",
+   "src/app/raporlar/index.tsx",
+   "src/app/raporlar/genel.tsx",
+   "src/app/raporlar/gelir-gider.tsx",
+   "src/app/raporlar/cari.tsx",
+   "src/app/raporlar/personel.tsx",
+   "src/app/raporlar/karsilastirma.tsx",
+   "src/app/raporlar/alis-satis.tsx",
+   "src/app/raporlar/net-varlik-trend.tsx",
+   "src/app/raporlar/hesap/[id].tsx",
+   "src/app/raporlar/kategori/[id].tsx",
+   "src/widgets/finance/CategoryDonutWidget.tsx",
+   "src/widgets/finance/FinanceKPIGrid.tsx",
+   "src/widgets/finance/TrendChartWidget.tsx",
+   "src/components/reports/ReportExportButton.tsx",
+   "src/components/reports/PeriodNavigator.tsx",
+   "src/components/reports/CustomDateRangePicker.tsx"
+  ],
+  "findingIds": [
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   26,
+   27
+  ],
+  "count": 14
+ },
+ "c05": {
+  "ownedFiles": [
+   "src/app/personel/ekle.tsx",
+   "src/app/personel/duzenle/[id].tsx",
+   "src/app/personel/toplu-gider.tsx",
+   "src/app/personel/toplu-odeme.tsx",
+   "src/app/personel/izin-gecmisi/[id].tsx",
+   "src/app/personel/[id].tsx"
+  ],
+  "findingIds": [
+   28,
+   29,
+   30,
+   34,
+   36,
+   37,
+   41,
+   42,
+   62,
+   63,
+   68
+  ],
+  "count": 11
+ },
+ "c06": {
+  "ownedFiles": [
+   "src/app/urunler/[id].tsx",
+   "src/app/urunler/toplu-giris.tsx",
+   "src/app/urunler/toplu-cikis.tsx",
+   "src/components/urunlerPage/ProductRow.tsx",
+   "src/components/urunlerPage/styles.ts",
+   "src/components/urun/UrunForm.tsx",
+   "src/components/urun/QuickUrunBar/QuickUrunBar.tsx"
+  ],
+  "findingIds": [
+   39,
+   44,
+   45,
+   46,
+   49,
+   50,
+   51,
+   64,
+   65,
+   72
+  ],
+  "count": 10
+ },
+ "c07": {
+  "ownedFiles": [
+   "src/app/cariler/[id].tsx",
+   "src/app/cariler/duzenle/[id].tsx",
+   "src/app/hesaplar/[id].tsx",
+   "src/app/kategoriler/index.tsx",
+   "src/app/kategoriler/duzenle/[id].tsx",
+   "src/components/detail/OpeningBalanceRow.tsx",
+   "src/components/detail/DetailSummaryCard.tsx",
+   "src/components/detail/DetailActionMenu.tsx",
+   "src/components/transaction/ProductDetailModal.tsx"
+  ],
+  "findingIds": [
+   32,
+   33,
+   38,
+   40,
+   66,
+   69,
+   71,
+   73
+  ],
+  "count": 8
+ },
+ "c08": {
+  "ownedFiles": [
+   "src/app/ayarlar/isletme.tsx",
+   "src/app/ayarlar/hesap-sil.tsx",
+   "src/app/ayarlar/paylasilan-isletmeler.tsx",
+   "src/app/kurulum.tsx",
+   "src/app/kurulum-tamam.tsx",
+   "src/app/onboarding.tsx",
+   "src/app/verify.tsx",
+   "src/constants/sectors.ts"
+  ],
+  "findingIds": [
+   79,
+   80,
+   81,
+   82,
+   86,
+   87,
+   88,
+   89
+  ],
+  "count": 8
+ },
+ "c09": {
+  "ownedFiles": [
+   "src/components/ui/DateTimePicker.tsx",
+   "src/components/ui/ReminderSettings.tsx",
+   "src/components/ui/IconPicker.tsx",
+   "src/components/ui/ParentCategoryPicker.tsx",
+   "src/components/ui/UnitPicker.tsx",
+   "src/components/ui/NotificationBell.tsx",
+   "src/components/ui/ActionSheet.tsx",
+   "src/components/ui/BottomSheet.tsx",
+   "src/components/ui/Screen.tsx",
+   "src/components/ui/GlassFab.tsx",
+   "src/components/ui/GlassIconButton.tsx",
+   "src/components/ui/OptionRow.tsx",
+   "src/components/ui/AccountReportCard.tsx",
+   "src/components/ui/SearchInput.tsx",
+   "src/components/notes/NoteInputModal.tsx"
+  ],
+  "findingIds": [
+   9,
+   25,
+   91,
+   92,
+   93,
+   94,
+   95,
+   96,
+   97,
+   100,
+   101,
+   102
+  ],
+  "count": 12
+ },
+ "c10": {
+  "ownedFiles": [
+   "src/components/transaction/PhotoViewerModal.tsx",
+   "src/app/foto-import/review.tsx"
+  ],
+  "findingIds": [
+   61,
+   83,
+   84
+  ],
+  "count": 3
+ }
+}

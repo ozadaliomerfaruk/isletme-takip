@@ -9,11 +9,14 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Text, Input, Button, CategoryPicker, UnitPicker } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType, KdvOrani } from '@/types/database';
+import { formatPercent } from '@/lib/currency';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -58,6 +61,8 @@ interface UrunFormProps {
 
 export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }: UrunFormProps) {
   const { t } = useTranslation(['products', 'common', 'transactions']);
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
 
   const [ad, setAd] = useState(DEFAULT_VALUES.ad);
   const [kod, setKod] = useState(DEFAULT_VALUES.kod);
@@ -104,9 +109,11 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardView}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
+      // Ofset = pencere tepesi ile KAV tepesi arası (status bar + native header 44).
+      // Sabit 100 cihaza göre yanlış oluyordu; diğer altı form da insets'ten türetiyor.
+      keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <ScrollView
@@ -159,7 +166,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
                     variant="caption"
                     style={kdvOrani === k ? styles.birimTextSelected : undefined}
                   >
-                    %{k}
+                    {formatPercent(k)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -226,23 +233,25 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
             />
           </View>
 
-          {/* Buttons */}
-          <View style={styles.buttons}>
-            <Button variant="outline" size="lg" onPress={onCancel} style={styles.button}>
-              {t('common:buttons.cancel')}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              loading={submitting}
-              onPress={handleSubmit}
-              style={styles.button}
-            >
-              {submitLabel}
-            </Button>
-          </View>
         </ScrollView>
       </TouchableWithoutFeedback>
+
+      {/* KAV içinde sabit footer: klavye açılınca güvenli alan payı sıfırlanır,
+          böylece butonlar klavyenin hemen üstünde kalır. */}
+      <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
+        <Button variant="outline" size="lg" onPress={onCancel} style={styles.button}>
+          {t('common:buttons.cancel')}
+        </Button>
+        <Button
+          variant="primary"
+          size="lg"
+          loading={submitting}
+          onPress={handleSubmit}
+          style={styles.button}
+        >
+          {submitLabel}
+        </Button>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -292,11 +301,15 @@ const styles = StyleSheet.create({
   priceItem: {
     flex: 1,
   },
-  buttons: {
+  footer: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
     gap: spacing.md,
-    marginTop: spacing.lg,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    backgroundColor: colors.background,
   },
   button: {
     flex: 1,

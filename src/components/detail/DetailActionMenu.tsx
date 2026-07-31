@@ -1,6 +1,6 @@
-import { Modal, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { TouchableOpacity, View, StyleSheet } from 'react-native';
 import type { LucideIcon } from 'lucide-react-native';
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 

@@ -19,7 +19,11 @@ function setMockCurrency(code: string, symbol: string, locale: string) {
 const TR_DEFAULT = { code: 'TRY', symbol: '₺', locale: 'tr-TR' };
 
 jest.mock('@/constants/currencies', () => ({
-  getCurrencySymbol: (code: string) => {
+  // GERÇEK davranışın aynısı (constants/currencies.ts:29-35): kod YOKSA sabit '₺' değil
+  // ANA para biriminin sembolü döner. Mock bunu taklit etmezse formatCurrency'nin
+  // argümansız dalı testte "undefined1.234,56" üretir ama üretimde doğrudur.
+  getCurrencySymbol: (code?: string | null) => {
+    if (!code) return mockCurrencyConfig.symbol;
     const symbols: Record<string, string> = { TRY: '₺', USD: '$', EUR: '€', GBP: '£' };
     return symbols[code] || code;
   },
@@ -30,17 +34,42 @@ import {
   calculateTargetAmount,
   toNumber,
   roundCurrency,
+  roundQuantity,
+  roundUnitPrice,
   parseCurrency,
   safeParseAmount,
   safeParseExchangeRate,
   formatCurrencyInput,
   unformatCurrencyInput,
+  cleanAmountInput,
   formatAmountForInput,
   isValidAmount,
   isValidBalance,
   getBalanceInfo,
   calculateBalanceSummary,
+  formatCurrency,
+  formatCurrencyWithSign,
+  formatCurrencyCompact,
+  formatPercentage,
+  getCurrencyLocale,
+  getLocaleSeparators,
+  signedCurrencyText,
 } from '../currency';
+
+describe('product numeric contract rounding', () => {
+  it('rounds quantities to 3 and unit prices to 4 decimals', () => {
+    expect(roundQuantity(5.97749)).toBe(5.977);
+    expect(roundQuantity(5.9775)).toBe(5.978);
+    expect(roundUnitPrice(989.10904)).toBe(989.109);
+    expect(roundUnitPrice(927.72206)).toBe(927.7221);
+  });
+
+  it('removes IEEE-754 noise without collapsing unit prices to cents', () => {
+    expect(roundQuantity(0.1 + 0.2)).toBe(0.3);
+    expect(roundUnitPrice(989.1090000000002)).toBe(989.109);
+    expect(roundUnitPrice(1.23456)).toBe(1.2346);
+  });
+});
 
 // ============================================================================
 // Bug #5: Exchange rate=0 sessiz hata
@@ -514,6 +543,90 @@ describe('unformatCurrencyInput', () => {
 });
 
 // ============================================================================
+// cleanAmountInput - tuş-tuş ham giriş temizleme (binlik at, ondalık max 2)
+// ============================================================================
+describe('cleanAmountInput (tr-TR varsayılan)', () => {
+  it('binlik ayracını atar ve ondalığı 2 haneye kırpar', () => {
+    expect(cleanAmountInput('2.000,567')).toBe('2000,56');
+    expect(cleanAmountInput('2692,828')).toBe('2692,82');
+  });
+
+  it('rakam/ondalık dışı her şeyi siler, yazmaya devam eden girişi bozmaz', () => {
+    expect(cleanAmountInput('₺1.234,5 abc')).toBe('1234,5');
+    expect(cleanAmountInput('abc')).toBe('');
+    expect(cleanAmountInput('')).toBe('');
+    // Kullanıcı henüz ondalığı yazmadı: ayraç korunur ki tuş kaybolmasın
+    expect(cleanAmountInput('100,')).toBe('100,');
+  });
+
+  it('birden fazla ondalık ayracı kırpılır', () => {
+    expect(cleanAmountInput('1,2,3')).toBe('1,2');
+  });
+
+  it('iki nokta TR locale de binlik sayılıp atılır', () => {
+    expect(cleanAmountInput('1.2.3')).toBe('123');
+  });
+
+  // REGRESYON (3-ondalık ~1000x): giriş yüzeyleri eskiden ham
+  // `text.replace(/[^0-9,.]/g, '')` kullanıyordu; değeri olduğu gibi bıraktığı için
+  // parseCurrency TR locale'de noktadan sonraki 3 haneyi binlik ayracı sanıp noktayı
+  // siliyor ve tutarı ~1000x şişiriyordu. cleanAmountInput çıktısı en fazla 2 ondalık
+  // taşıdığı için parseCurrency'nin o dalı artık hiç tetiklenemez.
+  it('çıktısı parseCurrency ile ~1000x şişmez', () => {
+    // Tuzağın kendisi (mevcut davranışın belgesi): 3 haneli nokta binlik sanılır
+    expect(parseCurrency('2692.828')).toBe(2692828);
+    // Temizlenmiş giriş 2 ondalıkta kalır → şişme yok
+    expect(parseCurrency(cleanAmountInput('2.692,828'))).toBeCloseTo(2692.82, 2);
+    expect(parseCurrency(cleanAmountInput('2692,828'))).toBeCloseTo(2692.82, 2);
+  });
+
+  it('idempotent: kendi çıktısı tekrar verilince değişmez', () => {
+    expect(cleanAmountInput(cleanAmountInput('2.000,567'))).toBe('2000,56');
+  });
+});
+
+// ============================================================================
+// TOHUM ↔ TEMİZLEYİCİ GİDİŞ-DÖNÜŞÜ  (regresyon kalkanı)
+//
+// Giriş alanları tuş-tuş cleanAmountInput'tan geçiyor ve o LOCALE ondalığı dışındaki
+// her ayracı SİLER (TR'de nokta binlik sayılıp atılır — bu kasıtlı, 1000x tuzağına
+// karşı). Dolayısıyla alana PROGRAMLI yazılan (tohumlanan) değer de locale ayracıyla
+// yazılmak ZORUNDA. Tohum `.toString()` ile yazılırsa JS her zaman NOKTA basar ve
+// kullanıcı alana dokunduğu ilk anda değer 10x/100x şişer.
+//
+// Bu hata QTB'de (düzenleme tohumu, defaultAmount, ürün toplamı) ÜRETİMDE canlıydı;
+// aşağıdaki testler tohum tarafının formatAmountForInput kullanmaya devam etmesini
+// garanti eder. Biri tekrar `.toString()`e dönerse bu blok kırılır.
+// ============================================================================
+describe('tohum ↔ cleanAmountInput gidiş-dönüşü (10x/100x şişme kalkanı)', () => {
+  const seedThenTouch = (v: number) => parseCurrency(cleanAmountInput(formatAmountForInput(roundCurrency(v))));
+
+  it('TR locale: tohumlanan değer alana dokunulunca DEĞİŞMEZ', () => {
+    expect(seedThenTouch(150.5)).toBeCloseTo(150.5, 2);
+    expect(seedThenTouch(489.65)).toBeCloseTo(489.65, 2);
+    expect(seedThenTouch(1234.56)).toBeCloseTo(1234.56, 2);
+    expect(seedThenTouch(5000)).toBe(5000);
+  });
+
+  it('TR locale: YANLIŞ tohum (.toString) şişmeyi GERÇEKTEN üretiyor — testin gerekçesi', () => {
+    // Belge amaçlı: düzeltmenin neye karşı olduğunu sabitler.
+    expect(parseCurrency(cleanAmountInput(roundCurrency(150.5).toString()))).toBe(1505);
+    expect(parseCurrency(cleanAmountInput(roundCurrency(489.65).toString()))).toBe(48965);
+  });
+
+  it('en-US locale: aynı gidiş-dönüş bozulmaz', () => {
+    setMockCurrency('USD', '$', 'en-US');
+    try {
+      expect(seedThenTouch(150.5)).toBeCloseTo(150.5, 2);
+      expect(seedThenTouch(489.65)).toBeCloseTo(489.65, 2);
+      expect(seedThenTouch(5000)).toBe(5000);
+    } finally {
+      setMockCurrency(TR_DEFAULT.code, TR_DEFAULT.symbol, TR_DEFAULT.locale);
+    }
+  });
+});
+
+// ============================================================================
 // Locale-bilinçli giriş/parse (ana para birimi USD/GBP -> en-US/en-GB)
 // Bug: ana=USD iken "1234.56" girişi sessizce bozuluyordu (123456'ya şişiyordu)
 // ============================================================================
@@ -598,5 +711,121 @@ describe('en-US locale (ana para birimi USD/GBP)', () => {
     it('binlik virgüllerini kaldırmalı, ondalık noktayı korumalı', () => {
       expect(unformatCurrencyInput('2,000.50')).toBe('2000.50');
     });
+  });
+
+  describe('cleanAmountInput', () => {
+    it('binlik virgülü atılmalı, nokta ondalık 2 haneyle sınırlı olmalı', () => {
+      expect(cleanAmountInput('2,000.567')).toBe('2000.56');
+      expect(cleanAmountInput('1.2.3')).toBe('1.2');
+      // en-* locale'de virgül binliktir → tamamı atılır
+      expect(cleanAmountInput('1,2,3')).toBe('123');
+    });
+  });
+});
+
+// ============================================================================
+// A10: para birimi → locale TEK eşleme (formatCurrency'nin iki dalı artık ÇELİŞMİYOR)
+//
+// Eski hâl: ikinci argümanla USD/EUR/GBP → koşulsuz 'en-US'; argümansız dalda ana
+// para biriminin locale'i (EUR → de-DE). Ana para birimi EUR olan kullanıcı hesap
+// satırında "€1.234,56", grup toplamında "€1,234.56" görüyordu (ayraçlar tam ters).
+// Doğru cevap de-DE'dir: giriş katmanı (parseCurrency/cleanAmountInput/
+// formatAmountForInput → getLocaleSeparators) EUR için ondalık VİRGÜL varsayıyor.
+// ============================================================================
+describe('A10: locale eşlemesi tek kaynak', () => {
+  afterEach(() => setMockCurrency(TR_DEFAULT.code, TR_DEFAULT.symbol, TR_DEFAULT.locale));
+
+  it('getCurrencyLocale sabit eşlemeyi döndürür', () => {
+    expect(getCurrencyLocale('TRY')).toBe('tr-TR');
+    expect(getCurrencyLocale('USD')).toBe('en-US');
+    expect(getCurrencyLocale('EUR')).toBe('de-DE');
+    expect(getCurrencyLocale('GBP')).toBe('en-GB');
+    expect(getCurrencyLocale('XAU')).toBe('tr-TR');
+  });
+
+  it('kod verilmezse ANA para biriminin locale\'i', () => {
+    setMockCurrency('USD', '$', 'en-US');
+    expect(getCurrencyLocale()).toBe('en-US');
+    expect(getCurrencyLocale(null)).toBe('en-US');
+  });
+
+  it('EUR: iki dal da AYNI ayracı basar (nokta binlik + virgül ondalık)', () => {
+    // argümanlı dal
+    expect(formatCurrency(1234.56, 'EUR')).toBe('€1.234,56');
+    // argümansız dal (ana para birimi EUR)
+    setMockCurrency('EUR', '€', 'de-DE');
+    expect(formatCurrency(1234.56)).toBe('€1.234,56');
+  });
+
+  it('USD/GBP: nokta ondalık, virgül binlik (davranış değişmedi)', () => {
+    expect(formatCurrency(1234.56, 'USD')).toBe('$1,234.56');
+    expect(formatCurrency(1234.56, 'GBP')).toBe('£1,234.56');
+  });
+
+  it('TRY: virgül ondalık, nokta binlik (davranış değişmedi)', () => {
+    expect(formatCurrency(1234.56, 'TRY')).toBe('₺1.234,56');
+  });
+
+  it('getLocaleSeparators para birimine göre de çalışır (parseCurrency ile aynı varsayım)', () => {
+    expect(getLocaleSeparators('EUR')).toEqual({ decimal: ',', thousands: '.' });
+    expect(getLocaleSeparators('USD')).toEqual({ decimal: '.', thousands: ',' });
+  });
+
+  it('formatPercentage ana para biriminin ondalığını kullanır (startsWith(\'tr\') çelişkisi kalktı)', () => {
+    expect(formatPercentage(45.5)).toBe('45,5%'); // TRY
+    setMockCurrency('EUR', '€', 'de-DE');
+    expect(formatPercentage(45.5)).toBe('45,5%'); // de-DE de virgül
+    setMockCurrency('USD', '$', 'en-US');
+    expect(formatPercentage(45.5)).toBe('45.5%');
+  });
+});
+
+// ============================================================================
+// A5: negatif tutarda işaret KAYBOLMAMALI
+// formatCurrency mutlak değer basar (bilinçli: yön kelimesi öne yazıldığında
+// "Borç -₺500" daha kötü okunur). Net/fark kolonları bu yüzden işaretli
+// varyantı kullanmak ZORUNDA — aksi halde −50.000 ile +50.000 aynı metin.
+// ============================================================================
+describe('A5: işaretli para formatı', () => {
+  it('formatCurrency mutlak değer basar (sözleşme sabit)', () => {
+    expect(formatCurrency(-1234.56, 'TRY')).toBe('₺1.234,56');
+  });
+
+  it('formatCurrencyWithSign iki yönde de işaret koyar', () => {
+    expect(formatCurrencyWithSign(1234.56, 'TRY')).toBe('+₺1.234,56');
+    expect(formatCurrencyWithSign(-1234.56, 'TRY')).toBe('-₺1.234,56');
+  });
+
+  it('formatCurrencyCompact eksiyi KORUR (eskiden Math.abs ile siliniyordu)', () => {
+    expect(formatCurrencyCompact(-1_234_567, 'TRY')).toBe('-₺1,2M');
+    expect(formatCurrencyCompact(1_234_567, 'TRY')).toBe('₺1,2M');
+    expect(formatCurrencyCompact(-12_345, 'TRY')).toBe('-₺12,3K');
+  });
+
+  it('formatCurrencyCompact ayracı da tek eşlemeden alır', () => {
+    expect(formatCurrencyCompact(1_234_567, 'EUR')).toBe('€1,2M');
+    expect(formatCurrencyCompact(1_234_567, 'USD')).toBe('$1.2M');
+  });
+});
+
+describe('signedCurrencyText — negatif tutar POZİTİF görünmesin', () => {
+  it('negatifte işaret KOYAR (formatCurrency Math.abs ile düşürüyordu)', () => {
+    // Kanıt: aynı değer formatCurrency'den işaretsiz çıkıyor
+    expect(formatCurrency(-300)).not.toContain('-');
+    expect(signedCurrencyText(-300)).toContain('-');
+  });
+
+  it('pozitifte "+" YAZMAZ — rapor satırlarında gürültü olmasın', () => {
+    expect(signedCurrencyText(1200)).toBe(formatCurrency(1200));
+    expect(signedCurrencyText(1200)).not.toContain('+');
+  });
+
+  it('sıfır pozitif sayılır (işaretsiz)', () => {
+    expect(signedCurrencyText(0)).toBe(formatCurrency(0));
+  });
+
+  it('hesap para birimini korur', () => {
+    expect(signedCurrencyText(-300, 'USD')).toBe('-' + formatCurrency(-300, 'USD'));
+    expect(signedCurrencyText(-300, 'USD')).toContain('$');
   });
 });

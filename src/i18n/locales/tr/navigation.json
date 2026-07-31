@@ -54,7 +54,7 @@
     "about": "Hakkında",
     "privacyPolicy": "Gizlilik Politikası",
     "termsOfService": "Kullanım Koşulları",
-    "kvkk": "KVKK",
+    "privacyNotice": "KVKK",
     "login": "Giriş Yap",
     "register": "Kayıt Ol",
     "forgotPassword": "Şifremi Unuttum",
@@ -81,7 +81,7 @@
     "importData": "Veri İçe Aktar",
     "privacyPolicy": "Gizlilik Politikası",
     "termsOfService": "Kullanım Koşulları",
-    "kvkk": "KVKK",
+    "privacyNotice": "KVKK",
     "logout": "Çıkış Yap",
     "deleteAccount": "Hesabı Sil"
   },

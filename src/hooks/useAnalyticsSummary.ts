@@ -11,11 +11,11 @@ import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
 import { useFinancialSummary } from './useFinancialSummary';
-import { useHesaplar } from './useHesaplar';
-import { useCariler } from './useCariler';
-import { usePersonelList } from './usePersonel';
+import { useReportHesaplar } from './useHesaplar';
+import { useReportCariler } from './useCariler';
+import { useReportPersonelList } from './usePersonel';
 import { useSettings } from './useSettings';
-import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { useExchangeRates, createRpcTotalConverter } from './useExchangeRates';
 import { getDateRange } from '@/lib/date';
 import { isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { toNumber } from '@/lib/currency';
@@ -26,6 +26,7 @@ import type {
   MetricWithDelta,
 } from '@/types/analytics';
 import type { IslemType } from '@/types/database';
+import { usePermissions } from './usePermissions';
 
 /**
  * Calculates delta and percentage change between two values
@@ -46,21 +47,24 @@ export function useAnalyticsSummary(
   previousDateRange?: DateRange,
 ): AnalyticsSummary {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled = canAccessModule('raporlar');
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
 
   // Get instant metrics from existing hooks
-  const financialSummary = useFinancialSummary();
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar();
-  const { data: cariler, isLoading: carilerLoading } = useCariler();
-  const { data: personelList, isLoading: personelLoading } = usePersonelList();
+  const financialSummary = useFinancialSummary(reportsEnabled);
+  const { data: hesaplar, isLoading: hesaplarLoading } = useReportHesaplar();
+  const { data: cariler, isLoading: carilerLoading } = useReportCariler();
+  const { data: personelList, isLoading: personelLoading } =
+    useReportPersonelList();
 
   // Fetch current + previous period data via RPC (no 1000-row limit)
   const periodsQuery = useQuery({
     queryKey: queryKeys.analytics.periods(isletme?.id ?? '', period, baseCurrency, dateRange?.startDate, dateRange?.endDate),
     queryFn: async () => {
-      if (!isletme) return null;
+      if (!reportsEnabled || !isletme) return null;
 
       // Determine current and previous date ranges
       let currentStart: string;
@@ -133,7 +137,7 @@ export function useAnalyticsSummary(
         },
       };
     },
-    enabled: !!isletme,
+    enabled: reportsEnabled && !!isletme,
     staleTime: 5 * 60 * 1000,
   });
 
@@ -149,8 +153,10 @@ export function useAnalyticsSummary(
 
     // RPC income/expense/net değerleri TRY cinsindendir; ana para birimine çevir.
     // baseCurrency === 'TRY' iken tam no-op (TR kullanıcı için davranış değişmez).
-    const conv = (v: number) =>
-      baseCurrency === 'TRY' ? v : (convertCurrency(v, 'TRY', baseCurrency, rates) ?? v);
+    // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
+    // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
+    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const conv = converter.conv;
     const rawCurrent = periodData?.current || { income: 0, expense: 0, net: 0 };
     const rawPrevious = periodData?.previous || { income: 0, expense: 0, net: 0 };
     const currentPeriod = { income: conv(rawCurrent.income), expense: conv(rawCurrent.expense), net: conv(rawCurrent.net) };
@@ -208,6 +214,8 @@ export function useAnalyticsSummary(
         creditCardDebt: financialSummary.payables.hesap,
       },
       isLoading,
+      // Kur bulunamadıysa RPC toplamları ham TRY kalıyor → ekran uyarıyı göstersin
+      conversionIncomplete: converter.conversionIncomplete || financialSummary.conversionIncomplete,
     };
   }, [
     periodsQuery.data,

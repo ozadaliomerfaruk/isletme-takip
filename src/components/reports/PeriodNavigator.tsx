@@ -1,23 +1,16 @@
 import { useState, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Platform,
-  Modal,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform, Pressable, ScrollView } from 'react-native';
 import { ChevronLeft, ChevronRight, Calendar, X } from 'lucide-react-native';
 import { upperTr } from '@/lib/turkishTextUtils';
 import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { PeriodType } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { ensureValidDate, getDateRange } from '@/lib/date';
+import { ensureValidDate, getDateRange, parseDateFromDB } from '@/lib/date';
+import { getWeeklyOffsetForMonth } from '@/lib/periodNavigation';
 
 interface PeriodNavigatorProps {
   period: PeriodType;
@@ -114,9 +107,10 @@ export function PeriodNavigator({
           const targetDate = new Date(now.getFullYear(), now.getMonth() + periodOffset, 1);
           setSelectedYear(targetDate.getFullYear());
         } else {
-          // weekly: approximate the target month
-          const targetDate = new Date(now);
-          targetDate.setDate(targetDate.getDate() + periodOffset * 7);
+          // Haftalık dönemin gerçek başlangıcından yıl çözülür; "bugün + 7n"
+          // yaklaşımı yıl sınırında yanlış yılı seçebiliyordu.
+          const range = getDateRange('weekly', periodOffset);
+          const targetDate = ensureValidDate(parseDateFromDB(range.startDate));
           setSelectedYear(targetDate.getFullYear());
         }
         setShowMonthYearPicker(true);
@@ -141,13 +135,9 @@ export function PeriodNavigator({
     setShowMonthYearPicker(false);
   };
 
-  // Week picker: approximate offset for selected month
+  // Week picker: selected month's first full Monday-starting week
   const goToWeekOfMonth = (year: number, month: number) => {
-    const now = new Date();
-    const nowMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const firstDayOfMonth = new Date(year, month, 1);
-    const daysDiff = Math.round((firstDayOfMonth.getTime() - nowMidnight.getTime()) / (1000 * 60 * 60 * 24));
-    setPeriodOffset(Math.floor(daysDiff / 7));
+    setPeriodOffset(getWeeklyOffsetForMonth(year, month));
     setShowMonthYearPicker(false);
   };
 

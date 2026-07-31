@@ -29,6 +29,7 @@ expo-env.d.ts
 npm-debug.*
 yarn-debug.*
 yarn-error.*
+/supabase_logs*.csv
 
 # macOS
 .DS_Store

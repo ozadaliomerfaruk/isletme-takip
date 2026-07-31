@@ -7,7 +7,7 @@ import { useState, useEffect } from 'react';
  * bağlı KALMALI; yalnız FİLTRELEME/gruplama bu geciktirilmiş değeri kullanmalı. Yani:
  *   const [searchQuery, setSearchQuery] = useState('');
  *   const debouncedSearch = useDebouncedValue(searchQuery, 250);
- *   <SearchInput value={searchQuery} onChangeText={setSearchQuery} />   // anlık
+ *   <FloatingSearchBar value={searchQuery} onChangeText={setSearchQuery} />   // anlık
  *   const filtered = useMemo(() => ..., [data, debouncedSearch]);       // geciken
  *
  * Ters yapılırsa (input value'yu geciktirmek) harfler geç görünür ve "klavye takılıyor"

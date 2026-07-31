@@ -1,6 +1,8 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, Alert, TouchableOpacity, RefreshControl } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import ReAnimated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import {
   StickyNote,
@@ -19,12 +21,26 @@ import {
   EmptyState,
   SwipeableRow,
   SwipeableProvider,
+  GlassFab,
+  FAB_SIZE,
+  Screen,
 } from '@/components/ui';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { useNotlar, useCreateNot, useUpdateNot, useDeleteNot, useToggleNotCompletion, useMarkAsTask, useInvalidateNotlar } from '@/hooks/useNotlar';
-import { useUploadNotePhoto } from '@/hooks/useNotePhoto';
+import {
+  createNoteId,
+  useCreateNot,
+  useDeleteNot,
+  useMarkAsTask,
+  useNotlar,
+  useToggleNotCompletion,
+  useUpdateNot,
+} from '@/hooks/useNotlar';
+import {
+  removeNotePhotoBestEffort,
+  useUploadNotePhoto,
+} from '@/hooks/useNotePhoto';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -32,6 +48,7 @@ import { useUrunler } from '@/hooks/useUrunler';
 import { useIsletmeUsers } from '@/hooks/useMultiUser';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useToast } from '@/contexts/ToastContext';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
@@ -39,6 +56,10 @@ import { useDateFormat } from '@/hooks/useDateFormat';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { scheduleNoteReminder, cancelNoteReminder } from '@/lib/notifications';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import {
+  classifyMutationError,
+  isPermissionDeniedError,
+} from '@/lib/errors';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
 import { NoteRow } from '@/components/notes/NoteRow';
 import { PhotoViewerModal } from '@/components/transaction/PhotoViewerModal';
@@ -78,16 +99,53 @@ const ENTITY_TYPE_LABEL_KEYS: Record<NotEntityType, string> = {
 };
 
 export default function NotlarPage() {
+  // search: true → yüzen arama pill'inin payını (FLOATING_SEARCH_CLEARANCE) hook kendisi ekler
+  const contentPaddingBottom = useContentBottomPadding({ search: true });
   const { t } = useTranslation(['common', 'navigation']);
   const { formatDateTime } = useDateFormat();
   const { showToast } = useToast();
-  const { isletme, user, isOwner } = useAuthContext();
+  const { isletme } = useAuthContext();
   const insets = useSafeAreaInsets();
   usePagePermission({ module: 'notlar' }); // notlar kapalı kullanıcıyı geri yollar (yok→true geriye-uyum)
 
   const [filter, setFilter] = useState<FilterKey>('all');
+  const {
+    canAccessModule,
+    canCreate,
+    canUpdate,
+    canDelete,
+  } = usePermissions();
+  const canCreateNote = canCreate('notlar');
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeUrunler = canAccessModule('urunler');
+  const visibleEntityTypes = useMemo<NotEntityType[]>(() => {
+    const types: NotEntityType[] = ['genel'];
+    if (canSeeHesaplar) types.push('hesap');
+    if (canSeeCariler) types.push('cari');
+    if (canSeePersonel) types.push('personel', 'personel_izin');
+    if (canSeeUrunler) types.push('urun');
+    return types;
+  }, [canSeeHesaplar, canSeeCariler, canSeePersonel, canSeeUrunler]);
+  const visibleFilters = useMemo(
+    () => ENTITY_FILTERS.filter(({ key }) => {
+      if (key === 'all' || key === 'tasks' || key === 'genel') return true;
+      if (key === 'hesap') return canSeeHesaplar;
+      if (key === 'cari') return canSeeCariler;
+      if (key === 'personel') return canSeePersonel;
+      return canSeeUrunler;
+    }),
+    [canSeeHesaplar, canSeeCariler, canSeePersonel, canSeeUrunler],
+  );
+
+  useEffect(() => {
+    if (!visibleFilters.some(({ key }) => key === filter)) setFilter('all');
+  }, [filter, visibleFilters]);
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'done'>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // Arama aktifken (odak veya metin) FAB çekilir — bkz. FloatingSearchBar.onActiveChange
+  const [searchActive, setSearchActive] = useState(false);
   // A2: input anlık searchQuery'ye bağlı; filtreleme debouncedSearch'ü kullanır.
   const debouncedSearch = useDebouncedValue(searchQuery, 250);
   const [modalVisible, setModalVisible] = useState(false);
@@ -95,7 +153,12 @@ export default function NotlarPage() {
   const [viewPhotoPath, setViewPhotoPath] = useState<string | null>(null);
 
   const entityType = (filter === 'all' || filter === 'tasks') ? undefined : filter;
-  const { data: notlar, isLoading, refetch } = useNotlar(entityType);
+  const { data: notlar, isLoading, refetch } = useNotlar(
+    entityType,
+    undefined,
+    true,
+    visibleEntityTypes,
+  );
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   const createNot = useCreateNot();
   const updateNot = useUpdateNot();
@@ -111,19 +174,32 @@ export default function NotlarPage() {
       const note = notlar?.find(n => n.id === id);
       await deleteNot.mutateAsync({ id, photo_path: note?.photo_path });
     },
-    onError: () => {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+    onError: (error) => {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
     },
   });
   const toggleCompletion = useToggleNotCompletion();
   const uploadNotePhoto = useUploadNotePhoto();
-  const invalidateNotlar = useInvalidateNotlar();
 
   // Entity data for resolving names
-  const { data: hesaplar } = useHesaplar(true, true);
-  const { data: cariler } = useCariler(undefined, true, true);
-  const { data: personeller } = usePersonelList(true, true);
-  const { data: urunler } = useUrunler(true);
+  const { data: hesaplar } = useHesaplar(true, true, canSeeHesaplar);
+  const { data: cariler } = useCariler(
+    undefined,
+    true,
+    true,
+    canSeeCariler,
+  );
+  const { data: personeller } = usePersonelList(
+    true,
+    true,
+    canSeePersonel,
+  );
+  const { data: urunler } = useUrunler(true, canSeeUrunler);
   const { data: isletmeUsers } = useIsletmeUsers();
 
   // Build entity_id → name maps
@@ -176,50 +252,114 @@ export default function NotlarPage() {
   }, [notlar, debouncedSearch, filter, taskFilter, pendingDeleteIds]);
 
   const handleCreate = async (data: NoteFormData) => {
+    const noteId = createNoteId();
+    let uploadedPhotoPath: string | null = null;
+    let noteCreated = false;
+    let failedDuringPhotoUpload = false;
+    let reminderUpdateFailed = false;
+
     try {
+      if (data.photo_uri) {
+        if (!isletme) throw new Error('No isletme');
+        failedDuringPhotoUpload = true;
+        uploadedPhotoPath = await uploadNotePhoto.mutateAsync({
+          uri: data.photo_uri,
+          isletmeId: isletme.id,
+          noteId,
+          action: 'create',
+        });
+        failedDuringPhotoUpload = false;
+      }
+
       const result = await createNot.mutateAsync({
+        id: noteId,
         entity_type: 'genel',
         content: data.content,
         is_completed: data.is_completed,
         reminder_date: data.reminder_date,
+        photo_path: uploadedPhotoPath,
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
         assigned_to_personel: data.assigned_to_personel,
       });
-
-      if (data.photo_uri && isletme) {
-        try {
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: result.id,
-          });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', result.id);
-          invalidateNotlar();
-        } catch { /* photo upload failed but note was created */ }
-      }
+      noteCreated = true;
 
       if (data.reminder_date) {
-        await scheduleNoteReminder(
-          result.id,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: result.id, entity_type: 'genel' },
-        );
+        try {
+          await scheduleNoteReminder(
+            result.id,
+            t('common:notes.reminderNotification'),
+            t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+            new Date(data.reminder_date),
+            { type: 'note_reminder', note_id: result.id, entity_type: 'genel' },
+          );
+        } catch (error) {
+          console.warn('[Notes] reminder schedule failed after create:', error);
+          reminderUpdateFailed = true;
+        }
       }
 
       setModalVisible(false);
       showToast(t('common:notes.createSuccess'), 'success');
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+      if (reminderUpdateFailed) {
+        Alert.alert(
+          t('common:status.error'),
+          t('common:notes.reminderUpdateFailed'),
+        );
+      }
+    } catch (error) {
+      // Kesin INSERT reddinde yetim upload'i temizle. Ağ sonucu belirsizse
+      // INSERT commit olmuş olabileceğinden bağlı objeyi silme.
+      if (
+        uploadedPhotoPath
+        && !noteCreated
+        && classifyMutationError(error) !== 'network_unknown'
+      ) {
+        await removeNotePhotoBestEffort(uploadedPhotoPath);
+      }
+
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : failedDuringPhotoUpload
+            ? t('common:photo.uploadError')
+            : t('common:errors.genericError'),
+      );
     }
   };
 
   const handleUpdate = async (data: NoteFormData) => {
     if (!editingNote) return;
+    const isPhotoReplacement =
+      !!data.photo_uri && data.photo_uri !== editingNote.photo_path;
+    let uploadedPhotoPath: string | null = null;
+    let noteUpdated = false;
+    let failedDuringPhotoUpload = false;
+    let reminderUpdateFailed = false;
+
     try {
+      if (isPhotoReplacement && !isletme) {
+        throw new Error('No isletme');
+      }
+      if (isPhotoReplacement && isletme && data.photo_uri) {
+        failedDuringPhotoUpload = true;
+        uploadedPhotoPath = await uploadNotePhoto.mutateAsync({
+          uri: data.photo_uri,
+          isletmeId: isletme.id,
+          noteId: editingNote.id,
+          action: 'update',
+          createdBy: editingNote.created_by ?? null,
+        });
+        failedDuringPhotoUpload = false;
+      }
+
+      const nextPhotoPath = isPhotoReplacement
+        ? uploadedPhotoPath
+        : data.photo_uri
+          ? editingNote.photo_path
+          : null;
+
       await updateNot.mutateAsync({
         id: editingNote.id,
         content: data.content,
@@ -228,46 +368,58 @@ export default function NotlarPage() {
         assigned_to_user: data.assigned_to_user,
         assigned_to_cari: data.assigned_to_cari,
         assigned_to_personel: data.assigned_to_personel,
+        photo_path: nextPhotoPath,
       });
+      noteUpdated = true;
 
-      if (data.photo_uri && data.photo_uri !== editingNote.photo_path && isletme) {
-        try {
-          if (editingNote.photo_path) {
-            const { supabase: sb } = await import('@/lib/supabase');
-            await sb.storage.from('islem-photos').remove([editingNote.photo_path]);
-          }
-          const photoPath = await uploadNotePhoto.mutateAsync({
-            uri: data.photo_uri,
-            isletmeId: isletme.id,
-            noteId: editingNote.id,
-          });
-          const { supabase } = await import('@/lib/supabase');
-          await supabase.from('notlar').update({ photo_path: photoPath }).eq('id', editingNote.id);
-          invalidateNotlar();
-        } catch { /* ignore */ }
-      } else if (!data.photo_uri && editingNote.photo_path) {
-        const { supabase } = await import('@/lib/supabase');
-        await supabase.storage.from('islem-photos').remove([editingNote.photo_path]);
-        await supabase.from('notlar').update({ photo_path: null }).eq('id', editingNote.id);
-        invalidateNotlar();
+      if (
+        editingNote.photo_path
+        && editingNote.photo_path !== nextPhotoPath
+      ) {
+        await removeNotePhotoBestEffort(editingNote.photo_path);
       }
 
-      if (data.reminder_date) {
-        await scheduleNoteReminder(
-          editingNote.id,
-          t('common:notes.reminderNotification'),
-          t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
-          new Date(data.reminder_date),
-          { type: 'note_reminder', note_id: editingNote.id, entity_type: editingNote.entity_type, entity_id: editingNote.entity_id ?? undefined },
-        );
-      } else {
-        await cancelNoteReminder(editingNote.id);
+      try {
+        if (data.reminder_date) {
+          await scheduleNoteReminder(
+            editingNote.id,
+            t('common:notes.reminderNotification'),
+            t('common:notes.reminderBody', { content: data.content.substring(0, 50) }),
+            new Date(data.reminder_date),
+            { type: 'note_reminder', note_id: editingNote.id, entity_type: editingNote.entity_type, entity_id: editingNote.entity_id ?? undefined },
+          );
+        } else {
+          await cancelNoteReminder(editingNote.id);
+        }
+      } catch (error) {
+        console.warn('[Notes] reminder update failed after edit:', error);
+        reminderUpdateFailed = true;
       }
 
       setEditingNote(null);
       showToast(t('common:notes.updateSuccess'), 'success');
-    } catch {
-      Alert.alert(t('common:status.error'), t('common:errors.genericError'));
+      if (reminderUpdateFailed) {
+        Alert.alert(
+          t('common:status.error'),
+          t('common:notes.reminderUpdateFailed'),
+        );
+      }
+    } catch (error) {
+      if (
+        uploadedPhotoPath
+        && !noteUpdated
+        && classifyMutationError(error) !== 'network_unknown'
+      ) {
+        await removeNotePhotoBestEffort(uploadedPhotoPath);
+      }
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : failedDuringPhotoUpload
+            ? t('common:photo.uploadError')
+            : t('common:errors.genericError'),
+      );
     }
   };
 
@@ -280,23 +432,45 @@ export default function NotlarPage() {
 
   const markAsTask = useMarkAsTask();
 
-  const handleToggleComplete = useCallback((noteId: string, done: boolean) => {
-    toggleCompletion.mutate({ id: noteId, done });
-  }, [toggleCompletion]);
+  const handleToggleComplete = useCallback(async (
+    noteId: string,
+    done: boolean,
+  ) => {
+    try {
+      await toggleCompletion.mutateAsync({ id: noteId, done });
+    } catch (error) {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
+    }
+  }, [t, toggleCompletion]);
 
-  const handleMarkAsTask = useCallback((noteId: string) => {
-    markAsTask.mutate(noteId);
-  }, [markAsTask]);
+  const handleMarkAsTask = useCallback(async (noteId: string) => {
+    try {
+      await markAsTask.mutateAsync(noteId);
+    } catch (error) {
+      Alert.alert(
+        t('common:status.error'),
+        isPermissionDeniedError(error)
+          ? t('common:errors.permissionDenied')
+          : t('common:errors.genericError'),
+      );
+    }
+  }, [markAsTask, t]);
 
   const renderNote = useCallback(({ item }: { item: Not }) => {
     const entityLabel = t(ENTITY_TYPE_LABEL_KEYS[item.entity_type]);
     const entityName = item.entity_id ? entityNameMap[item.entity_id] : null;
     // RLS yalnızca kendi notuna düzenleme/silme izni verir (owner hepsine). UI'da da hizala.
-    const canModify = isOwner || item.created_by === user?.id;
+    const canEditNote = canUpdate('notlar', item.created_by);
+    const canDeleteNote = canDelete('notlar', item.created_by);
 
     return (
       <SwipeableRow
-        onDelete={canModify ? () => handleDelete(item) : undefined}
+        onDelete={canDeleteNote ? () => handleDelete(item) : undefined}
         deleteLabel={t('common:buttons.delete')}
       >
         <View style={styles.noteWrapper}>
@@ -314,9 +488,9 @@ export default function NotlarPage() {
           {/* Note card */}
           <NoteRow
             note={item}
-            onEdit={canModify ? () => setEditingNote(item) : undefined}
-            onToggleComplete={handleToggleComplete}
-            onMarkAsTask={handleMarkAsTask}
+            onEdit={canEditNote ? () => setEditingNote(item) : undefined}
+            onToggleComplete={canEditNote ? handleToggleComplete : undefined}
+            onMarkAsTask={canEditNote ? handleMarkAsTask : undefined}
             onPhotoPress={setViewPhotoPath}
             assignedUserName={item.assigned_to_user ? userNameMap[item.assigned_to_user] : null}
             assignedCariName={item.assigned_to_cari ? cariNameMap[item.assigned_to_cari] : null}
@@ -325,16 +499,30 @@ export default function NotlarPage() {
         </View>
       </SwipeableRow>
     );
-  }, [formatDateTime, handleDelete, handleToggleComplete, handleMarkAsTask, t, entityNameMap, userNameMap, cariNameMap, personelNameMap, isOwner, user?.id]);
+  }, [
+    canDelete,
+    canUpdate,
+    formatDateTime,
+    handleDelete,
+    handleToggleComplete,
+    handleMarkAsTask,
+    t,
+    entityNameMap,
+    userNameMap,
+    cariNameMap,
+    personelNameMap,
+  ]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <SwipeableProvider>
         {/* Filters */}
         <View style={styles.filtersContainer}>
+          {/* YATAY şeride alt boşluk VERİLMEZ — contentContainer paddingBottom'u
+              içerik yüksekliğini büyütür, chip'lerin altına hayalet şerit koyar */}
           <FlatList
             horizontal
-            data={ENTITY_FILTERS}
+            data={visibleFilters}
             keyExtractor={(item) => item.key}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filtersList}
@@ -382,7 +570,7 @@ export default function NotlarPage() {
           data={filteredNotes}
           keyExtractor={(item) => item.id}
           renderItem={renderNote}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           // Yüzen arama çubuğu klavye açıkken kaydırmada ekran dışına fırlamasın
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
@@ -407,24 +595,35 @@ export default function NotlarPage() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           placeholder={t('common:notes.searchPlaceholder')}
-          rightOffset={56 + spacing.md}
+          rightOffset={FAB_SIZE + spacing.md}
+          onActiveChange={setSearchActive}
         />
 
-        {/* FAB */}
-        <TouchableOpacity
-          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Plus size={24} color={colors.surface} />
-        </TouchableOpacity>
+        {/* FAB — arama aktifken çekilir: pill tam genişliğe açılıp FAB'ın altına
+            girer ve kapatma X'ini tamamen örterdi. Süre X'lerle aynı (150ms). */}
+        {!searchActive && canCreateNote && (
+          <ReAnimated.View
+            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+            entering={ZoomIn.duration(150)}
+            exiting={ZoomOut.duration(150)}
+          >
+            <GlassFab
+              color={colors.warning}
+              onPress={() => setModalVisible(true)}
+              renderIcon={({ color, size }) => <Plus size={size} color={color} />}
+            />
+          </ReAnimated.View>
+        )}
 
         {/* Create Modal */}
         <NoteInputModal
           visible={modalVisible}
           onClose={() => setModalVisible(false)}
           onSave={handleCreate}
-          loading={createNot.isPending || uploadNotePhoto.isPending}
+          loading={
+            createNot.isPending
+            || uploadNotePhoto.isPending
+          }
           entityType="genel"
           entityId=""
         />
@@ -444,7 +643,7 @@ export default function NotlarPage() {
             assigned_to_personel: editingNote.assigned_to_personel,
           } : undefined}
           isEditing
-          loading={updateNot.isPending}
+          loading={updateNot.isPending || uploadNotePhoto.isPending}
           entityType={editingNote?.entity_type ?? 'genel'}
           entityId={editingNote?.entity_id ?? ''}
           existingPhotoPath={editingNote?.photo_path}
@@ -465,7 +664,7 @@ export default function NotlarPage() {
           onDismiss={dismissDelete}
         />
       </SwipeableProvider>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -555,20 +754,10 @@ const styles = StyleSheet.create({
   separator: {
     height: spacing.md,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.warning,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
 });

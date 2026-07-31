@@ -1,13 +1,7 @@
+import { Modal } from './Modal';
 import { useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Switch,
-  Platform,
-  Modal,
-  Pressable,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Switch, Platform, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { Bell, ChevronDown, Clock, X } from 'lucide-react-native';
@@ -48,6 +42,9 @@ function dateToTimeString(date: Date): string {
 export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
   const { t } = useTranslation(['settings', 'common']);
   const { locale } = useDateFormat();
+  // Saat sheet'i ekranın dibine yaslı: "Tamam" home indicator şeridine girmesin.
+  // Modal ayrı native pencerede → ModalInsets sayesinde bu değer GERÇEK (bar'sız).
+  const insets = useSafeAreaInsets();
   const [showDaysPicker, setShowDaysPicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
@@ -172,7 +169,10 @@ export function ReminderSettings({ value, onChange }: ReminderSettingsProps) {
             style={styles.modalOverlay}
             onPress={() => setShowTimePicker(false)}
           >
-            <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              style={[styles.modalContent, { paddingBottom: insets.bottom + spacing.md }]}
+              onPress={(e) => e.stopPropagation()}
+            >
               <View style={styles.modalHeader}>
                 <Text variant="h3">{t('common:date.selectTime')}</Text>
                 <TouchableOpacity onPress={() => setShowTimePicker(false)}>
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: spacing.lg,
-    paddingBottom: spacing['2xl'],
+    // paddingBottom inline: insets.bottom + spacing.md
   },
   modalHeader: {
     flexDirection: 'row',

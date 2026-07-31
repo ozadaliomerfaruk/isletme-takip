@@ -3,7 +3,7 @@
  * Gelir/Gider rapor sayfalarındaki işlemleri export etmek için hook
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { exportReportToExcel, ReportType, ReportExcelTranslations } from '@/lib/reportExcelExport';
@@ -14,22 +14,158 @@ import { supabase } from '@/lib/supabase';
 import { IslemWithRelations } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
-import { INCOME_TYPES, EXPENSE_TYPES } from '@/constants/islemTypes';
+import { INCOME_TYPES, EXPENSE_TYPES, INCOME_RETURN_TYPES, EXPENSE_RETURN_TYPES } from '@/constants/islemTypes';
+import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
+import {
+  parseCategoryReportTransactionRows,
+  parseReportCategoryReferenceRows,
+} from '@/lib/reportPermissionProjection';
 
 interface UseReportExcelExportReturn {
   isExporting: boolean;
+  canExport: boolean;
   exportReport: (startDate: string, endDate: string, periodLabel: string) => Promise<void>;
 }
 
+const SHARED_EXPORT_PAGE_SIZE = 100;
+const SHARED_EXPORT_MAX_PAGES = 1000;
+const SHARED_EXPORT_CATEGORY_BATCH_SIZE = 100;
+
+async function fetchSharedReportExportTransactions(params: {
+  isletmeId: string;
+  reportType: ReportType;
+  startDate: string;
+  endDate: string;
+}): Promise<IslemWithRelations[]> {
+  const { data: categoryData, error: categoryError } = await supabase.rpc(
+    'get_rapor_kategori_referanslari_v1',
+    {
+      p_isletme_id: params.isletmeId,
+      p_type: params.reportType,
+    },
+  );
+  if (categoryError) throw categoryError;
+
+  const categoryIds = parseReportCategoryReferenceRows(categoryData)
+    .map((category) => category.id);
+  const categoryBatches: string[][] = [];
+  for (
+    let index = 0;
+    index < categoryIds.length;
+    index += SHARED_EXPORT_CATEGORY_BATCH_SIZE
+  ) {
+    categoryBatches.push(
+      categoryIds.slice(index, index + SHARED_EXPORT_CATEGORY_BATCH_SIZE),
+    );
+  }
+  if (categoryBatches.length === 0) categoryBatches.push([]);
+
+  const transactions = new Map<string, IslemWithRelations>();
+  const startDateTime = params.startDate.includes('T')
+    ? params.startDate
+    : `${params.startDate}T00:00:00`;
+  const endDateTime = params.endDate.includes('T')
+    ? params.endDate
+    : `${params.endDate}T23:59:59`;
+
+  for (const categoryBatch of categoryBatches) {
+    let beforeDate: string | null = null;
+    let beforeId: string | null = null;
+    let batchCompleted = false;
+
+    for (
+      let pageIndex = 0;
+      pageIndex < SHARED_EXPORT_MAX_PAGES;
+      pageIndex += 1
+    ) {
+      const { data, error } = await supabase.rpc(
+        'get_kategori_rapor_islem_satirlari_v1',
+        {
+          p_isletme_id: params.isletmeId,
+          p_kategori_ids: categoryBatch,
+          // Kategorisizler her batch'te gelebilir; aşağıdaki Map aynı işlem
+          // kimliğini tekilleştirir.
+          p_include_uncategorized: true,
+          p_direction: params.reportType,
+          p_source: 'income-expense',
+          p_include_returns: true,
+          p_start_date: startDateTime,
+          p_end_date: endDateTime,
+          p_limit: SHARED_EXPORT_PAGE_SIZE,
+          p_before_date: beforeDate,
+          p_before_id: beforeId,
+        },
+      );
+      if (error) throw error;
+
+      const page = parseCategoryReportTransactionRows(
+        data,
+        params.isletmeId,
+      );
+      page.forEach((transaction) => {
+        if (!transactions.has(transaction.id)) {
+          transactions.set(transaction.id, transaction);
+        }
+      });
+      if (page.length < SHARED_EXPORT_PAGE_SIZE) {
+        batchCompleted = true;
+        break;
+      }
+
+      const last = page[page.length - 1];
+      const nextDate = last.date;
+      const nextId = last.id;
+      if (beforeDate === nextDate && beforeId === nextId) {
+        throw new Error('Shared report export cursor did not advance');
+      }
+      beforeDate = nextDate;
+      beforeId = nextId;
+    }
+
+    if (!batchCompleted) {
+      throw new Error('Shared report export page limit exceeded');
+    }
+  }
+
+  return [...transactions.values()];
+}
+
 export function useReportExcelExport(reportType: ReportType): UseReportExcelExportReturn {
-  const { isletme } = useAuthContext();
+  const { isletme, user } = useAuthContext();
+  const { canExportModule, isOwner } = usePermissions();
   const { currency: baseCurrency } = useSettings();
+  // Karışık para birimli dönemde Excel toplamlarını ana para birimine çevirmek için.
+  const { data: exchangeRatesData } = useExchangeRates();
+  const exchangeRates = exchangeRatesData?.rates;
   const { t } = useTranslation();
   const [isExporting, setIsExporting] = useState(false);
+  // Raporlar izni tek başına export'u açar. Owner mevcut detay sorgusunu,
+  // reports-only kullanıcı yalnız dar kategori/drilldown RPC'lerini kullanır.
+  const canExport = canExportModule('raporlar');
+  const latestExportAccessRef = useRef({
+    canExport,
+    isletmeId: isletme?.id ?? null,
+    userId: user?.id ?? null,
+  });
+  latestExportAccessRef.current = {
+    canExport,
+    isletmeId: isletme?.id ?? null,
+    userId: user?.id ?? null,
+  };
+
+  useEffect(() => () => {
+    // Ekran/oturum kapanırken devam eden geniş sorgu dosya üretimine geçmesin.
+    latestExportAccessRef.current.canExport = false;
+  }, []);
 
   const exportReport = useCallback(
     async (startDate: string, endDate: string, periodLabel: string) => {
+      if (!canExport) {
+        Alert.alert(t('common:status.error'), t('common:errors.permissionDenied'));
+        return;
+      }
       if (!isletme) {
         Alert.alert(t('common:status.error'), t('common:empty.noData'));
         return;
@@ -71,11 +207,19 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
       setIsExporting(true);
 
       try {
+        const expectedIsletmeId = isletme.id;
+        const expectedUserId = user?.id ?? null;
         const endDateTime = new Date(endDate + 'T00:00:00');
         endDateTime.setDate(endDateTime.getDate() + 1);
         const endDateNextDay = formatDateForDB(endDateTime);
 
-        const islemTypes = reportType === 'gelir' ? INCOME_TYPES : EXPENSE_TYPES;
+        // İADE TİPLERİ DE ÇEKİLİR. Ekranın kaynağı (get_category_report + iade sorgusu)
+        // toplamı NET veriyor; export ise yalnız INCOME/EXPENSE çekip BRÜT veriyordu →
+        // iadesi olan her dönemde Excel'in "TOPLAM"ı ekrandan iade tutarı kadar YÜKSEK
+        // çıkıyordu. Netleme reportExcelExport içinde isReturnType ile yapılır.
+        const islemTypes = reportType === 'gelir'
+          ? [...INCOME_TYPES, ...INCOME_RETURN_TYPES]
+          : [...EXPENSE_TYPES, ...EXPENSE_RETURN_TYPES];
 
         const buildQuery = () => {
           return supabase
@@ -85,8 +229,8 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
               hesap:hesaplar!islemler_hesap_id_fkey(id,name,currency,type,is_active),
               hedef_hesap:hesaplar!islemler_hedef_hesap_id_fkey(id,name,currency,type,is_active),
               kategori:kategoriler(id,name),
-              cari:cariler(id,name,type,is_active),
-              personel:personel(id,first_name,last_name,is_active)
+              cari:cariler(id,name,type,is_active,currency),
+              personel:personel(id,first_name,last_name,is_active,currency)
             `)
             .eq('isletme_id', isletme.id)
             .in('type', islemTypes)
@@ -95,7 +239,24 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
             .order('date', { ascending: true });
         };
 
-        const transactions = await fetchAllPages<IslemWithRelations>(buildQuery);
+        const transactions = isOwner
+          ? await fetchAllPages<IslemWithRelations>(buildQuery)
+          : await fetchSharedReportExportTransactions({
+              isletmeId: isletme.id,
+              reportType,
+              startDate,
+              endDate,
+            });
+
+        const latestAccess = latestExportAccessRef.current;
+        if (
+          !latestAccess.canExport
+          || latestAccess.isletmeId !== expectedIsletmeId
+          || latestAccess.userId !== expectedUserId
+        ) {
+          Alert.alert(t('common:status.error'), t('common:errors.permissionDenied'));
+          return;
+        }
 
         // Ekran raporuyla TUTARLI olsun: ekran get_category_report RPC'si pasif
         // hesap/cari/personel islemlerini disliyor; export da aynisini yapsin.
@@ -117,6 +278,7 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
           periodLabel,
           transactions: visibleTransactions,
           baseCurrency,
+          exchangeRates,
           translations,
         });
         logEvent('export_completed', { format: 'excel', export_type: 'report', report_type: reportType });
@@ -130,11 +292,21 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
         setIsExporting(false);
       }
     },
-    [reportType, isletme, baseCurrency, t]
+    [
+      reportType,
+      isletme,
+      user?.id,
+      baseCurrency,
+      exchangeRates,
+      t,
+      canExport,
+      isOwner,
+    ]
   );
 
   return {
     isExporting,
+    canExport,
     exportReport,
   };
 }

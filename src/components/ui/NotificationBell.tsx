@@ -1,19 +1,12 @@
+import { Modal } from './Modal';
 import { useState, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  Animated,
-  Dimensions,
-  ScrollView,
-  Pressable,
-  AppState,
-} from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Pressable, AppState } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Bell, CalendarClock, X } from 'lucide-react-native';
 import { Text } from './Text';
+import { GlassIconButton } from './GlassIconButton';
 import { TransactionIcon } from './TransactionIcon';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight } from '@/constants/spacing';
@@ -47,6 +40,9 @@ export function NotificationBell() {
   const router = useRouter();
   const { t } = useTranslation(['transactions', 'common']);
   const { monthsShort } = useDateFormat();
+  // Dropdown ekranın tepesine yapışık: üst boşluk cihazın GERÇEK çentiğinden
+  // gelmeli (SE'de 20, Dynamic Island'da 59 — sabit 44 ikisine de uymuyordu).
+  const insets = useSafeAreaInsets();
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(-300)).current;
@@ -208,13 +204,15 @@ export function NotificationBell() {
 
   return (
     <>
-      {/* Çan İkonu */}
-      <TouchableOpacity
-        style={styles.bellButton}
+      {/* Çan İkonu — header'ın cam buton grubunda yaşıyor: yanındaki arama
+          butonuyla ERİMESİ için ham TouchableOpacity değil GlassIconButton
+          (hitSlop + accessibility de oradan gelir). Rozetler camın İÇİNDE,
+          mutlak konumlu; opacity YOK (bkz. GlassSurface ALTIN KURAL). */}
+      <GlassIconButton
         onPress={openModal}
-        activeOpacity={0.7}
+        accessibilityLabel={t('transactions:scheduled.title')}
       >
-        <Bell size={24} color={hasUrgent ? colors.error : colors.text} />
+        <Bell size={20} color={hasUrgent ? colors.error : colors.text} />
         {count > 0 && (
           <View style={[styles.badge, hasUrgent && styles.badgeUrgent]}>
             <Text style={styles.badgeText}>
@@ -228,7 +226,7 @@ export function NotificationBell() {
             <Text style={styles.urgentDotText}>!</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </GlassIconButton>
 
       {/* Dropdown Modal */}
       <Modal
@@ -247,7 +245,7 @@ export function NotificationBell() {
             { transform: [{ translateY: slideAnim }] },
           ]}
         >
-          <View style={styles.dropdown}>
+          <View style={[styles.dropdown, { paddingTop: insets.top + spacing.md }]}>
             {/* Header */}
             <View style={styles.dropdownHeader}>
               <View style={styles.dropdownHeaderLeft}>
@@ -326,17 +324,14 @@ export function NotificationBell() {
 }
 
 const styles = StyleSheet.create({
-  bellButton: {
-    width: 36,
-    height: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
+  // bellButton → GlassIconButton'a taşındı (çap/hizalama artık orada).
+  // Kap artık 36px YUVARLAK kapsül: köşeye (top/right 2) çıpalanan rozet dairenin
+  // boş köşesine, yani görsel sınırın ~4px dışına düşüyordu. Ofsetler dairenin 45°
+  // noktasına verildi → rozet çemberin ÜSTÜNDE oturuyor (klasik "taşan rozet").
   badge: {
     position: 'absolute',
-    top: 2,
-    right: 2,
+    top: -3,
+    right: -3,
     backgroundColor: colors.error,
     borderRadius: 10,
     minWidth: 18,
@@ -353,11 +348,12 @@ const styles = StyleSheet.create({
   badgeUrgent: {
     backgroundColor: colors.error,
   },
-  // Konu 3: vadesi gelmiş/geçmiş uyarısı — çanın sol-altında belirgin "!" göstergesi
+  // Konu 3: vadesi gelmiş/geçmiş uyarısı — çanın sol-altında belirgin "!" göstergesi.
+  // Rozetle simetrik: dairenin sol-alt 45° noktası (bkz. badge notu).
   urgentDot: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
+    bottom: -3,
+    left: -3,
     backgroundColor: colors.error,
     borderRadius: 9,
     minWidth: 18,
@@ -391,7 +387,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     maxHeight: SCREEN_HEIGHT * 0.6,
-    paddingTop: spacing.xl + 44, // Safe area
+    // paddingTop inline: insets.top + spacing.md (gerçek çentik payı)
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,

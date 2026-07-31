@@ -31,13 +31,24 @@ export type TransactionType =
   | 'kredi_karti_odeme'
   | 'kredi_karti_ekstre';
 
-export type TransactionTabMode = 'normal' | 'tedarikci' | 'musteri' | 'tedarikci_viewer' | 'musteri_viewer' | 'personel' | 'personel_izin' | 'kredi_karti';
+export type TransactionTabMode =
+  | 'normal'
+  | 'tedarikci'
+  | 'musteri'
+  | 'tedarikci_viewer'
+  | 'musteri_viewer'
+  | 'tedarikci_cash'
+  | 'musteri_cash'
+  | 'personel'
+  | 'personel_izin'
+  | 'kredi_karti';
 
 interface TransactionTypeTabsProps {
   value: TransactionType;
   onChange: (type: TransactionType) => void;
   onTabPress?: (type: TransactionType) => void;
   mode?: TransactionTabMode;
+  allowedTypes?: readonly TransactionType[];
 }
 
 interface TabConfig {
@@ -86,6 +97,10 @@ const TEDARIKCI_VIEWER_TABS: TransactionType[] = ['alis', 'satis', 'alis_iade'];
 // Müşteri cari viewer modu (paylaşılan cari - tahsilat yok)
 const MUSTERI_VIEWER_TABS: TransactionType[] = ['satis', 'alis', 'satis_iade'];
 
+// S-11 Cariler-only dar akisi: dedicated RPC yalniz nakit odeme/tahsilat kabul eder.
+const TEDARIKCI_CASH_TABS: TransactionType[] = ['odeme'];
+const MUSTERI_CASH_TABS: TransactionType[] = ['tahsilat'];
+
 // Personel modu için sekmeler
 const PERSONEL_TABS: TransactionType[] = ['personel_gider_tab', 'personel_satis_tab', 'personel_odeme_tab', 'personel_tahsilat_tab', 'personel_izin_hakki_tab', 'personel_izin_kullanimi_tab'];
 
@@ -95,7 +110,13 @@ const PERSONEL_IZIN_TABS: TransactionType[] = ['personel_izin_hakki_tab', 'perso
 // Kredi kartı modu için sekmeler
 const KREDI_KARTI_TABS: TransactionType[] = ['kredi_karti_gider', 'kredi_karti_odeme', 'kredi_karti_ekstre'];
 
-export function TransactionTypeTabs({ value, onChange, onTabPress, mode = 'normal' }: TransactionTypeTabsProps) {
+export function TransactionTypeTabs({
+  value,
+  onChange,
+  onTabPress,
+  mode = 'normal',
+  allowedTypes,
+}: TransactionTypeTabsProps) {
   const { t } = useTranslation('transactions');
 
   const handlePress = useCallback(
@@ -126,6 +147,12 @@ export function TransactionTypeTabs({ value, onChange, onTabPress, mode = 'norma
       case 'musteri_viewer':
         tabTypes = MUSTERI_VIEWER_TABS;
         break;
+      case 'tedarikci_cash':
+        tabTypes = TEDARIKCI_CASH_TABS;
+        break;
+      case 'musteri_cash':
+        tabTypes = MUSTERI_CASH_TABS;
+        break;
       case 'personel':
         tabTypes = PERSONEL_TABS;
         break;
@@ -138,8 +165,11 @@ export function TransactionTypeTabs({ value, onChange, onTabPress, mode = 'norma
       default:
         tabTypes = NORMAL_TABS;
     }
-    return ALL_TABS.filter(tab => tabTypes.includes(tab.type));
-  }, [mode]);
+    const allowed = allowedTypes ? new Set(allowedTypes) : null;
+    return ALL_TABS.filter(
+      (tab) => tabTypes.includes(tab.type) && (!allowed || allowed.has(tab.type)),
+    );
+  }, [allowedTypes, mode]);
 
   return (
     <ScrollView

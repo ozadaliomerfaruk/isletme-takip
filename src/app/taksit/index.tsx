@@ -1,10 +1,11 @@
 import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated, Pressable } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack, useRouter, type Href } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, EmptyState } from '@/components/ui';
+import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
@@ -23,6 +24,10 @@ import type { CariType } from '@/types/database';
 const TaksitSeparator = () => <View style={styles.separator} />;
 
 export default function TaksitTakipPage() {
+  const contentPaddingBottom = useContentBottomPadding();
+  // Yüzen kontrolün alt boşluğu KENDİSİNE ait: cam tab bar overlay çizildiği için
+  // insets.bottom olmadan FAB bar'ın arkasında kalıyordu (diğer FAB'larla aynı kalıp).
+  const insets = useSafeAreaInsets();
   const { t } = useTranslation(['transactions', 'common', 'clients']);
   const router = useRouter();
   const { data: planlar, isLoading, refetch, isRefetching } = useTaksitPlanListesi();
@@ -80,8 +85,10 @@ export default function TaksitTakipPage() {
       cur,
       tahsil: sum('cari_satis'),
       ode: sum('cari_alis'),
-      tahsilAdet: acik.filter((p) => p.type === 'cari_satis').length,
-      odeAdet: acik.filter((p) => p.type === 'cari_alis').length,
+      // Adet de TUTARLA aynı para birimi süzgecinden geçer: aksi halde "₺10.000 · 5 plan"
+      // yazıp tutarın yalnız 3 planı kapsadığı yanıltıcı özet çıkıyor.
+      tahsilAdet: acik.filter((p) => p.currency === cur && p.type === 'cari_satis').length,
+      odeAdet: acik.filter((p) => p.currency === cur && p.type === 'cari_alis').length,
     };
   }, [planlar]);
 
@@ -141,7 +148,7 @@ export default function TaksitTakipPage() {
   return (
     <>
       <Stack.Screen options={{ headerTitle: t('transactions:taksit.title') }} />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         {/* Üst özet — açık planların yön bazlı kalan toplamları */}
         {ozet && (
           <View style={styles.ozetRow}>
@@ -186,7 +193,7 @@ export default function TaksitTakipPage() {
           keyExtractor={(item) => item.plan_id}
           renderItem={renderItem}
           ItemSeparatorComponent={TaksitSeparator}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}
@@ -212,7 +219,10 @@ export default function TaksitTakipPage() {
 
         {/* FAB Menü - Taksitli Satış / Alış (inline, yukarı açılır) */}
         {showFabMenu && (
-          <View style={[styles.fabMenuContainer, { bottom: spacing['2xl'] + 56 + spacing.md }]}>
+          <GlassContainer
+            spacing={GLASS_MERGE_SPACING}
+            style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
+          >
             {[
               {
                 label: t('transactions:taksit.fabSatis'),
@@ -230,32 +240,32 @@ export default function TaksitTakipPage() {
               <Animated.View
                 key={item.label}
                 style={{
-                  opacity: fabAnim,
+                  // OPACITY YOK: içerideki satır cam (GlassFabMenuItem) ve cam
+                  // yüzeyin atasında alpha<1 malzemeyi çökertiyor — yazı görünür,
+                  // kapsül kaybolur. Geçiş yalnız transform ile. Bkz. GlassSurface.
                   transform: [
                     { translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [20 + item.index * 10, 0] }) },
                     { scale: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) },
                   ],
                 }}
               >
-                <TouchableOpacity style={styles.fabMenuItem} onPress={item.onPress} activeOpacity={0.7}>
-                  <View style={styles.fabMenuIcon}>{item.icon}</View>
-                  <Text style={styles.fabMenuLabel}>{item.label}</Text>
-                </TouchableOpacity>
+                <GlassFabMenuItem icon={item.icon} label={item.label} onPress={item.onPress} />
               </Animated.View>
             ))}
-          </View>
+          </GlassContainer>
         )}
 
         {/* FAB Button (+ → 45° döner) */}
-        <TouchableOpacity
-          style={styles.fab}
-          activeOpacity={0.85}
+        <GlassFab
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+          iconSize={26}
           onPress={() => setShowFabMenu((prev) => !prev)}
-        >
-          <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-            <Plus size={26} color={colors.white} />
-          </Animated.View>
-        </TouchableOpacity>
+          renderIcon={({ color, size }) => (
+            <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
+              <Plus size={size} color={color} />
+            </Animated.View>
+          )}
+        />
 
         {/* Cari Picker (FAB menüsünden — NON-MODAL bağlamdan açılır → donmaz) */}
         <CariPickerSheet
@@ -276,7 +286,7 @@ export default function TaksitTakipPage() {
           defaultType={qtbCari?.type === 'tedarikci' ? 'alis' : 'satis'}
           onSuccess={() => setQtbCari(null)}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
@@ -353,21 +363,10 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: colors.border,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    bottom: spacing['2xl'],
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
     zIndex: 10,
   },
   fabMenuContainer: {
@@ -377,33 +376,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     zIndex: 9,
   },
-  fabMenuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.full,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
-    gap: spacing.sm,
-  },
-  fabMenuIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabMenuLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-  },
+  // fabMenuItem / fabMenuIcon / fabMenuLabel → GlassFabMenuItem'a taşındı.
   card: {
     backgroundColor: colors.surface,
     padding: spacing.md,

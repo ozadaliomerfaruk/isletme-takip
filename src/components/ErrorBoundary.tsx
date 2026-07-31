@@ -35,12 +35,14 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // Hatayı kaydet (loglama bile patlarsa yut — fallback her zaman gösterilmeli).
+    // Hata mesajı/stack; form girdisi, sunucu cevabı veya kullanıcı içeriği
+    // taşıyabilir. Telemetriye yalnız tanı için yeterli, içeriksiz sinyal gönder.
+    // (loglama bile patlarsa yut — fallback her zaman gösterilmeli.)
     try {
       logEvent('app_error', {
-        message: String(error?.message ?? error).slice(0, 500),
-        stack: String(error?.stack ?? '').slice(0, 1500),
-        component_stack: String(info?.componentStack ?? '').slice(0, 1500),
+        source: 'react_error_boundary',
+        error_kind: error instanceof TypeError ? 'type_error' : 'runtime_error',
+        has_component_stack: Boolean(info?.componentStack),
       });
     } catch {
       // yut

@@ -6,17 +6,20 @@ export { CurrencyInput } from './CurrencyInput';
 export { ExpandableCard } from './ExpandableCard';
 export { Collapsible } from './Collapsible';
 export { AddEntityButton } from './AddEntityButton';
-export { TabHeader } from './TabHeader';
+export { TabHeader, TAB_HEADER_ESTIMATED_HEIGHT } from './TabHeader';
 export { TabFilter } from './TabFilter';
 export { FilterChips } from './FilterChips';
 export type { FilterChipItem } from './FilterChips';
-export { SearchInput } from './SearchInput';
+// ARAMA DİLİ İKİ YÜZEYLİ — üçüncüsünü EKLEME:
+//   ana liste sekmeleri → FloatingSearchBar (alta yüzen, cam)
+//   modal / picker      → ModalSearchBar   (üste sabit, cam + GLASS_TINT_CONTROL)
 export { FloatingSearchBar, FLOATING_SEARCH_CLEARANCE } from './FloatingSearchBar';
 export { ModalSearchBar } from './ModalSearchBar';
 export { EmptyState } from './EmptyState';
 export { DateTimePicker } from './DateTimePicker';
 export { CategoryReportCard, HierarchicalCategoryReportCard } from './CategoryReportCard';
-export { AccountReportCard } from './AccountReportCard';
+// Yeni rapor kartı gerekirse IncomeSourceCard / CategoryReportCard örnek alınmalı
+// (yapışık satır dili). Eski "kutu" dilindeki AccountReportCard silindi.
 export { IncomeSourceCard } from './IncomeSourceCard';
 export { IconPicker } from './IconPicker';
 export { ColorPicker } from './ColorPicker';
@@ -28,7 +31,7 @@ export { NotificationBell } from './NotificationBell';
 export { ReminderSettings, type ReminderConfig } from './ReminderSettings';
 export { BottomSheet } from './BottomSheet';
 export { AmountInput } from './AmountInput';
-export { OptionRow } from './OptionRow';
+
 export { BalanceDirectionSelector, type BalanceDirection } from './BalanceDirectionSelector';
 export { ActionSheet, type ActionSheetOption } from './ActionSheet';
 export { ArchivedBanner } from './ArchivedBanner';
@@ -48,3 +51,18 @@ export { TransactionIcon } from './TransactionIcon';
 export { AnimatedNumber } from './AnimatedNumber';
 export { AnimatedListItem } from './AnimatedListItem';
 export { PersistentTabBar } from './PersistentTabBar';
+export {
+  GlassSurface,
+  GlassContainer,
+  AnimatedGlassView,
+  LIQUID_GLASS,
+  GLASS_TINT,
+  GLASS_TINT_CONTROL,
+  GLASS_MERGE_SPACING,
+  FLOATING_CONTROL_SIZE,
+} from './GlassSurface';
+export { GlassFab, GlassFabMenuItem, FAB_SIZE } from './GlassFab';
+export { GlassIconButton, ICON_BUTTON_SIZE } from './GlassIconButton';
+export { Screen } from './Screen';
+export { ModalInsets, RealInsetsContext } from './ModalInsets';
+export { Modal } from './Modal';

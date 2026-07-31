@@ -1,45 +1,112 @@
 import { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Modal,
-  Dimensions,
-  TextInput,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, Dimensions, TextInput } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Check, Wallet, ChevronDown, X, Calendar } from 'lucide-react-native';
-import { Text, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Button, Card, CategoryPicker, CurrencyInput, Screen, Modal } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useHesaplar } from '@/hooks/useHesaplar';
+import {
+  useTransactionAccountRefs,
+  type TransactionAccountRef,
+} from '@/hooks/useCariPaymentAccountRefs';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber, formatAmountForInput } from '@/lib/currency';
+import { isCrossCurrency } from '@/constants/currencies';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
+import type { Hesap } from '@/types/database';
+
+type PaymentAccount = TransactionAccountRef & Partial<Pick<Hesap, 'balance'>>;
+
+/**
+ * Hesap seçici alt sayfası — AYRI BİLEŞEN, çünkü insets Modal'ın İÇİNDE okunmalı.
+ * Sayfa gövdesindeki useSafeAreaInsets() _layout'un override'lı (tab bar dahil)
+ * değerini döndürüyor; modal ayrı native pencerede açıldığı için bar orada
+ * çizilmiyor → sayfadan taşınan değer ~72px hayalet alt boşluk bırakıyordu.
+ * ModalInsets yalnız modal ağacının İÇİNDEKİ okumaları gerçek değere düzeltir.
+ */
+function HesapPickerSheet({
+  hesaplar,
+  selectedId,
+  title,
+  showBalances,
+  onSelect,
+  onClose,
+}: {
+  hesaplar: PaymentAccount[];
+  selectedId: string | null;
+  title: string;
+  showBalances: boolean;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const windowHeight = Dimensions.get('window').height;
+
+  return (
+    <TouchableWithoutFeedback onPress={onClose}>
+      <View style={styles.bottomSheetOverlay}>
+        <TouchableWithoutFeedback onPress={() => {}}>
+          <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
+            <View style={styles.bottomSheetHeader}>
+              <Text style={styles.bottomSheetTitle}>{title}</Text>
+              <TouchableOpacity onPress={onClose} style={styles.bottomSheetCloseBtn}>
+                <X size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.bottomSheetList}>
+              {hesaplar.map((hesap) => (
+                <TouchableOpacity
+                  key={hesap.id}
+                  style={[styles.bottomSheetItem, hesap.id === selectedId && styles.bottomSheetItemSelected]}
+                  onPress={() => onSelect(hesap.id)}
+                >
+                  <Wallet size={20} color={colors.primary} />
+                  <View style={styles.bottomSheetItemContent}>
+                    <Text style={styles.bottomSheetItemText}>{hesap.name}</Text>
+                    {showBalances && (
+                      <Text style={styles.bottomSheetItemBalance}>
+                        {formatCurrency(toNumber(hesap.balance), hesap.currency)}
+                      </Text>
+                    )}
+                  </View>
+                  {hesap.id === selectedId && <Check size={20} color={colors.primary} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </TouchableWithoutFeedback>
+      </View>
+    </TouchableWithoutFeedback>
+  );
+}
 
 export default function TopluOdemePage() {
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['staff', 'common', 'transactions', 'accounts']);
-  usePagePermission({ module: 'personel', action: 'create' });
+  const footerInset = useFooterBottomPadding();
+  usePagePermission({
+    module: 'personel',
+    action: 'create',
+    transactionType: 'personel_odeme',
+  });
   const createIslem = useCreateIslem();
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
   const { locale, formatDateMedium } = useDateFormat();
+  const { canAccessModule } = usePermissions();
+  const canSeeAccountBalances = canAccessModule('hesaplar');
 
   // Varsayılan tarih: Bu ayın son günü 23:59
   const getDefaultDate = () => {
@@ -62,16 +129,27 @@ export default function TopluOdemePage() {
   const [showHesapPicker, setShowHesapPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const { data: personelList, isLoading } = usePersonelList();
-  const { data: hesaplar } = useHesaplar();
+  const { data: personelList } = usePersonelList();
+  const { data: fullHesaplar = [] } = useHesaplar(
+    false,
+    false,
+    canSeeAccountBalances,
+  );
+  const { data: minimalHesaplar = [] } = useTransactionAccountRefs(
+    'personel',
+    !canSeeAccountBalances,
+  );
+  const hesaplar: PaymentAccount[] = canSeeAccountBalances
+    ? fullHesaplar
+    : minimalHesaplar;
 
   // Kredi kartı hariç hesaplar (ödeme için)
   const availableHesaplar = useMemo(() => {
-    return hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
+    return hesaplar.filter(h => h.type !== 'kredi_karti');
   }, [hesaplar]);
 
   // Seçili hesap
-  const selectedHesap = hesaplar?.find(h => h.id === hesapId);
+  const selectedHesap = hesaplar.find(h => h.id === hesapId);
 
   // Aktif personel listesi (A-Z sıralı)
   const activePersonel = useMemo(() => {
@@ -137,17 +215,21 @@ export default function TopluOdemePage() {
     setAmounts(newAmounts);
   };
 
-  // Toplam tutar hesapla
-  const totalAmount = useMemo(() => {
-    let total = 0;
+  // Toplam tutar — PARA BİRİMİ BAŞINA. Satır tutarları personelin KENDİ para biriminde
+  // giriliyor (satır altındaki borç da öyle gösteriliyor); düz toplama "100 USD + 100 TRY"yi
+  // "₺200" diye yazıyordu (gerçeği ~₺3.400). Kur burada satır satır sorulamadığı için
+  // toplamı çevirmek de yalan olur → her para birimi ayrı satır (cariler.tsx byCur deseni).
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, number>();
     selectedPersonel.forEach(id => {
       const amount = parseCurrency(amounts[id] || '0');
       if (amount > 0) {
-        total += amount;
+        const cur = activePersonel.find(p => p.id === id)?.currency || 'TRY';
+        map.set(cur, (map.get(cur) ?? 0) + amount);
       }
     });
-    return total;
-  }, [selectedPersonel, amounts]);
+    return Array.from(map.entries());
+  }, [selectedPersonel, amounts, activePersonel]);
 
   // Seçili personel sayısı (tutar girilmiş olanlar)
   const selectedCount = useMemo(() => {
@@ -175,6 +257,32 @@ export default function TopluOdemePage() {
 
     if (selectedCount === 0) {
       Alert.alert(t('common:status.error'), t('transactions:dailyCash.noEntries'));
+      return;
+    }
+
+    // ÇAPRAZ-KUR ENGELİ — bu ekran personel_odeme yazıyor ve o tip bakiyeye
+    // calculateTargetAmount ile uygulanıyor (islemBalanceOps). Kur alanı burada
+    // doldurulmadığı için iki bacak da TRY sayılıyordu: TRY hesaptan EUR maaşlı
+    // personele 1.000 girmek personelin 1.000 EUR alacağını kapatıyordu (kalıcı,
+    // kaydın kuru olmadığı için sonradan düzeltilemez). Toplu ekranda satır satır kur
+    // sorulamaz (10 personel = 10 kur barı) → farklı para birimli satır varsa
+    // isimleriyle DURDUR; tek tek ödemede (QTB) kur zaten soruluyor.
+    const hesapCurrency = selectedHesap?.currency || 'TRY';
+    const mismatched = Array.from(selectedPersonel)
+      .filter(id => parseCurrency(amounts[id] || '0') > 0)
+      .map(id => activePersonel.find(p => p.id === id))
+      .filter((p): p is NonNullable<typeof p> => !!p && isCrossCurrency(p.currency, hesapCurrency));
+
+    if (mismatched.length > 0) {
+      Alert.alert(
+        t('staff:bulkPayment.currencyMismatchTitle'),
+        t('staff:bulkPayment.currencyMismatch', {
+          account: hesapCurrency,
+          names: mismatched
+            .map(p => `${p.first_name} ${p.last_name ?? ''}`.trim())
+            .join(', '),
+        })
+      );
       return;
     }
 
@@ -256,10 +364,14 @@ export default function TopluOdemePage() {
           headerTitle: t('staff:bulkPayment.title'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          // KAV frame'i EBEVEYNE göre ölçülüyor; native header'lı ekranda offset
+          // verilmezse padding header+durum çubuğu kadar eksik kalıyor ve sabit
+          // footer (Kaydet) klavyenin arkasında kalıyor. Diğer formlarla aynı satır.
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -398,6 +510,9 @@ export default function TopluOdemePage() {
                           onChangeText={(val) => handleAmountChange(personel.id, val)}
                           style={styles.amountInput}
                           placeholder="0"
+                          // Satırın borcu personelin para biriminde gösteriliyor; giriş
+                          // alanının önekinin ANA para birimi olması çelişkiydi.
+                          currency={personel.currency}
                         />
                       </View>
                     </TouchableOpacity>
@@ -408,14 +523,23 @@ export default function TopluOdemePage() {
           </ScrollView>
 
           {/* Footer - Özet ve Kaydet */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <View style={styles.summary}>
               <Text variant="caption" color="secondary">
                 {selectedCount} {t('staff:titles.personnel')}
               </Text>
-              <Text variant="h3" color="success">
-                {formatCurrency(totalAmount)}
-              </Text>
+              {/* Para birimi başına ayrı satır — karışık para birimi düz toplanmaz */}
+              {totalsByCurrency.length === 0 ? (
+                <Text variant="h3" color="success">
+                  {formatCurrency(0, selectedHesap?.currency)}
+                </Text>
+              ) : (
+                totalsByCurrency.map(([cur, total]) => (
+                  <Text key={cur} variant="h3" color="success">
+                    {formatCurrency(total, cur)}
+                  </Text>
+                ))
+              )}
             </View>
             <Button
               variant="primary"
@@ -438,39 +562,17 @@ export default function TopluOdemePage() {
             animationType="slide"
             onRequestClose={() => setShowHesapPicker(false)}
           >
-            <TouchableWithoutFeedback onPress={() => setShowHesapPicker(false)}>
-              <View style={styles.bottomSheetOverlay}>
-                <TouchableWithoutFeedback onPress={() => {}}>
-                  <View style={[styles.bottomSheetContent, { height: windowHeight * 0.5, paddingBottom: insets.bottom }]}>
-                    <View style={styles.bottomSheetHeader}>
-                      <Text style={styles.bottomSheetTitle}>{t('accounts:titles.selectAccount')}</Text>
-                      <TouchableOpacity onPress={() => setShowHesapPicker(false)} style={styles.bottomSheetCloseBtn}>
-                        <X size={24} color={colors.text} />
-                      </TouchableOpacity>
-                    </View>
-                    <ScrollView style={styles.bottomSheetList}>
-                      {availableHesaplar.map((hesap) => (
-                        <TouchableOpacity
-                          key={hesap.id}
-                          style={[styles.bottomSheetItem, hesap.id === hesapId && styles.bottomSheetItemSelected]}
-                          onPress={() => {
-                            setHesapId(hesap.id);
-                            setShowHesapPicker(false);
-                          }}
-                        >
-                          <Wallet size={20} color={colors.primary} />
-                          <View style={styles.bottomSheetItemContent}>
-                            <Text style={styles.bottomSheetItemText}>{hesap.name}</Text>
-                            <Text style={styles.bottomSheetItemBalance}>{formatCurrency(toNumber(hesap.balance), hesap.currency)}</Text>
-                          </View>
-                          {hesap.id === hesapId && <Check size={20} color={colors.primary} />}
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                </TouchableWithoutFeedback>
-              </View>
-            </TouchableWithoutFeedback>
+            <HesapPickerSheet
+              hesaplar={availableHesaplar}
+              selectedId={hesapId}
+              title={t('accounts:titles.selectAccount')}
+              showBalances={canSeeAccountBalances}
+              onSelect={(id) => {
+                setHesapId(id);
+                setShowHesapPicker(false);
+              }}
+              onClose={() => setShowHesapPicker(false)}
+            />
           </Modal>
         )}
 
@@ -556,7 +658,7 @@ export default function TopluOdemePage() {
             </TouchableWithoutFeedback>
           </Modal>
         )}
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
@@ -651,9 +753,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     gap: spacing.lg,
   },
   summary: {
@@ -752,26 +854,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginHorizontal: spacing.xl,
   },
   pickerTitle: {
-    fontSize: 18,
+    fontSize: fontSize.xl,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   pickerSection: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   pickerSectionTitle: {
-    fontSize: 14,
+    fontSize: fontSize.md,
     fontWeight: '500',
     color: colors.textMuted,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   datePickerStyle: {
@@ -781,16 +883,16 @@ const styles = StyleSheet.create({
     height: 120,
   },
   pickerDoneButton: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 10,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing['2xl'],
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
   },
   pickerDoneText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.white,
+    fontSize: fontSize.lg,
     fontWeight: '600',
   },
 });

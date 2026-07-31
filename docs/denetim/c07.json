@@ -1,0 +1,112 @@
+{
+ "cluster": "c07",
+ "ownedFiles": [
+  "src/app/cariler/[id].tsx",
+  "src/app/cariler/duzenle/[id].tsx",
+  "src/app/hesaplar/[id].tsx",
+  "src/app/kategoriler/index.tsx",
+  "src/app/kategoriler/duzenle/[id].tsx",
+  "src/components/detail/OpeningBalanceRow.tsx",
+  "src/components/detail/DetailSummaryCard.tsx",
+  "src/components/detail/DetailActionMenu.tsx",
+  "src/components/transaction/ProductDetailModal.tsx"
+ ],
+ "findings": [
+  {
+   "file": "src/app/kategoriler/duzenle/[id].tsx",
+   "line": 102,
+   "title": "Kategori düzenle: 'bulunamadı' durumu yok — silinmiş/geçersiz id sonsuza dek 'Yükleniyor' gösteriyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Ekran `useKategoriler()`ten yalnız `data` alıyor (isLoading destructure edilmiyor) ve `if (!kategori)` dalında koşulsuz `t('common:status.loading')` basıyor. Liste yüklendiği hâlde id bulunamazsa (kategori başka cihazdan silinmiş, deep-link bayat) ekran kalıcı olarak 'Yükleniyor…' kalıyor; kullanıcıya ne olduğu söylenmiyor ve geri dönüş için bir aksiyon da yok. Kardeş düzenleme ekranlarının hepsinde ayrı bir 'bulunamadı' dalı var.",
+   "evidence": "src/app/kategoriler/duzenle/[id].tsx:32 (`const { data: kategoriler } = useKategoriler();` — isLoading yok), :35 (`const kategori = kategoriler?.find(...)`), :102-110 (`if (!kategori) return ... <Text>{t('common:status.loading')}</Text>`). Karşı örnekler: src/app/cariler/duzenle/[id].tsx:92-110 (önce isLoading → 'loading', sonra `!cari` → `t('errors:cari.notFound')`), src/app/hesaplar/duzenle/[id].tsx:106-124, src/app/personel/duzenle/[id].tsx:100-118, src/app/islemler/duzenle/[id].tsx:227-238 (bulunamadı + 'Geri' butonu).",
+   "fix": "`const { data: kategoriler, isLoading } = useKategoriler();` yap; `isLoading` iken loading, `!kategori` iken `t('errors:category.notFound')` (yoksa ekle) + islemler/duzenle'deki gibi 'Geri' butonu göster.",
+   "id": 32,
+   "verifyNote": "kategoriler/duzenle/[id].tsx:32 isLoading destructure edilmiyor, :102-110 koşulsuz 'Yükleniyor' basıyor; kardeş düzenleme ekranlarında ayrı notFound dalı var. Ancak ekran _layout:667-676'da header'lı kayıtlı → geri butonu var, kullanıcı kilitlenmiyor ve senaryo (bayat deep-link/başka cihazdan silme) nadir → low."
+  },
+  {
+   "file": "src/app/cariler/duzenle/[id].tsx",
+   "line": 92,
+   "title": "Düzenleme ekranlarının yükleniyor durumu üç farklı dilde: düz yazı / spinner+yazı / yalnız spinner",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Aynı işi yapan altı düzenleme ekranı, veri beklerken üç ayrı görsel veriyor: cari/hesap/personel/kategori düzenle ortada tek satır düz metin ('Yükleniyor'), işlem düzenle büyük ActivityIndicator + metin, ürün düzenle yalnız ActivityIndicator. Kullanıcı aynı akışta (liste → düzenle) her varlık türünde farklı bir bekleme ekranı görüyor. Ayrıca toplu-gider/toplu-odeme personel listesini beklerken HİÇBİR şey göstermiyor — `isLoading` alınıp hiç kullanılmıyor, kullanıcı bir an boş liste görüyor.",
+   "evidence": "Düz metin: src/app/cariler/duzenle/[id].tsx:92-99, src/app/hesaplar/duzenle/[id].tsx:106-113, src/app/personel/duzenle/[id].tsx:100-107, src/app/kategoriler/duzenle/[id].tsx:102-110. Spinner+metin: src/app/islemler/duzenle/[id].tsx:216-224 (`<ActivityIndicator size=\"large\" color={colors.primary} />` + Text). Yalnız spinner: src/app/urunler/duzenle/[id].tsx:71-82. Hiç yok: src/app/personel/toplu-gider.tsx:50 (`const { data: personelList, isLoading } = usePersonelList();` — isLoading dosyanın hiçbir yerinde kullanılmıyor) ve src/app/personel/toplu-odeme.tsx:55 (aynı).",
+   "fix": "Tek bir yükleniyor kalıbı seç (islemler/duzenle'deki ActivityIndicator + metin en zengin olanı) ve altı düzenleme ekranında aynısını kullan; toplu-gider/toplu-odeme'de de `isLoading` iken aynı kalıbı göster.",
+   "id": 33,
+   "verifyNote": "Üç ayrı kalıp doğrulandı: düz metin (cariler/duzenle/[id].tsx:92-99), spinner+metin (islemler/duzenle/[id].tsx:216-224), yalnız spinner (urunler/duzenle/[id].tsx:71-82). Ayrıca toplu-odeme.tsx:55 ve toplu-gider.tsx:50'de isLoading alınıp dosyanın hiçbir yerinde kullanılmıyor (grep tek eşleşme). Kısa süreli bir durum olduğu için severity low'a çekildi."
+  },
+  {
+   "file": "src/app/kategoriler/index.tsx",
+   "line": 255,
+   "title": "Kategori satırındaki düzenle/sil butonları 44px altında ve hitSlop'suz — yan yana, biri yıkıcı",
+   "category": "erisilebilirlik",
+   "severity": "low",
+   "detail": "Satır sağındaki kalem ve çöp kutusu butonları 18px ikon + `padding: spacing.sm` (8) = ~34px dokunma hedefi; aralarında yalnız `gap: spacing.xs` (4px) var ve hiçbirinde hitSlop yok. 44px'lik minimum hedefin altında, üstelik ıska dokunuşun bedeli 'düzenle yerine sil'. Kod tabanında bu iş için HIT_SLOP sabiti var ve başka yerlerde kullanılıyor.",
+   "evidence": "src/app/kategoriler/index.tsx:255-273 (iki `<TouchableOpacity style={styles.actionButton}>`, hitSlop yok) + stiller :363-369 (`kategoriActions: { gap: spacing.xs }`, `actionButton: { padding: spacing.sm }`) ve ikon boyutları :265, :271 (size=18). Sabit: src/constants/spacing.ts:87-91 (`HIT_SLOP.sm/md/lg`, yorumda 'satır içi ⋮, X' için). Kullanan karşı örnekler: src/app/personel/ekle.tsx:322-325 (`hitSlop={HIT_SLOP.md}`), src/components/ui/CurrencyPicker.tsx:172-175, src/components/ui/UndoSnackbar.tsx:107, :116.",
+   "fix": "Her iki butona `hitSlop={HIT_SLOP.md}` ekle ve `actionButton` padding'ini spacing.md'ye çıkar (34→42+10 slop); aynı düzeltmeyi modal kapatma X'lerine de uygula (ör. src/app/islemler/duzenle/[id].tsx:535, src/app/personel/ekle.tsx:255).",
+   "id": 38,
+   "verifyNote": "kategoriler/index.tsx:255-273 iki TouchableOpacity yalnız styles.actionButton (padding: spacing.sm) alıyor, hitSlop yok; 18px ikon + 8+8 = 34px hedef, aralarında gap spacing.xs=4 ve biri yıkıcı. Kod tabanında HIT_SLOP standardı mevcut. Ancak önerilen HIT_SLOP.md (10) 4px boşlukta komşu hedeflerle çakışır — doğru düzeltme padding'i büyütmek; bulgunun özü (44px altı, düzenle/sil bitişik) geçerli ama etki düşük → low."
+  },
+  {
+   "file": "src/app/cariler/duzenle/[id].tsx",
+   "line": 281,
+   "title": "Düzenleme formları header'ın 32px altından, ekleme formları 12px altından başlıyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Aynı varlığın ekle ve düzenle formları arka arkaya kullanılıyor ama ilk alanın header'a uzaklığı farklı: düzenlemede `paddingTop: spacing['3xl']` (32), eklemede `spacing.md` (12). Aynı ekranın iki hâli arasında görünür bir sıçrama; kategori formlarında ise üçüncü bir değer (`spacing.xl`, 20) kullanılıyor.",
+   "evidence": "Düzenle (32): src/app/cariler/duzenle/[id].tsx:280-283, src/app/hesaplar/duzenle/[id].tsx:261-264, src/app/personel/duzenle/[id].tsx:440-443. Ekle (12): src/app/cariler/ekle.tsx:240-243, src/app/hesaplar/ekle.tsx:251-254. Üçüncü değer (20): src/app/kategoriler/ekle.tsx:329-332, src/app/kategoriler/duzenle/[id].tsx:321-324, src/components/urun/UrunForm.tsx:263-266.",
+   "fix": "Native header'lı tüm form ekranlarında `scrollContent.paddingTop`u tek değere sabitle (ekleme formlarındaki spacing.md ya da spacing.lg) ve düzenleme/kategori/ürün formlarını ona hizala.",
+   "id": 40,
+   "verifyNote": "cariler/duzenle:281 ve hesaplar/duzenle:262 paddingTop spacing['3xl'] (32); cariler/ekle:241 ve hesaplar/ekle spacing.md (12); kategori/ürün formlarında spacing.xl (20). Üç farklı değer, gerekçe yorumu yok. Görsel tutarsızlık, etkisi küçük → low doğru."
+  },
+  {
+   "file": "src/app/cariler/[id].tsx",
+   "line": 1445,
+   "title": "Cari detayında başlangıç bakiyesi satırı elle yazılmış; hesap/personel ortak OpeningBalanceRow kullanıyor",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Aynı 'Başlangıç Bakiyesi' satırı iki farklı görsel dilde çiziliyor. Cari'de 44px yuvarlak ikon kutusu (CircleDollarSign) + Text variant=\"body\"/\"caption\" + variant=\"h3\" tutar ve tutar İŞARETLİ basılıyor (negatifte '-₺500'). Hesap/personel'de ise OpeningBalanceRow: ikon kutusu YOK, sol renkli aksan bar (TransactionRow dili), 15/12.5px tipografi, tutar MUTLAK değer + renk ile yön. Yani iki kardeş sayfada aynı satır hem farklı yerleşimde hem farklı sayı biçiminde. Satır aralığı da farklı (cari paddingVertical:14 vs ortak 11).",
+   "evidence": "src/app/cariler/[id].tsx:1445-1485 `<TouchableOpacity style={styles.initialBalanceFlatRow}>` + `styles.hareketIcon` (:2132-2138 44×44 daire) + `<Text variant=\"h3\" color={initialBalance >= 0 ? 'success':'error'}>{formatCurrency(initialBalance, cari.currency)}</Text>` (:1473-1475, Math.abs YOK). Karşılaştırma: src/app/hesaplar/[id].tsx:890-897 ve src/app/personel/[id].tsx:764-769 → `<OpeningBalanceRow label subtitle amount currency editable onEdit />`; src/components/detail/OpeningBalanceRow.tsx:22-25 yorumu 'Hesap/personel detay ORTAK' diyor, :40 aksan bar, :47 `formatCurrency(Math.abs(amount), currency)`, :69 paddingVertical: 11.",
+   "fix": "cariler/[id].tsx ListFooter'daki elle yazılmış satırı `<OpeningBalanceRow label={t('clients:details.initialBalance')} subtitle={...} amount={initialBalance} currency={cari.currency} editable={isBalanceEditable} onEdit={handleOpenEditBalance} />` ile değiştir; 'boş+düzenlenebilir → Ekle CTA' davranışı korunacaksa OpeningBalanceRow'a opsiyonel `emptyCta` prop'u ekleyip üç sayfada da aynı hale getir.",
+   "id": 66,
+   "verifyNote": "cariler/[id].tsx:1445-1485 satırı elle çiziyor: 44px yuvarlak hareketIcon + variant h3 + İŞARETLİ tutar; hesaplar/[id].tsx:890 ve personel/[id].tsx:764 ortak OpeningBalanceRow kullanıyor (aksan bar, ikon kutusu yok, Math.abs + renkle yön, paddingVertical 11). Aynı satır iki farklı görsel dilde ve iki farklı sayı biçiminde. Cari detayın işlem satırları da TransactionRow dilinde olduğundan bu satır kendi sayfasında bile ayrışıyor. (Boş+düzenlenebilir 'Ekle' CTA'sı bilinçli, ama görsel dil farkını açıklamıyor.)"
+  },
+  {
+   "file": "src/app/cariler/[id].tsx",
+   "line": 291,
+   "title": "Cari detayı ProductDetailModal'ın yerel kopyasını taşıyor; paylaşılan bileşen zaten var",
+   "category": "gorsel-tutarlilik",
+   "severity": "medium",
+   "detail": "Ürünlü işleme tıklanınca açılan alt-sheet cari detayında dosya içinde ikinci kez tanımlanmış (159 satır JSX + 58 satır stil), oysa aynı işi yapan paylaşılan bileşen `@/components/transaction/ProductDetailModal` mevcut ve hesap detayı onu kullanıyor. Paylaşılan bileşenin kendi doküman yorumu 'Cari/hesap/kredi kartı/işlemler detaylarında ... tek standart' diyor. Şu an ikisi aynı görünüyor ama tek kaynak olmadığı için ilk düzenlemede (KDV satırı, maxHeight, buton dizilimi) cari ile hesap görsel olarak ayrışır.",
+   "evidence": "src/app/cariler/[id].tsx:291-390 yerel `function ProductDetailModal(...)` + :392-449 `productDetailStyles`; kullanımı :1666-1675. Karşılaştırma: src/app/hesaplar/[id].tsx:28 `import { ..., ProductDetailModal } from '@/components/transaction';` ve :1024-1032 kullanımı; src/components/transaction/ProductDetailModal.tsx:10-14 doküman yorumu ve :113-170 birebir aynı stiller.",
+   "fix": "cariler/[id].tsx'teki yerel ProductDetailModal ve productDetailStyles bloklarını sil, `import { ProductDetailModal } from '@/components/transaction';` yap ve `t` prop'unu geçirmeden hesap detayındaki gibi çağır.",
+   "id": 69,
+   "verifyNote": "cariler/[id].tsx:291+ dosya içinde yerel bir ProductDetailModal tanımlı (t prop'u dışarıdan geçiliyor) ve :392+ ayrı productDetailStyles var; paylaşılan components/transaction/ProductDetailModal.tsx:10-14 kendini 'cari/hesap/kredi kartı/işlemler için tek standart' diye belgeliyor ve hesaplar/[id].tsx onu import edip kullanıyor. Çift kaynak gerçek."
+  },
+  {
+   "file": "src/app/cariler/[id].tsx",
+   "line": 1174,
+   "title": "Cari özet kartı DetailSummaryCard'ın elle kopyası; 'bağlantılı' yeşil çerçeve vurgusu ölü",
+   "category": "gorsel-tutarlilik",
+   "severity": "low",
+   "detail": "Hesap/personel/ürün detayı ortak `DetailSummaryCard`'ı kullanırken cari detayı aynı kartı `darkCard`/`darkTopRow`/`darkTitle`/`darkRow`/`darkRowDivider` adlarıyla yeniden yazmış (stiller birebir aynı değerlerde). Ayrıca bağlantılı cariyi ayırt etmesi beklenen `summaryCardLinked` stili taban `darkCard` ile aynı borderWidth/borderColor değerlerini taşıyor, yani 'çerçeve yeşil olsun' vurgusunun hiçbir görsel etkisi yok — ayrım sadece üstteki şeritten okunuyor. Kart tek kaynaktan yönetilmediği için ilk ayarda dört sayfa arasında ayrışma başlar.",
+   "evidence": "src/app/cariler/[id].tsx:1174 `<View style={[styles.darkCard, linkedOwnerName && styles.summaryCardLinked]}>`; :1888-1897 darkCard `borderWidth: 1.5, borderColor: colors.primary`; :1848-1851 summaryCardLinked `borderWidth: 1.5, borderColor: colors.primary` (aynı değerler → ölü stil); :2030-2092 darkTopRow/darkTitle/darkRow/darkLabel/darkValue. Karşılaştırma: src/components/detail/DetailSummaryCard.tsx:98-171 birebir aynı ölçüler (card borderWidth 1.5/primary, topRow, title fontSize.xl/800, row paddingVertical spacing.sm, rowDivider hairline) ve :32 zaten `topStrip` prop'u var; kullanımları src/app/hesaplar/[id].tsx:841-849, src/app/personel/[id].tsx:675-683, src/app/urunler/[id].tsx:499-505.",
+   "fix": "Cari kartını `<DetailSummaryCard title={upperTr(cari.name)} subtitle=... balanceLabel=... balanceValue=... balanceNegative={displayBalance < 0} rows={rows} topStrip={linkedOwnerName ? <LinkedStrip/> : undefined} />` ile değiştir (rows dizisi zaten aynı şekilde hazırlanıyor). Bağlantılı vurgusu isteniyorsa DetailSummaryCard'a `highlighted` prop'u ekleyip taban çerçeveden GERÇEKTEN farklı bir değer ver (ör. borderWidth 2 + primaryDark).",
+   "id": 71,
+   "verifyNote": "İki iddia da kodla doğrulandı: (a) cariler/[id].tsx darkCard(:1888-1897)/darkTopRow/darkTitle/darkBalanceWrap/darkRow/darkRowDivider/darkLabel/darkValue değerleri DetailSummaryCard.tsx:98-171 ile birebir aynı (DARK_CARD_BG = colors.surface, :1744) ve bileşende topStrip prop'u (:32) zaten var; (b) summaryCardLinked (:1848-1851) borderWidth 1.5 + colors.primary — taban darkCard ile AYNI değerler, yani 'bağlantılı' çerçeve vurgusunun hiçbir görsel etkisi yok. low yerinde."
+  },
+  {
+   "file": "src/app/hesaplar/[id].tsx",
+   "line": 958,
+   "title": "contentContainerStyle'da çift paddingBottom (ilk değer ölü)",
+   "category": "alt-bosluk",
+   "severity": "low",
+   "detail": "Üç detay sayfasında da liste alt boşluğu aynı dizide iki kez veriliyor: önce `{ paddingBottom: insets.bottom }`, hemen ardından `{ paddingBottom: contentPaddingBottom }`. RN stil dizisinde sonuncusu kazandığı için ilki ölü. Şu an ikisi sayısal olarak eşit (useContentBottomPadding argümansız çağrıldığında tam olarak insets.bottom döner) ama sözleşmeyi okuyan biri yanlış olanı düzenleyip alt boşluğu sessizce iki katına çıkarabilir ya da hooka `search`/`extra` eklenince hangisinin geçerli olduğu belirsizleşir.",
+   "evidence": "src/app/hesaplar/[id].tsx:958 `contentContainerStyle={[styles.flatListContent, { paddingBottom: insets.bottom }, { paddingBottom: contentPaddingBottom }]}`; aynı kalıp src/app/cariler/[id].tsx:1547 ve src/app/personel/[id].tsx:846. src/hooks/useContentBottomPadding.ts:24-27 `return insets.bottom + (search ? FLOATING_SEARCH_CLEARANCE : 0) + extra;` — yani ilk nesne her koşulda gereksiz. Doğru tek-kaynak kullanımı: src/app/urunler/[id].tsx:467 `contentContainerStyle={{ paddingBottom: contentPaddingBottom }}`.",
+   "fix": "Üç dosyada da `{ paddingBottom: insets.bottom }` nesnesini diziden çıkar: `contentContainerStyle={[styles.flatListContent, { paddingBottom: contentPaddingBottom }]}`.",
+   "id": 73,
+   "verifyNote": "Grep ile üç dosyada da aynı satır: cariler/[id].tsx:1547, hesaplar/[id].tsx:958, personel/[id].tsx:846 — dizide önce { paddingBottom: insets.bottom } sonra { paddingBottom: contentPaddingBottom }; RN'de sonuncusu kazandığı için ilki ölü. useContentBottomPadding.ts:24-27 zaten insets.bottom'u içeriyor. Zararsız ama kafa karıştırıcı ölü stil; low doğru."
+  }
+ ]
+}

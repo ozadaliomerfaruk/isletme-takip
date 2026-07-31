@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePermissions } from './usePermissions';
+import type { IslemType } from '@/types/database';
 import type { Permissions } from '@/types/multiUser';
 import i18n from '@/i18n';
 
@@ -21,17 +22,29 @@ export function usePagePermission({
   module,
   action,
   createdBy,
+  transactionType,
+  allowManager = false,
 }: {
   module: ModuleName;
   action?: ActionType;
   createdBy?: string | null;
+  /** Optional create contract for routes that touch more than one source module. */
+  transactionType?: IslemType;
+  /** Gerçek manager sistem rolü için owner-benzeri sayfa geçişi. */
+  allowManager?: boolean;
 }) {
   const router = useRouter();
-  const { isOwner } = useAuthContext();
-  const { canAccessModule, canCreate, canUpdate, canDelete } = usePermissions();
+  const { isOwner, currentUserRole } = useAuthContext();
+  const {
+    canAccessModule,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canCreateTransactionType,
+  } = usePermissions();
 
   useEffect(() => {
-    if (isOwner) return;
+    if (isOwner || (allowManager && currentUserRole === 'manager')) return;
 
     let allowed = canAccessModule(module);
 
@@ -51,6 +64,9 @@ export function usePagePermission({
           break;
       }
     }
+    if (allowed && transactionType) {
+      allowed = canCreateTransactionType(transactionType);
+    }
 
     if (!allowed) {
       Alert.alert(
@@ -62,7 +78,21 @@ export function usePagePermission({
       if (router.canGoBack()) router.back();
       else router.replace('/(tabs)');
     }
-  }, [isOwner, module, action, createdBy, canAccessModule, canCreate, canUpdate, canDelete, router]);
+  }, [
+    isOwner,
+    currentUserRole,
+    allowManager,
+    module,
+    action,
+    createdBy,
+    transactionType,
+    canAccessModule,
+    canCreate,
+    canUpdate,
+    canDelete,
+    canCreateTransactionType,
+    router,
+  ]);
 }
 
 /**

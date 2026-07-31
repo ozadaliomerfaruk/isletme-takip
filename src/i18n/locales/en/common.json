@@ -22,7 +22,7 @@
     "steps": {
       "sector": "Choose your sector",
       "banka": "Add a bank account",
-      "cari": "Add your first client",
+      "cari": "Add your first contact",
       "islem": "Add your first transaction"
     }
   },
@@ -33,6 +33,23 @@
   "iletisim": {
     "ara": "Call",
     "whatsapp": "WhatsApp"
+  },
+  "contactPicker": {
+    "accessibilityLabel": "Choose from contacts",
+    "accessibilityHint": "Opens the phone's contact picker",
+    "chooseNumber": "Choose a phone number",
+    "phoneOption": "Phone {{index}}",
+    "noPhoneTitle": "No phone number",
+    "noPhoneMessage": "The selected contact has no phone number. You can enter it manually.",
+    "permissionTitle": "Contacts permission required",
+    "permissionDenied": "Contacts permission was not granted. You can enter the number manually or allow access in your phone's Settings.",
+    "unavailableTitle": "Contacts unavailable",
+    "unavailableMessage": "The system contact picker is currently unavailable. You can enter the number manually.",
+    "errors": {
+      "extension": "This phone number contains an extension or pause. Remove it and check the number.",
+      "invalid": "Enter a valid phone number using only a leading +, digits, and common separators.",
+      "tooLong": "The phone number exceeds the 20-character limit. Shorten it and try again."
+    }
   },
   "buttons": {
     "save": "Save",
@@ -76,7 +93,8 @@
     "send": "Send",
     "refresh": "Refresh",
     "seeMore": "See More",
-    "share": "Share"
+    "share": "Share",
+    "action": "Action"
   },
   "status": {
     "loading": "Loading...",
@@ -109,7 +127,7 @@
   },
   "search": {
     "search": "Search",
-    "searchPlaceholder": "Search...",
+    "searchPlaceholder": "Search",
     "searching": "Searching...",
     "noResults": "No results found",
     "noResultsFor": "No results found for \"{{query}}\"",
@@ -118,7 +136,8 @@
     "clearSearch": "Clear Search",
     "searchIcons": "Search icons...",
     "searchCategories": "Search categories...",
-    "resultCount": "{{count}} results found",
+    "resultCount_one": "{{count}} result found",
+    "resultCount_other": "{{count}} results found",
     "showAll": "Show All ({{count}})",
     "searchHint": "Search by name, note, or product code",
     "recentSearches": "Recent Searches",
@@ -130,7 +149,8 @@
     "endDate": "End",
     "clearFilters": "Clear Filters",
     "noResultsWithFilters": "Try broadening your filters or using a different term",
-    "clearRecentSearches": "Clear"
+    "clearRecentSearches": "Clear",
+    "resultCount": "{{count}} results found"
   },
   "select": {
     "selectOption": "Select an option",
@@ -262,6 +282,13 @@
     "overpayment": "Overpayment",
     "advance": "Advance"
   },
+  "notifications": {
+    "channels": {
+      "defaultName": "General",
+      "scheduledName": "Scheduled Transactions",
+      "scheduledDescription": "Reminders for scheduled transactions"
+    }
+  },
   "tax": {
     "vat": "VAT"
   },
@@ -306,7 +333,7 @@
     "all": "All",
     "other": "Other",
     "account": "Account",
-    "client": "Client",
+    "client": "Contact",
     "staff": "Staff",
     "transactions": "Transactions",
     "title": "Title",
@@ -427,7 +454,7 @@
     },
     "listExport": {
       "snapshotNote": "This report is a snapshot reflecting the state at the moment it was created. It does not include later changes.",
-      "generatedByApp": "Generated with the İşletme Takip app.",
+      "generatedByApp": "Generated with the Small Business Finance app.",
       "recordCount": "Record Count",
       "filter": "Filter",
       "search": "Search",
@@ -439,7 +466,7 @@
       "clientStatement": "CLIENT STATEMENT",
       "staffStatement": "STAFF STATEMENT",
       "account": "Account",
-      "client": "Client",
+      "client": "Contact",
       "staff": "Staff",
       "period": "Period",
       "createdAt": "Created",
@@ -496,18 +523,18 @@
     "genelDurumExcel": {
       "reportTitle": "Financial Overview Report",
       "generalStatus": "GENERAL STATUS",
-      "netValue": "NET VALUE",
+      "netValue": "NET WORTH",
       "accounts": "ACCOUNTS",
       "accountBalances": "ACCOUNT BALANCES",
       "accountName": "ACCOUNT NAME",
       "balance": "BALANCE",
       "creditCardBalances": "CREDIT CARD DEBTS",
-      "clientStatus": "CLIENT STATUS",
+      "clientStatus": "CONTACT STATUS",
       "personnelStatus": "STAFF STATUS",
       "personnelReceivables": "STAFF RECEIVABLES",
       "personnelDebt": "STAFF DEBT",
       "netStatus": "NET STATUS",
-      "instant": "Instant",
+      "instant": "Current",
       "sheetName": "Overview",
       "fileName": "Financial_Overview_Report"
     },
@@ -537,7 +564,7 @@
       "phone": "Phone",
       "date": "Date",
       "time": "Time",
-      "balance": "Balance",
+      "balance": "Closing Balance",
       "totalRecords": "Total Records",
       "page": "Page"
     }
@@ -565,6 +592,8 @@
       "unarchiveSuccess": "Restored from archive",
       "archivedBanner": "This item is archived. New transactions cannot be added.",
       "emptyArchive": "No items in archive",
+      "itemCount_one": "{{count}} item in archive",
+      "itemCount_other": "{{count}} items in archive",
       "itemCount": "{{count}} items in archive"
     },
     "search": {
@@ -603,7 +632,7 @@
   "errors": {
     "businessNotFound": "Business not found",
     "ocrDailyLimit": "You have reached the daily invoice scan limit ({{limit}}/day)",
-    "balanceUpdateFailed": "Balance could not be updated: {{detail}}",
+    "balanceUpdateFailed": "Failed to update balance: {{message}}",
     "balanceRollbackCritical": "Critical error: the transaction was created but the balance could not be updated or rolled back. Please contact support. Detail: {{detail}}",
     "accountNotFound": "Account not found or access denied",
     "clientNotFound": "Client not found or access denied",
@@ -623,7 +652,6 @@
     "transactionCreationFailed": "Failed to create transaction",
     "accountSelectionRequired": "Account selection is required",
     "clientSelectionRequired": "Client selection is required",
-    "balanceUpdateFailed": "Failed to update balance: {{message}}",
     "installmentCreationFailed": "Failed to create installment transactions: {{message}}",
     "cashAdvanceTransactionFailed": "Failed to create cash advance transaction: {{message}}",
     "futureTransactionsDeletionFailed": "Failed to delete future transactions: {{message}}",
@@ -645,6 +673,7 @@
     "hasLinkedRecords": "You need to delete linked records before deleting this record.",
     "hasLinkedProductMovements": "To permanently delete this product, first delete its linked transactions. It has {{count}} transaction-linked movement(s). You can archive the product instead.",
     "hasSharedCari": "This client is shared and can't be deleted. Remove the share first; otherwise the party you shared with will lose access.",
+    "noteContextServerManaged": "The record linked to this note cannot be changed directly.",
     "cannotDeleteTitle": "Cannot Delete"
   },
   "notes": {
@@ -656,7 +685,7 @@
     "noNotes": "No notes yet",
     "allNotes": "All Notes",
     "filterAccounts": "Accounts",
-    "filterClients": "Clients",
+    "filterClients": "Contacts",
     "filterStaff": "Staff",
     "filterProducts": "Products",
     "filterGeneral": "General",
@@ -668,7 +697,7 @@
     "deleteSuccess": "Note deleted",
     "contentRequired": "Note content is required",
     "entityHesap": "ACCOUNT",
-    "entityCari": "CLIENT",
+    "entityCari": "CONTACT",
     "entityPersonel": "STAFF",
     "entityPersonelIzin": "LEAVE",
     "entityUrun": "PRODUCT",
@@ -681,6 +710,7 @@
     "removeReminder": "Remove Reminder",
     "reminderSet": "Reminder set",
     "reminderRemoved": "Reminder removed",
+    "reminderUpdateFailed": "The note was saved, but its reminder could not be updated.",
     "addPhoto": "Add Photo",
     "removePhoto": "Remove Photo",
     "takePhoto": "Take Photo",

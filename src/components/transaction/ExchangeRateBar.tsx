@@ -1,23 +1,11 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Animated,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
-  KeyboardEvent,
-  Easing,
-} from 'react-native';
+import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, ArrowRight, RefreshCw } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { HIT_SLOP } from '@/constants/spacing';
 import { Currency } from '@/types/database';
@@ -32,6 +20,21 @@ export interface ExchangeRateBarProps {
   sourceCurrency: Currency;
   targetCurrency: Currency;
   onConfirm: (exchangeRate: number, targetAmount: number) => void;
+  /**
+   * `inline`, zaten açık bir RN Modal'ın içinde ikinci native pencere açmadan
+   * aynı tam-ekran overlay'i mevcut modal ağacında gösterir. Ekran üzerindeki
+   * bağımsız kullanımlar varsayılan `modal` davranışını korur.
+   */
+  presentation?: 'modal' | 'inline';
+  /**
+   * İşlemin KAYITLI kuru (yalnız düzenleme). Verilirse alan bugünün kuru yerine bununla
+   * ön-dolar ve bugünün kuru ayrı bir ipucu satırında gösterilir.
+   *
+   * NEDEN — 6 ay önceki bir EUR ödemesinin sadece açıklamasını düzeltmek için kur barı
+   * açıldığında alan BUGÜNÜN kuruyla doluyordu; onaylayınca reverse(eski)+apply(yeni)
+   * bakiyeyi kur farkı kadar kaydırıyor, yani tarihsel kur sessizce eziliyordu.
+   */
+  initialRate?: number | null;
 }
 
 export function ExchangeRateBar({
@@ -41,6 +44,8 @@ export function ExchangeRateBar({
   sourceCurrency,
   targetCurrency,
   onConfirm,
+  presentation = 'modal',
+  initialRate,
 }: ExchangeRateBarProps) {
   const { t } = useTranslation(['transactions', 'common']);
   const insets = useSafeAreaInsets();
@@ -95,7 +100,30 @@ export function ExchangeRateBar({
     }
   }, [visible]);
 
-  // Pre-fill exchange rate from API when modal opens
+  // Bugünün kuru — "1 baseCurrency = ? quoteCurrency" yönünde.
+  // API biçimi: { "USD": 43.27 } = "1 USD = 43.27 TRY"
+  const todayRate = useMemo((): number | null => {
+    const rates = exchangeRatesData?.rates;
+    if (!rates) return null;
+
+    let rate: number | null = null;
+    if (quoteCurrency === 'TRY') {
+      rate = rates[baseCurrency] ?? null;
+    } else if (baseCurrency === 'TRY') {
+      const quoteRate = rates[quoteCurrency];
+      rate = quoteRate && quoteRate > 0 ? 1 / quoteRate : null;
+    } else {
+      const baseRate = rates[baseCurrency]; // 1 USD = X TRY
+      const quoteRate = rates[quoteCurrency]; // 1 EUR = Y TRY
+      rate = baseRate && quoteRate && quoteRate > 0 ? baseRate / quoteRate : null;
+    }
+    return rate && rate > 0 ? rate : null;
+  }, [exchangeRatesData, baseCurrency, quoteCurrency]);
+
+  // Ön-doldurma. Düzenlemede İŞLEMİN KAYITLI KURU öncelikli: bugünün kuruyla doldurmak
+  // tarihsel kuru sessizce eziyor ve onaylandığında bakiyeyi kur farkı kadar kaydırıyordu.
+  // Kayıtlı kur varsa bugünün kuru ayrı bir ipucu satırında gösterilir (bilgi kalıyor,
+  // varsayılan davranış değişiyor).
   const prefillAppliedRef = useRef(false);
   useEffect(() => {
     if (!visible) {
@@ -104,27 +132,7 @@ export function ExchangeRateBar({
     }
     if (prefillAppliedRef.current) return;
 
-    const rates = exchangeRatesData?.rates;
-    if (!rates) return;
-
-    // Determine the display rate: "1 baseCurrency = ? quoteCurrency"
-    // API rates format: { "USD": 43.27 } meaning "1 USD = 43.27 TRY"
-    let displayRate: number | null = null;
-
-    if (quoteCurrency === 'TRY') {
-      // e.g., 1 USD = 43.27 TRY → directly from API
-      displayRate = rates[baseCurrency] ?? null;
-    } else if (baseCurrency === 'TRY') {
-      // e.g., 1 TRY = ? USD → invert
-      const quoteRate = rates[quoteCurrency];
-      displayRate = quoteRate && quoteRate > 0 ? 1 / quoteRate : null;
-    } else {
-      // Both foreign: e.g., 1 USD = ? EUR → cross rate
-      const baseRate = rates[baseCurrency]; // 1 USD = X TRY
-      const quoteRate = rates[quoteCurrency]; // 1 EUR = Y TRY
-      displayRate = baseRate && quoteRate && quoteRate > 0 ? baseRate / quoteRate : null;
-    }
-
+    const displayRate = initialRate && initialRate > 0 ? initialRate : todayRate;
     if (!displayRate || displayRate <= 0) return;
 
     prefillAppliedRef.current = true;
@@ -140,7 +148,7 @@ export function ExchangeRateBar({
     }
     const targetFormatted = formatAmountForInput(targetAmount, targetAmount < 1 ? 4 : 2);
     setTargetAmountInput(targetFormatted);
-  }, [visible, exchangeRatesData, baseCurrency, quoteCurrency, sourceCurrency, sourceAmount]);
+  }, [visible, todayRate, initialRate, baseCurrency, sourceCurrency, sourceAmount]);
 
   // Keyboard listeners
   useEffect(() => {
@@ -333,8 +341,14 @@ export function ExchangeRateBar({
   const quoteSymbol = getCurrencySymbol(quoteCurrency);
   const targetSymbol = getCurrencySymbol(targetCurrency);
 
-  return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+  const overlay = (
+    <View
+      style={styles.overlay}
+      accessibilityViewIsModal
+      importantForAccessibility="yes"
+      onAccessibilityEscape={handleDismiss}
+      testID="exchange-rate-overlay"
+    >
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <View style={styles.backdrop} />
@@ -384,6 +398,23 @@ export function ExchangeRateBar({
           <Text style={styles.rateCurrency}>{quoteSymbol}</Text>
         </View>
 
+        {/* Kayıtlı kur ile ön-dolduysa bugünün kuru BİLGİ olarak gösterilir —
+            kullanıcı isterse dokunup güncel kura geçebilir, ama varsayılan olarak
+            tarihsel kur korunur. */}
+        {initialRate != null && initialRate > 0 && todayRate != null && (
+          <TouchableOpacity
+            style={styles.todayRateRow}
+            onPress={() => handleRateChange(formatAmountForInput(todayRate, todayRate < 1 ? 6 : 2))}
+            hitSlop={HIT_SLOP.sm}
+          >
+            <Text style={styles.todayRateText}>
+              {t('transactions:exchangeRate.todayRate', {
+                rate: `1 ${baseSymbol} = ${formatAmountForInput(todayRate, todayRate < 1 ? 6 : 2)} ${quoteSymbol}`,
+              })}
+            </Text>
+          </TouchableOpacity>
+        )}
+
         {/* Conversion with Editable Target */}
         <View style={styles.conversionContainer}>
           <Text style={styles.conversionLabel}>{t('transactions:exchangeRate.conversion')}:</Text>
@@ -426,11 +457,30 @@ export function ExchangeRateBar({
           </Text>
         </TouchableOpacity>
       </Animated.View>
+    </View>
+  );
+
+  if (presentation === 'inline') return overlay;
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onRequestClose={handleDismiss}
+    >
+      {overlay}
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
+  },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.3)',
@@ -508,6 +558,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
     marginLeft: 8,
+  },
+  todayRateRow: {
+    marginTop: -8,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  todayRateText: {
+    fontSize: 12,
+    color: colors.textMuted,
+    textDecorationLine: 'underline',
   },
   conversionContainer: {
     backgroundColor: colors.infoLight,

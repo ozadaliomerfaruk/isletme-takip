@@ -1,7 +1,8 @@
 import { useState, useCallback, useRef, useMemo, useEffect, memo } from 'react';
-import { View, StyleSheet, Alert, TouchableOpacity, Modal, ListRenderItemInfo } from 'react-native';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { View, StyleSheet, Alert, TouchableOpacity, ListRenderItemInfo } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import {
   Wallet,
@@ -11,10 +12,11 @@ import {
   Trash2,
   MoreVertical,
   Share as ShareIcon,
+  BarChart3,
   Zap,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Button, EmptyState, ArchivedBanner, type BalanceDirection } from '@/components/ui';
+import { Text, Button, EmptyState, ArchivedBanner, GlassFab, type BalanceDirection, Screen } from '@/components/ui';
 import { IleriTarihliIslemlerSection } from '@/components/ui/IleriTarihliIslemlerSection';
 import { BalanceEditorModal, DetailExportSection, DetailActionMenu } from '@/components/detail';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
@@ -29,7 +31,7 @@ import { AddNoteButton } from '@/components/notes/AddNoteButton';
 import { NoteListRow } from '@/components/notes/NoteListRow';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize, fontWeight, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, roundCurrency } from '@/lib/currency';
+import { formatCurrency, parseCurrency, roundCurrency, getCrossCurrencyDisplay, calculateTargetAmount, toNumber } from '@/lib/currency';
 import { preprocessTransactionsByDate, mergeNotesIntoGroupedData, getTransactionDetailItemType, TransactionListItem } from '@/lib/transactionGrouping';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
@@ -41,23 +43,53 @@ import { useIslemlerByHesap, useDeleteIslem, useUpdateIslem } from '@/hooks/useI
 import { useDeleteIslemPhoto, usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useIleriTarihliIslemlerByHesap } from '@/hooks/useIleriTarihliIslemler';
-import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
+import { useExchangeRates, formatConvertedHint } from '@/hooks/useExchangeRates';
 import { useSettings } from '@/hooks/useSettings';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { IslemWithRelations, Currency, IslemType, Not } from '@/types/database';
 import { isLeaveType } from '@/constants/islemTypes';
 import { useTranslation } from 'react-i18next';
-import { toErrorMessage } from '@/lib/errors';
+import {
+  getTransactionActionDeniedMessageKey,
+  getTransactionMutationMessageKey,
+  toErrorMessage,
+} from '@/lib/errors';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useTransactionCreatorLabelResolver } from '@/hooks/useTransactionCreatorLabels';
+import {
+  clearIslemPhotoCopyOnWrite,
+  getValidatedIslemPhotoPath,
+  removeIslemPhotoBestEffort,
+  replaceIslemPhotoCopyOnWrite,
+} from '@/lib/islemPhotoLifecycle';
+import {
+  type HesapIslemListRow,
+  isHesapIslemListRow,
+  isHesapProjectionTargetLeg,
+} from '@/lib/hesapTransactionProjection';
+import {
+  getTransactionProductMutationDecision,
+  type TransactionProductMutationDecision,
+} from '@/lib/transactionProductMutationGate';
+import {
+  getAllowedScopedQuickTransactionTypes,
+  getQuickTransactionScopeForApiType,
+} from '@/lib/quickTransactionCreateScope';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
 // ============================================================================
 
+type HesapDetailIslem = IslemWithRelations | HesapIslemListRow;
+const HESAP_TRANSACTION_DELETE_PERMISSION_REVOKED = new Error(
+  'Account transaction delete permission revoked',
+);
+
 interface HesapTransactionItemProps {
-  islem: IslemWithRelations;
+  islem: HesapDetailIslem;
   hesapId: string;
+  isletmeId: string;
   hesapCurrency: Currency;
   onPress: (id: string) => void;
   onDelete: (id: string) => void;
@@ -66,16 +98,12 @@ interface HesapTransactionItemProps {
   t: (key: string) => string;
   deleteLabel: string;
   copyLabel: string;
-  canEdit?: boolean;
-  currentUserId?: string;
+  canDelete?: boolean;
+  canCopy?: boolean;
+  creatorText?: string | null;
   urunItems?: UrunKalemOzet[];
   runningBalanceText?: string | null;
   runningBalanceNegative?: boolean;
-}
-
-function getCreatorName(islem: IslemWithRelations): string | null {
-  if (!islem.creator) return null;
-  return islem.creator.display_name || islem.creator.email || null;
 }
 
 // Helper fonksiyonlar - component dışında tanımlı (her render'da yeniden oluşturulmaz)
@@ -84,9 +112,21 @@ const COLOR_IN = '#059669';
 const COLOR_OUT = '#DC2626';
 const COLOR_NEUTRAL = '#6B7280';
 
-function getHesapPerspectiveColor(type: string, hesapId: string, hedefHesapId: string | null): string {
+function isTargetAccountLeg(
+  islem: HesapDetailIslem,
+  hesapId: string,
+): boolean {
+  return isHesapIslemListRow(islem)
+    ? isHesapProjectionTargetLeg(islem)
+    : islem.hedef_hesap_id === hesapId;
+}
+
+function getHesapPerspectiveColor(
+  type: string,
+  isTargetAccount: boolean,
+): string {
   if (type === 'transfer') {
-    return hedefHesapId === hesapId ? COLOR_IN : COLOR_OUT;
+    return isTargetAccount ? COLOR_IN : COLOR_OUT;
   }
   if (type === 'cari_alis_iade' || type === 'cari_satis_iade') {
     return COLOR_NEUTRAL;
@@ -101,9 +141,12 @@ function getHesapPerspectiveColor(type: string, hesapId: string, hedefHesapId: s
   return COLOR_OUT;
 }
 
-function getHesapPerspectivePrefix(type: string, hesapId: string, hedefHesapId: string | null): string {
+function getHesapPerspectivePrefix(
+  type: string,
+  isTargetAccount: boolean,
+): string {
   if (type === 'transfer') {
-    return hedefHesapId === hesapId ? '+' : '-';
+    return isTargetAccount ? '+' : '-';
   }
   if (type === 'cari_alis_iade' || type === 'cari_satis_iade') {
     return '↩ ';
@@ -118,7 +161,19 @@ function getHesapPerspectivePrefix(type: string, hesapId: string, hedefHesapId: 
   return '-';
 }
 
-function getTransactionTarget(islem: IslemWithRelations, hesapId: string): { name: string; incoming: boolean } | null {
+function getTransactionTarget(
+  islem: HesapDetailIslem,
+  hesapId: string,
+): { name: string; incoming: boolean } | null {
+  if (isHesapIslemListRow(islem)) {
+    return islem.counterparty_name
+      ? {
+        name: islem.counterparty_name,
+        incoming: isHesapProjectionTargetLeg(islem),
+      }
+      : null;
+  }
+
   switch (islem.type) {
     case 'transfer': {
       const incoming = islem.hedef_hesap_id === hesapId;
@@ -145,27 +200,33 @@ function getTransactionTarget(islem: IslemWithRelations, hesapId: string): { nam
   }
 }
 
-function calculateTargetAmountForDisplay(islem: IslemWithRelations): number {
+/**
+ * Hedef bacaktaki tutar — dönüşüm TEK KAYNAK calculateTargetAmount'tan.
+ *
+ * Buradaki elle yazılmış kopya roundCurrency UYGULAMIYOR ve iki yabancı para arası
+ * kuralı merkezî fonksiyondan ayrışıyordu → kur bozuk satırlarda hesap detayındaki
+ * yürüyen bakiye DB bakiyesiyle ayrışıyordu. (cariler/[id].tsx:132-148 deseni.)
+ */
+function calculateTargetAmountForDisplay(islem: HesapDetailIslem): number {
   const sourceAmount = Number(islem.amount);
-  if (!islem.source_currency || !islem.target_currency ||
-      islem.source_currency === islem.target_currency ||
-      !islem.exchange_rate || islem.exchange_rate <= 0) {
+  const source = islem.source_currency;
+  const target = islem.target_currency;
+  if (!source || !target || source === target) return sourceAmount;
+  try {
+    return calculateTargetAmount(sourceAmount, toNumber(islem.exchange_rate), source, target);
+  } catch {
+    // Kur yok/geçersiz: ham tutara düş (gösterim; bakiyeyi etkilemez)
     return sourceAmount;
-  }
-  if (islem.source_currency === 'TRY') {
-    return sourceAmount / islem.exchange_rate;
-  } else {
-    return sourceAmount * islem.exchange_rate;
   }
 }
 
-function getDisplayAmount(islem: IslemWithRelations, hesapId: string): number {
+function getDisplayAmount(islem: HesapDetailIslem, hesapId: string): number {
   const sourceAmount = Number(islem.amount);
   if (!islem.source_currency || !islem.target_currency ||
       islem.source_currency === islem.target_currency) {
     return sourceAmount;
   }
-  const isTargetAccount = islem.hedef_hesap_id === hesapId;
+  const isTargetAccount = isTargetAccountLeg(islem, hesapId);
   if (isTargetAccount) {
     return calculateTargetAmountForDisplay(islem);
   }
@@ -177,7 +238,10 @@ function getDisplayAmount(islem: IslemWithRelations, hesapId: string): number {
  * Kaynak hesaptan bakıyorsan: hedef tutarı döner
  * Hedef hesaptan bakıyorsan: kaynak tutarı döner
  */
-function getCrossCurrencySubText(islem: IslemWithRelations, hesapId: string): string | null {
+function getCrossCurrencySubText(
+  islem: HesapDetailIslem,
+  hesapId: string,
+): string | null {
   if (!islem.source_currency || !islem.target_currency ||
       islem.source_currency === islem.target_currency ||
       !islem.exchange_rate) {
@@ -185,7 +249,7 @@ function getCrossCurrencySubText(islem: IslemWithRelations, hesapId: string): st
   }
   const sourceAmount = Number(islem.amount);
   const targetAmount = calculateTargetAmountForDisplay(islem);
-  const isTargetAccount = islem.hedef_hesap_id === hesapId;
+  const isTargetAccount = isTargetAccountLeg(islem, hesapId);
 
   if (isTargetAccount) {
     // Hedef hesaptayız, kaynak tutarı göster
@@ -220,6 +284,7 @@ function getHareketLabelKey(type: string): string {
 const HesapTransactionItem = memo(function HesapTransactionItem({
   islem,
   hesapId,
+  isletmeId,
   hesapCurrency,
   onPress,
   onDelete,
@@ -228,32 +293,37 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   t,
   deleteLabel,
   copyLabel,
-  canEdit = true,
-  currentUserId,
+  canDelete = true,
+  canCopy = true,
+  creatorText,
   urunItems,
   runningBalanceText,
   runningBalanceNegative,
 }: HesapTransactionItemProps) {
   const handleDelete = useCallback(() => onDelete(islem.id), [onDelete, islem.id]);
   const handleCopy = useCallback(() => onCopy(islem.id), [onCopy, islem.id]);
+  const validatedPhotoPath = getValidatedIslemPhotoPath(
+    islem.photo_path,
+    isletmeId,
+    islem.id,
+  );
   const handlePhotoPress = useCallback(() => {
-    if (islem.photo_path) onViewPhoto(islem.photo_path, islem.id);
-  }, [onViewPhoto, islem.photo_path, islem.id]);
+    if (validatedPhotoPath) onViewPhoto(validatedPhotoPath, islem.id);
+  }, [onViewPhoto, validatedPhotoPath, islem.id]);
 
   const target = getTransactionTarget(islem, hesapId);
+  const isTargetAccount = isTargetAccountLeg(islem, hesapId);
   const labelKey = getHareketLabelKey(islem.type);
   const typeLabel = labelKey ? t(labelKey) : islem.type;
   const entityText = target
     ? `${target.incoming ? '← ' : '→ '}${target.name}`
     : null;
-  const creatorText = (islem.created_by && islem.created_by !== currentUserId) ? getCreatorName(islem) : null;
-
   return (
     <SwipeableRow
       itemKey={islem.id}
-      onDelete={canEdit ? handleDelete : undefined}
-      onCopy={canEdit ? handleCopy : undefined}
-      enabled={canEdit}
+      onDelete={canDelete ? handleDelete : undefined}
+      onCopy={canCopy ? handleCopy : undefined}
+      enabled={canDelete || canCopy}
       deleteLabel={deleteLabel}
       copyLabel={copyLabel}
       flush
@@ -269,7 +339,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         secondaryText={islem.kategori?.name ? upperTr(islem.kategori.name) : null}
         tertiaryText={islem.description || null}
         creatorText={creatorText}
-        hasPhoto={!!islem.photo_path}
+        hasPhoto={!!validatedPhotoPath}
         hasUrunler={(urunItems?.length ?? 0) > 0}
         urunCount={urunItems?.length ?? 0}
         currency={hesapCurrency}
@@ -277,8 +347,8 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         subAmount={getCrossCurrencySubText(islem, hesapId)}
         runningBalanceText={runningBalanceText}
         runningBalanceNegative={runningBalanceNegative}
-        overrideColor={getHesapPerspectiveColor(islem.type, hesapId, islem.hedef_hesap_id)}
-        overridePrefix={getHesapPerspectivePrefix(islem.type, hesapId, islem.hedef_hesap_id)}
+        overrideColor={getHesapPerspectiveColor(islem.type, isTargetAccount)}
+        overridePrefix={getHesapPerspectivePrefix(islem.type, isTargetAccount)}
         onPress={onPress}
         onPhotoPress={handlePhotoPress}
       />
@@ -288,9 +358,11 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   return prev.islem.id === next.islem.id
     && prev.islem.updated_at === next.islem.updated_at
     && prev.islem.photo_path === next.islem.photo_path
+    && prev.isletmeId === next.isletmeId
     && prev.hesapCurrency === next.hesapCurrency
-    && prev.canEdit === next.canEdit
-    && prev.currentUserId === next.currentUserId
+    && prev.canDelete === next.canDelete
+    && prev.canCopy === next.canCopy
+    && prev.creatorText === next.creatorText
     && prev.urunItems === next.urunItems
     && prev.runningBalanceText === next.runningBalanceText
     && prev.runningBalanceNegative === next.runningBalanceNegative;
@@ -301,6 +373,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
 // ============================================================================
 
 export default function HesapHareketleriPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   if (__DEV__) {
     console.log('=== HESAP DETAY SAYFASI YUKLENDI ===');
   }
@@ -312,12 +385,88 @@ export default function HesapHareketleriPage() {
 
   const { data: hesap, isLoading: hesapLoading, refetch: refetchHesap } = useHesap(id!);
   const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByHesap(id!);
-  // Ürün kalemleri (satırda önizleme) — tek batch sorgu, N+1 yok
-  const islemIdList = useMemo(() => (islemler || []).map((i) => i.id), [islemler]);
-  const { getUrunItems } = useUrunKalemlerByIslemIds(islemIdList);
+  const {
+    canAccessModule,
+    canUpdate,
+    canDelete,
+    canCreateTransactions,
+    canCreateTransactionType,
+    isOwner,
+  } = usePermissions();
+  const accountCreateTypes = useMemo(
+    () => getAllowedScopedQuickTransactionTypes({
+      scope: 'hesap',
+      canCreateTransactionType,
+    }),
+    [canCreateTransactionType],
+  );
+  const canCreateCreditCardTransactions =
+    canCreateTransactionType('gider')
+    || canCreateTransactionType('transfer')
+    || canCreateTransactionType('cari_odeme')
+    || canCreateTransactionType('personel_odeme');
+  const canCreateAccountTransactions = hesap?.type === 'kredi_karti'
+    ? canCreateCreditCardTransactions
+    : accountCreateTypes.length > 0;
+  // Hesap detayı, Hesaplar modülünün kendi defteridir. Sunucu projeksiyonu
+  // Cari/Personel kaynaklarını yalnız düz karşı-taraf adıyla döndürür; bu yüzden
+  // eksiksiz yürüyen bakiye için o modüllerin ayrıca açık olması gerekmez.
+  const hasCompleteTransactionHistory = canAccessModule('hesaplar');
+  const canUpdateHesapRecord =
+    !!hesap && canUpdate('hesaplar', hesap.created_by ?? null);
+
+  const islemIdList = useMemo(
+    () => (islemler || []).map((i) => i.id),
+    [islemler],
+  );
+  const {
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+  } = useUrunKalemlerByIslemIds(
+    islemIdList,
+    true,
+  );
   const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByHesap(id!);
   const { data: entityNotes } = useNotlarByEntity('hesap', id!);
-  const { canUpdate, canDelete } = usePermissions();
+  const getTransactionMutationDecision = useCallback((
+    transaction: HesapDetailIslem,
+    action: 'update' | 'delete',
+  ): TransactionProductMutationDecision => {
+    const createdBy = transaction.created_by ?? null;
+    return getTransactionProductMutationDecision({
+      type: transaction.type,
+      productItemsResolved: isProductItemsResolved,
+      productItemCount: getProductItemCount(transaction.id),
+      isOwner,
+      canAccessModule,
+      canMutateTransaction:
+        action === 'update'
+          ? canUpdate('islemler', createdBy)
+          : canDelete('islemler', createdBy),
+      canMutateProduct:
+        action === 'update'
+          ? canUpdate('urunler', createdBy)
+          : canDelete('urunler', createdBy),
+    });
+  }, [
+    canAccessModule,
+    canDelete,
+    canUpdate,
+    getProductItemCount,
+    isOwner,
+    isProductItemsResolved,
+  ]);
+  const canUpdateTransaction = useCallback((islemId: string): boolean => {
+    const transaction = (islemler || []).find((item) => item.id === islemId);
+    return !!transaction
+      && getTransactionMutationDecision(transaction, 'update').allowed;
+  }, [getTransactionMutationDecision, islemler]);
+  const canDeleteTransaction = useCallback((islemId: string): boolean => {
+    const transaction = (islemler || []).find((item) => item.id === islemId);
+    return !!transaction
+      && getTransactionMutationDecision(transaction, 'delete').allowed;
+  }, [getTransactionMutationDecision, islemler]);
   const deleteIslem = useDeleteIslem();
   const deleteHesap = useDeleteHesap();
   const updateHesap = useUpdateHesap();
@@ -328,8 +477,29 @@ export default function HesapHareketleriPage() {
   const takePhoto = useTakePhoto();
   const uploadPhoto = useUploadIslemPhoto();
   const { isletme, user } = useAuthContext();
+  const resolveCreatorLabel = useTransactionCreatorLabelResolver();
+  const showTransactionUpdateDenied = useCallback((islemId: string) => {
+    const transaction = (islemler || []).find((item) => item.id === islemId);
+    if (!transaction) {
+      Alert.alert(
+        t('common:status.error'),
+        t('common:errors.transactionNotFound'),
+      );
+      return;
+    }
+    const createdBy = transaction.created_by ?? null;
+    const canUpdateRecord = canUpdateTransaction(islemId);
+    const messageKey = getTransactionActionDeniedMessageKey('update', {
+      createdBy,
+      currentUserId: user?.id,
+      canActOnOwnRecord:
+        !!user?.id && canUpdate('islemler', user.id),
+      canActOnRecord: canUpdateRecord,
+    });
+    Alert.alert(t('common:status.error'), t(messageKey));
+  }, [canUpdate, canUpdateTransaction, islemler, t, user?.id]);
   const {
-    editingNoteId, setEditingNoteId, editingNote,
+    setEditingNoteId, editingNote,
     handleNoteUpdate, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask,
     isUpdatingNote,
   } = useDetailNoteHandlers({ entityType: 'hesap', entityId: id!, entityNotes, isletmeId: isletme?.id });
@@ -340,6 +510,13 @@ export default function HesapHareketleriPage() {
   const { currency: baseCurrency } = useSettings();
 
   const handleUnarchive = useCallback(async () => {
+    if (!canUpdateHesapRecord) {
+      Alert.alert(
+        t('common:status.error'),
+        t('common:errors.permissionDenied'),
+      );
+      return;
+    }
     try {
       await unarchiveHesap.mutateAsync(id!);
       Alert.alert(t('common:status.success'), t('common:archive.messages.unarchiveSuccess'));
@@ -347,7 +524,7 @@ export default function HesapHareketleriPage() {
     } catch (error) {
       Alert.alert(t('common:status.error'), t('common:messages.operationFailed'));
     }
-  }, [unarchiveHesap, id, t, router]);
+  }, [canUpdateHesapRecord, unarchiveHesap, id, t, router]);
 
   const [showTransactionBar, setShowTransactionBar] = useState(false);
   const [transactionType, setTransactionType] = useState<TransactionType>('gelir');
@@ -356,8 +533,18 @@ export default function HesapHareketleriPage() {
   // Edit transaction state
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  // Ürün kalemi var/yok sorgusu tamamlanmadan satıra dokunulursa bunu yetki
+  // reddi gibi göstermeyiz. Sorgu çözülünce aynı niyeti otomatik sürdürürüz.
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
+  const editTransaction = editTransactionId
+    ? (islemler || []).find((item) => item.id === editTransactionId)
+    : undefined;
   // Ürün detay modal state (ürünlü işleme tıklanınca)
   const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
+  // Ürün detay modalının para birimi: satırın TransactionRow'a verdiği AYNI değer.
+  const productDetailCurrency = productDetailIslemId
+    ? getCrossCurrencyDisplay(((islemler || []).find((i) => i.id === productDetailIslemId) ?? { type: '', amount: 0 })).mainCurrency
+    : undefined;
   // Copy transaction state
   const [copySourceId, setCopySourceId] = useState<string | null>(null);
   const [showCopyBar, setShowCopyBar] = useState(false);
@@ -372,18 +559,76 @@ export default function HesapHareketleriPage() {
   const [isPhotoActionLoading, setIsPhotoActionLoading] = useState(false);
   const isOpeningRef = useRef(false);
 
+  useEffect(() => {
+    if (canCreateAccountTransactions) return;
+
+    setShowTransactionBar(false);
+    setTransactionType('gelir');
+  }, [canCreateAccountTransactions]);
+
+  useEffect(() => {
+    if (isOwner) return;
+
+    setShowCopyBar(false);
+    setCopySourceId(null);
+  }, [isOwner]);
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId || !isProductItemsResolved) return;
+
+    const islemId = pendingTransactionOpenId;
+    setPendingTransactionOpenId(null);
+
+    if (getProductItemCount(islemId) > 0) {
+      setProductDetailIslemId(islemId);
+      return;
+    }
+    if (canUpdateTransaction(islemId)) {
+      setEditTransactionId(islemId);
+      setShowEditBar(true);
+      return;
+    }
+    showTransactionUpdateDenied(islemId);
+  }, [
+    canUpdateTransaction,
+    getProductItemCount,
+    isProductItemsResolved,
+    pendingTransactionOpenId,
+    showTransactionUpdateDenied,
+  ]);
+
   const {
     pendingDeleteIds,
     requestDelete,
     undoDelete,
     dismissDelete,
     snackbar: undoSnackbar,
-  } = useUndoDelete<IslemWithRelations>({
-    onCommitDelete: async (id: string) => {
-      await deleteIslem.mutateAsync(id);
+  } = useUndoDelete<HesapDetailIslem>({
+    onCommitDelete: async (id: string, item: HesapDetailIslem) => {
+      const decision = getTransactionMutationDecision(item, 'delete');
+      if (!decision.allowed) {
+        throw HESAP_TRANSACTION_DELETE_PERMISSION_REVOKED;
+      }
+      const verifiedPhotoPath =
+        !isHesapIslemListRow(item)
+        && item.isletme_id === isletme?.id
+          ? getValidatedIslemPhotoPath(item.photo_path, isletme.id, item.id)
+          : null;
+      await deleteIslem.mutateAsync({
+        id,
+        useCariProductV3: decision.useProductMutationV3,
+      });
+      await removeIslemPhotoBestEffort(
+        verifiedPhotoPath,
+        (photoPath) => deletePhoto.mutateAsync(photoPath),
+      );
     },
     onError: (error: unknown) => {
-      const message = error instanceof Error ? toErrorMessage(error) : t('errors:transaction.deleteFailed');
+      if (error === HESAP_TRANSACTION_DELETE_PERMISSION_REVOKED) return;
+      const messageKey = getTransactionMutationMessageKey(error, 'delete');
+      const message = messageKey
+        ? t(messageKey)
+        : toErrorMessage(error, t('errors:transaction.deleteFailed'));
       Alert.alert(t('common:status.error'), message);
     },
   });
@@ -408,12 +653,37 @@ export default function HesapHareketleriPage() {
   // Handle expandIslemId from search navigation
   const [expandHandled, setExpandHandled] = useState(false);
   useEffect(() => {
-    if (expandIslemId && !expandHandled && islemler && islemler.length > 0) {
-      setEditTransactionId(expandIslemId);
-      setShowEditBar(true);
+    if (
+      expandIslemId
+      && !expandHandled
+      && islemler
+      && islemler.length > 0
+      && isProductItemsResolved
+    ) {
+      const transaction = islemler.find((item) => item.id === expandIslemId);
+      if (
+        isProductItemsResolved
+        && getProductItemCount(expandIslemId) > 0
+      ) {
+        setProductDetailIslemId(expandIslemId);
+      } else if (transaction && canUpdateTransaction(expandIslemId)) {
+        setEditTransactionId(expandIslemId);
+        setShowEditBar(true);
+      } else {
+        showTransactionUpdateDenied(expandIslemId);
+      }
       setExpandHandled(true);
     }
-  }, [expandIslemId, expandHandled, islemler]);
+  }, [
+    expandIslemId,
+    expandHandled,
+    islemler,
+    canUpdateTransaction,
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+    showTransactionUpdateDenied,
+  ]);
 
   // Pull-to-refresh
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -440,39 +710,30 @@ export default function HesapHareketleriPage() {
     }, 500);
   }, []);
 
-  // Cross-currency işlemler için hesabın para birimi cinsinden tutarı al
-  const getAmountInAccountCurrency = useCallback((islem: IslemWithRelations): number => {
-    const sourceAmount = Number(islem.amount);
-    if (!islem.source_currency || !islem.target_currency ||
-        islem.source_currency === islem.target_currency) {
-      return sourceAmount;
-    }
-    if (!islem.exchange_rate || islem.exchange_rate <= 0) {
-      return sourceAmount;
-    }
-    const isTargetAccount = islem.hedef_hesap_id === id;
-    if (isTargetAccount) {
-      if (islem.source_currency === 'TRY') {
-        return sourceAmount / islem.exchange_rate;
-      } else {
-        return sourceAmount * islem.exchange_rate;
-      }
-    }
-    return sourceAmount;
+  // Cross-currency işlemler için hesabın para birimi cinsinden tutarı al.
+  // Dönüşüm TEK KAYNAK'tan (calculateTargetAmountForDisplay → calculateTargetAmount):
+  // burada da elle yazılmış, yuvarlamasız ÜÇÜNCÜ bir kopya vardı → başlangıç bakiyesi
+  // (bu değerlerden türetiliyor) DB bakiyesinden kuruşlarca sapabiliyordu.
+  const getAmountInAccountCurrency = useCallback((islem: HesapDetailIslem): number => {
+    const isTargetAccount = isTargetAccountLeg(islem, id!);
+    return isTargetAccount ? calculateTargetAmountForDisplay(islem) : Number(islem.amount);
   }, [id]);
 
   // Başlangıç bakiyesini hesapla - MEMOIZED
   const calculatedInitialBalance = useMemo(() => {
     if (!hesap || !islemler) return 0;
+    if (!hasCompleteTransactionHistory) {
+      return Number(hesap.initial_balance ?? 0);
+    }
 
     let totalEffect = 0;
     islemler.forEach((islem) => {
       // İzin işlemleri gün bazlıdır, parasal bakiye hesaplamasına dahil edilmez
       if (isLeaveType(islem.type as IslemType)) return;
 
-      const amount = getAmountInAccountCurrency(islem as IslemWithRelations);
+      const amount = getAmountInAccountCurrency(islem);
       if (islem.type === 'transfer') {
-        if (islem.hedef_hesap_id === id) {
+        if (isTargetAccountLeg(islem, id!)) {
           totalEffect += amount;
         } else {
           totalEffect -= amount;
@@ -487,7 +748,13 @@ export default function HesapHareketleriPage() {
     });
 
     return Number(hesap.balance) - totalEffect;
-  }, [hesap, islemler, id, getAmountInAccountCurrency]);
+  }, [
+    hesap,
+    islemler,
+    id,
+    getAmountInAccountCurrency,
+    hasCompleteTransactionHistory,
+  ]);
 
   // Yürüyen bakiye: her işlem satırında O İŞLEMDEN SONRAKİ hesap bakiyesi.
   // islemler date DESC (=görüntü sırası) → en yeni işlemden sonraki bakiye = güncel;
@@ -495,14 +762,15 @@ export default function HesapHareketleriPage() {
   const runningBalanceMap = useMemo(() => {
     const map: Record<string, number> = {};
     if (!hesap || !islemler) return map;
+    if (!hasCompleteTransactionHistory) return map;
     let bal = Number(hesap.balance);
     for (const islem of islemler) {
       map[islem.id] = bal; // bu işlemden SONRAKİ bakiye
       if (isLeaveType(islem.type as IslemType)) continue; // izin işlemi bakiyeyi değiştirmez
-      const amount = getAmountInAccountCurrency(islem as IslemWithRelations);
+      const amount = getAmountInAccountCurrency(islem);
       let effect = 0;
       if (islem.type === 'transfer') {
-        effect = islem.hedef_hesap_id === id ? amount : -amount;
+        effect = isTargetAccountLeg(islem, id!) ? amount : -amount;
       } else if (islem.type === 'gelir' || islem.type === 'cari_tahsilat' || islem.type === 'personel_tahsilat') {
         // Hesaba GİRİŞ tipleri (computeBalanceOps ile birebir) — personel_tahsilat dahil.
         effect = amount;
@@ -512,7 +780,13 @@ export default function HesapHareketleriPage() {
       bal = roundCurrency(bal - effect);
     }
     return map;
-  }, [hesap, islemler, id, getAmountInAccountCurrency]);
+  }, [
+    hesap,
+    islemler,
+    id,
+    getAmountInAccountCurrency,
+    hasCompleteTransactionHistory,
+  ]);
 
   const initialBalance = hesap?.initial_balance !== undefined && hesap?.initial_balance !== null
     ? Number(hesap.initial_balance)
@@ -521,9 +795,20 @@ export default function HesapHareketleriPage() {
   // Açılış bakiyesi yalnız İŞLEM YOKKEN düzenlenebilir (cari deseni): ilk işlemle
   // birlikte kilitlenir — sonrasında düzenlemek yürüyen bakiyeyi bozardı.
   const isBalanceEditable =
-    !!islemler && islemler.length === 0 && canUpdate('hesaplar', hesap?.created_by ?? null);
+    !!islemler
+    && islemler.length === 0
+    && canUpdate('hesaplar', hesap?.created_by ?? null);
+  const isBalanceEditableRef = useRef(isBalanceEditable);
+  isBalanceEditableRef.current = isBalanceEditable;
+
+  useEffect(() => {
+    if (isBalanceEditable) return;
+    setEditBalanceModalVisible(false);
+  }, [isBalanceEditable]);
 
   const handleOpenEditBalance = useCallback(() => {
+    if (!isBalanceEditableRef.current) return;
+
     // pozitif = debt (artı bakiye), negatif = credit (eksi bakiye)
     setBalanceDirection(initialBalance >= 0 ? 'debt' : 'credit');
     setNewInitialBalance(Math.abs(initialBalance).toString());
@@ -531,7 +816,10 @@ export default function HesapHareketleriPage() {
   }, [initialBalance]);
 
   const handleSaveInitialBalance = async () => {
-    if (!hesap) return;
+    if (!hesap || !isBalanceEditableRef.current) {
+      setEditBalanceModalVisible(false);
+      return;
+    }
     const absoluteAmount = roundCurrency(parseCurrency(newInitialBalance) || 0);
     const newInitial = balanceDirection === 'debt' ? absoluteAmount : -absoluteAmount;
     // Onay sorusu yok (editör zaten yalnız ilk girişte açık). İşlem yokken açılış ==
@@ -552,37 +840,76 @@ export default function HesapHareketleriPage() {
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
     // Ürünlü işlem → ürün detay modalı; değilse düzenleme barı (cariler ile aynı standart)
-    if ((getUrunItems(islemId)?.length ?? 0) > 0) {
+    if (!isProductItemsResolved) {
+      setPendingTransactionOpenId(islemId);
+      return;
+    }
+    if (isProductItemsResolved && getProductItemCount(islemId) > 0) {
       setProductDetailIslemId(islemId);
+      return;
+    }
+    if (!canUpdateTransaction(islemId)) {
+      showTransactionUpdateDenied(islemId);
       return;
     }
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, [getUrunItems]);
+  }, [
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+    canUpdateTransaction,
+    showTransactionUpdateDenied,
+  ]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
     const islem = (islemler || []).find(i => i.id === islemId);
-    if (islem) {
+    if (islem && canDeleteTransaction(islemId)) {
       const labelKey = getHareketLabelKey(islem.type);
       const desc = islem.description || (labelKey.includes(':') ? t(labelKey) : t(`transactions:types.${islem.type}`));
       requestDelete(islemId, islem, desc);
     }
-  }, [islemler, requestDelete, t]);
+  }, [canDeleteTransaction, islemler, requestDelete, t]);
 
   const handleEditIslem = useCallback((islemId: string) => {
+    if (!isProductItemsResolved) {
+      setPendingTransactionOpenId(islemId);
+      return;
+    }
+    if (isProductItemsResolved && getProductItemCount(islemId) > 0) {
+      setProductDetailIslemId(islemId);
+      return;
+    }
+    if (!canUpdateTransaction(islemId)) {
+      showTransactionUpdateDenied(islemId);
+      return;
+    }
     setEditTransactionId(islemId);
     setShowEditBar(true);
-  }, []);
+  }, [
+    canUpdateTransaction,
+    getUrunItems,
+    getProductItemCount,
+    isProductItemsResolved,
+    showTransactionUpdateDenied,
+  ]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
+    if (!isOwner) return;
     setCopySourceId(islemId);
     setShowCopyBar(true);
-  }, []);
+  }, [isOwner]);
 
   const handleViewPhoto = useCallback((path: string, islemId: string) => {
-    setViewPhotoPath(path);
+    const validatedPath = getValidatedIslemPhotoPath(
+      path,
+      isletme?.id,
+      islemId,
+    );
+    if (!validatedPath) return;
+    setViewPhotoPath(validatedPath);
     setViewPhotoIslemId(islemId);
-  }, []);
+  }, [isletme?.id]);
 
   const handleDeleteHesap = () => {
     setShowMenu(false);
@@ -614,16 +941,28 @@ export default function HesapHareketleriPage() {
 
     setIsPhotoActionLoading(true);
     try {
-      await deletePhoto.mutateAsync(viewPhotoPath);
-      await updateIslem.mutateAsync({
-        id: viewPhotoIslemId,
-        updates: { photo_path: null },
+      const oldPhotoPath = getValidatedIslemPhotoPath(
+        viewPhotoPath,
+        isletme?.id,
+        viewPhotoIslemId,
+      );
+      await clearIslemPhotoCopyOnWrite({
+        oldPhotoPath,
+        clearPhotoPointer: () => updateIslem.mutateAsync({
+          id: viewPhotoIslemId,
+          updates: { photo_path: null },
+        }),
+        removePhoto: (photoPath) => deletePhoto.mutateAsync(photoPath),
       });
       setViewPhotoPath(null);
       setViewPhotoIslemId(null);
     } catch (error) {
       console.error('[PhotoDelete] Error:', error);
-      Alert.alert(t('common:status.error'), t('common:photo.uploadError'));
+      const messageKey = getTransactionMutationMessageKey(error, 'update');
+      Alert.alert(
+        t('common:status.error'),
+        messageKey ? t(messageKey) : t('common:photo.uploadError'),
+      );
     } finally {
       setIsPhotoActionLoading(false);
     }
@@ -668,22 +1007,32 @@ export default function HesapHareketleriPage() {
 
     setIsPhotoActionLoading(true);
     try {
-      if (viewPhotoPath) {
-        await deletePhoto.mutateAsync(viewPhotoPath);
-      }
-      const newPath = await uploadPhoto.mutateAsync({
-        uri,
-        isletmeId: isletme.id,
-        islemId: viewPhotoIslemId,
-      });
-      await updateIslem.mutateAsync({
-        id: viewPhotoIslemId,
-        updates: { photo_path: newPath },
+      const oldPhotoPath = getValidatedIslemPhotoPath(
+        viewPhotoPath,
+        isletme.id,
+        viewPhotoIslemId,
+      );
+      const newPath = await replaceIslemPhotoCopyOnWrite({
+        oldPhotoPath,
+        uploadPhoto: () => uploadPhoto.mutateAsync({
+          uri,
+          isletmeId: isletme.id,
+          islemId: viewPhotoIslemId,
+        }),
+        updatePhotoPointer: (photoPath) => updateIslem.mutateAsync({
+          id: viewPhotoIslemId,
+          updates: { photo_path: photoPath },
+        }),
+        removePhoto: (photoPath) => deletePhoto.mutateAsync(photoPath),
       });
       setViewPhotoPath(newPath);
     } catch (error) {
       console.error('[PhotoChange] Upload error:', error);
-      Alert.alert(t('common:status.error'), t('common:photo.uploadError'));
+      const messageKey = getTransactionMutationMessageKey(error, 'update');
+      Alert.alert(
+        t('common:status.error'),
+        messageKey ? t(messageKey) : t('common:photo.uploadError'),
+      );
     } finally {
       setIsPhotoActionLoading(false);
     }
@@ -702,9 +1051,26 @@ export default function HesapHareketleriPage() {
     }
   };
 
-  // Header right buttons (share + menu)
+  // Header right buttons (report + share + menu)
   const headerRightElement = useMemo(() => (
     <View style={styles.headerRightContainer}>
+      <TouchableOpacity
+        onPress={() => {
+          router.push({
+            pathname: '/raporlar/hesap/[id]',
+            params: {
+              id,
+              kind: 'hesap',
+              hesapName: hesap?.name ?? '',
+              hesapCurrency: hesap?.currency ?? 'TRY',
+            },
+          });
+        }}
+        style={styles.headerBtn}
+        hitSlop={HIT_SLOP.md}
+      >
+        <BarChart3 size={22} color={colors.text} />
+      </TouchableOpacity>
       <TouchableOpacity
         onPress={() => setShowShareOptions(true)}
         style={styles.headerBtn}
@@ -720,7 +1086,7 @@ export default function HesapHareketleriPage() {
         <MoreVertical size={24} color={colors.text} />
       </TouchableOpacity>
     </View>
-  ), []);
+  ), [hesap?.currency, hesap?.name, id, router]);
 
   // === DATE GROUPING ===
   const groupedData = useMemo(() => {
@@ -746,7 +1112,11 @@ export default function HesapHareketleriPage() {
   const copyLabel = t('common:buttons.copy');
 
   // === FlatList renderItem ===
-  const renderTransactionItem = useCallback(({ item }: { item: TransactionListItem }) => {
+  const renderTransactionItem = useCallback(({
+    item,
+  }: {
+    item: TransactionListItem<HesapDetailIslem>;
+  }) => {
     if (item.type === 'header') {
       return <DateSectionHeader title={item.title} />;
     }
@@ -764,11 +1134,13 @@ export default function HesapHareketleriPage() {
           onMarkAsTask={handleMarkAsTask}
           onPhotoPress={setNotePhotoPath}
           deleteLabel={deleteLabel}
+          contextModule="hesaplar"
         />
       );
     }
     const islem = item.data;
-    const canEditItem = canDelete('islemler', islem.created_by ?? null);
+    const canDeleteItem = canDeleteTransaction(islem.id);
+    const canCopyItem = isOwner && canCreateTransactions;
     const rbVal = runningBalanceMap[islem.id];
     // Kredi kartında satır-satır yürüyen bakiye GÖSTERME (kullanıcı isteği): özet kartındaki
     // kullanılan/kalan limit yeterli, satırlarda bakiye gereksiz.
@@ -781,6 +1153,7 @@ export default function HesapHareketleriPage() {
       <HesapTransactionItem
         islem={islem}
         hesapId={id!}
+        isletmeId={isletme?.id ?? ''}
         hesapCurrency={(hesap?.currency ?? 'TRY') as Currency}
         onPress={handlePressIslem}
         onDelete={handleDeleteIslem}
@@ -789,16 +1162,27 @@ export default function HesapHareketleriPage() {
         t={t}
         deleteLabel={deleteLabel}
         copyLabel={copyLabel}
-        canEdit={canEditItem}
-        currentUserId={user?.id}
+        canDelete={canDeleteItem}
+        canCopy={canCopyItem}
+        creatorText={resolveCreatorLabel(
+          isHesapIslemListRow(islem)
+            ? {
+              created_by: islem.created_by,
+              isletme_id: isletme?.id,
+            }
+            : islem,
+        )}
         urunItems={getUrunItems(islem.id)}
         runningBalanceText={itemRunningBalanceText}
         runningBalanceNegative={itemRunningBalanceNegative}
       />
     );
-  }, [id, hesap?.currency, hesap?.type, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, canDelete, user?.id, getUrunItems, runningBalanceMap]);
+  }, [id, hesap?.currency, hesap?.type, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransaction, resolveCreatorLabel, getUrunItems, runningBalanceMap, isletme?.id]);
 
-  const keyExtractor = useCallback((item: TransactionListItem) => item.key, []);
+  const keyExtractor = useCallback(
+    (item: TransactionListItem<HesapDetailIslem>) => item.key,
+    [],
+  );
 
   // === FlatList ListHeaderComponent ===
   const ListHeader = useMemo(() => {
@@ -809,7 +1193,9 @@ export default function HesapHareketleriPage() {
         {hesap.is_archived && (
           <View style={styles.bannerContainer}>
             <ArchivedBanner
-              onUnarchive={handleUnarchive}
+              onUnarchive={
+                canUpdateHesapRecord ? handleUnarchive : undefined
+              }
               loading={unarchiveHesap.isPending}
             />
           </View>
@@ -832,9 +1218,9 @@ export default function HesapHareketleriPage() {
               color: (paymentDueDayInfo.isToday || paymentDueDayInfo.isTomorrow) ? colors.orange : undefined,
             });
           }
-          const baseEq = (hesap.currency !== baseCurrency && exchangeRates)
-            ? `≈ ${formatCurrency(convertCurrency(Math.abs(bal), hesap.currency, baseCurrency, exchangeRates) ?? 0, baseCurrency)}`
-            : undefined;
+          // Kur yoksa alt satır HİÇ yazılmaz (eski `?? 0` → "≈ ₺0,00")
+          const baseEq =
+            formatConvertedHint(Math.abs(bal), hesap.currency, baseCurrency, exchangeRates, '≈ ') ?? undefined;
           return (
             <DetailSummaryCard
               title={upperTr(hesap.name)}
@@ -862,7 +1248,7 @@ export default function HesapHareketleriPage() {
         </View>
       </View>
     );
-  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleUnarchive, unarchiveHesap.isPending, paymentDueDayInfo]);
+  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleUnarchive, unarchiveHesap.isPending, paymentDueDayInfo, canUpdateHesapRecord]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -912,23 +1298,23 @@ export default function HesapHareketleriPage() {
 
   if (hesapLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!hesap) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <EmptyState
           icon={<Wallet size={48} color={colors.textMuted} />}
           title={t('errors:account.notFound')}
           description={t('accounts:details.notFoundDescription')}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -942,7 +1328,7 @@ export default function HesapHareketleriPage() {
           headerLeft: () => <BackButton size={28} />,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <SwipeableProvider>
           <FlashList
             data={groupedData}
@@ -953,12 +1339,12 @@ export default function HesapHareketleriPage() {
             ListFooterComponent={ListFooter}
             ListEmptyComponent={ListEmpty}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.flatListContent}
+            contentContainerStyle={[styles.flatListContent, { paddingBottom: contentPaddingBottom }]}
             refreshing={isRefreshing}
             onRefresh={handleRefresh}
           />
         </SwipeableProvider>
-      </SafeAreaView>
+      </Screen>
 
       <DetailActionMenu
         visible={showMenu}
@@ -970,7 +1356,7 @@ export default function HesapHareketleriPage() {
       />
 
       <BalanceEditorModal
-        visible={editBalanceModalVisible}
+        visible={editBalanceModalVisible && isBalanceEditable}
         onDismiss={() => setEditBalanceModalVisible(false)}
         title={t('accounts:balance.editInitialTitle')}
         directionLabel={t('accounts:balanceDirection.label')}
@@ -987,24 +1373,27 @@ export default function HesapHareketleriPage() {
       />
 
       {/* Quick Transaction Bar - kredi kartı için özel bar */}
-      {hesap.type === 'kredi_karti' ? (
-        <CreditCardTransactionBar
-          visible={showTransactionBar}
-          onDismiss={() => setShowTransactionBar(false)}
-          creditCard={hesap}
-        />
-      ) : (
-        <QuickTransactionBar
-          visible={showTransactionBar}
-          onDismiss={() => setShowTransactionBar(false)}
-          defaultType={transactionType}
-          defaultHesapId={id}
-        />
+      {canCreateAccountTransactions && (
+        hesap.type === 'kredi_karti' ? (
+          <CreditCardTransactionBar
+            visible={showTransactionBar}
+            onDismiss={() => setShowTransactionBar(false)}
+            creditCard={hesap}
+          />
+        ) : (
+          <QuickTransactionBar
+            visible={showTransactionBar}
+            onDismiss={() => setShowTransactionBar(false)}
+            defaultType={transactionType}
+            defaultHesapId={id}
+            createScope="hesap"
+          />
+        )
       )}
 
       {/* Quick Transaction Bar - Edit Mode */}
       <QuickTransactionBar
-        visible={showEditBar}
+        visible={showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}
         onDismiss={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
@@ -1012,6 +1401,13 @@ export default function HesapHareketleriPage() {
         mode="edit"
         transactionId={editTransactionId ?? undefined}
         isScheduledTransaction={false}
+        defaultHesapId={id}
+        createScope={
+          editTransaction
+            ? getQuickTransactionScopeForApiType(editTransaction.type)
+              ?? undefined
+            : undefined
+        }
         onSuccess={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
@@ -1021,15 +1417,22 @@ export default function HesapHareketleriPage() {
       {/* Ürün Detay Modal — ürünlü işleme tıklanınca (cariler ile aynı standart) */}
       <ProductDetailModal
         islemId={productDetailIslemId}
+        // Satırdaki TransactionRow ile AYNI para birimi (kutu ikonu ≠ satır çelişkisi)
+        currency={productDetailCurrency}
         onDismiss={() => setProductDetailIslemId(null)}
-        onEdit={(islemId) => {
+        onEdit={
+          productDetailIslemId && canUpdateTransaction(productDetailIslemId)
+            ? (islemId) => {
           setProductDetailIslemId(null);
           setEditTransactionId(islemId);
           setShowEditBar(true);
-        }}
+              }
+            : undefined
+        }
       />
 
       {/* Copy Transaction Bar */}
+      {isOwner && (
       <QuickTransactionBar
         visible={showCopyBar}
         onDismiss={() => {
@@ -1044,6 +1447,7 @@ export default function HesapHareketleriPage() {
           setCopySourceId(null);
         }}
       />
+      )}
 
       <DetailExportSection
         visible={showShareOptions}
@@ -1063,8 +1467,16 @@ export default function HesapHareketleriPage() {
           setViewPhotoPath(null);
           setViewPhotoIslemId(null);
         }}
-        onDelete={handleDeletePhoto}
-        onChange={handleChangePhoto}
+        onDelete={
+          viewPhotoIslemId && canUpdateTransaction(viewPhotoIslemId)
+            ? handleDeletePhoto
+            : undefined
+        }
+        onChange={
+          viewPhotoIslemId && canUpdateTransaction(viewPhotoIslemId)
+            ? handleChangePhoto
+            : undefined
+        }
         isLoading={isPhotoActionLoading}
       />
 
@@ -1078,23 +1490,21 @@ export default function HesapHareketleriPage() {
       />
 
       {/* Floating Not Ekle + Yeni İşlem FAB - arşivlenmiş hesaplarda gizle */}
-      {!hesap.is_archived && (
-        <>
-          <AddNoteButton
-            entityType="hesap"
-            entityId={id!}
-            style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
-          />
-          <TouchableOpacity
-            style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-            onPress={() => {
-              openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir');
-            }}
-            activeOpacity={0.8}
-          >
-            <Zap size={24} color={colors.surface} />
-          </TouchableOpacity>
-        </>
+      {hesap.is_active !== false && (
+        <AddNoteButton
+          entityType="hesap"
+          entityId={id!}
+          style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
+        />
+      )}
+      {!hesap.is_archived && canCreateAccountTransactions && (
+        <GlassFab
+          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
+          onPress={() => {
+            openTransaction(hesap.type === 'kredi_karti' ? 'kredi_karti_gider' as TransactionType : 'gelir');
+          }}
+          renderIcon={({ color, size }) => <Zap size={size} color={color} />}
+        />
       )}
       <NoteInputModal
         visible={!!editingNote}
@@ -1244,20 +1654,10 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     fontWeight: fontWeight.semibold,
   },
+  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
   fab: {
     position: 'absolute',
     right: spacing.lg,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
     zIndex: 10,
   },
 });

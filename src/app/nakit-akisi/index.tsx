@@ -1,38 +1,37 @@
 import { upperTr } from '@/lib/turkishTextUtils';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useCallback } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { View, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator, Modal, Pressable, Platform, Alert } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl, Alert } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight, Calendar, X, Share as ShareIcon } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, TabFilter, CategoryReportCard, Button } from '@/components/ui';
+import { Text, TabFilter, CategoryReportCard, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
+import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useCashFlowByCategory, CashFlowItem } from '@/hooks/useCashFlowByCategory';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { PeriodType } from '@/hooks/useIslemler';
 import { formatCurrency } from '@/lib/currency';
-import { formatDateForDB, ensureValidDate } from '@/lib/date';
 import { exportCashFlowToExcel, CashFlowExcelTranslations } from '@/lib/reportExcelExport';
 import { useSettings } from '@/hooks/useSettings';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 
 type FlowType = 'inflow' | 'outflow';
 
 export default function NakitAkisiPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();
   const [selectedType, setSelectedType] = useState<FlowType>('outflow');
-
-  // Custom date pickers
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
 
   const PERIOD_OPTIONS = [
     { label: upperTr(t('reports:period.yearly')), value: 'yearly' },
@@ -53,6 +52,8 @@ export default function NakitAkisiPage() {
   });
 
   const activeItems = selectedType === 'inflow' ? cashFlow.allInflowItems : cashFlow.allOutflowItems;
+
+  const { refreshing, onRefresh } = usePullToRefresh(cashFlow.refetch);
 
   const handleExport = useCallback(async () => {
     if (!isletme) return;
@@ -119,23 +120,27 @@ export default function NakitAkisiPage() {
           headerBackVisible: true,
           gestureEnabled: true,
           headerRight: () => (
-            <TouchableOpacity
+            <ReportExportButton
               onPress={handleExport}
-              disabled={isExporting}
-              style={styles.headerBtn}
-              hitSlop={HIT_SLOP.md}
-            >
-              {isExporting ? (
-                <ActivityIndicator size="small" color={colors.text} />
-              ) : (
-                <ShareIcon size={22} color={colors.text} />
-              )}
-            </TouchableOpacity>
+              isExporting={isExporting}
+              accessibilityLabel={t('reports:export.exportExcel')}
+            />
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
-        <ScrollView showsVerticalScrollIndicator={false}>
+      <Screen>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
             <TabFilter
@@ -151,41 +156,22 @@ export default function NakitAkisiPage() {
           {/* Date Navigator + Inflow/Outflow Summary Tabs */}
           <View style={styles.summaryBar}>
             {state.period === 'custom' ? (
-              <View style={styles.customDateRow}>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowStartPicker(true)}
-                >
-                  <Calendar size={14} color={colors.primary} />
-                  <Text variant="caption">{formatDateForDB(state.customStartDate)}</Text>
-                </TouchableOpacity>
-                <Text variant="caption" style={styles.dateSeparator}>-</Text>
-                <TouchableOpacity
-                  style={styles.datePickerButton}
-                  onPress={() => setShowEndPicker(true)}
-                >
-                  <Calendar size={14} color={colors.primary} />
-                  <Text variant="caption">{formatDateForDB(state.customEndDate)}</Text>
-                </TouchableOpacity>
-              </View>
+              <CustomDateRangePicker
+                startDate={state.customStartDate}
+                endDate={state.customEndDate}
+                onChange={(s, e) => {
+                  state.setCustomStartDate(s);
+                  state.setCustomEndDate(e);
+                }}
+                locale={state.locale}
+              />
             ) : (
-              <View style={styles.dateNav}>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => state.setPeriodOffset(state.periodOffset - 1)}
-                >
-                  <ChevronLeft size={18} color={colors.primary} />
-                </TouchableOpacity>
-                <Text variant="body" style={styles.dateLabel}>
-                  {upperTr(state.periodLabel)}
-                </Text>
-                <TouchableOpacity
-                  style={styles.navBtn}
-                  onPress={() => state.setPeriodOffset(state.periodOffset + 1)}
-                >
-                  <ChevronRight size={18} color={colors.primary} />
-                </TouchableOpacity>
-              </View>
+              <PeriodNavigator
+                period={state.period}
+                periodOffset={state.periodOffset}
+                periodLabel={state.periodLabel}
+                setPeriodOffset={state.setPeriodOffset}
+              />
             )}
 
             <View style={styles.summaryTabs}>
@@ -245,11 +231,23 @@ export default function NakitAkisiPage() {
                 </Text>
               </TouchableOpacity>
             </View>
+            <ConversionIncompleteWarning
+              visible={cashFlow.conversionIncomplete}
+            />
           </View>
 
           {/* Category List */}
           <View style={styles.categoryList}>
-            {cashFlow.isLoading ? (
+            {cashFlow.error ? (
+              <View style={styles.emptyContainer}>
+                <Text variant="body" color="error" style={styles.emptyText}>
+                  {t('reports:empty.dataLoadError')}
+                </Text>
+                <Button variant="ghost" onPress={() => cashFlow.refetch()}>
+                  {t('common:buttons.retry')}
+                </Button>
+              </View>
+            ) : cashFlow.isLoading ? (
               <View style={styles.loadingContainer}>
                 <SkeletonListItem />
                 <SkeletonListItem />
@@ -276,97 +274,12 @@ export default function NakitAkisiPage() {
             )}
           </View>
         </ScrollView>
-      </SafeAreaView>
-
-      {/* Custom Date Pickers - iOS */}
-      {Platform.OS === 'ios' && (showStartPicker || showEndPicker) && (
-        <Modal visible={showStartPicker || showEndPicker} transparent animationType="slide">
-          <Pressable
-            style={styles.pickerModalOverlay}
-            onPress={() => { setShowStartPicker(false); setShowEndPicker(false); }}
-          >
-            <Pressable style={styles.pickerModalContent} onPress={(e) => e.stopPropagation()}>
-              <View style={styles.pickerModalHeader}>
-                <Text variant="h3">
-                  {showStartPicker ? t('reports:period.startDateTitle') : t('reports:period.endDateTitle')}
-                </Text>
-                <TouchableOpacity onPress={() => { setShowStartPicker(false); setShowEndPicker(false); }}>
-                  <X size={24} color={colors.text} />
-                </TouchableOpacity>
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <DateTimePicker
-                  value={ensureValidDate(showStartPicker ? state.customStartDate : state.customEndDate)}
-                  mode="date"
-                  display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                  themeVariant="light"
-                  accentColor={colors.primary}
-                  locale={state.locale}
-                  style={{ height: 350 }}
-                  onChange={(_, date) => {
-                    if (date) {
-                      if (showStartPicker) {
-                        const newEnd = date > state.customEndDate ? date : state.customEndDate;
-                        state.setCustomStartDate(date);
-                        state.setCustomEndDate(newEnd);
-                      } else {
-                        state.setCustomEndDate(date);
-                      }
-                    }
-                  }}
-                  minimumDate={showEndPicker ? state.customStartDate : undefined}
-                  maximumDate={new Date()}
-                />
-              </View>
-              <Button variant="primary" onPress={() => { setShowStartPicker(false); setShowEndPicker(false); }}>
-                {t('common:buttons.ok')}
-              </Button>
-            </Pressable>
-          </Pressable>
-        </Modal>
-      )}
-
-      {/* Custom Date Pickers - Android */}
-      {Platform.OS === 'android' && showStartPicker && (
-        <DateTimePicker
-          value={ensureValidDate(state.customStartDate)}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowStartPicker(false);
-            if (event.type === 'set' && date) {
-              const newEnd = date > state.customEndDate ? date : state.customEndDate;
-              state.setCustomStartDate(date);
-              state.setCustomEndDate(newEnd);
-            }
-          }}
-          maximumDate={new Date()}
-        />
-      )}
-      {Platform.OS === 'android' && showEndPicker && (
-        <DateTimePicker
-          value={ensureValidDate(state.customEndDate)}
-          mode="date"
-          display="default"
-          onChange={(event, date) => {
-            setShowEndPicker(false);
-            if (event.type === 'set' && date) {
-              state.setCustomEndDate(date);
-            }
-          }}
-          minimumDate={state.customStartDate}
-          maximumDate={new Date()}
-        />
-      )}
+      </Screen>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   periodFilter: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -375,31 +288,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-  },
-  dateNav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  // Yuvarlak zeminli ok (ürünler/rapor gezinmeleriyle aynı desen)
-  navBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dateLabel: {
-    fontWeight: '600',
-    color: colors.primary,
-    minWidth: 140,
-    textAlign: 'center',
   },
   summaryTabs: {
     flexDirection: 'row',
@@ -462,47 +350,5 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     textAlign: 'center',
-  },
-  headerBtn: {
-    padding: 6,
-  },
-  customDateRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  dateSeparator: {
-    color: colors.textMuted,
-  },
-  datePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    borderWidth: 0.5,
-    borderColor: colors.border,
-  },
-  pickerModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  pickerModalContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: spacing.lg,
-    maxHeight: '70%',
-  },
-  pickerModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
   },
 });

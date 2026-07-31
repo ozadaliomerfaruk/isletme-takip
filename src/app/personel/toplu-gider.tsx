@@ -1,25 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Modal,
-  Dimensions,
-  TextInput,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, TextInput } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Check, Calendar } from 'lucide-react-native';
-import { Text, Button, Card, CategoryPicker, CurrencyInput } from '@/components/ui';
+import { Text, Button, Card, CategoryPicker, CurrencyInput, Screen, Modal } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -34,10 +23,11 @@ export default function TopluGiderPage() {
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['staff', 'common', 'transactions']);
+  const footerInset = useFooterBottomPadding();
   usePagePermission({ module: 'personel', action: 'create' });
   const createIslem = useCreateIslem();
   const { locale, formatDateMedium } = useDateFormat();
-  const windowHeight = Dimensions.get('window').height;
+  const insets = useSafeAreaInsets();
 
   // Varsayılan tarih: Bu ayın son günü 23:59
   const getDefaultDate = () => {
@@ -106,17 +96,20 @@ export default function TopluGiderPage() {
     setAmounts(prev => ({ ...prev, [personelId]: value }));
   };
 
-  // Toplam tutar hesapla
-  const totalAmount = useMemo(() => {
-    let total = 0;
+  // Toplam tutar — PARA BİRİMİ BAŞINA. personel_gider tutarı personelin KENDİ para
+  // biriminde okunuyor; düz toplama "100 USD + 100 TRY"yi "₺200" diye yazıyordu.
+  // Kur burada satır satır sorulamadığı için çevirmek de yalan olur → ayrı satırlar.
+  const totalsByCurrency = useMemo(() => {
+    const map = new Map<string, number>();
     selectedPersonel.forEach(id => {
       const amount = parseCurrency(amounts[id] || '0');
       if (amount > 0) {
-        total += amount;
+        const cur = activePersonel.find(p => p.id === id)?.currency || 'TRY';
+        map.set(cur, (map.get(cur) ?? 0) + amount);
       }
     });
-    return total;
-  }, [selectedPersonel, amounts]);
+    return Array.from(map.entries());
+  }, [selectedPersonel, amounts, activePersonel]);
 
   // Seçili personel sayısı
   const selectedCount = useMemo(() => {
@@ -219,10 +212,14 @@ export default function TopluGiderPage() {
           headerTitle: t('staff:bulkSalary.title'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
+          // KAV frame'i EBEVEYNE göre ölçülüyor; native header'lı ekranda offset
+          // verilmezse padding header+durum çubuğu kadar eksik kalıyor ve sabit
+          // footer (Kaydet) klavyenin arkasında kalıyor. Diğer formlarla aynı satır.
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.scrollView}
@@ -336,6 +333,8 @@ export default function TopluGiderPage() {
                         onChangeText={(val) => handleAmountChange(personel.id, val)}
                         style={styles.amountInput}
                         placeholder="0"
+                        // Tutar personelin para biriminde girilir; alanın öneki de öyle olmalı
+                        currency={personel.currency}
                       />
                     </View>
                   </TouchableOpacity>
@@ -345,14 +344,21 @@ export default function TopluGiderPage() {
           </ScrollView>
 
           {/* Footer - Özet ve Kaydet */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <View style={styles.summary}>
               <Text variant="caption" color="secondary">
                 {selectedCount} {t('staff:titles.personnel')}
               </Text>
-              <Text variant="h3" color="error">
-                {formatCurrency(totalAmount)}
-              </Text>
+              {/* Para birimi başına ayrı satır — karışık para birimi düz toplanmaz */}
+              {totalsByCurrency.length === 0 ? (
+                <Text variant="h3" color="error">{formatCurrency(0)}</Text>
+              ) : (
+                totalsByCurrency.map(([cur, total]) => (
+                  <Text key={cur} variant="h3" color="error">
+                    {formatCurrency(total, cur)}
+                  </Text>
+                ))
+              )}
             </View>
             <Button
               variant="primary"
@@ -449,7 +455,7 @@ export default function TopluGiderPage() {
             </TouchableWithoutFeedback>
           </Modal>
         )}
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
@@ -524,9 +530,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    borderTopWidth: 1,
+    borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: colors.border,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
     gap: spacing.lg,
   },
   summary: {
@@ -572,26 +578,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pickerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginHorizontal: 20,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.xl,
+    padding: spacing.xl,
+    marginHorizontal: spacing.xl,
   },
   pickerTitle: {
-    fontSize: 18,
+    fontSize: fontSize.xl,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   pickerSection: {
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   pickerSectionTitle: {
-    fontSize: 14,
+    fontSize: fontSize.md,
     fontWeight: '500',
     color: colors.textMuted,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
     textAlign: 'center',
   },
   datePickerStyle: {
@@ -601,16 +607,16 @@ const styles = StyleSheet.create({
     height: 120,
   },
   pickerDoneButton: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 10,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing['2xl'],
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
   },
   pickerDoneText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: colors.white,
+    fontSize: fontSize.lg,
     fontWeight: '600',
   },
 });

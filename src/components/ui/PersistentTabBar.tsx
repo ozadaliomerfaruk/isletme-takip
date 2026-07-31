@@ -1,12 +1,20 @@
-import { View, TouchableOpacity, Platform, StyleSheet, Text } from 'react-native';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { View, Platform, StyleSheet, Text, type LayoutChangeEvent, type StyleProp, type ViewStyle } from 'react-native';
 import { useSegments, useRouter, Href } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Home, Users, UserCircle, Package, MoreHorizontal, type LucideIcon } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
+import { BlurView } from 'expo-blur';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { useSharedValue, useAnimatedStyle, withSpring, withTiming, interpolate, runOnJS, type SharedValue } from 'react-native-reanimated';
 import { colors } from '@/constants/colors';
 import { usePermissions } from '@/hooks/usePermissions';
 import { goToTab } from '@/lib/tabNav';
+import { tabBarCollapsed, resetTabBarCollapse, scrollTabToTop } from '@/lib/tabBarScroll';
+import { getActiveTab } from '@/lib/tabBarVisibility';
+import { canShowMainTab, type MainTabKey } from '@/lib/permissionNavigation';
+import { AnimatedGlassView, GLASS_TINT, FALLBACK_FROST, FALLBACK_BLUR_INTENSITY } from './GlassSurface';
 import type { ModuleName } from '@/types/multiUser';
 
 type TabConfig = {
@@ -25,68 +33,98 @@ const TABS: TabConfig[] = [
   { key: 'daha', route: '/(tabs)/daha' as Href, icon: MoreHorizontal, labelKey: 'tabs.more' },
 ];
 
-function getActiveTab(segments: string[]): string | null {
-  const first = segments[0];
-  const second = segments[1];
+// getActiveTab → @/lib/tabBarVisibility (tek kaynak; _layout'un inset override'ı
+// da aynı fonksiyonu kullanıyor, yoksa bar'ın olmadığı ekranlarda hayalet boşluk kalır).
 
-  // Auth/onboarding/verify screens - hide tab bar
-  if (first === '(auth)' || first === 'onboarding' || first === 'verify') {
-    return null;
-  }
+// Floating cam pill ölçüleri.
+// EŞMERKEZLİ KÖŞE: iOS 26 iç içe köşeleri eşmerkezli hizalar (iç yarıçap =
+// dış yarıçap − aradaki boşluk). Bu yalnız boşluk HER İKİ eksende eşitse
+// mümkün → yatay (ROW_PAD + PILL_INSET) ile dikey (PILL_INSET + PILL_GAP_V)
+// ikisi de INNER_GAP olmalı. Bozulursa köşeler hizasız kalır; tek tek fark
+// edilmeyen ama toplamda "Apple değil" hissi üreten detay budur.
+const INNER_GAP = 7;
+const ROW_PAD = 4;
+const PILL_INSET = 3; // ROW_PAD + PILL_INSET = INNER_GAP (yatay)
+const PILL_GAP_V = INNER_GAP - PILL_INSET; // dikey de INNER_GAP'e tamamlanır
+const PILL_H = 66;
+const PILL_H_COLLAPSED = 52;
 
-  // Inside (tabs) group
-  if (first === '(tabs)') {
-    if (!second || second === 'index') return 'home';
-    if (second === 'cariler') return 'cariler';
-    if (second === 'personel') return 'personel';
-    if (second === 'urunler') return 'urunler';
-    if (second === 'daha') return 'daha';
-    return 'home';
-  }
+/**
+ * Kayan vurgunun yayı: yalnız transform sürüyor (GPU), o yüzden hafif
+ * eksik-sönümlü — sekmeye varınca minik bir oturma hissi verir. Yay, timing
+ * eğrisinin aksine hedef değişince hızı koruyarak yeniden yönlenir; hızlı
+ * sekme değişiminde eğri baştan başlamaz, "mekanik" durmaz.
+ */
+const SLIDE_SPRING = { duration: 420, dampingRatio: 0.82 };
+const LABEL_H = 14;
+const TOP_PAD = 6;
+const OUTER_PAD_H = 12;
+const NARROW = 34; // daralınca pill'in her yandan içeri girmesi (YATAY küçülme)
 
-  // Root-level detail screens mapped to parent tab
-  if (first === 'cariler') return 'cariler';
-  if (first === 'personel') return 'personel';
-  if (first === 'urunler') return 'urunler';
-  if (first === 'hesaplar') return 'home';
-  if (first === 'islemler') return 'home';
-  if (first === 'nakit-akisi') return 'home';
-  if (first === 'arama') return 'home';
-  if (first === 'foto-import') return 'home';
+/** Bar'ın home-indicator ÜSTÜNDEKİ görsel yüksekliği (üst boşluk + pill). Overlay olduğundan
+ *  ekranların alt-boşluğu bunu + gerçek safe-area'yı temizlemeli — _layout modifiedInsets bunu ekler. */
+export const TAB_BAR_CONTENT_HEIGHT = TOP_PAD + PILL_H;
 
-  // "More" related screens
-  if (first === 'raporlar') return 'daha';
-  if (first === 'ayarlar') return 'daha';
-  if (first === 'kategoriler') return 'daha';
-  if (first === 'notlar') return 'daha';
-  if (first === 'arsiv') return 'daha';
-  if (first === 'taksit') return 'daha';
-  if (first === 'yasal') return 'daha';
+/**
+ * Tek sekme öğesi. İçeriği eskisiyle BİREBİR aynı (ikon + daralınca solan yazı);
+ * tek ekleme, basma geri bildirimi.
+ *
+ * Neden ayrı bileşen: her öğenin "ben mi basıldım" sorusunu soran kendi
+ * useAnimatedStyle'ı olması gerekiyor; hook'lar map içinde çağrılamaz.
+ *
+ * FAB ve arama çubuğundaki his: dokununca hafifçe küçülüp soluyor. Burada da
+ * aynı — ama opacity + transform, ikisi de GPU-birleşimli, layout hesabı yok.
+ */
+function TabBarItem({
+  index,
+  Icon,
+  label,
+  focused,
+  labelAnim,
+  pressedIdx,
+  pressAnim,
+}: {
+  index: number;
+  Icon: LucideIcon;
+  label: string;
+  focused: boolean;
+  labelAnim: StyleProp<ViewStyle>;
+  pressedIdx: SharedValue<number>;
+  pressAnim: SharedValue<number>;
+}) {
+  const pressStyle = useAnimatedStyle(() => {
+    const p = pressedIdx.value === index ? pressAnim.value : 0;
+    // BELLİ BELİRSİZ olmalı: asıl "premium his" camın kendi native tepkisinden
+    // geliyor (isInteractive — parmağın altında kabarma + parlama). Buradaki
+    // JS efekti onu bastırmamalı, yalnız cam yokken (iOS<26/Android) tek başına
+    // yeterli bir ipucu bırakmalı. Bu yüzden değerler kasten çok küçük.
+    return {
+      opacity: 1 - 0.12 * p,
+      transform: [{ scale: 1 - 0.03 * p }],
+    };
+  });
 
-  return 'home';
-}
+  const color = focused ? colors.primary : colors.textMuted;
 
-function TabIcon({ Icon, color, focused }: { Icon: LucideIcon; color: string; focused: boolean }) {
   return (
-    <View style={iconStyles.container}>
-      <Icon size={26} color={color} />
-      {focused && <View style={iconStyles.dot} />}
-    </View>
+    <Animated.View
+      style={[styles.tabButton, pressStyle]}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: focused }}
+      accessibilityLabel={label}
+    >
+      <Icon size={27} color={color} strokeWidth={focused ? 2.4 : 2} />
+      <Animated.View style={[styles.labelWrap, labelAnim]}>
+        <Text
+          style={[styles.label, { color, fontWeight: focused ? '700' : '500' }]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </Animated.View>
+    </Animated.View>
   );
 }
-
-const iconStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    gap: 3,
-  },
-  dot: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.primary,
-  },
-});
 
 export function PersistentTabBar() {
   const segments = useSegments();
@@ -97,84 +135,357 @@ export function PersistentTabBar() {
 
   const activeTab = getActiveTab(segments as string[]);
 
-  // Hide on auth/onboarding/verify
+  const visibleTabs = TABS.filter((tab) =>
+    canShowMainTab(tab.key as MainTabKey, canAccessModule)
+  );
+  const n = visibleTabs.length;
+  const activeIndex = Math.max(0, visibleTabs.findIndex((tab) => tab.key === activeTab));
+
+  const [outerW, setOuterW] = useState(0);
+  const fullRowContent = outerW > 0 ? outerW - OUTER_PAD_H * 2 - ROW_PAD * 2 : 0;
+
+  const idx = useSharedValue(0);
+  /** Vurgunun ŞU AN hedeflediği sekme — aynı hedefe ikinci yay başlatmamak için. */
+  const targetIdx = useSharedValue(0);
+  const idxMeasured = useRef(false);
+
+  useEffect(() => {
+    if (!idxMeasured.current) {
+      idx.value = activeIndex;
+      targetIdx.value = activeIndex;
+      idxMeasured.current = true;
+      return;
+    }
+    // Jest vurguyu zaten oraya yolladıysa DOKUNMA. Aksi halde navigasyon bitince
+    // uçuş halindeki yay aynı hedefe yeniden başlatılıyor, hız sıfırlanıyor ve
+    // gözle görülür bir sıçrama oluyordu (sekme değişimi yavaşladıkça belirginleşir).
+    if (targetIdx.value === activeIndex) return;
+    targetIdx.value = activeIndex;
+    // Bar DIŞINDAN gelen geçiş (detaydan dönüş, deep-link, geri jesti): tıklama
+    // gibi anında. Yay yalnız sürüklemeye ait — orada parmağı takip ediyor.
+    idx.value = activeIndex;
+  }, [activeIndex, idx, targetIdx]);
+
+  useEffect(() => {
+    resetTabBarCollapse();
+  }, [activeTab]);
+
+  const barAnim = useAnimatedStyle(() => ({
+    marginHorizontal: OUTER_PAD_H + interpolate(tabBarCollapsed.value, [0, 1], [0, NARROW]),
+    height: interpolate(tabBarCollapsed.value, [0, 1], [PILL_H, PILL_H_COLLAPSED]),
+  }));
+  // Kapsül köşesi = yükseklik/2. iOS 26 camı köşeyi kendi native corner
+  // configuration'ıyla çizer (squircle + rim lighting) — radius CAM view'ün
+  // stilinde olmalı, dış sarmalayıcıda RN clip maskesi OLMAMALI.
+  const radiusAnim = useAnimatedStyle(() => ({
+    borderRadius: interpolate(tabBarCollapsed.value, [0, 1], [PILL_H, PILL_H_COLLAPSED]) / 2,
+  }));
+  const labelAnim = useAnimatedStyle(() => ({
+    height: interpolate(tabBarCollapsed.value, [0, 1], [LABEL_H, 0]),
+    opacity: interpolate(tabBarCollapsed.value, [0, 1], [1, 0]),
+    marginTop: interpolate(tabBarCollapsed.value, [0, 1], [2, 0]),
+  }));
+  const activePillAnim = useAnimatedStyle(() => {
+    const c = tabBarCollapsed.value;
+    // İç yarıçap = dış yarıçap − INNER_GAP. Dış yarıçap barH/2 olduğundan bu,
+    // iç pill'in de tam kapsül olması demek (yüksekliği barH − 2·INNER_GAP).
+    // Dış köşe animasyonlu → iç köşe de animasyonlu olmalı; sabit bırakılırsa
+    // yalnız tek durumda hizalı olur (eskiden sabit 20: açıkken 6px hatalı).
+    const innerRadius = (interpolate(c, [0, 1], [PILL_H, PILL_H_COLLAPSED]) - INNER_GAP * 2) / 2;
+    if (fullRowContent <= 0 || n <= 0) {
+      return { width: 0, opacity: 0, borderRadius: innerRadius, transform: [{ translateX: 0 }] };
+    }
+    const slot = (fullRowContent - c * 2 * NARROW) / n;
+    return {
+      width: slot - PILL_INSET * 2,
+      opacity: 1,
+      borderRadius: innerRadius,
+      transform: [{ translateX: idx.value * slot }],
+    };
+  });
+
+  const onOuterLayout = useCallback((e: LayoutChangeEvent) => {
+    setOuterW(e.nativeEvent.layout.width);
+  }, []);
+
+  // activeTab ref'i: hızlı sürüklemede segments gecikirse mükerrer navigasyonu eler.
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+
+  const tick = useCallback(() => {
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, []);
+
+  /**
+   * Bağımlılıkları REF'te tutuluyor — commitIndex, dolayısıyla panGesture SABİT kalsın.
+   *
+   * Her navigasyonda `segments` değişiyor ve `visibleTabs` yeni bir dizi oluyordu;
+   * bunlar dependency olsaydı commitIndex → panGesture yeniden üretilir,
+   * GestureDetector native jestleri her sekme değişiminde yeniden bağlardı.
+   * Ard arda sekme değiştirmede hissedilen kare düşmesinin kaynaklarından biri buydu.
+   */
+  const visibleTabsRef = useRef(visibleTabs);
+  visibleTabsRef.current = visibleTabs;
+  const segmentsRef = useRef(segments);
+  segmentsRef.current = segments;
+
+  /** Verilen indeksteki sekmeye git. Yalnız parmak kalkınca çağrılır. */
+  const commitIndex = useCallback((i: number) => {
+    const tab = visibleTabsRef.current[i];
+    if (!tab) return;
+    const seg = segmentsRef.current as string[];
+    const onTabRoot = seg[0] === '(tabs)';
+    // Aktif sekme + ZATEN kökündeyiz → o sekmenin listesini en üste kaydır.
+    // Aksi halde köke git: farklı sekme (JUMP) VEYA aynı sekmenin alt-sayfası
+    // (ör. cari detay → Cariler'e basınca cari listesine dön = dismissTo/POP_TO).
+    if (tab.key === activeTabRef.current && onTabRoot) {
+      scrollTabToTop(tab.key);
+    } else {
+      goToTab(router, seg, tab.route);
+    }
+  }, [router]);
+
+  /** Pan gerçekten AKTİFLEŞTİ mi — tıklamada Pan başlar ama aktifleşmez. */
+  const dragging = useSharedValue(false);
+  /** Basma geri bildirimi: hangi sekme (-1 = yok) ve ne kadar (0..1). */
+  const pressedIdx = useSharedValue(-1);
+  const pressAnim = useSharedValue(0);
+
+  /**
+   * TIKLAMA ve SÜRÜKLEME ayrı jestler, yarış halinde.
+   *
+   * Tek Pan ile denendi ve tıklama çalışmadı: dokunuş Pan'ı BAŞLATIYOR ama
+   * AKTİFLEŞTİRMİYOR (hareket yok), o yüzden bitiş yolu sürüklemedekinden
+   * farklı işliyordu. Ayrı Tap jesti bu belirsizliği tamamen kaldırır.
+   *
+   * - Tap  → anında o sekmeye geç (maxDistance 16: gerçek parmak birkaç px kayar,
+   *          varsayılan ~2px tolerans sıradan dokunuşları başarısız sayıyor)
+   * - Pan  → sürüklerken YALNIZ vurgu kayar; sayfa parmak kalkınca açılır.
+   *          activeOffsetX: 6px yatay hareket olmadan sürükleme sayılmaz.
+   *          failOffsetY: dikey hareket Pan'ı düşürür (liste scroll'uyla çakışmasın).
+   */
+  const panGesture = useMemo(() => {
+    /**
+     * Vurguyu parmağın altındaki sekmeye taşı — TAMAMEN UI THREAD'DE.
+     *
+     * Eskiden bu runOnJS ile JS thread'inde yapılıyordu; sekme değişiminde JS
+     * thread navigasyon ve ekran mount'uyla dolduğu için yay geç başlıyor,
+     * hareket takılıyordu. Burada yayı UI thread'i sürüyor → JS ne kadar meşgul
+     * olursa olsun vurgu akıcı. JS'e yalnız haptik bırakıldı.
+     *
+     * Dönüş: hedef indeks (-1 = ölçüm yok).
+     */
+    /** x → sekme indeksi (-1 = ölçüm yok). Saf hesap, yan etkisiz. */
+    const indexAtX = (x: number) => {
+      'worklet';
+      if (fullRowContent <= 0 || n <= 0) return -1;
+      const slot = (fullRowContent - tabBarCollapsed.value * 2 * NARROW) / n;
+      if (slot <= 0) return -1;
+      return Math.max(0, Math.min(n - 1, Math.floor((x - ROW_PAD) / slot)));
+    };
+
+    const moveHighlight = (x: number, animated: boolean) => {
+      'worklet';
+      const i = indexAtX(x);
+      if (i < 0) return -1;
+      if (i !== targetIdx.value) {
+        targetIdx.value = i;
+        // TIKLAMADA ANINDA (animated=false), YALNIZ SÜRÜKLEMEDE YAY.
+        // Tıklamada yay, navigasyonun JS işiyle aynı ana denk geldiği için
+        // kare düşürüyordu; anında atlayınca takılacak bir animasyon kalmıyor.
+        idx.value = animated ? withSpring(i, SLIDE_SPRING) : i;
+        // Sürüklemede sınır geçişlerinde tık; tıklamanın tığı onBegin'de
+        // (parmak değince, beklemeden — FAB'daki his gibi).
+        if (animated) runOnJS(tick)();
+      }
+      return i;
+    };
+
+    /** Basma geri bildirimini bırak (parmak kalkınca / sürükleme devralınca). */
+    const releasePress = () => {
+      'worklet';
+      pressAnim.value = withTiming(0, { duration: 160 });
+    };
+
+    const pan = Gesture.Pan()
+      .activeOffsetX([-6, 6])
+      .failOffsetY([-14, 14])
+      .onStart((e) => {
+        dragging.value = true;
+        releasePress(); // sürükleme başladı — basma efekti sekmeye yapışık kalmasın
+        moveHighlight(e.x, true);
+      })
+      .onUpdate((e) => {
+        moveHighlight(e.x, true);
+      })
+      .onFinalize(() => {
+        if (!dragging.value) return;
+        dragging.value = false;
+        if (targetIdx.value >= 0) runOnJS(commitIndex)(targetIdx.value);
+      });
+
+    const tap = Gesture.Tap()
+      .maxDistance(16)
+      .maxDuration(400)
+      .onBegin((e) => {
+        // Parmak DEĞER DEĞMEZ tepki: sekme hafifçe küçülüp solar + haptik.
+        const i = indexAtX(e.x);
+        if (i < 0) return;
+        pressedIdx.value = i;
+        pressAnim.value = withTiming(1, { duration: 90 });
+        runOnJS(tick)();
+      })
+      .onEnd((e, success) => {
+        if (!success) return;
+        const i = moveHighlight(e.x, false);
+        if (i >= 0) runOnJS(commitIndex)(i);
+      })
+      .onFinalize(() => {
+        releasePress();
+      });
+
+    return Gesture.Race(pan, tap);
+  }, [fullRowContent, n, idx, targetIdx, dragging, pressedIdx, pressAnim, tick, commitIndex]);
+
   if (activeTab === null) return null;
 
-  const tabBarHeight = 52 + insets.bottom;
-  const tabBarPaddingBottom = 8 + insets.bottom;
+  const bottomInset = insets.bottom > 0 ? insets.bottom : 10;
 
-  const handlePress = (tab: TabConfig) => {
-    if (Platform.OS !== 'web') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    // (tabs) DIŞINDAKİ bir ekrandan (detay/rapor/form) sekmeye basınca kök Stack'i mevcut (tabs)'a
-    // COLLAPSE et (dismissTo/POP_TO); İÇİNDEYKEN sekme geçişi (navigate/JUMP_TO). Detay: src/lib/tabNav.ts.
-    // ⚠️ Eski kod düz `router.navigate` kullanıyordu — RN7'de navigate var-olan (tabs)'a POP'lamadığı
-    // için her basışta YENİ (tabs) kopyası yığıyordu (sonsuz swipe-back + gezindikçe yavaşlama).
-    goToTab(router, segments as string[], tab.route);
-  };
+  /** Bar'ın içi — cam ve fallback yollarının İKİSİNDE de aynı, tek yerde tanımlı. */
+  const barContent = (
+    <GestureDetector gesture={panGesture}>
+      <View style={styles.row}>
+        {fullRowContent > 0 ? (
+          <Animated.View style={[styles.activePill, activePillAnim]} />
+        ) : null}
+
+        {visibleTabs.map((tab, i) => (
+          <TabBarItem
+            key={tab.key}
+            index={i}
+            Icon={tab.icon}
+            label={t(tab.labelKey)}
+            focused={activeTab === tab.key}
+            labelAnim={labelAnim}
+            pressedIdx={pressedIdx}
+            pressAnim={pressAnim}
+          />
+        ))}
+      </View>
+    </GestureDetector>
+  );
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          height: tabBarHeight,
-          paddingBottom: tabBarPaddingBottom,
-        },
-      ]}
-    >
-      {TABS.map((tab) => {
-        // Permission check
-        if (tab.module && !canAccessModule(tab.module)) return null;
-
-        const focused = activeTab === tab.key;
-        const color = focused ? colors.primary : colors.textMuted;
-
-        return (
-          <TouchableOpacity
-            key={tab.key}
-            style={styles.tabButton}
-            activeOpacity={0.7}
-            onPress={() => handlePress(tab)}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: focused }}
-          >
-            <TabIcon Icon={tab.icon} color={color} focused={focused} />
-            <Text
-              style={[
-                styles.label,
-                { color },
-              ]}
-              numberOfLines={1}
+    <View style={styles.outer} pointerEvents="box-none" onLayout={onOuterLayout}>
+      <View pointerEvents="box-none" style={{ paddingTop: TOP_PAD, paddingBottom: bottomInset }}>
+        {/**
+          * İKİ KATMAN, ikisi de gerekli:
+          *
+          * DIŞ (düz Animated.View) → daralma animasyonunu taşır. Bu animasyon
+          * LAYOUT sürüyor (yükseklik + marginHorizontal); bir ara native cam
+          * view'e verilmişti ve daralma çalışmayı bıraktı — layout prop'ları
+          * düz RN view'de sürülmeli.
+          *
+          * İÇ (cam) → içeriğin EBEVEYNİ olmalı, arka planda duran bir kardeş
+          * katman değil: iOS 26'nın dokunma tepkisi (isInteractive) camın
+          * dokunuşu GÖRMESİNİ gerektiriyor. flex:1 ile dışı dolduruyor — cam
+          * yüzeye açık ölçü vermek de ayrı bir gereklilik (bkz. GlassSurface).
+          *
+          * Köşe yarıçapı camın kendi stilinde (native squircle + rim lighting);
+          * dış sarmalayıcıda RN clip maskesi YOK.
+          */}
+        <Animated.View style={barAnim}>
+          {AnimatedGlassView ? (
+            <AnimatedGlassView
+              glassEffectStyle="regular"
+              // tintColor = paketin native API'si (UIGlassEffect.tintColor);
+              // backgroundColor camın ÜSTÜNE düz katman koyup lensing'i perdeler.
+              tintColor={GLASS_TINT}
+              isInteractive
+              style={[styles.glass, styles.fill, radiusAnim]}
             >
-              {t(tab.labelKey)}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+              {barContent}
+            </AnimatedGlassView>
+          ) : (
+            // iOS<26 + Android: bugünkü görünüm (blur + frost overlay), clip'li.
+            <Animated.View style={[styles.fallbackClip, styles.fill, radiusAnim]}>
+              <BlurView
+                intensity={FALLBACK_BLUR_INTENSITY}
+                tint="light"
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.pillOverlay} />
+              {barContent}
+            </Animated.View>
+          )}
+        </Animated.View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+  },
+  // Liquid glass: köşe geometrisi cam view'ün KENDİ stilinde (native squircle +
+  // rim lighting) — dış clip maskesi, gölge ve border YOK. Tint `tintColor`
+  // prop'uyla (styles'ta backgroundColor ile DEĞİL) — bkz. GLASS_TINT.
+  glass: {
+    borderCurve: 'continuous',
+  },
+  /** Cam/fallback katmanı dış sarmalayıcıyı doldurur — açık ölçü, boyutsuz değil. */
+  fill: {
+    flex: 1,
+  },
+  // iOS<26 + Android fallback: bugüne kadarki görünüm.
+  fallbackClip: {
+    overflow: 'hidden',
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0,0,0,0.06)',
+    // GLASS: iOS'ta ŞEFFAF — BlurView alttaki içeriği buğulandırsın (beyazı değil). Android: beyaz.
+    backgroundColor: Platform.OS === 'android' ? colors.surface : 'transparent',
+    elevation: 8,
+  },
+  pillOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    // Frost katmanı — alttan kayan içerik görünsün diye hafif. Değer
+    // GlassSurface'ta ortak (cam yolundaki tint'le birlikte ayarlanır).
+    backgroundColor: FALLBACK_FROST,
+  },
+  row: {
+    flex: 1,
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderTopColor: colors.borderLight,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 0,
+    paddingHorizontal: ROW_PAD,
+    alignItems: 'stretch',
+  },
+  activePill: {
+    position: 'absolute',
+    // Yatay ve dikey boşluk EŞİT (INNER_GAP) — eşmerkezli köşenin ön koşulu.
+    left: ROW_PAD + PILL_INSET,
+    top: PILL_INSET + PILL_GAP_V,
+    bottom: PILL_INSET + PILL_GAP_V,
+    borderCurve: 'continuous',
+    backgroundColor: colors.primaryLight,
+    // borderRadius activePillAnim'de (dış köşeyle birlikte animasyonlu).
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 8,
+    gap: 0,
+  },
+  labelWrap: {
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   label: {
     fontSize: 10,
-    fontWeight: '500',
-    marginTop: 4,
-    marginBottom: 4,
   },
 });

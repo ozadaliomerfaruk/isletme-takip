@@ -8,13 +8,15 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { LineChart } from 'react-native-gifted-charts';
 import { Filter, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { Text } from '@/components/ui';
 import { useAnalyticsTrend } from '@/hooks/useAnalyticsTrend';
 import { useSettings } from '@/hooks/useSettings';
 import { TrendFilterModal } from '@/components/reports';
+import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
 import { formatCurrency, formatCurrencyCompact } from '@/lib/currency';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
@@ -22,9 +24,17 @@ import type { WidgetProps, TrendFilter } from '@/types/analytics';
 
 type MetricType = 'income' | 'expense' | 'net';
 
+interface TrendChartWidgetProps extends WidgetProps {
+  isCustomRange?: boolean;
+}
+
 // React.memo: dashboard'da İLGİSİZ bir re-render (başka widget'ın verisi değişince parent yeniden
 // render) bu SVG bar-grafiği yeniden çizmesin. Kendi verisi (useAnalyticsTrend) değişirse yine güncellenir.
-export const TrendChartWidget = React.memo(function TrendChartWidget({ period, dateRange }: WidgetProps) {
+export const TrendChartWidget = React.memo(function TrendChartWidget({
+  period,
+  dateRange,
+  isCustomRange = false,
+}: TrendChartWidgetProps) {
   const { t } = useTranslation('analytics');
   const { currency } = useSettings();
 
@@ -33,7 +43,12 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Pass filter and dateRange to hook
-  const trend = useAnalyticsTrend(period, activeFilter, dateRange);
+  const trend = useAnalyticsTrend(
+    period,
+    activeFilter,
+    dateRange,
+    isCustomRange,
+  );
 
   const [selectedMetric, setSelectedMetric] = useState<MetricType>('net');
 
@@ -44,7 +59,7 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t('trend.title')}</Text>
+          <Text variant="bodySmall" color="secondary" style={styles.title}>{t('trend.title')}</Text>
         </View>
         <View style={styles.skeletonChart} />
       </View>
@@ -110,7 +125,7 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.title}>{t('trend.title')}</Text>
+          <Text variant="bodySmall" color="secondary" style={styles.title}>{t('trend.title')}</Text>
           {/* Filter Button */}
           <TouchableOpacity
             style={[styles.filterButton, activeFilter && styles.filterButtonActive]}
@@ -132,10 +147,9 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
               onPress={() => setSelectedMetric(metric)}
             >
               <Text
-                style={[
-                  styles.toggleText,
-                  selectedMetric === metric && styles.toggleTextActive,
-                ]}
+                variant="label"
+                color="muted"
+                style={selectedMetric === metric ? styles.toggleTextActive : undefined}
               >
                 {t(`trend.${metric}`)}
               </Text>
@@ -197,8 +211,9 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
               const v = it.trueValue ?? 0;
               return (
                 <View style={styles.pointerLabel}>
-                  <Text style={styles.pointerMonth} numberOfLines={1}>{it.monthLabel}</Text>
+                  <Text variant="caption" color="muted" style={styles.pointerMonth} numberOfLines={1}>{it.monthLabel}</Text>
                   <Text
+                    variant="caption"
                     style={[styles.pointerValue, { color: v >= 0 ? colors.success : colors.error }]}
                     numberOfLines={1}
                   >
@@ -211,27 +226,27 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
         />
       </View>
 
+      <ConversionIncompleteWarning visible={trend.conversionIncomplete} />
+
       {/* Summary Row */}
       <View style={styles.summaryRow}>
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>{t('labels.total')}</Text>
+          <Text variant="caption" color="muted" style={styles.summaryLabel}>{t('labels.total')}</Text>
           <Text
-            style={[
-              styles.summaryValue,
-              total < 0 && styles.summaryValueNegative,
-            ]}
+            variant="h3"
+            bold
+            style={total < 0 ? styles.summaryValueNegative : undefined}
           >
             {formatCurrency(total, currency)}
           </Text>
         </View>
         <View style={styles.summaryDivider} />
         <View style={styles.summaryItem}>
-          <Text style={styles.summaryLabel}>{t('labels.average')}</Text>
+          <Text variant="caption" color="muted" style={styles.summaryLabel}>{t('labels.average')}</Text>
           <Text
-            style={[
-              styles.summaryValue,
-              average < 0 && styles.summaryValueNegative,
-            ]}
+            variant="h3"
+            bold
+            style={average < 0 ? styles.summaryValueNegative : undefined}
           >
             {formatCurrency(average, currency)}
           </Text>
@@ -242,10 +257,10 @@ export const TrendChartWidget = React.memo(function TrendChartWidget({ period, d
       {activeFilter && (
         <View style={styles.filterChipContainer}>
           <View style={styles.filterChip}>
-            <Text style={styles.filterChipLabel}>
+            <Text variant="caption" color="muted">
               {t(`filter.types.${activeFilter.type}`)}:
             </Text>
-            <Text style={styles.filterChipValue}>{activeFilter.label}</Text>
+            <Text variant="caption" style={styles.filterChipValue}>{activeFilter.label}</Text>
             <TouchableOpacity
               style={styles.filterChipClose}
               onPress={() => setActiveFilter(null)}
@@ -286,10 +301,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
+  // Tipografi/renk artık Text variant'ından geliyor; burada yalnız variant tablosunda
+  // birebir karşılığı OLMAYAN ölçüler (11/13px) ve biçim override'ları kalır.
+  // (yAxisText/xAxisLabel Text'e değil grafiğe prop olarak gider — dokunulmadı.)
   title: {
-    fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -322,11 +338,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-  },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textMuted,
   },
   toggleTextActive: {
     color: colors.text,
@@ -364,7 +375,6 @@ const styles = StyleSheet.create({
   },
   pointerMonth: {
     fontSize: 11,
-    color: colors.textMuted,
     marginBottom: 2,
   },
   pointerValue: {
@@ -385,13 +395,7 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: colors.textMuted,
     marginBottom: spacing.xs,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
   },
   summaryValueNegative: {
     color: colors.error,
@@ -418,12 +422,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     gap: spacing.xs,
   },
-  filterChipLabel: {
-    fontSize: 12,
-    color: colors.textMuted,
-  },
   filterChipValue: {
-    fontSize: 12,
     fontWeight: '600',
     color: colors.primary,
   },

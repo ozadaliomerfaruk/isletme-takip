@@ -6,9 +6,10 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { PieChart } from 'react-native-gifted-charts';
 import { useTranslation } from 'react-i18next';
+import { Text } from '@/components/ui';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { useSettings } from '@/hooks/useSettings';
 import { formatCurrency } from '@/lib/currency';
@@ -85,7 +86,9 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
 
   const handleCategoryPress = (kategoriId: string | null) => {
     if (kategoriId) {
-      onNavigate(`/raporlar/kategori/${kategoriId}`);
+      // type ŞART: detay sayfası paramı okumazsa gelir/gider yönünü bilemez ve
+      // varsayılan olarak GELİR'i sorgular → gider kategorisine basınca boş sayfa.
+      onNavigate(`/raporlar/kategori/${kategoriId}`, { type: selectedType });
     }
   };
 
@@ -93,7 +96,7 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
     return (
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={styles.title}>{t('category.title')}</Text>
+          <Text variant="bodySmall" color="secondary" style={styles.title}>{t('category.title')}</Text>
         </View>
         <View style={styles.skeletonChart} />
       </View>
@@ -107,7 +110,7 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{t('category.title')}</Text>
+        <Text variant="bodySmall" color="secondary" style={styles.title}>{t('category.title')}</Text>
 
         {/* Type Toggle */}
         <View style={styles.toggleContainer}>
@@ -121,10 +124,9 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
               onPress={() => setSelectedType(type)}
             >
               <Text
-                style={[
-                  styles.toggleText,
-                  selectedType === type && styles.toggleTextActive,
-                ]}
+                variant="label"
+                color="muted"
+                style={selectedType === type ? styles.toggleTextActive : undefined}
               >
                 {t(`category.${type === 'gider' ? 'expense' : 'income'}`)}
               </Text>
@@ -135,7 +137,7 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
 
       {chartData.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{t('empty.noData')}</Text>
+          <Text variant="bodySmall" color="muted">{t('empty.noData')}</Text>
         </View>
       ) : (
         <View style={styles.chartRow}>
@@ -148,8 +150,9 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
               innerRadius={45}
               centerLabelComponent={() => (
                 <View style={styles.centerLabel}>
-                  <Text style={styles.centerLabelTitle}>{totalLabel}</Text>
+                  <Text variant="caption" color="muted" style={styles.centerLabelTitle}>{totalLabel}</Text>
                   <Text
+                    variant="caption"
                     style={styles.centerLabelValue}
                     numberOfLines={1}
                     adjustsFontSizeToFit
@@ -173,14 +176,14 @@ export const CategoryDonutWidget = React.memo(function CategoryDonutWidget({
               >
                 <View style={[styles.legendDot, { backgroundColor: item.color }]} />
                 <View style={styles.legendTextContainer}>
-                  <Text style={styles.legendName} numberOfLines={1}>
+                  <Text variant="caption" style={styles.legendName} numberOfLines={1}>
                     {item.name}
                   </Text>
                   <View style={styles.legendValues}>
-                    <Text style={styles.legendAmount} numberOfLines={1}>
+                    <Text variant="caption" style={styles.legendAmount} numberOfLines={1}>
                       {formatCurrency(item.value, currency)}
                     </Text>
-                    <Text style={styles.legendPercent}>
+                    <Text variant="caption" color="muted">
                       {item.percentage.toFixed(0)}%
                     </Text>
                   </View>
@@ -208,10 +211,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.lg,
   },
+  // Tipografi/renk artık Text variant'ından geliyor; burada yalnız variant tablosunda
+  // birebir karşılığı OLMAYAN ölçüler (10/13px) ve biçim override'ları kalır.
   title: {
-    fontSize: 14,
     fontWeight: '600',
-    color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -234,11 +237,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  toggleText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textMuted,
-  },
   toggleTextActive: {
     color: colors.text,
   },
@@ -256,13 +254,10 @@ const styles = StyleSheet.create({
   },
   centerLabelTitle: {
     fontSize: 10,
-    color: colors.textMuted,
     marginBottom: 2,
   },
   centerLabelValue: {
-    fontSize: 12,
     fontWeight: '600',
-    color: colors.text,
     maxWidth: 70,
     textAlign: 'center',
   },
@@ -287,7 +282,6 @@ const styles = StyleSheet.create({
   },
   legendName: {
     fontSize: 13,
-    color: colors.text,
     marginBottom: 1,
   },
   legendValues: {
@@ -298,12 +292,7 @@ const styles = StyleSheet.create({
   legendAmount: {
     fontSize: 13,
     fontWeight: '600',
-    color: colors.text,
     flexShrink: 1,
-  },
-  legendPercent: {
-    fontSize: 12,
-    color: colors.textMuted,
   },
   skeletonChart: {
     height: 160,
@@ -314,9 +303,5 @@ const styles = StyleSheet.create({
     height: 120,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: colors.textMuted,
   },
 });

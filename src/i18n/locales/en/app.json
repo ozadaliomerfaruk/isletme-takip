@@ -1,4 +1,12 @@
 {
-  "CFBundleDisplayName": "Small Business Finance",
-  "CFBundleName": "Small Business Finance"
+  "ios": {
+    "CFBundleDisplayName": "Small Business Finance",
+    "CFBundleName": "Small Business Finance",
+    "NSContactsUsageDescription": "Contacts are used only to copy the selected person's name and phone number into a contact or staff form.",
+    "NSCameraUsageDescription": "Camera access is used only when you choose to photograph an invoice or document.",
+    "NSPhotoLibraryUsageDescription": "Photo library access is used only when you choose to attach a photo, invoice, or document."
+  },
+  "android": {
+    "app_name": "Small Business Finance"
+  }
 }

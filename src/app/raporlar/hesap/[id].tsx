@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo } from 'react';
-import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { Alert, View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import {
   TrendingUp,
@@ -15,19 +15,30 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Button, Card } from '@/components/ui';
+import { Text, Button, Card, Screen } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
+import { ProductDetailModal } from '@/components/transaction/ProductDetailModal';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, signedCurrencyText } from '@/lib/currency';
+import { getDateRange } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { useIncomeSourceTransactions, IncomeSourceKind } from '@/hooks/useAccountReport';
-import { usePagePermission } from '@/hooks/usePagePermission';
+import {
+  isIncomeSourceKind,
+  useIncomeSourceTransactions,
+} from '@/hooks/useAccountReport';
 import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, convertCurrency } from '@/hooks/useExchangeRates';
 import { IslemWithRelations, KategoriType } from '@/types/database';
 import { isIncomeReturnType } from '@/constants/islemTypes';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { getTransactionActionDeniedMessageKey } from '@/lib/errors';
+import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
+import { useUrunKalemlerByIslemIds } from '@/hooks/useUrunHareketler';
+import { getTransactionProductMutationDecision } from '@/lib/transactionProductMutationGate';
+import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
 
 /**
  * Kaynak ikonu: IncomeSourceCard META haritasıyla birebir. Arama anahtarı
@@ -50,7 +61,7 @@ const SOURCE_META: Record<string, { icon: LucideIcon; color: string }> = {
  * tıklanınca açılır.
  */
 export default function HesapRaporDetayPage() {
-  usePagePermission({ module: 'raporlar' });
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['reports', 'transactions', 'common']);
   const { formatDateMedium } = useDateFormat();
   const params = useLocalSearchParams<{
@@ -65,10 +76,19 @@ export default function HesapRaporDetayPage() {
   const sourceId = params.id;
   const hesapName = params.hesapName || '—';
   const hesapCurrency = params.hesapCurrency || 'TRY';
-  const kind = (params.kind as IncomeSourceKind) || 'hesap';
+  const rawKind = Array.isArray(params.kind) ? params.kind[0] : params.kind;
+  // Eski dahili linklerde kind olmayabilir; yalnız o durumda hesap varsayımı
+  // korunur. Bilinmeyen açık bir değer hiçbir kaynak sorgusuna düşmez.
+  const kind =
+    rawKind === undefined
+      ? 'hesap'
+      : isIncomeSourceKind(rawKind)
+        ? rawKind
+        : null;
   const type = (params.type as KategoriType) || 'gelir';
-  const startDate = params.startDate || '';
-  const endDate = params.endDate || '';
+  const defaultDateRange = useMemo(() => getDateRange('monthly', 0), []);
+  const startDate = params.startDate || defaultDateRange.startDate;
+  const endDate = params.endDate || defaultDateRange.endDate;
   const isGelir = type !== 'gider';
 
   const { currency: baseCurrency } = useSettings();
@@ -80,17 +100,133 @@ export default function HesapRaporDetayPage() {
     sourceId,
     { startDate, endDate }
   );
+  const { user, isletme } = useAuthContext();
+  const {
+    canAccessModule,
+    canUpdate,
+    isOwner,
+  } = usePermissions();
+  const reportTransactionIds = useMemo(
+    () => (islemler || []).map((transaction) => transaction.id),
+    [islemler],
+  );
+  const {
+    getProductItemCount,
+    isProductItemsResolved,
+  } = useUrunKalemlerByIslemIds(reportTransactionIds, true);
 
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
-  const handleEdit = useCallback((id: string) => {
-    setEditTransactionId(id);
+  const [pendingTransactionOpenId, setPendingTransactionOpenId] = useState<string | null>(null);
+  const [productDetailIslemId, setProductDetailIslemId] = useState<string | null>(null);
+  const canUpdateTransaction = useCallback(
+    (transaction: IslemWithRelations): boolean => {
+      if (transaction.isletme_id !== isletme?.id) return false;
+      const createdBy = transaction.created_by ?? null;
+      return getTransactionProductMutationDecision({
+        type: transaction.type,
+        productItemsResolved: isProductItemsResolved,
+        productItemCount: getProductItemCount(transaction.id),
+        isOwner,
+        canAccessModule,
+        canMutateTransaction: canUpdate('islemler', createdBy),
+        canMutateProduct: canUpdate('urunler', createdBy),
+      }).allowed;
+    },
+    [
+      canAccessModule,
+      canUpdate,
+      getProductItemCount,
+      isOwner,
+      isProductItemsResolved,
+      isletme?.id,
+    ],
+  );
+  const openResolvedTransaction = useCallback((transaction: IslemWithRelations) => {
+    if (getProductItemCount(transaction.id) > 0) {
+      setProductDetailIslemId(transaction.id);
+      return;
+    }
+    const createdBy = transaction.created_by ?? null;
+    const hasSourceAccess = canAccessTransactionSources(
+      [transaction.type],
+      canAccessModule,
+    );
+    const canUpdateRecord = canUpdateTransaction(transaction);
+    if (!canUpdateRecord) {
+      const messageKey = getTransactionActionDeniedMessageKey('update', {
+        createdBy,
+        currentUserId: user?.id,
+        canActOnOwnRecord:
+          transaction.isletme_id === isletme?.id
+          && hasSourceAccess
+          && !!user?.id
+          && canUpdate('islemler', user.id),
+        canActOnRecord: canUpdateRecord,
+      });
+      Alert.alert(
+        t('common:status.error'),
+        t(messageKey),
+      );
+      return;
+    }
+    setEditTransactionId(transaction.id);
     setShowEditBar(true);
-  }, []);
+  }, [
+    canAccessModule,
+    canUpdate,
+    canUpdateTransaction,
+    getProductItemCount,
+    isletme?.id,
+    t,
+    user?.id,
+  ]);
+  const handleEdit = useCallback((transaction: IslemWithRelations) => {
+    if (!isProductItemsResolved) {
+      setPendingTransactionOpenId(transaction.id);
+      return;
+    }
+    openResolvedTransaction(transaction);
+  }, [isProductItemsResolved, openResolvedTransaction]);
+
+  useEffect(() => {
+    if (!pendingTransactionOpenId || !isProductItemsResolved) return;
+
+    const transaction = (islemler || []).find(
+      (item) => item.id === pendingTransactionOpenId,
+    );
+    setPendingTransactionOpenId(null);
+    if (transaction) openResolvedTransaction(transaction);
+  }, [
+    isProductItemsResolved,
+    islemler,
+    openResolvedTransaction,
+    pendingTransactionOpenId,
+  ]);
   const handleEditDismiss = useCallback(() => {
     setShowEditBar(false);
     setEditTransactionId(null);
   }, []);
+  const editTransaction = editTransactionId
+    ? (islemler || []).find((item) => item.id === editTransactionId)
+    : undefined;
+  const canRenderEditTransactionBar =
+    !!editTransaction && canUpdateTransaction(editTransaction);
+  const productDetailTransaction = productDetailIslemId
+    ? (islemler || []).find((item) => item.id === productDetailIslemId)
+    : undefined;
+  const canEditProductDetailTransaction =
+    !!productDetailTransaction
+    && canUpdateTransaction(productDetailTransaction);
+
+  useEffect(() => {
+    if (!showEditBar || canRenderEditTransactionBar) return;
+    handleEditDismiss();
+  }, [
+    canRenderEditTransactionBar,
+    handleEditDismiss,
+    showEditBar,
+  ]);
 
   // Toplam hesabın KENDİ para biriminde; iadeler (cari_satis_iade) DÜŞÜLÜR → net.
   const total = useMemo(
@@ -109,7 +245,7 @@ export default function HesapRaporDetayPage() {
 
   // Kaynak ikonu: hesap alt-tipi params'ta yok → ilk işlemin hesabından türet ('diger' fallback).
   const accountType = (islemler?.[0]?.hesap?.type as string) || 'diger';
-  const metaKey = kind === 'hesap' ? accountType : kind;
+  const metaKey = kind === 'hesap' ? accountType : kind ?? 'diger';
   const sourceMeta = SOURCE_META[metaKey] ?? SOURCE_META.diger;
   const SourceIcon = sourceMeta.icon;
 
@@ -132,7 +268,7 @@ export default function HesapRaporDetayPage() {
       const isReturn = isIncomeReturnType(item.type);
       const positive = isGelir && !isReturn;
       return (
-        <TouchableOpacity style={styles.islemCard} onPress={() => handleEdit(item.id)} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.islemCard} onPress={() => handleEdit(item)} activeOpacity={0.7}>
           <View style={styles.islemHeader}>
             <View style={styles.islemLeft}>
               <View style={[styles.islemIconContainer, { backgroundColor: positive ? colors.successLight : colors.errorLight }]}>
@@ -199,12 +335,15 @@ export default function HesapRaporDetayPage() {
           {/* Kolon 1: renkli NATIVE toplam (+ farklı para biriminde ana karşılığı) */}
           <View style={styles.statItem}>
             <Text variant="caption" color="secondary">{t('reports:summary.totalAmount')}</Text>
-            <Text variant="h2" color={isGelir ? 'success' : 'error'}>
-              {formatCurrency(total, hesapCurrency)}
+            {/* Toplam iade netlendiği için NEGATİF olabilir (iade > satış). Renk yalnız
+                tipe bağlıyken böyle bir kaynak hem artı hem YEŞİL görünüyordu; negatifte
+                işaret de renk de tersine döner. */}
+            <Text variant="h2" color={total < 0 ? (isGelir ? 'error' : 'success') : (isGelir ? 'success' : 'error')}>
+              {signedCurrencyText(total, hesapCurrency)}
             </Text>
             {baseTotal !== null && (
               <Text variant="caption" color="secondary">
-                ≈ {formatCurrency(baseTotal, baseCurrency)}
+                ≈ {signedCurrencyText(baseTotal, baseCurrency)}
               </Text>
             )}
           </View>
@@ -223,7 +362,7 @@ export default function HesapRaporDetayPage() {
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <Stack.Screen options={{ title: hesapName, headerBackVisible: true, gestureEnabled: true }} />
 
       {isLoading ? (
@@ -243,9 +382,9 @@ export default function HesapRaporDetayPage() {
           keyExtractor={(i) => i.id}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           refreshControl={
-            <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} tintColor={colors.primary} />
+            <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} colors={[colors.primary]} tintColor={colors.primary} />
           }
           ListEmptyComponent={
             <View style={styles.stateBox}>
@@ -256,20 +395,41 @@ export default function HesapRaporDetayPage() {
       )}
 
       {/* Düzenleme için QuickTransactionBar */}
-      <QuickTransactionBar
-        visible={showEditBar}
-        onDismiss={handleEditDismiss}
-        mode="edit"
-        transactionId={editTransactionId ?? undefined}
-        isScheduledTransaction={false}
-        onSuccess={handleEditDismiss}
+      {canRenderEditTransactionBar && (
+        <QuickTransactionBar
+          visible={showEditBar && canRenderEditTransactionBar}
+          onDismiss={handleEditDismiss}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          defaultHesapId={editTransaction?.hesap_id ?? undefined}
+          defaultCariId={editTransaction?.cari_id ?? undefined}
+          defaultCariType={editTransaction?.cari?.type}
+          defaultPersonelId={editTransaction?.personel_id ?? undefined}
+          createScope={
+            editTransaction
+              ? getQuickTransactionScopeForApiType(editTransaction.type)
+                ?? undefined
+              : undefined
+          }
+          onSuccess={handleEditDismiss}
+        />
+      )}
+      <ProductDetailModal
+        islemId={productDetailIslemId}
+        currency={hesapCurrency}
+        onDismiss={() => setProductDetailIslemId(null)}
+        onEdit={canEditProductDetailTransaction ? (islemId) => {
+          setProductDetailIslemId(null);
+          setEditTransactionId(islemId);
+          setShowEditBar(true);
+        } : undefined}
       />
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
 
   // Özet Card
   summaryCard: { padding: spacing.lg, marginBottom: spacing.lg },

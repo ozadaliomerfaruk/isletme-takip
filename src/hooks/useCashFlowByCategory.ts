@@ -8,6 +8,8 @@ import { queryKeys } from '@/lib/queryKeys';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
+import { usePermissions } from './usePermissions';
+import { parseCashFlowReportProjectionRows } from '@/lib/reportPermissionProjection';
 
 /**
  * Supabase query sonucu için tip tanımı
@@ -20,7 +22,10 @@ interface CashFlowQueryItem {
   kategori_id: string | null;
   hesap_id: string | null;
   hedef_hesap_id: string | null;
-  kategori: Kategori | Kategori[] | null;
+  kategori:
+    | { id: string; name: string }
+    | { id: string; name: string }[]
+    | null;
   hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | { id: string; type: HesapType; is_active: boolean; currency: string | null }[] | null;
   hedef_hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | { id: string; type: HesapType; is_active: boolean; currency: string | null }[] | null;
   cari: { is_active: boolean | null } | { is_active: boolean | null }[] | null;
@@ -42,6 +47,15 @@ interface NormalizedCashFlowItem {
   hedef_hesap: { id: string; type: HesapType; is_active: boolean; currency: string | null } | null;
   cari: { is_active: boolean | null } | null;
   personel: { is_active: boolean | null } | null;
+}
+
+interface CashFlowContribution {
+  id: string;
+  flowKind: 'inflow' | 'outflow' | 'credit_card';
+  amount: number;
+  count: number;
+  currency: string;
+  kategori: Kategori | null;
 }
 
 /**
@@ -76,6 +90,7 @@ export interface CashFlowByCategoryResult {
   creditCardSpendingItems: CashFlowItem[];    // Kredi kartı harcamaları (kategorilere göre)
   allCreditCardSpendingItems: CashFlowItem[]; // Tüm kredi kartı harcama kategorileri
   totalCreditCardSpending: number;            // Toplam kredi kartı harcaması
+  conversionIncomplete: boolean;              // En az bir döviz işlemi kur olmadığı için dışarıda kaldı
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => Promise<unknown>;
@@ -86,6 +101,7 @@ interface UseCashFlowByCategoryOptions {
   startDate: string;
   endDate: string;
   limit?: number;  // Varsayılan 10
+  enabled?: boolean;
 }
 
 /**
@@ -116,7 +132,11 @@ export function useCashFlowByCategory(
   options: UseCashFlowByCategoryOptions
 ): CashFlowByCategoryResult {
   const { isletme } = useAuthContext();
-  const { startDate, endDate, limit = 10 } = options;
+  const { canAccessModule, isOwner } = usePermissions();
+  // Nakit akışı genel rapordur. Hesaplar-only kullanıcı yalnız hesap bağlamsal
+  // raporuna girebilir; bu işletme-geneli kırılım Raporlar izni gerektirir.
+  const canSeeCashFlow = canAccessModule('raporlar');
+  const { startDate, endDate, limit = 10, enabled = true } = options;
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const rates = exchangeRatesData?.rates;
@@ -134,12 +154,58 @@ export function useCashFlowByCategory(
   } = useQuery({
     queryKey: queryKeys.reports.cashFlowByCategory(isletme?.id || '', startDate, endDate),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeCashFlow || !isletme) return [];
 
-      // Transfer işlemlerini de dahil et (kredi kartına ödeme için)
+      if (!isOwner) {
+        const { data, error } = await supabase.rpc(
+          'get_nakit_akisi_raporu_v1',
+          {
+            p_isletme_id: isletme.id,
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+          },
+        );
+        if (error) throw error;
+
+        return parseCashFlowReportProjectionRows(data).map(
+          (row): CashFlowContribution => ({
+            id: [
+              row.flow_kind,
+              row.kategori_id ?? 'uncategorized',
+              row.currency,
+            ].join(':'),
+            flowKind: row.flow_kind,
+            amount: row.total_amount,
+            count: row.islem_count,
+            currency: row.currency,
+            kategori:
+              row.kategori_id === null
+                ? null
+                : {
+                    id: row.kategori_id,
+                    isletme_id: isletme.id,
+                    name: row.kategori_adi ?? '—',
+                    type:
+                      row.flow_kind === 'inflow' ? 'gelir' : 'gider',
+                    icon: null,
+                    color: row.kategori_renk,
+                    parent_id: null,
+                    mapped_gelir_kategori_id: null,
+                    mapped_gider_kategori_id: null,
+                    is_active: true,
+                    created_by: null,
+                    updated_by: null,
+                    created_at: '',
+                  },
+          }),
+        );
+      }
+
+      // Owner yolu mevcut doğrudan sorguyu korur. Shared reports-only kullanıcı
+      // yukarıdaki aggregate RPC'den başka tablo yüzeyine düşmez.
       const allTypes = [...CASH_INFLOW_TYPES, ...CASH_OUTFLOW_TYPES, 'transfer'];
 
-      const data = await fetchAllPages<any>(() =>
+      const data = await fetchAllPages<CashFlowQueryItem>(() =>
         supabase
           .from('islemler')
           .select(`
@@ -159,19 +225,53 @@ export function useCashFlowByCategory(
           .in('type', allTypes)
           .gte('date', startDateTime)
           .lte('date', endDateTime)
+          .order('date', { ascending: true })
+          .order('id', { ascending: true })
       );
 
       // Supabase bazen array döndürüyor, normalize et
       // Pasif hesap/cari/personel'deki işlemleri filtrele (rapor RPC'leriyle tutarlı)
-      return (data as CashFlowQueryItem[])
-        .map((item): NormalizedCashFlowItem => ({
-          ...item,
-          kategori: Array.isArray(item.kategori) ? item.kategori[0] || null : item.kategori,
-          hesap: Array.isArray(item.hesap) ? item.hesap[0] || null : item.hesap,
-          hedef_hesap: Array.isArray(item.hedef_hesap) ? item.hedef_hesap[0] || null : item.hedef_hesap,
-          cari: Array.isArray(item.cari) ? item.cari[0] || null : item.cari,
-          personel: Array.isArray(item.personel) ? item.personel[0] || null : item.personel,
-        }))
+      const normalized = data
+        .map((item): NormalizedCashFlowItem => {
+          const categoryRef = Array.isArray(item.kategori)
+            ? item.kategori[0] || null
+            : item.kategori;
+          const kategori: Kategori | null = categoryRef
+            ? {
+                id: categoryRef.id,
+                isletme_id: isletme.id,
+                name: categoryRef.name,
+                type: CASH_INFLOW_TYPES.includes(item.type as IslemType)
+                  ? 'gelir'
+                  : 'gider',
+                icon: null,
+                color: null,
+                parent_id: null,
+                mapped_gelir_kategori_id: null,
+                mapped_gider_kategori_id: null,
+                is_active: true,
+                created_by: null,
+                updated_by: null,
+                created_at: '',
+              }
+            : null;
+          return {
+            ...item,
+            kategori,
+            hesap: Array.isArray(item.hesap)
+              ? item.hesap[0] || null
+              : item.hesap,
+            hedef_hesap: Array.isArray(item.hedef_hesap)
+              ? item.hedef_hesap[0] || null
+              : item.hedef_hesap,
+            cari: Array.isArray(item.cari)
+              ? item.cari[0] || null
+              : item.cari,
+            personel: Array.isArray(item.personel)
+              ? item.personel[0] || null
+              : item.personel,
+          };
+        })
         .filter((item) => {
           // Pasif hesaplardaki işlemleri hariç tut
           if (item.hesap && !item.hesap.is_active) return false;
@@ -181,9 +281,84 @@ export function useCashFlowByCategory(
           if (item.personel?.is_active === false) return false;
           return true;
         });
+
+      const contributions: CashFlowContribution[] = [];
+      normalized.forEach((item) => {
+        const hesapType = item.hesap?.type;
+        const hedefHesapType = item.hedef_hesap?.type;
+        const currency = item.hesap?.currency || baseCurrency;
+        const kategori = item.kategori || null;
+        const amount = Number(item.amount);
+        const type = item.type as IslemType;
+
+        if (type === 'transfer') {
+          if (
+            hesapType
+            && CASH_ACCOUNT_TYPES.includes(hesapType)
+            && hedefHesapType === 'kredi_karti'
+          ) {
+            contributions.push({
+              id: item.id,
+              flowKind: 'outflow',
+              amount,
+              count: 1,
+              currency,
+              kategori,
+            });
+          }
+          return;
+        }
+
+        if (
+          CASH_INFLOW_TYPES.includes(type)
+          && hesapType
+          && CASH_ACCOUNT_TYPES.includes(hesapType)
+        ) {
+          contributions.push({
+            id: item.id,
+            flowKind: 'inflow',
+            amount,
+            count: 1,
+            currency,
+            kategori,
+          });
+        }
+
+        if (CASH_OUTFLOW_TYPES.includes(type)) {
+          if (hesapType === 'kredi_karti') {
+            contributions.push({
+              id: item.id,
+              flowKind: 'credit_card',
+              amount,
+              count: 1,
+              currency,
+              kategori,
+            });
+          } else if (
+            hesapType
+            && CASH_ACCOUNT_TYPES.includes(hesapType)
+          ) {
+            contributions.push({
+              id: item.id,
+              flowKind: 'outflow',
+              amount,
+              count: 1,
+              currency,
+              kategori,
+            });
+          }
+        }
+      });
+
+      return contributions;
     },
-    enabled: !!isletme && !!startDate && !!endDate,
-    meta: { query_purpose: 'islemler:cashflow' },
+    enabled: enabled && canSeeCashFlow && !!isletme && !!startDate && !!endDate,
+    meta: {
+      persist: isOwner,
+      query_purpose: isOwner
+        ? 'islemler:cashflow'
+        : 'reports:cashflow-v1',
+    },
   });
 
   // Gruplama ve hesaplama
@@ -200,9 +375,11 @@ export function useCashFlowByCategory(
         creditCardSpendingItems: [],
         allCreditCardSpendingItems: [],
         totalCreditCardSpending: 0,
+        conversionIncomplete: false,
       };
     }
 
+    let conversionIncomplete = false;
     let totalInflow = 0;
     let totalOutflow = 0;
     let totalCreditCardSpending = 0;
@@ -210,122 +387,55 @@ export function useCashFlowByCategory(
     const inflowByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
     const creditCardSpendingByCategory = new Map<string, { kategori: Kategori | null; total: number; count: number }>();
 
-    islemler.forEach((islem: NormalizedCashFlowItem) => {
+    islemler.forEach((item: CashFlowContribution) => {
       // NaN-safe number parsing - geçersiz değerler atlanır
-      const rawAmount = Number(islem.amount);
+      const rawAmount = Number(item.amount);
       if (isNaN(rawAmount) || rawAmount === 0) {
-        if (__DEV__) console.warn(`[CashFlow] Skipping transaction ${islem.id}: invalid amount "${islem.amount}"`);
+        if (__DEV__) console.warn(`[CashFlow] Skipping contribution ${item.id}: invalid amount "${item.amount}"`);
         return;
       }
 
-      // Tutarı ana para birimine çevir. Nakit akışında tutar, paranın girip çıktığı
-      // hesabın (islem.hesap) para birimindedir. Kur bulunamazsa işlemi atla — yanlış
-      // büyüklükte toplama eklemektense hariç tut (gelir/gider raporlarıyla tutarlı).
-      const hesapCurrency = islem.hesap?.currency || baseCurrency;
+      // Owner yolunda her contribution tek işlem, reports-only RPC yolunda ise
+      // kategori+para birimi aggregate'idir. İki yol da aynı conversion ve grup
+      // motoruna girer; eksik kurda o contribution toplamdan çıkar.
       let amount = rawAmount;
-      if (hesapCurrency !== baseCurrency) {
-        const converted = convertCurrency(rawAmount, hesapCurrency, baseCurrency, rates);
+      if (item.currency !== baseCurrency) {
+        const converted = convertCurrency(
+          rawAmount,
+          item.currency,
+          baseCurrency,
+          rates,
+        );
         if (converted === null) {
-          if (__DEV__) console.warn(`[CashFlow] Skipping ${islem.id}: kur bulunamadı (${hesapCurrency})`);
+          conversionIncomplete = true;
+          if (__DEV__) console.warn(`[CashFlow] Skipping ${item.id}: kur bulunamadı (${item.currency})`);
           return;
         }
         amount = converted;
       }
 
-      const hesapType = islem.hesap?.type as HesapType | undefined;
-      const hedefHesapType = islem.hedef_hesap?.type as HesapType | undefined;
-      const islemType = islem.type as IslemType;
-
-      // Transfer işlemi için özel kontrol
-      if (islemType === 'transfer') {
-        // Kaynak hesap nakit hesabı ise (kredi kartı değil) → nakit çıkışı
-        if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
-          // Hedef hesap kredi kartı ise bu bir kredi kartı ödemesi
-          // Hedef hesap da nakit hesabı ise net etki 0 (hesaplar arası transfer)
-          if (hedefHesapType === 'kredi_karti') {
-            // Nakit hesaptan kredi kartına ödeme = nakit çıkışı
-            totalOutflow += amount;
-
-            // Kategoriye ekle
-            const kategoriKey = islem.kategori?.id || 'uncategorized';
-            const existing = outflowByCategory.get(kategoriKey);
-            if (existing) {
-              existing.total += amount;
-              existing.count += 1;
-            } else {
-              outflowByCategory.set(kategoriKey, {
-                kategori: islem.kategori || null,
-                total: amount,
-                count: 1
-              });
-            }
-          }
-          // Else: Nakit hesaplar arası transfer, net etki 0 - dahil etme
-        }
-        return; // Transfer işlemini işledik, devam et
+      const kategoriKey = item.kategori?.id || 'uncategorized';
+      const targetMap =
+        item.flowKind === 'inflow'
+          ? inflowByCategory
+          : item.flowKind === 'outflow'
+            ? outflowByCategory
+            : creditCardSpendingByCategory;
+      const existing = targetMap.get(kategoriKey);
+      if (existing) {
+        existing.total += amount;
+        existing.count += item.count;
+      } else {
+        targetMap.set(kategoriKey, {
+          kategori: item.kategori,
+          total: amount,
+          count: item.count,
+        });
       }
 
-      // Nakit girişi kontrolü
-      if (CASH_INFLOW_TYPES.includes(islemType)) {
-        // Hesap tipi kredi kartı değilse nakit girişi
-        if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
-          totalInflow += amount;
-
-          // Kategoriye ekle
-          const kategoriKey = islem.kategori?.id || 'uncategorized';
-          const existing = inflowByCategory.get(kategoriKey);
-          if (existing) {
-            existing.total += amount;
-            existing.count += 1;
-          } else {
-            inflowByCategory.set(kategoriKey, {
-              kategori: islem.kategori || null,
-              total: amount,
-              count: 1
-            });
-          }
-        }
-      }
-
-      // Nakit çıkışı kontrolü
-      if (CASH_OUTFLOW_TYPES.includes(islemType)) {
-        // Hesap tipi kredi kartı ise kredi kartı harcaması olarak kaydet
-        if (hesapType === 'kredi_karti') {
-          totalCreditCardSpending += amount;
-
-          // Kategoriye ekle
-          const kategoriKey = islem.kategori?.id || 'uncategorized';
-          const existing = creditCardSpendingByCategory.get(kategoriKey);
-          if (existing) {
-            existing.total += amount;
-            existing.count += 1;
-          } else {
-            creditCardSpendingByCategory.set(kategoriKey, {
-              kategori: islem.kategori || null,
-              total: amount,
-              count: 1
-            });
-          }
-        }
-        // Hesap tipi kredi kartı değilse nakit çıkışı
-        else if (hesapType && CASH_ACCOUNT_TYPES.includes(hesapType)) {
-          totalOutflow += amount;
-
-          // Kategoriye ekle
-          const kategoriKey = islem.kategori?.id || 'uncategorized';
-          const existing = outflowByCategory.get(kategoriKey);
-          if (existing) {
-            existing.total += amount;
-            existing.count += 1;
-          } else {
-            outflowByCategory.set(kategoriKey, {
-              kategori: islem.kategori || null,
-              total: amount,
-              count: 1
-            });
-          }
-        }
-      }
+      if (item.flowKind === 'inflow') totalInflow += amount;
+      else if (item.flowKind === 'outflow') totalOutflow += amount;
+      else totalCreditCardSpending += amount;
     });
 
     // Çıkışlar - Sırayla (büyükten küçüğe)
@@ -428,6 +538,7 @@ export function useCashFlowByCategory(
       creditCardSpendingItems,
       allCreditCardSpendingItems,
       totalCreditCardSpending: roundedTotalCreditCardSpending,
+      conversionIncomplete,
     };
   }, [islemler, limit, baseCurrency, rates]);
 

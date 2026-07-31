@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, ArrowLeft, KeyRound } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +21,7 @@ import { toErrorMessage } from '@/lib/errors';
 type Step = 'email' | 'otp';
 
 export default function ForgotPasswordPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['auth', 'common', 'errors']);
 
@@ -122,13 +123,13 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -237,7 +238,7 @@ export default function ForgotPasswordPage() {
           )}
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

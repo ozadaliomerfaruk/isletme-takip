@@ -8,6 +8,8 @@ import { colors } from '@/constants/colors';
 import { useEkstreLinkOlustur } from '@/hooks/useEkstreLink';
 import type { EntityType } from '@/lib/excelExport';
 import type { Currency } from '@/types/database';
+import { usePermissions } from '@/hooks/usePermissions';
+import type { PublicStatementDuration } from '@/lib/publicStatementExpiry';
 
 interface DetailExportSectionProps {
   visible: boolean;
@@ -44,14 +46,15 @@ export function DetailExportSection({
   // Ekstre linki süre seçimi (kullanıcı isteği: paylaşan belirler)
   const [showSureSheet, setShowSureSheet] = useState(false);
   const ekstreLink = useEkstreLinkOlustur();
+  const { canShareCariStatement, isOwner } = usePermissions();
 
   const handlePdfPress = useCallback(() => setShowPdfExport(true), []);
   const handleExcelPress = useCallback(() => setShowExportSheet(true), []);
 
   // Faz 4: public web-ekstre linki üret + native paylaşım sayfası.
   // Cari başına tek aktif link (sunucu eskisini otomatik iptal eder).
-  // gecerlilikGun null = süresiz.
-  const handleEkstreLink = useCallback(async (gecerlilikGun: number | null) => {
+  // Yeni istemcide kalıcı link yoktur; owner için üst sınır 365 gündür.
+  const handleEkstreLink = useCallback(async (gecerlilikGun: PublicStatementDuration) => {
     try {
       const { url } = await ekstreLink.mutateAsync({ cariId: entityId, gecerlilikGun });
       await Share.share({ message: `${entityName} — ${t('export.ekstreLink')}\n${url}` });
@@ -64,11 +67,14 @@ export function DetailExportSection({
   }, [ekstreLink, entityId, entityName, t]);
 
   const sureOptions = [
-    { label: t('export.ekstreSure.gun1'), gun: 1 as number | null },
-    { label: t('export.ekstreSure.hafta1'), gun: 7 as number | null },
-    { label: t('export.ekstreSure.ay1'), gun: 30 as number | null },
-    { label: t('export.ekstreSure.yil1'), gun: 365 as number | null },
-    { label: t('export.ekstreSure.suresiz'), gun: null as number | null },
+    { label: t('export.ekstreSure.gun1'), gun: 1 as PublicStatementDuration },
+    { label: t('export.ekstreSure.hafta1'), gun: 7 as PublicStatementDuration },
+    { label: t('export.ekstreSure.ay1'), gun: 30 as PublicStatementDuration },
+    ...(isOwner
+      ? [
+          { label: t('export.ekstreSure.yil1'), gun: 365 as PublicStatementDuration },
+        ]
+      : []),
   ].map((o) => ({
     label: o.label,
     icon: <Clock size={20} color={colors.primary} />,
@@ -84,7 +90,11 @@ export function DetailExportSection({
         onPdfPress={handlePdfPress}
         onExcelPress={handleExcelPress}
         onSharePress={onSharePress}
-        onEkstreLinkPress={entityType === 'cari' ? () => setShowSureSheet(true) : undefined}
+        onEkstreLinkPress={
+          entityType === 'cari' && canShareCariStatement()
+            ? () => setShowSureSheet(true)
+            : undefined
+        }
       />
 
       {/* Ekstre linki geçerlilik süresi seçimi */}

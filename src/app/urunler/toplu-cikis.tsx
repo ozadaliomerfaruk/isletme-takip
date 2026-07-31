@@ -1,31 +1,19 @@
 import { useState, useMemo, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Alert,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  Modal,
-  TextInput,
-  LayoutAnimation,
-  UIManager,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, TextInput, LayoutAnimation, UIManager } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
-import { Plus, Trash2, Calendar, ChevronDown, Package, Search, X, Check } from 'lucide-react-native';
-import { Text, Button } from '@/components/ui';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Plus, Trash2, Calendar, ChevronDown, Package, X, Check } from 'lucide-react-native';
+import { Text, Button, Screen, Modal, ModalSearchBar } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { isToday, formatDateTimeForDB, ensureValidDate } from '@/lib/date';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
+import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, formatPercent } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { getCurrencySymbol } from '@/constants/currencies';
 import { useSettings } from '@/hooks/useSettings';
@@ -53,6 +41,8 @@ export default function TopluCikisPage() {
   const router = useRouter();
   const notifySaved = useSaveSuccessFeedback();
   const { t } = useTranslation(['products', 'common', 'transactions']);
+  const footerInset = useFooterBottomPadding();
+  const insets = useSafeAreaInsets();
   usePagePermission({ module: 'urunler', action: 'create' });
   const { currency } = useSettings();
   const createUrunHareket = useCreateUrunHareket();
@@ -144,6 +134,18 @@ export default function TopluCikisPage() {
     return rows.filter(r => r.urunId && parseQuantity(r.miktar) > 0);
   }, [rows]);
 
+  /** Satırın para birimi = SEÇİLEN ÜRÜNÜN para birimi (ürün yoksa ana para birimi).
+   *  Birim fiyat ön-doldurması ürünün alis/satis_fiyati'ndan geliyor ve o fiyat ürünün
+   *  para birimindedir; picker de öyle gösteriyor. Giriş alanının ANA para birimi
+   *  sembolünü basması bu yüzden çelişkiydi. */
+  const rowCurrency = (row: StockRow): string => getUrunById(row.urunId)?.currency || currency;
+
+  /** Dolu satırlarda birden fazla para birimi var mı (cari bağlıyken kaydı engeller). */
+  const rowCurrencies = useMemo(
+    () => Array.from(new Set(validRows.map((r) => urunler?.find((u) => u.id === r.urunId)?.currency || currency))),
+    [validRows, urunler, currency]
+  );
+
   // Total amount (subtotal without KDV)
   const totalAmount = useMemo(() => {
     let total = 0;
@@ -179,16 +181,31 @@ export default function TopluCikisPage() {
       totalKdv += subtotal * (r.kdvOrani / 100);
     });
     const grandTotal = totalAmount + totalKdv;
+    // Tek para birimi varsa onunla göster; karışıksa kayıt zaten engelleniyor
+    // (aşağıdaki handleSave guard'ı) ama gösterim yine ana para birimine düşmesin.
+    const ccy = rowCurrencies.length === 1 ? rowCurrencies[0] : currency;
     return {
-      subtotalDisplay: formatCurrency(totalAmount),
-      kdvDisplay: totalKdv > 0 ? formatCurrency(totalKdv) : undefined,
-      totalDisplay: formatCurrency(grandTotal),
+      subtotalDisplay: formatCurrency(totalAmount, ccy),
+      kdvDisplay: totalKdv > 0 ? formatCurrency(totalKdv, ccy) : undefined,
+      totalDisplay: formatCurrency(grandTotal, ccy),
     };
-  }, [cariLinkEnabled, totalAmount, validRows]);
+  }, [cariLinkEnabled, totalAmount, validRows, rowCurrencies, currency]);
 
   const handleSave = async () => {
     if (validRows.length === 0) {
       Alert.alert(t('common:status.error'), t('products:bulk.noEntries'));
+      return;
+    }
+
+    // KARIŞIK PARA BİRİMİ + CARİ: cari bağlıyken TÜM satırlar TEK cari işlemine
+    // (tek tutar, tek para birimi) yazılıyor. Farklı para birimli ürünleri düz
+    // toplamak carinin bakiyesini kalıcı bozar → isimlendirilmiş net hatayla engelle.
+    // (Cari-SIZ modda her satır ayrı stok hareketi olduğu için sorun yok.)
+    if (cariLinkEnabled && selectedCariId && rowCurrencies.length > 1) {
+      Alert.alert(
+        t('products:bulk.currencyMismatchTitle'),
+        t('products:bulk.currencyMismatch', { currencies: rowCurrencies.join(', ') })
+      );
       return;
     }
 
@@ -231,6 +248,7 @@ export default function TopluCikisPage() {
               hareket_tipi: 'cikis',
               miktar: parseQuantity(row.miktar),
               birim_fiyat: parseCurrency(row.birimFiyat) || null,
+              kdv_orani: row.kdvOrani,
               aciklama: null,
               created_at: formatDateTimeForDB(date),
             }).then(() => row.id)
@@ -283,10 +301,11 @@ export default function TopluCikisPage() {
           headerTitle: t('products:bulk.stockOut'),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.flex}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 44 : 0}
         >
           <ScrollView
             style={styles.flex}
@@ -412,7 +431,7 @@ export default function TopluCikisPage() {
                             keyboardType="decimal-pad"
                           />
                           <Text style={styles.inputUnit}>
-                            {getCurrencySymbol(currency)}
+                            {getCurrencySymbol(rowCurrency(row))}
                           </Text>
                         </View>
                       </View>
@@ -437,7 +456,7 @@ export default function TopluCikisPage() {
                                 row.kdvOrani === rate && styles.kdvChipTextActive,
                               ]}
                             >
-                              %{rate}
+                              {formatPercent(rate)}
                             </Text>
                           </TouchableOpacity>
                         ))}
@@ -449,13 +468,13 @@ export default function TopluCikisPage() {
                       <View style={styles.rowTotalRow}>
                         {cariLinkEnabled && rowKdv > 0 ? (
                           <Text style={styles.rowTotalLabel}>
-                            {formatCurrency(rowSubtotal)} + {formatCurrency(rowKdv)} {t('common:currency.vat')} =
+                            {formatCurrency(rowSubtotal, rowCurrency(row))} + {formatCurrency(rowKdv, rowCurrency(row))} {t('common:currency.vat')} =
                           </Text>
                         ) : (
                           <Text style={styles.rowTotalLabel}>{t('common:total')}:</Text>
                         )}
                         <Text style={styles.rowTotalAmount}>
-                          {formatCurrency(rowSubtotal + rowKdv)}
+                          {formatCurrency(rowSubtotal + rowKdv, rowCurrency(row))}
                         </Text>
                       </View>
                     )}
@@ -472,13 +491,28 @@ export default function TopluCikisPage() {
           </ScrollView>
 
           {/* Footer */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: 12 + footerInset }]}>
             <View style={styles.footerLeft}>
               <Text style={styles.footerCount}>
                 {validRows.length} {t('products:title').toLowerCase()}
               </Text>
+              {/* Karışık para biriminde düz toplam basmak yalan olur → para birimi
+                  başına ayrı satır (tek para birimiyse tek satır, görünüm aynı). */}
               {totalAmount > 0 && (
-                <Text style={styles.footerAmount}>{formatCurrency(totalAmount)}</Text>
+                rowCurrencies.length <= 1 ? (
+                  <Text style={styles.footerAmount}>{formatCurrency(totalAmount, rowCurrencies[0] ?? currency)}</Text>
+                ) : (
+                  <View>
+                    {rowCurrencies.map((cur) => (
+                      <Text key={cur} style={styles.footerAmount}>
+                        {formatCurrency(
+                          validRows.filter((r) => rowCurrency(r) === cur).reduce((sum, r) => sum + getRowSubtotal(r), 0),
+                          cur
+                        )}
+                      </Text>
+                    ))}
+                  </View>
+                )
               )}
             </View>
             <Button
@@ -549,26 +583,20 @@ export default function TopluCikisPage() {
                 </TouchableOpacity>
               </View>
 
-              {/* Search */}
-              <View style={styles.searchBar}>
-                <Search size={18} color={colors.textMuted} />
-                <TextInput
-                  style={styles.searchInput}
-                  value={productSearch}
-                  onChangeText={setProductSearch}
-                  placeholder={t('common:search.searchPlaceholder')}
-                  placeholderTextColor={colors.textMuted}
-                  autoFocus
-                />
-                {productSearch.length > 0 && (
-                  <TouchableOpacity onPress={() => setProductSearch('')}>
-                    <X size={16} color={colors.textMuted} />
-                  </TouchableOpacity>
-                )}
-              </View>
+              {/* Search — modal içi standart çubuk (QTB ürün seçici / UnitPicker ile aynı) */}
+              <ModalSearchBar
+                value={productSearch}
+                onChangeText={setProductSearch}
+                autoFocusDelay={300}
+              />
 
-              {/* Product list */}
-              <ScrollView style={styles.flex} keyboardShouldPersistTaps="handled">
+              {/* Product list — liste ekranın en altına kadar iniyor; son satır
+                  home indicator altında kalmasın diye alt boşluk İÇERİĞE ait */}
+              <ScrollView
+                style={styles.flex}
+                contentContainerStyle={{ paddingBottom: insets.bottom + spacing.lg }}
+                keyboardShouldPersistTaps="handled"
+              >
                 {filteredUrunler?.map(urun => {
                   const isSelected = selectedProductIds.has(urun.id);
                   return (
@@ -598,7 +626,7 @@ export default function TopluCikisPage() {
                           )}
                           {urun.kdv_orani > 0 && (
                             <View style={styles.kdvPill}>
-                              <Text style={styles.kdvPillText}>%{urun.kdv_orani}</Text>
+                              <Text style={styles.kdvPillText}>{formatPercent(urun.kdv_orani)}</Text>
                             </View>
                           )}
                         </View>
@@ -622,7 +650,7 @@ export default function TopluCikisPage() {
             </View>
           </Modal>
         )}
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
@@ -955,24 +983,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginHorizontal: spacing.lg,
-    marginVertical: 10,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 6,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.text,
   },
   // Picker items
   pickerItem: {

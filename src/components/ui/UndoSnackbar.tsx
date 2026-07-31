@@ -1,8 +1,24 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, Animated, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Undo2, X } from 'lucide-react-native';
 import { Text } from './Text';
+import { GlassSurface } from './GlassSurface';
 import { colors } from '@/constants/colors';
+
+/**
+ * Siyah cam tint'i. Bu çubuk AÇIK içeriğin (listeler) üstünde yüzüyor —
+ * varsayılan GLASS_TINT ('transparent') ile açık zeminde okunmaz.
+ *
+ * ALFA NEDEN YÜKSEK: cam arkasındaki içeriği ÖRNEKLEYİP ona uyum sağlıyor.
+ * 0.55'te altındaki içerik hâlâ belirleyiciydi ve çubuk bazen beyaz bazen
+ * siyah çıkıyordu (beyaz kartların üstüne mi yoksa koyu bir alana mı denk
+ * geldiğine göre). colorScheme="dark" bunu çözmez — o camın GÖRÜNÜM MODUNU
+ * sabitler, arkadan örneklediği rengi değil. Tutarlı siyah için tint'in
+ * baskın olması gerekiyor. Saydamlık isteniyorsa buradan düşürülür, ama
+ * bedeli tonun yine zemine göre oynaması olur.
+ */
+const SNACKBAR_TINT = 'rgba(0,0,0,0.78)';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 
 export interface UndoSnackbarProps {
@@ -20,72 +36,89 @@ export function UndoSnackbar({
   onDismiss,
   undoLabel = 'Geri Al',
 }: UndoSnackbarProps) {
-  const translateY = useRef(new Animated.Value(100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+  // insets.bottom, _layout'taki modifiedInsets sayesinde gerçek safe-area'ya
+  // EK OLARAK overlay tab bar'ın yüksekliğini de taşır → çubuk bar'ın üstünde kalır.
+  const insets = useSafeAreaInsets();
+  /** Ekran dışına kayma mesafesi: çubuğun altı + kendi yüksekliği kadar. */
+  const offscreenY = insets.bottom + 80;
+  const translateY = useRef(new Animated.Value(offscreenY)).current;
+  /**
+   * Çıkış animasyonu oynayabilsin diye ayrı mount durumu: eskiden
+   * `if (!visible) return null` view'i anında söküyordu, yani çıkış animasyonu
+   * ölü koddu (çubuk kayarak gelip birden yok oluyordu).
+   */
+  const [mounted, setMounted] = useState(visible);
 
   useEffect(() => {
     if (visible) {
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          tension: 80,
-          friction: 12,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      setMounted(true);
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 80,
+        friction: 12,
+      }).start();
     } else {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: 100,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-      ]).start();
+      Animated.timing(translateY, {
+        toValue: offscreenY,
+        duration: 200,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) setMounted(false);
+      });
     }
-  }, [visible, translateY, opacity]);
+  }, [visible, translateY, offscreenY]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   return (
     <Animated.View
+      /**
+       * OPACITY YOK — bilinçli. Cam yüzeyin (GlassSurface → UIVisualEffectView)
+       * kendisinde ya da bir ATASINDA alpha < 1 olursa sistem view'i offscreen
+       * render'a alıyor; cam o anda arkasını ÖRNEKLEYEMİYOR ve malzeme çöküp
+       * düz/açık bir yüzeye dönüyor. "Çubuk bazen beyaz bazen siyah" bundandı:
+       * beyaz kareler giriş animasyonunun içine denk gelenlerdi. Kanıtı:
+       * yazılar görünüyordu ama çubuk yoktu — düz bir solmada ikisi birlikte
+       * solardı, metin RN katmanı olduğu için lineer solar, cam ise komple çöker.
+       * Görünürlük geçişi yalnız TRANSFORM ile (kayma) — offscreen tetiklemez.
+       */
       style={[
         styles.container,
-        { transform: [{ translateY }], opacity },
+        { bottom: insets.bottom + spacing.md, transform: [{ translateY }] },
       ]}
       pointerEvents="box-none"
     >
-      <View style={styles.snackbar}>
-        <Text style={styles.message} numberOfLines={2}>
-          {message}
-        </Text>
-        <TouchableOpacity
-          onPress={onUndo}
-          style={styles.undoButton}
-          activeOpacity={0.7}
-          hitSlop={HIT_SLOP.sm}
-        >
-          <Undo2 size={16} color={colors.white} />
-          <Text style={styles.undoText}>{undoLabel}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={onDismiss}
-          style={styles.closeButton}
-          activeOpacity={0.7}
-          hitSlop={HIT_SLOP.sm}
-        >
-          <X size={16} color="rgba(255,255,255,0.6)" />
-        </TouchableOpacity>
-      </View>
+      {/* colorScheme="dark": koyu yüzen bar — açık cam burada yabancı durur. */}
+      <GlassSurface
+        style={styles.snackbar}
+        fallbackStyle={styles.snackbarFallback}
+        tintColor={SNACKBAR_TINT}
+        colorScheme="dark"
+      >
+        <View style={styles.snackbarInner}>
+          <Text style={styles.message} numberOfLines={2}>
+            {message}
+          </Text>
+          <TouchableOpacity
+            onPress={onUndo}
+            style={styles.undoButton}
+            activeOpacity={0.7}
+            hitSlop={HIT_SLOP.sm}
+          >
+            <Undo2 size={16} color={colors.white} />
+            <Text style={styles.undoText}>{undoLabel}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onDismiss}
+            style={styles.closeButton}
+            activeOpacity={0.7}
+            hitSlop={HIT_SLOP.sm}
+          >
+            <X size={16} color="rgba(255,255,255,0.6)" />
+          </TouchableOpacity>
+        </View>
+      </GlassSurface>
     </Animated.View>
   );
 }
@@ -93,24 +126,35 @@ export function UndoSnackbar({
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    bottom: 24,
+    // `bottom` çalışma zamanında veriliyor — sabit 24 iken çubuk OVERLAY tab
+    // bar'ın ARKASINDA kalıyordu (bar akıştan çıkıp içeriğin üstüne taşındığı
+    // için ekranın alt 24px'i artık bar'ın alanı). insets.bottom modifiedInsets
+    // ile bar yüksekliğini de taşıyor → çubuk bar'ın üstünde yüzer.
     left: spacing.lg,
     right: spacing.lg,
     zIndex: 999,
   },
+  // Geometri (iki yolda da): cam kendi köşesini native çizer, RN clip yok.
   snackbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#323232',
     borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    gap: spacing.sm,
+  },
+  // Yalnız cam yokken: bugünkü koyu dolgu + gölge. Cam yolunda EKLENMEZ —
+  // düz katman ve gölge native rim lighting'i perdeler.
+  snackbarFallback: {
+    backgroundColor: '#323232',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+  },
+  // İçerik camın ÇOCUĞU — dokunma tepkisinin (interactive) çalışması için şart.
+  snackbarInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
   },
   message: {
     flex: 1,

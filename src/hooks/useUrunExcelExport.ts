@@ -13,6 +13,7 @@ import { Currency } from '@/types/database';
 import { formatDateForDB } from '@/lib/date';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { toErrorMessage } from '@/lib/errors';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface UseUrunExcelExportOptions {
   productName: string;
@@ -30,12 +31,15 @@ interface UseUrunExcelExportReturn {
 export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunExcelExportReturn {
   const { productName, productCode, productUnit, productCurrency, urunId } = options;
   const { isletme } = useAuthContext();
+  const { canExportModule, canAccessModule } = usePermissions();
+  const canExportProducts = canExportModule('urunler');
+  const canSeeCariler = canAccessModule('cariler');
   const { t } = useTranslation(['products', 'common']);
   const [isExporting, setIsExporting] = useState(false);
 
   const exportExcel = useCallback(
     async (startDate: string, endDate: string) => {
-      if (!isletme) {
+      if (!isletme || !canExportProducts) {
         Alert.alert(t('common:status.error'), t('common:empty.noData'));
         return;
       }
@@ -51,7 +55,7 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
         // Ürün hareketlerini İŞ TARİHİNE göre getir (ekrandaki liste/rapor ile aynı eksen):
         //  - İşleme bağlı: islemler.date dönemde mi (inner join) + cari bilgisi gömülü
         //  - Manuel (islem_id NULL): iş tarihi = created_at
-        const [linkedHareketler, manuelHareketler] = await Promise.all([
+        const [linkedHareketler, manuelHareketler, minimalCariResult] = await Promise.all([
           fetchAllPages<any>(() =>
             supabase
               .from('urun_hareketler')
@@ -73,7 +77,29 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
               .lt('created_at', endDateNextDay)
               .order('created_at', { ascending: true })
           ),
+          canSeeCariler
+            ? Promise.resolve({ data: [], error: null })
+            : supabase.rpc('get_urun_hareket_minimal_cari_labels', {
+                p_isletme_id: isletme.id,
+                p_urun_id: urunId,
+              }),
         ]);
+        if (minimalCariResult.error) throw minimalCariResult.error;
+
+        const minimalCariNameByMovementId = new Map<string, string>(
+          (Array.isArray(minimalCariResult.data) ? minimalCariResult.data : [])
+            .flatMap((value) => {
+              const row = value as {
+                urun_hareket_id?: unknown;
+                cari_name?: unknown;
+              };
+              return typeof row.urun_hareket_id === 'string'
+                && typeof row.cari_name === 'string'
+                && row.cari_name.trim().length > 0
+                ? [[row.urun_hareket_id, row.cari_name] as const]
+                : [];
+            }),
+        );
 
         // Hareketlere iş tarihi (islemDate) + cari bilgisi iliştir
         const hareketlerWithCari = [
@@ -84,7 +110,12 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
             const cari =
               cariData && typeof cariData === 'object' && 'id' in cariData
                 ? { id: (cariData as { id: string; name: string }).id, name: (cariData as { id: string; name: string }).name }
-                : null;
+                : minimalCariNameByMovementId.has(h.id)
+                  ? {
+                      id: '',
+                      name: minimalCariNameByMovementId.get(h.id)!,
+                    }
+                  : null;
             return { ...h, islemDate: (islemRel?.date as string | undefined) ?? h.created_at, cari };
           }),
           ...(manuelHareketler || []).map(h => ({ ...h, islemDate: h.created_at, cari: null })),
@@ -145,7 +176,17 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
         setIsExporting(false);
       }
     },
-    [isletme, urunId, productName, productCode, productUnit, productCurrency, t]
+    [
+      isletme,
+      urunId,
+      productName,
+      productCode,
+      productUnit,
+      productCurrency,
+      t,
+      canExportProducts,
+      canSeeCariler,
+    ]
   );
 
   return { isExporting, exportExcel };

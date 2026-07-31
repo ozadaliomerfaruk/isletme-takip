@@ -14,15 +14,25 @@ export type NoteListItem = {
   data: { id: string; content: string; created_at: string; updated_at: string; entity_type: string; entity_id: string | null };
 };
 
-export type TransactionListItem =
+export interface GroupableTransaction {
+  id: string;
+  date: string;
+  created_at: string;
+}
+
+export type TransactionListItem<
+  TTransaction extends GroupableTransaction = IslemWithRelations,
+> =
   | { type: 'header'; key: string; title: string }
-  | { type: 'transaction'; key: string; data: IslemWithRelations }
+  | { type: 'transaction'; key: string; data: TTransaction }
   | MilestoneItem
   | NoteListItem;
 
 // FlashList getItemType — modül düzeyi STABİL referanslar (inline arrow yerine).
 // Cari/Hesap detayında not satırı kendi recycle havuzunu alır ('note').
-export function getTransactionDetailItemType(item: TransactionListItem): string {
+export function getTransactionDetailItemType<
+  TTransaction extends GroupableTransaction,
+>(item: TransactionListItem<TTransaction>): string {
   return item.type === 'header'
     ? 'header'
     : item.type === 'milestone'
@@ -33,7 +43,9 @@ export function getTransactionDetailItemType(item: TransactionListItem): string 
 }
 
 // İşlemler ekranı — mevcut davranış korunur: not + kilometre taşı aynı 'skip' havuzunda.
-export function getIslemlerItemType(item: TransactionListItem): string {
+export function getIslemlerItemType<
+  TTransaction extends GroupableTransaction,
+>(item: TransactionListItem<TTransaction>): string {
   return item.type === 'header'
     ? 'header'
     : item.type === 'milestone' || item.type === 'note'
@@ -45,12 +57,14 @@ export function getIslemlerItemType(item: TransactionListItem): string {
  * Groups transactions by date and inserts header items.
  * Uses relative labels for today/yesterday, full dates for older.
  */
-export function preprocessTransactionsByDate(
-  transactions: IslemWithRelations[],
+export function preprocessTransactionsByDate<
+  TTransaction extends GroupableTransaction,
+>(
+  transactions: TTransaction[],
   todayLabel: string,
   yesterdayLabel: string,
   formatDate: (date: string) => string,
-): TransactionListItem[] {
+): TransactionListItem<TTransaction>[] {
   if (!transactions.length) return [];
 
   const now = new Date();
@@ -59,7 +73,7 @@ export function preprocessTransactionsByDate(
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = toLocalDateString(yesterday);
 
-  const result: TransactionListItem[] = [];
+  const result: TransactionListItem<TTransaction>[] = [];
   let currentDateStr = '';
 
   for (const txn of transactions) {
@@ -88,13 +102,15 @@ export function preprocessTransactionsByDate(
  * Merges notes into an already-grouped transaction list by date (descending).
  * All items within a date group are sorted chronologically (newest first).
  */
-export function mergeNotesIntoGroupedData(
-  groupedData: TransactionListItem[],
+export function mergeNotesIntoGroupedData<
+  TTransaction extends GroupableTransaction,
+>(
+  groupedData: TransactionListItem<TTransaction>[],
   notes: { id: string; content: string; created_at: string; updated_at: string; entity_type: string; entity_id: string | null }[],
   todayLabel: string,
   yesterdayLabel: string,
   formatDate: (date: string) => string,
-): TransactionListItem[] {
+): TransactionListItem<TTransaction>[] {
   if (!notes.length) return groupedData;
 
   const now = new Date();
@@ -103,7 +119,11 @@ export function mergeNotesIntoGroupedData(
   yesterday.setDate(yesterday.getDate() - 1);
   const yesterdayStr = toLocalDateString(yesterday);
 
-  type Sortable = { dateKey: string; timestamp: number; item: TransactionListItem };
+  type Sortable = {
+    dateKey: string;
+    timestamp: number;
+    item: TransactionListItem<TTransaction>;
+  };
   const items: Sortable[] = [];
 
   for (const entry of groupedData) {
@@ -142,7 +162,7 @@ export function mergeNotesIntoGroupedData(
     return b.timestamp - a.timestamp;
   });
 
-  const result: TransactionListItem[] = [];
+  const result: TransactionListItem<TTransaction>[] = [];
   let currentDateKey = '';
 
   for (const { dateKey, item } of items) {

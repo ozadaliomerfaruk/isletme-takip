@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { useCariler } from './useCariler';
-import { usePersonelList } from './usePersonel';
-import { useHesaplar } from './useHesaplar';
+import { useReportCariler } from './useCariler';
+import { useReportPersonelList } from './usePersonel';
+import { useReportHesaplar } from './useHesaplar';
 import { useSettings } from './useSettings';
 import { useExchangeRates, convertCurrency } from './useExchangeRates';
 import { toNumber, roundCurrency } from '@/lib/currency';
+import { usePermissions } from './usePermissions';
 
 export interface FinancialBreakdown {
   cari: number;
@@ -60,15 +61,20 @@ export interface FinancialSummary {
  *
  * Genel Durum = (Varlıklar + Alacaklar) - Borçlar
  */
-export function useFinancialSummary(): FinancialSummary {
+export function useFinancialSummary(enabled: boolean = true): FinancialSummary {
+  const { canAccessModule } = usePermissions();
+  const reportsEnabled = enabled && canAccessModule('raporlar');
   // Pasif öğeleri HARIÇ tut - pasif moda alınan hesaplar hiçbir hesaplamaya dahil edilmemeli
   // Arşivlenmiş öğeleri HARİÇ tut - arşivdeki bakiyeler genel duruma dahil edilmez
   // NOT: İşlem bazlı sorgular (gelir/gider, nakit akışı) arşivlenmiş hesap işlemlerini DAHİL eder
   // includePassive: false - pasif hesaplar hariç
   // includeArchived: false - arşivlenmiş hesaplar hariç
-  const { data: hesaplar, isLoading: hesaplarLoading } = useHesaplar(false, false);
-  const { data: cariler, isLoading: carilerLoading } = useCariler(undefined, false, false);
-  const { data: personelList, isLoading: personelLoading } = usePersonelList(false, false);
+  const { data: hesaplar, isLoading: hesaplarLoading } =
+    useReportHesaplar(reportsEnabled);
+  const { data: cariler, isLoading: carilerLoading } =
+    useReportCariler(reportsEnabled);
+  const { data: personelList, isLoading: personelLoading } =
+    useReportPersonelList(reportsEnabled);
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData, isLoading: exchangeRatesLoading } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
@@ -193,6 +199,7 @@ export function useFinancialSummary(): FinancialSummary {
 
   return {
     ...summary,
-    isLoading: hesaplarLoading || carilerLoading || personelLoading || exchangeRatesLoading,
+    isLoading: reportsEnabled
+      && (hesaplarLoading || carilerLoading || personelLoading || exchangeRatesLoading),
   };
 }

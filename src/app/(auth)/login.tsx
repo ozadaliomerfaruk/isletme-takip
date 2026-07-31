@@ -9,13 +9,13 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Mail, Lock } from 'lucide-react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Google from 'expo-auth-session/providers/google';
 import { useTranslation } from 'react-i18next';
-import { Text, Input, Button } from '@/components/ui';
+import { Text, Input, Button, Screen } from '@/components/ui';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -26,7 +26,9 @@ const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '';
 
 let googleSigninConfigured = false;
 function getGoogleSignin() {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires, global-require
+  // Tembel require BİLİNÇLİ: Google Signin native modülü import edildiği anda
+  // yapılandırma bekliyor; üstte import edilirse Expo Go'da açılışta patlıyor.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { GoogleSignin } = require('@react-native-google-signin/google-signin');
   if (!googleSigninConfigured) {
     GoogleSignin.configure({ webClientId: GOOGLE_WEB_CLIENT_ID });
@@ -36,6 +38,7 @@ function getGoogleSignin() {
 }
 
 export default function LoginPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['auth', 'common', 'errors']);
   const { signIn, signInWithApple, signInWithGoogle, isAppleSignInAvailable, loading } = useAuthContext();
@@ -162,13 +165,13 @@ export default function LoginPage() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: contentPaddingBottom }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -213,6 +216,39 @@ export default function LoginPage() {
               )}
             </TouchableOpacity>
           </View>
+
+          <Text
+            variant="caption"
+            color="secondary"
+            center
+            style={styles.socialLegalNotice}
+          >
+            {t('auth:login.socialLegalIntro')}
+            <Text
+              variant="caption"
+              style={styles.legalLink}
+              onPress={() => router.push('/yasal/kullanim-kosullari')}
+            >
+              {t('auth:register.termsOfService')}
+            </Text>
+            {t('auth:register.legalTermsAfter')}
+            <Text
+              variant="caption"
+              style={styles.legalLink}
+              onPress={() => router.push('/yasal/gizlilik-politikasi')}
+            >
+              {t('auth:register.privacyPolicy')}
+            </Text>
+            {t('auth:register.legalPrivacyJoin')}
+            <Text
+              variant="caption"
+              style={styles.legalLink}
+              onPress={() => router.push('/yasal/kvkk')}
+            >
+              {t('auth:register.privacyNotice')}
+            </Text>
+            {t('auth:register.legalOutro')}
+          </Text>
 
           {/* Divider */}
           <View style={styles.divider}>
@@ -285,7 +321,7 @@ export default function LoginPage() {
 
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
@@ -311,7 +347,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   socialButtons: {
+    marginBottom: spacing.sm,
+  },
+  socialLegalNotice: {
     marginBottom: spacing.lg,
+    lineHeight: 19,
+  },
+  legalLink: {
+    color: colors.primary,
+    textDecorationLine: 'underline',
   },
   appleButton: {
     width: '100%',

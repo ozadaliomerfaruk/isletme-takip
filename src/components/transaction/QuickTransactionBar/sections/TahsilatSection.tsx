@@ -18,7 +18,7 @@ import type { TahsilatHedefType } from '../types';
 interface Hesap {
   id: string;
   name: string;
-  balance: number;
+  balance?: number;
   currency?: string;
 }
 

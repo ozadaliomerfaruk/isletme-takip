@@ -1,72 +1,48 @@
 {
-  "kvkk": {
-    "title": "Data Protection Notice",
-    "subtitle": "Personal Data Protection Compliance",
-    "intro": "This Data Protection Notice outlines how we handle your personal data in compliance with applicable data protection laws and regulations.",
+  "privacyNotice": {
+    "title": "Privacy Notice",
+    "subtitle": "For Users of Small Business Finance",
+    "lastUpdated": "Last Updated: July 31, 2026",
+    "intro": "This notice supplements our Privacy Policy and explains how we collect, use, disclose and retain personal information, and how you can submit a privacy request.",
     "sections": {
-      "dataController": {
-        "title": "1. Data Controller",
-        "content": "Omer Faruk Ozadali\nAddress: Istanbul, Turkey\nEmail: ozadaliomerfaruk@gmail.com"
+      "responsibleParty": {
+        "title": "1. Who We Are",
+        "content": "Omer Faruk Ozadali\nIstanbul, Türkiye\nEmail: ozadaliomerfaruk@gmail.com"
       },
-      "processedData": {
-        "title": "2. Personal Data Processed",
-        "intro": "The following personal data may be processed within the scope of the application:",
-        "identity": "Identity and Account Information:",
-        "identityItems": "Email address",
-        "contact": "Contact Information (if provided by user):",
-        "contactItems": "Phone number",
-        "auth": "Authentication and Session Information:",
-        "authItems": "Session and authorization data",
-        "financial": "Financial Information:",
-        "financialItems": "Business account records manually entered by user, client account information, staff information, product and inventory information, exchange rate information",
-        "visual": "Visual Data:",
-        "visualItems": "Photos attached to transactions and notes (receipts, invoices, etc.)",
-        "technical": "Transaction and Technical Security Information:",
-        "technicalItems": "Technical records created for system security and service provision, and anonymous usage and performance records collected to improve the application (which screens are used, feature usage, operation timing, etc.)"
+      "information": {
+        "title": "2. Information We Collect",
+        "content": "The information processed falls into four main groups:\n\nUser information: Account details such as email, name, business name and optional phone number.\n\nBusiness and account information: Business ledger, account and transaction records created in the service, together with documents and images you add.\n\nContact information: Only the name and phone number you choose from your address book and transfer to the form.\n\nTechnical information: Connection, session, security, notification and limited usage records between your device and the service."
       },
-      "purposes": {
-        "title": "3. Purposes of Processing Personal Data",
-        "intro": "Your personal data is processed for the following purposes:",
-        "items": "Managing membership and account operations\nProviding application services\nEnabling financial recording and reporting functions\nSending scheduled transaction reminders\nSending note and task reminders\nManaging multi-user access control\nManaging information security processes\nFulfilling legal obligations"
+      "collectionAndUse": {
+        "title": "3. How We Collect and Use Information",
+        "content": "We collect information electronically from details you enter, your chosen sign-in provider, device features you choose to use, and session or technical activity generated while providing the service.\n\nWe use it to create and manage your account, operate and sync the app, produce reports and reminders, support authorized team access, maintain security, provide support and comply with law. We will provide additional notice or request consent before using personal information in another way when applicable law requires it."
       },
-      "legalBasis": {
-        "title": "4. Legal Grounds",
-        "intro": "Your personal data is processed based on the following legal grounds under applicable data protection laws:",
-        "items": "Direct relevance to the establishment or performance of a contract\nFulfillment of data controller's legal obligations\nEstablishment, exercise, or protection of a right\nLegitimate interests of the data controller",
-        "consent": "Explicit consent is obtained only when necessary."
+      "sharing": {
+        "title": "4. When We Disclose Information",
+        "content": "To operate the service, we may disclose information to cloud hosting, sign-in, file storage, notification, AI-based document processing and technical support providers; users authorized by the business owner; parties involved in a sharing action you initiate; people who have a time-limited statement link you create; and government or law-enforcement authorities when required by law.\n\nWe do not sell personal information or use it for targeted advertising based on activity across other companies’ apps or websites. We and our service providers may process information in countries other than where you live, as permitted by applicable law."
       },
-      "transfer": {
-        "title": "5. Transfer of Personal Data",
-        "intro": "Your personal data may be transferred to:",
-        "items": "Authorized public institutions and organizations in cases of legal obligation\nTechnical infrastructure and cloud service providers\nOther users authorized by the business owner (within the multi-user feature)\nWhen the business owner shares a client account, only the data related to that specific client account, to the other business it is shared with",
-        "outro": "in accordance with applicable data protection regulations."
+      "retentionAndSecurity": {
+        "title": "5. Retention and Security",
+        "content": "We retain information while your account is active and for as long as needed to provide the service, meet legal obligations, resolve disputes and protect the service. We use reasonable administrative, technical and organizational safeguards designed to prevent unauthorized access.\n\nA 7-day waiting period applies to account deletion requests. You may cancel during this period. Afterward, the account is closed and the deletion request is processed. Limited records required by law, and business records that must remain in another business workspace, may be retained only for the necessary period and purpose."
       },
-      "rights": {
-        "title": "6. Data Subject Rights",
-        "intro": "Under applicable data protection laws, you have the right to:",
-        "items": "a) Learn whether your personal data is processed\nb) Request information about processing if processed\nc) Learn the purpose of processing and whether data is used accordingly\nd) Know third parties to whom data is transferred\ne) Request correction if data is incomplete or incorrect\nf) Request deletion or destruction\ng) Request notification of these operations to third parties\nh) Object to results that arise against you\ni) Request compensation for damages",
-        "outro": ""
-      },
-      "application": {
-        "title": "7. Application Method",
-        "intro": "To exercise your rights, you may apply via:",
-        "email": "Email: ozadaliomerfaruk@gmail.com\nSubject: Data Protection Request",
-        "outro": "Your applications will be concluded free of charge within 30 days at the latest."
+      "rightsAndRequests": {
+        "title": "6. Your Privacy Choices and Requests",
+        "content": "Depending on where you live, applicable U.S. state or other privacy laws may let you request access to personal information, information about its sources, uses and recipients, correction, deletion or a portable copy. Where provided by law, you may also object to certain processing or appeal a denied request. We do not discriminate against users for exercising applicable privacy rights.\n\nTo submit a request, email ozadaliomerfaruk@gmail.com from the address registered to your account and use the subject “Privacy Request.” We may ask for information needed to verify your identity and will respond within the period required by applicable law. If you do not have an account, contact us at the same address for instructions."
       }
     }
   },
   "terms": {
     "title": "Terms of Service",
-    "lastUpdated": "Last Updated: July 16, 2026",
-    "intro": "By using the Simple Business Finance application, you agree to the following terms.",
+    "lastUpdated": "Last Updated: July 31, 2026",
+    "intro": "By using the Small Business Finance application, you agree to the following terms.",
     "sections": {
       "serviceDescription": {
         "title": "1. Service Description",
-        "content": "Simple Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, notes and task management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
+        "content": "Small Business Finance is a financial tracking and management application developed for small and medium-sized businesses. The application offers income-expense tracking, client account management, staff records and payment tracking, product and inventory management, notes and task management, and financial reporting tools.\n\nThe application does not provide official accounting, payroll, tax, or legal advisory services."
       },
       "usageTerms": {
         "title": "2. Usage Terms and Age Restriction",
-        "content": "You must be at least 13 years old to use this application. Use of the application by individuals under 13 is prohibited.\n\nUsers are responsible for the accuracy, currency, and legal compliance of all data entered into the application. Simple Business Finance cannot be held responsible for consequences arising from incorrect or incomplete data entry."
+        "content": "You must be at least 13 years old to use this application. Use of the application by individuals under 13 is prohibited.\n\nUsers are responsible for the accuracy, currency, and legal compliance of all data entered into the application. Small Business Finance cannot be held responsible for consequences arising from incorrect or incomplete data entry."
       },
       "accountSecurity": {
         "title": "3. Account Security",
@@ -82,11 +58,11 @@
       },
       "accountDeletion": {
         "title": "6. Account Deletion",
-        "content": "Users can delete their account through Settings > Delete My Account menu within the application. A 7-day waiting period applies after account deletion request. Users can cancel the deletion during this period. After the waiting period, the account and all associated data (transactions, clients, staff, products, photos included) are permanently deleted and cannot be recovered."
+        "content": "Users can submit a deletion request through Settings > Delete My Account. The request may be cancelled during the 7-day waiting period. Afterward, the account is closed and the deletion request is processed. Limited records required by law, and business records that must remain in another business workspace, may be retained only for the necessary period and scope."
       },
       "dataExport": {
         "title": "7. Data Export",
-        "content": "Users can export transaction data and reports in Excel (.xlsx) and PDF formats from within the application. Exported files are downloaded to the user's device. Users are responsible for any sharing of exported data with third parties."
+        "content": "Users can export transaction data and reports in Excel (.xlsx) and PDF formats from within the application. Files are prepared for the device's sharing interface, where the user may share or save them. Users are responsible for any sharing of exported data with third parties."
       },
       "thirdParty": {
         "title": "8. Third-Party Services",
@@ -94,15 +70,15 @@
       },
       "serviceChanges": {
         "title": "9. Service Changes",
-        "content": "Simple Business Finance reserves the right to change the application's service content, features, and pricing without prior notice."
+        "content": "Small Business Finance reserves the right to change the application's service content, features, and pricing without prior notice."
       },
       "intellectualProperty": {
         "title": "10. Intellectual Property",
-        "content": "The design, software, and brand elements of Simple Business Finance application belong to Simple Business Finance. Ownership of all data entered into the application by users belongs to the users."
+        "content": "The design, software and brand elements of the Small Business Finance application belong to Small Business Finance. Business records entered into the app belong to the relevant business workspace, and the business owner manages team access. Ending a team member's access does not automatically delete records they created for the business."
       },
       "liability": {
         "title": "11. Limitation of Liability",
-        "content": "Simple Business Finance cannot be held liable for indirect damages arising from use of the application. The application is provided \"as is.\""
+        "content": "Small Business Finance cannot be held liable for indirect damages arising from use of the application. The application is provided \"as is.\""
       },
       "disputes": {
         "title": "12. Dispute Resolution",
@@ -116,79 +92,32 @@
   },
   "privacy": {
     "title": "Privacy Policy",
-    "lastUpdated": "Last Updated: July 16, 2026",
-    "intro": "At Simple Business Finance, we value your privacy. This Privacy Policy explains how personal data collected through our mobile application is processed, protected, and users' rights.",
+    "lastUpdated": "Last Updated: July 31, 2026",
+    "intro": "We care about the privacy of the information you share when using Small Business Finance. This policy briefly explains what data we use and why.",
     "sections": {
-      "collectedData": {
-        "title": "1. Data Collected",
-        "identity": {
-          "title": "1.1 Identity and Account Information",
-          "content": "Email address\nAuthentication information (passwords are not visible to or stored by the application developer; they are processed through secure authentication infrastructure)"
-        },
-        "userContent": {
-          "title": "1.2 User-Entered Content",
-          "intro": "The following information is entered entirely at user's discretion and manually:",
-          "content": "Financial records (bank accounts, cash, income-expense records)\nClient account information (customer and supplier information)\nStaff information (name, position, salary, leave details)\nProduct and inventory information (product name, code, price, stock quantity)\nNotes and task content (including reminders, photos, and assignments)\nDescriptions and similar content"
-        },
-        "optional": {
-          "title": "1.3 Optional Information",
-          "content": "Tax number, phone number, and similar fields are not mandatory and are entered optionally by users."
-        },
-        "deviceAccess": {
-          "title": "1.4 Device Access",
-          "content": "Camera and Photo Library: Access is requested only when the user wants to attach photos (receipts, invoices, etc.) to transactions or notes.\nFile System: Access is requested during Excel file import and export operations.\nNotifications: Push notification permission may be requested for scheduled transaction and note reminders."
-        }
+      "data": {
+        "title": "1. What Information Do We Use?",
+        "content": "The following groups of information may be processed when you use the service:\n\nUser information: Account details such as email, name, business name and optional phone number.\n\nBusiness and account information: Business ledger, account and transaction records created in the service, together with documents and images you add.\n\nContact information: Only the name and phone number you choose from your address book and transfer to the form.\n\nTechnical information: Connection, session, security, notification and limited usage records between your device and the service."
       },
-      "dataUsage": {
-        "title": "2. Data Usage Purposes",
-        "intro": "Collected data is processed for the following purposes:",
-        "items": "Providing application functions\nAccount and session management\nCreating financial records and reports\nSending scheduled transaction reminders\nSending note and task reminders\nResolving technical issues and improving the application using anonymous usage data\nFulfilling legal obligations",
-        "outro": "In-app anonymous usage and performance records are collected solely to improve the service. Data is not used or sold for third-party advertising, marketing, or cross-app/site user tracking purposes."
+      "usage": {
+        "title": "2. Why Do We Use Data?",
+        "content": "We use data to operate the app, synchronize records across devices, create reports and reminders, enable work with authorized team members, maintain security and provide support.\n\nYour records are stored in secure cloud infrastructure solely to serve your account. Limited technical usage records may be used to improve the service. We do not sell personal data or use it for cross-app advertising tracking."
       },
-      "multiUser": {
-        "title": "3. Multi-User Access and Data Sharing",
-        "content": "Business owners can invite other users to their business by generating invite codes.\nInvited users can access business data within the roles and permissions set by the business owner.\nUser roles (owner, manager, operator, and customizable custom roles) provide different access levels.\nBusiness owners can revoke invited users' access at any time.\nIn addition, a business owner may share a specific client account with another business via a share code. The other business can only view or (depending on the granted permission) edit the information and transactions belonging to that single client account, and cannot access the business's other data. Client sharing can be revoked by the owner at any time."
+      "permissions": {
+        "title": "3. Device Permissions",
+        "content": "Contacts, camera/photo, file and notification permissions are requested only when you choose the related feature. The app does not retrieve or upload the entire address book; only the selected person's name and phone number are copied into the form, and this information is not sent to the server until the user taps “Save.”\n\nIf you choose document/invoice scanning, the image is sent to an AI-based document processing service to extract its fields automatically. You can change permissions in device settings."
       },
-      "appStore": {
-        "title": "4. Data Relationship with User (Apple App Store Perspective)",
-        "content": "Identity and account information is associated with user account.\nFinancial records, client, staff, and product information entered by users belong to content created within user's account, not to users themselves.\nThis data is accessible only by the relevant user and authorized team members."
-      },
-      "dataSecurity": {
-        "title": "5. Data Security",
-        "intro": "The following measures are taken for personal data security:",
-        "items": "SSL/TLS encrypted data transmission\nSecure server infrastructure\nRow Level Security (RLS) access controls\nAuthorization and access control mechanisms\nTechnical measures to prevent unauthorized access\nFor offline access and performance, some data may be cached locally on your device; this data is protected by your device's own security mechanisms"
-      },
-      "thirdParty": {
-        "title": "6. Third-Party Service Providers",
-        "intro": "The application may utilize the following service providers:",
-        "items": "Authentication services (Apple ID, Google Account)\nDatabase and authentication infrastructure (Supabase)\nFile storage services (Supabase Storage)\nCloud hosting services\nPush notification infrastructure (Expo)",
-        "outro": "These service providers can access data only for the purpose of fulfilling application functions and to a limited extent."
-      },
-      "dataExport": {
-        "title": "7. Data Export",
-        "content": "Users can export transaction data and reports in Excel (.xlsx) and PDF formats from within the application. Exported files are downloaded to the user's device and sharing preferences are entirely up to the user. The application does not retain copies of exported files on the server."
+      "sharing": {
+        "title": "4. Sharing and Service Providers",
+        "content": "Data may be shared with team members within permissions granted by the business owner, with a party involved in a client-account sharing action you initiate, or with people who have a time-limited statement link you create. A statement link works until it expires or you revoke it.\n\nWe use authentication, secure cloud hosting, file storage, notification and document processing services to provide the app. If you enable notifications, a device token, platform/language details and limited content needed to deliver the notification are processed through the notification infrastructure. These providers process data only as needed for the service. We and our service providers may process information in countries other than where you live. Information may also be disclosed to government or law-enforcement authorities when required by law."
       },
       "retention": {
-        "title": "8. Data Retention Period and Account Deletion",
-        "content": "Data is retained as long as user account is active.\nUsers can delete their account from within the application.\nA 7-day waiting period applies after account deletion request.\nAfter the waiting period, account and all associated data (transactions, clients, staff, products, photos included) are automatically and permanently deleted.\nFor users signing in with Apple ID, Apple authentication tokens are also revoked during account deletion."
+        "title": "5. Retention, Export and Deletion",
+        "content": "Data is retained while your account is active and as needed for the service. You may export selected lists, statements and reports from the app.\n\nA 7-day waiting period applies to account deletion requests, and you may cancel during this period. Afterward, the account is closed and the deletion request is processed. Limited records required by law, and business records that must remain in another business workspace, may be retained only for the necessary period and scope."
       },
-      "children": {
-        "title": "9. Children's Privacy",
-        "content": "The application is not intended for children under 13. Personal data from children is not knowingly collected."
-      },
-      "userRights": {
-        "title": "10. User Rights",
-        "intro": "Users have the following rights under applicable regulations:",
-        "items": "Right to access their data\nRight to request correction\nRight to request deletion\nRight to object to processing\nRight to data portability (via Excel export)",
-        "outro": ""
-      },
-      "policyChanges": {
-        "title": "11. Policy Changes",
-        "content": "This privacy policy may be updated from time to time. Users will be notified of significant changes through the application."
-      },
-      "contact": {
-        "title": "12. Contact",
-        "content": "For questions about privacy policy:\nozadaliomerfaruk@gmail.com"
+      "rights": {
+        "title": "6. Your Rights and Contact",
+        "content": "To access your data, correct inaccurate data, request deletion where applicable, object to processing or ask a question, contact us at:\n\nozadaliomerfaruk@gmail.com\n\nMaterial policy changes will be announced in the app or on the website."
       }
     }
   }

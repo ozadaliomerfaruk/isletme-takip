@@ -7,10 +7,27 @@ import * as XLSX from 'xlsx';
 import * as Crypto from 'expo-crypto';
 import { encode as base64Encode } from 'base64-arraybuffer';
 import { formatDateForDB, formatDateTimeForDB } from './date';
+import { parseCurrency } from './currency';
 
 // ============================================================================
 // TYPES
 // ============================================================================
+
+/**
+ * ATLAMA GEREKÇESİ — YAPISAL (motor metin ÜRETMEZ).
+ *
+ * Eskiden bu gerekçeler burada sabit TÜRKÇE string olarak üretilip UI'da HAM basılıyordu:
+ * İngilizce arayüzde aynı listede yan yana "Account not found: \"Ziraat\"" (i18n'den) ve
+ * "Tutar boş veya bulunamadı" (motordan) görünüyordu. Artık kod + parametre dönüyor,
+ * metni tüketici (useDataImport) i18n'den üretiyor — mutabakat motorunun deseni
+ * (lib/mutabakat/types.ts: motor yapısal uyarı döndürür, metin UI katmanında).
+ *
+ * `code`, settings:dataImport.skipReasons altındaki anahtar adıdır.
+ */
+export interface SkipReason {
+  code: string;
+  params?: Record<string, string | number>;
+}
 
 export interface ParsedTransaction {
   date: string; // YYYY-MM-DDTHH:MM:SS format (timestamp column compatible)
@@ -34,11 +51,11 @@ export interface ParsedTransaction {
   isExpense: boolean;
   typeRecognized: boolean; // İşlem tipi TRANSACTION_TYPE_MAP'te tanındı mı? false → sessizce 'gider' varsayıldı (kullanıcıya uyarı gösterilir)
   dateValid: boolean; // Tarih geçerli mi?
-  dateError?: string; // Tarih hatası varsa açıklama
+  dateReason?: SkipReason; // Tarih hatası varsa YAPISAL gerekçe (metin tüketicide üretilir)
   amountValid: boolean; // Tutar geçerli mi?
-  amountError?: string; // Tutar hatası varsa açıklama
+  amountReason?: SkipReason; // Tutar hatası varsa YAPISAL gerekçe
   entityValid: boolean; // Hesap/cari/personel bilgisi var mı?
-  entityError?: string; // Entity hatası varsa açıklama
+  entityReason?: SkipReason; // Entity hatası varsa YAPISAL gerekçe
   rowNumber: number; // Excel satır numarası
 }
 
@@ -145,29 +162,31 @@ export function parseKarsiHesap(value: string): ParsedKarsiHesap {
   const trimmed = value.trim();
 
   // Köşeli parantez içinde değer var mı kontrol et
-  // Format: "Hesap Adı [-123,45 TRY]" veya "Hesap Adı [10 g]" veya "Hesap Adı [123.45]"
-  const bracketRegex = /^(.+?)\s*\[([+-]?\d+(?:[.,]\d+)?)\s*([A-Za-z]{1,5})?\]$/;
+  // Format: "Hesap Adı [-123,45 TRY]" veya "Hesap Adı [10 g]" veya "Hesap Adı [1,234.56]"
+  //
+  // Ayraç grubu BİLEREK geniş ([\d.,]+): eski desen tek ayraç grubuna izin verdiği için
+  // İngiliz biçimli "1,234.56" HİÇ eşleşmiyordu → bracket yok sayılıp çapraz-kur hiç
+  // tespit edilmiyordu (transfer 1:1 yazılıyordu). Sayıyı ayrıştırma işi burada değil,
+  // parseCurrency'de: nokta+virgül birlikteyse SONDAKİ ayracı ondalık sayar (locale'den
+  // bağımsız), tek ayraçta gerçek binlik kalıbını ayırt eder. Dosyaya özel ikinci bir
+  // ayraç mantığı yazmak (eski hâl) "1.234"ü 1,234'e düşürüp kuru ~1000x saptırıyordu.
+  const bracketRegex = /^(.+?)\s*\[([+-]?[\d.,]+)\s*([A-Za-z]{1,5})?\]$/;
   const match = trimmed.match(bracketRegex);
 
   if (match) {
     const name = match[1].trim();
-    // Sayı formatı tespiti:
-    // - Virgül varsa Türkçe format: 58.750,00 → nokta binlik ayracı, virgül ondalık
-    // - Sadece nokta varsa İngilizce format: 1234.56 → nokta ondalık
-    const raw = match[2];
-    let amountStr: string;
-    if (raw.includes(',')) {
-      // Türkçe: noktaları sil (binlik ayracı), virgülü noktaya çevir
-      amountStr = raw.replace(/\./g, '').replace(',', '.');
-    } else {
-      // İngilizce veya tam sayı: nokta ondalık ayracı, olduğu gibi bırak
-      amountStr = raw;
-    }
-    const amount = Math.abs(parseFloat(amountStr));
+    const parsed = parseCurrency(match[2]);
     const rawUnit = match[3] || null;
     const currency = rawUnit ? resolveUnitAlias(rawUnit, name) : 'TRY';
 
-    return { name, amount, currency };
+    // Okunamayan tutarı 0'a DÜŞÜRME: 0 "bedelsiz işlem" gibi görünür ve kur türetiminde
+    // bölme hatası doğurur. amount hiç dönmezse tüketici bracket'i yok sayar (satır
+    // yine içe aktarılır, yalnız çapraz-kur bilgisi olmadan).
+    if (!isFinite(parsed)) {
+      return { name, currency };
+    }
+
+    return { name, amount: Math.abs(parsed), currency };
   }
 
   // Parantez yoksa sadece hesap adı döndür
@@ -424,7 +443,7 @@ export function excelDateToJS(excelDate: number): Date {
  */
 interface DateParseResult {
   date: Date | null;
-  error?: string;
+  reason?: SkipReason;
 }
 
 /**
@@ -449,15 +468,15 @@ function parseStringDate(dateStr: string): DateParseResult {
     const minute = match[5] ? parseInt(match[5], 10) : 0;
 
     if (month < 1 || month > 12) {
-      return { date: null, error: `Geçersiz ay: ${month}` };
+      return { date: null, reason: { code: 'invalidMonth', params: { month } } };
     }
     if (day < 1 || day > 31) {
-      return { date: null, error: `Geçersiz gün: ${day}` };
+      return { date: null, reason: { code: 'invalidDay', params: { day } } };
     }
 
     const date = new Date(year, month - 1, day, hour, minute);
     if (isNaN(date.getTime())) {
-      return { date: null, error: `Geçersiz tarih: "${dateStr}"` };
+      return { date: null, reason: { code: 'invalidDate', params: { value: dateStr } } };
     }
     return { date };
   }
@@ -473,15 +492,15 @@ function parseStringDate(dateStr: string): DateParseResult {
     const minute = match[5] ? parseInt(match[5], 10) : 0;
 
     if (month < 1 || month > 12) {
-      return { date: null, error: `Geçersiz ay: ${month}` };
+      return { date: null, reason: { code: 'invalidMonth', params: { month } } };
     }
     if (day < 1 || day > 31) {
-      return { date: null, error: `Geçersiz gün: ${day}` };
+      return { date: null, reason: { code: 'invalidDay', params: { day } } };
     }
 
     const date = new Date(year, month - 1, day, hour, minute);
     if (isNaN(date.getTime())) {
-      return { date: null, error: `Geçersiz tarih: "${dateStr}"` };
+      return { date: null, reason: { code: 'invalidDate', params: { value: dateStr } } };
     }
     return { date };
   }
@@ -497,20 +516,20 @@ function parseStringDate(dateStr: string): DateParseResult {
     const minute = match[5] ? parseInt(match[5], 10) : 0;
 
     if (month < 1 || month > 12) {
-      return { date: null, error: `Geçersiz ay: ${month}` };
+      return { date: null, reason: { code: 'invalidMonth', params: { month } } };
     }
     if (day < 1 || day > 31) {
-      return { date: null, error: `Geçersiz gün: ${day}` };
+      return { date: null, reason: { code: 'invalidDay', params: { day } } };
     }
 
     const date = new Date(year, month - 1, day, hour, minute);
     if (isNaN(date.getTime())) {
-      return { date: null, error: `Geçersiz tarih: "${dateStr}"` };
+      return { date: null, reason: { code: 'invalidDate', params: { value: dateStr } } };
     }
     return { date };
   }
 
-  return { date: null, error: `Tanınmayan tarih formatı: "${dateStr}"` };
+  return { date: null, reason: { code: 'dateUnrecognized', params: { value: dateStr } } };
 }
 
 /**
@@ -785,17 +804,21 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       let amount = 0;
       let signedAmount = 0; // Orijinal işaretli değer (başlangıç bakiyesi için)
       let amountValid = true;
-      let amountError: string | undefined;
+      let amountReason: SkipReason | undefined;
       const rawAmount = row[cols.miktar];
 
       if (rawAmount === undefined || rawAmount === null || rawAmount === '') {
         amountValid = false;
-        amountError = 'Tutar boş veya bulunamadı';
+        amountReason = { code: 'amountEmpty' };
       } else {
-        const parsedAmount = Number(rawAmount);
-        if (isNaN(parsedAmount)) {
+        // Hücre sayısalsa doğrudan kullan; METİN biçimli hücrede Number("1.234,56") NaN
+        // döndürüp geçerli satırı reddediyordu → metin dalı merkezî parseCurrency'ye
+        // bağlandı (nokta/virgül karışımını locale'den bağımsız çözer).
+        const parsedAmount =
+          typeof rawAmount === 'number' ? rawAmount : parseCurrency(String(rawAmount));
+        if (isNaN(parsedAmount) || !isFinite(parsedAmount)) {
           amountValid = false;
-          amountError = `Geçersiz tutar değeri: "${rawAmount}"`;
+          amountReason = { code: 'amountInvalidValue', params: { value: String(rawAmount) } };
         } else {
           // Mutlak değer al ve 2 ondalık basamağa yuvarla (DECIMAL(15,2) ile uyumlu)
           const roundedAmount = Math.round(Math.abs(parsedAmount) * 100) / 100;
@@ -805,7 +828,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
           if (roundedAmount <= 0) {
             // Sıfır veya çok küçük tutarlar geçersiz (veritabanı constraint: amount > 0)
             amountValid = false;
-            amountError = 'Tutar sıfır veya çok küçük olamaz';
+            amountReason = { code: 'amountTooSmall' };
           } else {
             amount = roundedAmount;
           }
@@ -819,7 +842,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
 
       // Entity validation - hesap/cari/personel kontrolü
       let entityValid = true;
-      let entityError: string | undefined;
+      let entityReason: SkipReason | undefined;
 
       // Tarih veya tip eksikse hata flag'i set et (artık skip etmiyoruz)
       let hasDateOrTypeError = false;
@@ -833,7 +856,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       // Cari işlemler (tedarikci/musteri) ve personel işlemleri hesapsız olabilir
       if (!account && !hasCariEntity && !hasPersonelEntity) {
         entityValid = false;
-        entityError = 'Hesap, cari veya personel bilgisi eksik';
+        entityReason = { code: 'missingEntity' };
         skippedNoEntity++;
         // silentlySkipped yerine hata flag'i ile devam et
       }
@@ -841,17 +864,17 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       // Tarih dönüşümü (Excel serial veya string olabilir)
       let jsDate: Date | null = null;
       let dateValid = true;
-      let dateError: string | undefined;
+      let dateReason: SkipReason | undefined;
 
       // Tarih eksikse (hasDateOrTypeError durumunda rawDate boş olabilir)
       if (!rawDate) {
         dateValid = false;
-        dateError = 'Tarih bilgisi eksik';
+        dateReason = { code: 'dateMissing' };
       } else if (typeof rawDate === 'number') {
         jsDate = excelDateToJS(rawDate);
         if (isNaN(jsDate.getTime())) {
           dateValid = false;
-          dateError = `Geçersiz Excel tarih değeri: ${rawDate}`;
+          dateReason = { code: 'dateExcelInvalid', params: { value: String(rawDate) } };
           jsDate = null;
         }
       } else if (typeof rawDate === 'string') {
@@ -860,11 +883,11 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
           jsDate = parseResult.date;
         } else {
           dateValid = false;
-          dateError = parseResult.error || `Tanınmayan tarih: "${rawDate}"`;
+          dateReason = parseResult.reason || { code: 'dateUnrecognized', params: { value: String(rawDate) } };
         }
       } else {
         dateValid = false;
-        dateError = `Beklenmeyen tarih tipi: ${typeof rawDate}`;
+        dateReason = { code: 'dateUnexpectedType', params: { value: typeof rawDate } };
       }
 
       // İşlem tipi mapping - context-aware
@@ -878,14 +901,12 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       let mappedType = TRANSACTION_TYPE_MAP[normalizedType] || TRANSACTION_TYPE_MAP[type || ''] || 'gider';
       const originalMappedType = mappedType;
 
-      // İşlem tipi eksikse dateError'a ekle
-      if (!type) {
-        if (dateError) {
-          dateError += ', İşlem tipi eksik';
-        } else {
-          dateValid = false;
-          dateError = 'İşlem tipi eksik';
-        }
+      // İşlem tipi eksik. Tarih zaten geçersizse gerekçeyi DEĞİŞTİRME (ilk hata daha
+      // bilgilendirici); eskiden ", İşlem tipi eksik" diye Türkçe metin EKLENİYORDU ve
+      // yapısal gerekçe kavramıyla uyuşmuyor (tek satırda tek kod).
+      if (!type && !dateReason) {
+        dateValid = false;
+        dateReason = { code: 'typeMissing' };
       }
 
       // Context-aware type correction:
@@ -993,11 +1014,11 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
         isExpense,
         typeRecognized,
         dateValid,
-        dateError,
+        dateReason,
         amountValid,
-        amountError,
+        amountReason,
         entityValid,
-        entityError,
+        entityReason,
         rowNumber,
       });
     } catch (err) {
@@ -1330,23 +1351,33 @@ export interface SkippedTransactionInfo {
  * Atlanan işlemleri Excel formatında dışa aktar
  * @returns Excel dosyası için base64 encoded string veya ArrayBuffer
  */
+/** İndirilen "Atlanan İşlemler" Excel'inin başlıkları — çağırandan gelir (excelExport deseni). */
+export interface SkippedExcelTranslations {
+  rowNo: string; reason: string; date: string; type: string; description: string;
+  category: string; account: string; staff: string; supplier: string; customer: string;
+  counterAccount: string; amount: string; sheetName: string;
+}
+
 export function exportSkippedTransactionsToExcel(
-  skippedTransactions: SkippedTransactionInfo[]
+  skippedTransactions: SkippedTransactionInfo[],
+  // Başlıklar ve sayfa adı SABİT TÜRKÇEYDİ: İngilizce kullanıcı tamamen Türkçe
+  // başlıklı bir dosya indiriyordu ("SATIR NO", sayfa adı "Atlanan İşlemler").
+  t: SkippedExcelTranslations
 ): ArrayBuffer {
   // Header satırı
   const headers = [
-    'SATIR NO',
-    'ATLANMA NEDENİ',
-    'TARİH',
-    'İŞLEM TİPİ',
-    'AÇIKLAMA',
-    'KATEGORİ',
-    'HESAP',
-    'PERSONEL',
-    'TEDARİKÇİ',
-    'MÜŞTERİ',
-    'KARŞI HESAP',
-    'MİKTAR',
+    t.rowNo,
+    t.reason,
+    t.date,
+    t.type,
+    t.description,
+    t.category,
+    t.account,
+    t.staff,
+    t.supplier,
+    t.customer,
+    t.counterAccount,
+    t.amount,
   ];
 
   // Data satırları
@@ -1388,7 +1419,7 @@ export function exportSkippedTransactionsToExcel(
   ];
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Atlanan İşlemler');
+  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
 
   // ArrayBuffer olarak döndür
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
@@ -1402,20 +1433,14 @@ export function groupSkippedByReason(
 ): Record<string, number> {
   const grouped: Record<string, number> = {};
 
+  // Gerekçeler artık ÇEVRİLMİŞ metin (kullanıcının dilinde). Eskiden burada Türkçe
+  // prefix'lere startsWith ile eşleme yapılıyordu — çeviri gelince sessizce kırılırdı.
+  // Genelleştirme artık dilden bağımsız: interpolasyonlu gerekçelerde ": ..." kuyruğu
+  // atılır (ör. "Hesap bulunamadı: X" → "Hesap bulunamadı" / "Account not found: X" →
+  // "Account not found"). Kuyruk yoksa metin olduğu gibi kalır.
   skippedTransactions.forEach((item) => {
-    // Nedeni genelleştir (spesifik değerleri kaldır)
-    let generalReason = item.reason;
-
-    if (generalReason.startsWith('Hesap bulunamadı:')) {
-      generalReason = 'Hesap bulunamadı';
-    } else if (generalReason.startsWith('Transfer için karşı hesap bulunamadı:')) {
-      generalReason = 'Transfer için karşı hesap bulunamadı';
-    } else if (generalReason.startsWith('Personel bulunamadı:')) {
-      generalReason = 'Personel bulunamadı';
-    } else if (generalReason.startsWith('Veritabanı hatası:')) {
-      generalReason = 'Veritabanı hatası';
-    }
-
+    const idx = item.reason.indexOf(": ");
+    const generalReason = idx > 0 ? item.reason.slice(0, idx) : item.reason;
     grouped[generalReason] = (grouped[generalReason] || 0) + 1;
   });
 
@@ -1495,8 +1520,9 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
       const cat = errorsByCategory.date_invalid;
       cat.count++;
       cat.rows.push(rowNum);
-      if (cat.examples.length < 3 && tx.dateError) {
-        cat.examples.push(tx.dateError);
+      // Örnekler artık KOD (metin değil) — çağıran i18n ile gösterir
+      if (cat.examples.length < 3 && tx.dateReason) {
+        cat.examples.push(tx.dateReason.code);
       }
       return;
     }
@@ -1507,8 +1533,8 @@ export function validateImportData(preview: ImportPreview): ValidationResult {
       const cat = errorsByCategory.amount_invalid;
       cat.count++;
       cat.rows.push(rowNum);
-      if (cat.examples.length < 3 && tx.amountError) {
-        cat.examples.push(tx.amountError);
+      if (cat.examples.length < 3 && tx.amountReason) {
+        cat.examples.push(tx.amountReason.code);
       }
       return;
     }

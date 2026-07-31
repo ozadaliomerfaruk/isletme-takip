@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Modal,
-  FlatList,
-  Pressable,
-} from 'react-native';
-import { Text, ModalSearchBar } from '@/components/ui';
+import { View, StyleSheet, TouchableOpacity, FlatList, Pressable } from 'react-native';
+import { Text, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { ChevronDown, X, Building2, Users, Check, Link } from 'lucide-react-native';

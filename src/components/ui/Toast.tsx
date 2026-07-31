@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react-native';
 
 import { Text } from './Text';
+import { GlassSurface, withAlpha } from './GlassSurface';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useToast, Toast as ToastType, ToastType as ToastVariant } from '@/contexts/ToastContext';
@@ -34,63 +35,62 @@ interface ToastItemProps {
   onDismiss: () => void;
 }
 
-function ToastItem({ toast, onDismiss }: ToastItemProps) {
-  const translateY = useRef(new Animated.Value(-100)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
+/** Ekran dışına kayma mesafesi — üstten girip üstten çıkar. */
+const OFFSCREEN_Y = -120;
 
+function ToastItem({ toast, onDismiss }: ToastItemProps) {
+  const translateY = useRef(new Animated.Value(OFFSCREEN_Y)).current;
+
+  // OPACITY YOK — gövde cam ve cam yüzeyin atasında alpha<1 malzemeyi
+  // çökertiyor (GlassSurface'taki ALTIN KURAL). Burada UndoSnackbar'dan da
+  // kritikti: çıkış animasyonu onDismiss callback'ine bağlı olduğu için
+  // gerçekten oynuyor, yani hata hem girişte hem çıkışta görünürdü.
+  // Geçiş yalnız transform ile.
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
+    Animated.timing(translateY, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, [translateY]);
 
   const handleDismiss = () => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: -100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => onDismiss());
+    Animated.timing(translateY, {
+      toValue: OFFSCREEN_Y,
+      duration: 200,
+      useNativeDriver: true,
+    }).start(() => onDismiss());
   };
 
+  const accent = borderColorMap[toast.type];
+
   return (
-    <Animated.View
-      style={[
-        styles.toast,
-        {
-          backgroundColor: bgColorMap[toast.type],
-          borderLeftColor: borderColorMap[toast.type],
-          transform: [{ translateY }],
-          opacity,
-        },
-      ]}
-    >
-      <View style={styles.iconContainer}>{iconMap[toast.type]}</View>
-      <Text variant="body" style={styles.message} numberOfLines={2}>
-        {toast.message}
-      </Text>
-      <TouchableOpacity
-        onPress={handleDismiss}
-        hitSlop={HIT_SLOP.md}
-        style={styles.closeButton}
+    <Animated.View style={{ transform: [{ translateY }] }}>
+      <GlassSurface
+        style={styles.toast}
+        fallbackStyle={[styles.toastFallback, { backgroundColor: bgColorMap[toast.type] }]}
+        // Tint semantik renkten türüyor: hata kırmızıya, başarı yeşile çalar.
+        // Nötr bırakılsa dört toast türü yalnız 4px şeritle ayrılırdı.
+        tintColor={withAlpha(accent, 0.2)}
       >
-        <X size={16} color={colors.textSecondary} />
-      </TouchableOpacity>
+        {/* Sol aksan OPAK kalıyor: renk bilgi taşıyor, camın içinde erimemeli.
+            Kenarlık (borderLeftWidth) yerine ayrı katman — border camın rim
+            lighting'iyle çakışır. */}
+        <View style={[styles.accent, { backgroundColor: accent }]} />
+        <View style={styles.inner}>
+          <View style={styles.iconContainer}>{iconMap[toast.type]}</View>
+          <Text variant="body" style={styles.message} numberOfLines={2}>
+            {toast.message}
+          </Text>
+          <TouchableOpacity
+            onPress={handleDismiss}
+            hitSlop={HIT_SLOP.md}
+            style={styles.closeButton}
+          >
+            <X size={16} color={colors.textSecondary} />
+          </TouchableOpacity>
+        </View>
+      </GlassSurface>
     </Animated.View>
   );
 }
@@ -118,12 +118,13 @@ const styles = StyleSheet.create({
     zIndex: 9999,
     gap: spacing.sm,
   },
+  // Geometri (iki yolda da). Gölge cam yolunda EKLENMİYOR — rim lighting'i
+  // perdeler; fallback'te ayrıca veriliyor.
   toast: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
     borderRadius: borderRadius.lg,
-    borderLeftWidth: 4,
+  },
+  /** Yalnız cam yokken: bugünkü renkli dolgu (inline) + gölge. */
+  toastFallback: {
     ...Platform.select({
       ios: {
         shadowColor: colors.black,
@@ -134,7 +135,24 @@ const styles = StyleSheet.create({
       android: {
         elevation: 4,
       },
+      default: {},
     }),
+  },
+  /** Sol semantik aksan — opak, camın içinde bir bilgi katmanı. */
+  accent: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 4,
+    borderTopLeftRadius: borderRadius.lg,
+    borderBottomLeftRadius: borderRadius.lg,
+  },
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    paddingLeft: spacing.md + 4, // aksan şeridi kadar içeri
   },
   iconContainer: {
     marginRight: spacing.sm,

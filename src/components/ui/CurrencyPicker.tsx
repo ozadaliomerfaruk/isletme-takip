@@ -1,4 +1,5 @@
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Modal, Dimensions } from 'react-native';
+import { Modal } from './Modal';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Check, ChevronDown } from 'lucide-react-native';

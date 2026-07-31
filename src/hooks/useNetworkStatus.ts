@@ -1,31 +1,41 @@
-import { useState, useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
-import { checkNetworkConnectivity } from '@/lib/supabase';
+import { useEffect, useSyncExternalStore } from 'react';
+import * as Network from 'expo-network';
+import { subscribeToNetworkState } from '@/lib/networkMonitor';
+import {
+  networkStatusStore,
+  type NetworkStatusSnapshot,
+} from '@/lib/networkStatus';
 
-const CHECK_INTERVAL = 30000; // 15s→30s: ön planda boşta dururkenki bağlantı ping egress'ini yarıya indirir (offline tespiti için 30s yeterli)
+let monitoringConsumers = 0;
+let stopMonitoring: (() => void) | null = null;
 
-export function useNetworkStatus() {
-  const [isOffline, setIsOffline] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+function retainNetworkMonitoring(): () => void {
+  monitoringConsumers += 1;
 
-  useEffect(() => {
-    const check = async () => {
-      const connected = await checkNetworkConnectivity();
-      setIsOffline(!connected);
-    };
+  if (monitoringConsumers === 1) {
+    stopMonitoring = subscribeToNetworkState(
+      Network,
+      (state) => networkStatusStore.applyDeviceState(state)
+    );
+  }
 
-    check();
-    intervalRef.current = setInterval(check, CHECK_INTERVAL);
+  return () => {
+    monitoringConsumers = Math.max(0, monitoringConsumers - 1);
+    if (monitoringConsumers === 0) {
+      stopMonitoring?.();
+      stopMonitoring = null;
+    }
+  };
+}
 
-    const subscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') check();
-    });
+export function useNetworkStatus(): NetworkStatusSnapshot {
+  const snapshot = useSyncExternalStore(
+    networkStatusStore.subscribe,
+    networkStatusStore.getSnapshot,
+    networkStatusStore.getSnapshot
+  );
 
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      subscription.remove();
-    };
-  }, []);
+  useEffect(() => retainNetworkMonitoring(), []);
 
-  return isOffline;
+  return snapshot;
 }

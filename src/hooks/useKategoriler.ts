@@ -5,6 +5,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { Kategori, KategoriInsert, KategoriUpdate, KategoriType, KategoriWithChildren } from '@/types/database';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
 /**
  * Düz kategori listesini hiyerarşik yapıya dönüştürür
@@ -63,7 +64,7 @@ function flattenCategoryTree(
   return result;
 }
 
-export function useKategoriler(type?: KategoriType) {
+export function useKategoriler(type?: KategoriType, enabled: boolean = true) {
   const { isletme, isletmeLoading } = useAuthContext();
 
   const result = useQuery({
@@ -87,7 +88,7 @@ export function useKategoriler(type?: KategoriType) {
       if (error) throw error;
       return data as Kategori[];
     },
-    enabled: !!isletme,
+    enabled: enabled && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -95,15 +96,18 @@ export function useKategoriler(type?: KategoriType) {
   // isletme henüz yükleniyorsa loading olarak göster
   return {
     ...result,
-    isLoading: result.isLoading || isletmeLoading,
+    isLoading: enabled && (result.isLoading || isletmeLoading),
   };
 }
 
 /**
  * Kategorileri hiyerarşik yapıda döndürür
  */
-export function useKategorilerHierarchical(type?: KategoriType) {
-  const { data: kategoriler, ...rest } = useKategoriler(type);
+export function useKategorilerHierarchical(
+  type?: KategoriType,
+  enabled: boolean = true,
+) {
+  const { data: kategoriler, ...rest } = useKategoriler(type, enabled);
 
   const hierarchicalData = useMemo(() => {
     if (!kategoriler) return { tree: [], flat: [] };
@@ -159,10 +163,14 @@ export function useSubKategoriler(parentId: string | null, type?: KategoriType) 
 export function useCreateKategori() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canManageCategories } = usePermissions();
 
   return useMutation({
     mutationFn: async (input: Omit<KategoriInsert, 'isletme_id'>) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!canManageCategories) {
+        throw new Error(i18n.t('common:errors.permissionDenied'));
+      }
 
       const { data, error } = await supabase
         .from('kategoriler')
@@ -182,10 +190,14 @@ export function useCreateKategori() {
 export function useUpdateKategori() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canManageCategories } = usePermissions();
 
   return useMutation({
     mutationFn: async ({ id, ...input }: KategoriUpdate & { id: string }) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!canManageCategories) {
+        throw new Error(i18n.t('common:errors.permissionDenied'));
+      }
 
       const { data, error } = await supabase
         .from('kategoriler')
@@ -207,80 +219,26 @@ export function useUpdateKategori() {
 export function useDeleteKategori() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canManageCategories } = usePermissions();
 
   return useMutation({
     mutationFn: async (id: string) => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
-
-      // Bağlı işlem kontrolü: islemler tablosunda bu kategoriye ait aktif işlem var mı?
-      const { count: islemCount, error: islemError } = await supabase
-        .from('islemler')
-        .select('id', { count: 'exact', head: true })
-        .eq('kategori_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (islemError) throw islemError;
-
-      // Bağlı ileri tarihli işlem kontrolü ('notified' de aktif sayılır — listeleme/tamamlama
-      // semantiğiyle tutarlı; aksi halde notified kayda bağlı kategori pasifleşip "hayalet" kalıyordu)
-      const { count: ileriCount, error: ileriError } = await supabase
-        .from('ileri_tarihli_islemler')
-        .select('id', { count: 'exact', head: true })
-        .eq('kategori_id', id)
-        .eq('isletme_id', isletme.id)
-        .in('status', ['pending', 'notified']);
-
-      if (ileriError) throw ileriError;
-
-      if ((islemCount ?? 0) > 0 || (ileriCount ?? 0) > 0) {
-        throw new Error(i18n.t('errors:category.hasTransactions'));
+      if (!canManageCategories) {
+        throw new Error(i18n.t('common:errors.permissionDenied'));
       }
 
-      // Bağlı ürünlerin kategori bağını temizle (yetim referans kalmasın).
-      // İşlemlerin aksine ürünü silmeyiz; sadece kategorisini boşaltırız (kategorisiz olur).
-      // Kategori silinmeden ÖNCE yaparız ki silme başarısız olsa bile tekrar denemede idempotent kalsın.
-      const { error: urunError } = await supabase
-        .from('urunler')
-        .update({ kategori_id: null })
-        .eq('kategori_id', id)
-        .eq('isletme_id', isletme.id);
+      const { error } = await supabase.rpc('archive_kategori_atomik', {
+        p_isletme_id: isletme.id,
+        p_kategori_id: id,
+      });
 
-      if (urunError) throw urunError;
-
-      // Bu kategoriyi alt kategori olarak kullanan kategorilerin parent bağını da temizle
-      // (silinen kategoriye işaret eden yetim parent_id kalmasın → üst seviyeye taşınırlar).
-      const { error: childError } = await supabase
-        .from('kategoriler')
-        .update({ parent_id: null })
-        .eq('parent_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (childError) throw childError;
-
-      // Bu kategoriyi gelir/gider eşlemesi (mapped) olarak kullanan ürün kategorilerinin
-      // eşleme bağını temizle (silinen kategoriye işaret eden yetim mapping kalmasın).
-      const { error: mappedGelirError } = await supabase
-        .from('kategoriler')
-        .update({ mapped_gelir_kategori_id: null })
-        .eq('mapped_gelir_kategori_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (mappedGelirError) throw mappedGelirError;
-
-      const { error: mappedGiderError } = await supabase
-        .from('kategoriler')
-        .update({ mapped_gider_kategori_id: null })
-        .eq('mapped_gider_kategori_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (mappedGiderError) throw mappedGiderError;
-
-      const { error } = await supabase
-        .from('kategoriler')
-        .update({ is_active: false })
-        .eq('id', id)
-        .eq('isletme_id', isletme.id);  // Güvenlik: Sadece kendi işletmesindeki kategoriyi silebilir
-
+      if (error?.message?.includes('CATEGORY_HAS_TRANSACTIONS')) {
+        throw new Error(i18n.t('errors:category.hasTransactions'));
+      }
+      if (error?.code === '42501') {
+        throw new Error(i18n.t('common:errors.permissionDenied'));
+      }
       if (error) throw error;
     },
     onSuccess: () => {

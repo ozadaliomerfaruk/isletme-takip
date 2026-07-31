@@ -34,8 +34,8 @@
     "scopeAll": "Tümünü",
     "moduleNotlar": "Notlar",
     "showSavings": "Birikim hesaplarını göster",
-    "levelHelp": "Açık modüllerde tüm kayıtlar görünür; ekleme/düzenleme/silme aşağıdaki seçime göredir.",
-    "noModuleWarning": "Hiçbir modül seçili değil — bu kullanıcı yalnızca ana ekranı görebilir."
+    "levelHelp": "Açık modüllerde kimin eklediğine bakılmadan bütün kayıtlar görünür ve Excel/PDF dışa aktarılabilir; Cariler açıksa public ekstre bağlantısı paylaşılabilir. Ekleme/düzenleme/silme aşağıdaki seçime göredir.",
+    "noModuleWarning": "Hiçbir modül seçili değil — bu kullanıcı işletmenin iş ekranlarını göremez."
   },
   "users": {
     "title": "Kullanıcılar",

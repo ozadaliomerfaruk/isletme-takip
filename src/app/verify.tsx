@@ -3,7 +3,7 @@ import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -95,36 +95,40 @@ export default function VerifyScreen() {
 
   if (error) {
     return (
-      <View style={styles.container}>
-        <Text variant="h2" color="error" style={styles.errorTitle}>
-          {t('common:status.error')}
-        </Text>
-        <Text variant="body" color="secondary" center style={styles.errorMessage}>
-          {error}
-        </Text>
-        <Text variant="caption" color="secondary" style={styles.redirectText}>
-          {t('auth:forgotPassword.backToLogin')}...
-        </Text>
-      </View>
+      <Screen top>
+        <View style={styles.container}>
+          <Text variant="h2" color="error" style={styles.errorTitle}>
+            {t('common:status.error')}
+          </Text>
+          <Text variant="body" color="secondary" center style={styles.errorMessage}>
+            {error}
+          </Text>
+          <Text variant="caption" color="secondary" style={styles.redirectText}>
+            {t('auth:forgotPassword.backToLogin')}...
+          </Text>
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.primary} />
-      <Text variant="body" style={styles.loadingText}>
-        {t('common:status.loading')}
-      </Text>
-    </View>
+    <Screen top>
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text variant="body" style={styles.loadingText}>
+          {t('common:status.loading')}
+        </Text>
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
+  // Arka plan ve safe-area Screen'e ait; burada yalnız ortalama kalır
   container: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
     padding: spacing.xl,
   },
   loadingText: {

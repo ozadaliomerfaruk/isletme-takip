@@ -155,9 +155,9 @@
     "scheduledCollectionCreated": "İleri tarihli tahsilat oluşturuldu"
   },
   "search": {
-    "searchClients": "Cari ara...",
-    "searchCustomers": "Müşteri ara...",
-    "searchSuppliers": "Tedarikçi ara...",
+    "searchClients": "Cari arayın",
+    "searchCustomers": "Müşteri arayın",
+    "searchSuppliers": "Tedarikçi arayın",
     "noResults": "Sonuç bulunamadı"
   },
   "picker": {

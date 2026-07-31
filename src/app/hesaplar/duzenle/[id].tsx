@@ -8,10 +8,11 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Wallet, Building2, CreditCard, Vault } from 'lucide-react-native';
-import { Text, Input, Button, Card } from '@/components/ui';
+import { Text, Input, Button, Card, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesap, useUpdateHesap } from '@/hooks/useHesaplar';
@@ -21,6 +22,7 @@ import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency } from '@/lib/currency';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Hesap tipi için ikon ve renk
 const getHesapTypeConfig = (type: HesapType) => {
@@ -46,8 +48,10 @@ export default function HesapDuzenlePage() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { data: hesap, isLoading } = useHesap(id);
   usePagePermission({ module: 'hesaplar', action: 'update', createdBy: hesap?.created_by });
+  const { isOwner } = usePermissions();
   const updateHesap = useUpdateHesap();
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   const [name, setName] = useState('');
   const [creditLimit, setCreditLimit] = useState('');
@@ -91,7 +95,7 @@ export default function HesapDuzenlePage() {
         payment_due_day: hesap.type === 'kredi_karti' && paymentDueDay
           ? parseInt(paymentDueDay, 10)
           : null,
-        is_active: isActive,
+        ...(isOwner ? { is_active: isActive } : {}),
       });
 
       notifySaved(t('accounts:messages.updateSuccess'));
@@ -103,26 +107,26 @@ export default function HesapDuzenlePage() {
 
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!hesap) {
     return (
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text>{t('errors:account.notFound')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
@@ -195,28 +199,30 @@ export default function HesapDuzenlePage() {
               />
             </View>
 
-            {/* Pasif Mod */}
-            <View style={styles.section}>
-              <View style={styles.passiveModeContainer}>
-                <View style={styles.passiveModeHeader}>
-                  <Text variant="body">{t('common:passiveMode.title')}</Text>
-                  <Switch
-                    value={!isActive}
-                    onValueChange={(value) => setIsActive(!value)}
-                    trackColor={{ false: colors.border, true: colors.warning }}
-                    thumbColor={colors.surface}
-                  />
+            {/* Pasif kayıt yönetimi yalnız işletme sahibine aittir. */}
+            {isOwner && (
+              <View style={styles.section}>
+                <View style={styles.passiveModeContainer}>
+                  <View style={styles.passiveModeHeader}>
+                    <Text variant="body">{t('common:passiveMode.title')}</Text>
+                    <Switch
+                      value={!isActive}
+                      onValueChange={(value) => setIsActive(!value)}
+                      trackColor={{ false: colors.border, true: colors.warning }}
+                      thumbColor={colors.surface}
+                    />
+                  </View>
+                  <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
+                    {t('common:passiveMode.description')}
+                  </Text>
                 </View>
-                <Text variant="caption" color="muted" style={styles.passiveModeDescription}>
-                  {t('common:passiveMode.description')}
-                </Text>
               </View>
-            </View>
+            )}
 
           </ScrollView>
 
           {/* Sticky footer — güncelle butonu klavyenin altında kalmasın */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
             <Button
               variant="outline"
               size="lg"
@@ -236,7 +242,7 @@ export default function HesapDuzenlePage() {
             </Button>
           </View>
         </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

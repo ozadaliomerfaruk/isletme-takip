@@ -7,18 +7,28 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Building2, User } from 'lucide-react-native';
-import { Text, Input, Button, Card, Collapsible, CurrencyPicker } from '@/components/ui';
+import { Text, Input, Button, Card, Collapsible, CurrencyPicker, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { useCreateCari } from '@/hooks/useCariler';
+import { useCariler, useCreateCari } from '@/hooks/useCariler';
+import { usePersonelList } from '@/hooks/usePersonel';
 import { CariType, Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { getNeedsSetupSync } from '@/lib/setupFlow';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { DeviceContactPickerButton } from '@/components/contacts/DeviceContactPickerButton';
+import {
+  findPhoneDuplicateMatches,
+  getPhoneDuplicateWarningCopy,
+  getPhoneValidationMessageKey,
+  preparePhoneForSave,
+} from '@/lib/phone';
 
 export default function CariEklePage() {
   const router = useRouter();
@@ -31,7 +41,12 @@ export default function CariEklePage() {
   const { t, i18n } = useTranslation(['clients', 'common', 'errors']);
   usePagePermission({ module: 'cariler', action: 'create' });
   const createCari = useCreateCari();
+  // Bu iki hook tenant + modül görünürlüğünü kendi içinde uygular. Arşiv/pasif
+  // dahil edilse bile kullanıcıya kapalı kayıtlar sorgu sonucuna girmez.
+  const { data: visibleCariler } = useCariler(undefined, true, true);
+  const { data: visiblePersoneller } = usePersonelList(true, true);
   const insets = useSafeAreaInsets();
+  const footerInset = useFooterBottomPadding();
 
   // Dile göre varsayılan para birimi
   const defaultCurrency: Currency = i18n.language.startsWith('en') ? 'USD' : 'TRY';
@@ -48,22 +63,27 @@ export default function CariEklePage() {
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [notes, setNotes] = useState(params.prefillTaxNumber ? `VKN: ${params.prefillTaxNumber}` : '');
-  const [errors, setErrors] = useState<{ name?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
 
   const validate = () => {
-    const newErrors: { name?: string } = {};
+    const newErrors: { name?: string; phone?: string } = {};
+    const phoneResult = preparePhoneForSave(phone);
 
     if (!name.trim()) {
       newErrors.name = t('clients:validation.nameRequired');
     }
+    if (!phoneResult.ok) {
+      newErrors.phone = t(`common:${getPhoneValidationMessageKey(phoneResult.reason)}`);
+    }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return {
+      isValid: Object.keys(newErrors).length === 0,
+      normalizedPhone: phoneResult.ok ? phoneResult.value : null,
+    };
   };
 
-  const handleSubmit = async () => {
-    if (!validate()) return;
-
+  const persistCari = async (normalizedPhone: string | null) => {
     try {
       // Açılış bakiyesi artık formda YOK (Dilim 1 #3): cari 0 bakiye ile oluşur;
       // açılış bakiyesi, işlem girilmeden önce cari DETAY sayfasından (yön'lü,
@@ -72,7 +92,7 @@ export default function CariEklePage() {
         name: name.trim(),
         type,
         currency,
-        phone: phone.trim() || null,
+        phone: normalizedPhone,
         email: email.trim() || null,
         address: address.trim() || null,
         balance: 0,
@@ -83,8 +103,12 @@ export default function CariEklePage() {
       // Kayıt sonrası oluşturulan cari detayına git (geri tuşu = liste). (Dilim 1 #6)
       // İSTİSNA: prefill'le gelindiyse (foto-import tedarikçi oluşturma akışı) çağıran
       // ekrana geri dön — o akış router.back() ile import'a devam etmeyi bekliyor.
+      // İSTİSNA 2: kurulum akışı sürüyorsa (rehberli oluşturma adımı) detaya GİTME.
+      // _layout'un kapısı kurulum bitmeden 'cariler/ekle' dışına çıkışa izin vermiyor;
+      // detaya replace edilince kapı devreye girip kullanıcıyı sektör ekranına
+      // (/kurulum) geri atıyordu. back() → rehberli oluşturma listesine döner.
       const cameFromPrefillFlow = !!(params.prefillName || params.prefillType || params.prefillTaxNumber);
-      if (cameFromPrefillFlow) {
+      if (cameFromPrefillFlow || getNeedsSetupSync()) {
         router.back();
       } else {
         router.replace({ pathname: '/cariler/[id]', params: { id: created.id } });
@@ -94,8 +118,31 @@ export default function CariEklePage() {
     }
   };
 
+  const handleSubmit = async () => {
+    const validation = validate();
+    if (!validation.isValid) return;
+
+    const duplicateMatches = findPhoneDuplicateMatches(validation.normalizedPhone, {
+      cariler: visibleCariler,
+      personeller: visiblePersoneller,
+    });
+    if (duplicateMatches.length > 0) {
+      const warning = getPhoneDuplicateWarningCopy(duplicateMatches, i18n.language);
+      Alert.alert(warning.title, warning.message, [
+        { text: t('common:buttons.cancel'), style: 'cancel' },
+        {
+          text: warning.confirmLabel,
+          onPress: () => void persistCari(validation.normalizedPhone),
+        },
+      ]);
+      return;
+    }
+
+    await persistCari(validation.normalizedPhone);
+  };
+
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -171,6 +218,17 @@ export default function CariEklePage() {
                 keyboardType="phone-pad"
                 value={phone}
                 onChangeText={setPhone}
+                error={errors.phone}
+                rightIcon={(
+                  <DeviceContactPickerButton
+                    onSelect={(selection) => {
+                      setPhone(selection.phone);
+                      if (!name.trim()) {
+                        setName(selection.name || selection.company);
+                      }
+                    }}
+                  />
+                )}
               />
 
               <Input
@@ -195,7 +253,7 @@ export default function CariEklePage() {
         </ScrollView>
 
         {/* Sticky footer — kaydet butonu klavyenin altında kalmasın (Dilim 1 #5) */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
           <Button
             variant="outline"
             size="lg"
@@ -215,7 +273,7 @@ export default function CariEklePage() {
           </Button>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

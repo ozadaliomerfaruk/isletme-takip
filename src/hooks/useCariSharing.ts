@@ -23,6 +23,7 @@ import type {
   RemoveCariLinkInput,
 } from '@/types/cariSharing';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // ============================================================================
 // QUERIES
@@ -33,11 +34,13 @@ import i18n from '@/i18n';
  */
 export function useCariLinks() {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
     queryKey: queryKeys.cariSharing.list(isletme?.id ?? ''),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeCariler || !isletme) return [];
 
       const { data, error } = await supabase
         .from('cari_links')
@@ -53,7 +56,7 @@ export function useCariLinks() {
       if (error) throw error;
       return data as CariLinkWithDetails[];
     },
-    enabled: !!isletme,
+    enabled: canSeeCariler && !!isletme,
   });
 }
 
@@ -63,11 +66,13 @@ export function useCariLinks() {
  */
 export function useLinkedCariler() {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
     queryKey: queryKeys.cariSharing.linkedCariler(isletme?.id ?? ''),
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeCariler || !isletme) return [];
 
       const { data, error } = await supabase
         .from('cari_links')
@@ -82,7 +87,7 @@ export function useLinkedCariler() {
       if (error) throw error;
       return data as CariLinkWithDetails[];
     },
-    enabled: !!isletme,
+    enabled: canSeeCariler && !!isletme,
   });
 }
 
@@ -91,11 +96,13 @@ export function useLinkedCariler() {
  */
 export function useCariLinkStatus(cariId: string | undefined) {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeCariler = canAccessModule('cariler');
 
   return useQuery({
     queryKey: queryKeys.cariSharing.status(isletme?.id ?? '', cariId ?? ''),
     queryFn: async (): Promise<CariLinkStatus> => {
-      if (!isletme || !cariId) {
+      if (!canSeeCariler || !isletme || !cariId) {
         return { is_linked: false, link: null, permission: null, is_owner: false };
       }
 
@@ -124,7 +131,12 @@ export function useCariLinkStatus(cariId: string | undefined) {
         is_owner: linkData.owner_isletme_id === isletme.id,
       };
     },
-    enabled: !!isletme && !!cariId,
+    enabled: canSeeCariler && !!isletme && !!cariId,
+    // Link izni yazma kapısı olarak da kullanılıyor. Eski `full` cache'iyle ekranı
+    // fail-open bırakmamak için her mount/odakta sunucudan tazele.
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -137,10 +149,14 @@ export function useCariLinkStatus(cariId: string | undefined) {
  */
 export function useGenerateShareCode() {
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
 
   return useMutation({
     mutationFn: async (input: GenerateShareCodeInput): Promise<GenerateShareCodeResponse> => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!canAccessModule('cariler')) {
+        throw new Error(i18n.t('common:errors.permissionDenied'));
+      }
 
       const { data, error } = await supabase.rpc('generate_cari_share_code', {
         p_cari_id: input.cari_id,
@@ -166,10 +182,14 @@ export function useGenerateShareCode() {
 export function useAcceptShareCode() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
 
   return useMutation({
     mutationFn: async (input: AcceptShareCodeInput): Promise<AcceptShareCodeResponse> => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!canAccessModule('cariler')) {
+        throw new Error(i18n.t('common:errors.permissionDenied'));
+      }
 
       const { data, error } = await supabase.rpc('accept_cari_share_code', {
         p_code: input.code,
@@ -178,7 +198,13 @@ export function useAcceptShareCode() {
       });
 
       if (error) throw error;
-      return { link_id: data as string };
+      // Geçersiz/süresi dolmuş ve hız sınırına takılan kodlarda RPC, deneme
+      // sayacının commit edilebilmesi için hata yerine NULL döndürür. Yalnız
+      // gerçek bağlantı kimliği başarı kabul edilmelidir.
+      if (typeof data !== 'string' || data.length === 0) {
+        throw new Error(i18n.t('clients:sharing.invalidCode'));
+      }
+      return { link_id: data };
     },
     onSuccess: (_data, variables) => {
       invalidateRelatedQueries(queryClient, 'cariSharing');
@@ -193,10 +219,14 @@ export function useAcceptShareCode() {
 export function useRemoveCariLink() {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
+  const { canAccessModule } = usePermissions();
 
   return useMutation({
     mutationFn: async (input: RemoveCariLinkInput): Promise<void> => {
       if (!isletme) throw new Error(i18n.t('common:errors.businessNotFound'));
+      if (!canAccessModule('cariler')) {
+        throw new Error(i18n.t('common:errors.permissionDenied'));
+      }
 
       const { error } = await supabase.rpc('remove_cari_link', {
         p_link_id: input.link_id,

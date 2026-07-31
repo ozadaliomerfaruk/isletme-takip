@@ -16,6 +16,8 @@ interface ProductRowProps {
   expanded: boolean;
   onToggle: (id: string) => void;
   onNewTransaction: (urun: Urun) => void;
+  canCreateTransaction: boolean;
+  canManage: boolean;
   onViewMovements: (id: string) => void;
   onOpenActionSheet: (urun: Urun) => void;
   urunOzet?: DonemOzet;
@@ -26,7 +28,8 @@ interface ProductRowProps {
 }
 
 export const ProductRow = memo(function ProductRow({
-  urun, expanded, onToggle, onNewTransaction, onViewMovements, onOpenActionSheet,
+  urun, expanded, onToggle, onNewTransaction, canCreateTransaction, canManage,
+  onViewMovements, onOpenActionSheet,
   urunOzet, kategoriAdi, getBirimLabel, ozetMode = 'miktar',
 }: ProductRowProps) {
   const { t } = useTranslation(['products', 'common']);
@@ -101,27 +104,31 @@ export const ProductRow = memo(function ProductRow({
                 </>
               ) : null}
             </View>
-            <TouchableOpacity
-              style={rowStyles.moreBtn}
-              onPress={handleActionSheet}
-              hitSlop={HIT_SLOP.md}
-            >
-              <MoreVertical size={18} color={colors.textMuted} />
-            </TouchableOpacity>
+            {canManage && (
+              <TouchableOpacity
+                style={rowStyles.moreBtn}
+                onPress={handleActionSheet}
+                hitSlop={HIT_SLOP.md}
+              >
+                <MoreVertical size={18} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
           </View>
         }
       >
         <View style={rowStyles.actions}>
-          <Button
-            variant="primary"
-            size="sm"
-            icon={<ArrowRightLeft size={16} color={colors.white} />}
-            iconPosition="left"
-            onPress={handleTransaction}
-            style={rowStyles.actionBtn}
-          >
-            {t('products:actions.newTransaction')}
-          </Button>
+          {canCreateTransaction && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<ArrowRightLeft size={16} color={colors.white} />}
+              iconPosition="left"
+              onPress={handleTransaction}
+              style={rowStyles.actionBtn}
+            >
+              {t('products:actions.newTransaction')}
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -144,11 +151,13 @@ interface ArchivedProductRowProps {
   onToggle: (id: string) => void;
   onViewMovements: (id: string) => void;
   onOpenActionSheet: (urun: Urun) => void;
+  canManage: boolean;
   getBirimLabel: (birim: BirimType) => string;
 }
 
 export const ArchivedProductRow = memo(function ArchivedProductRow({
-  urun, expanded, onToggle, onViewMovements, onOpenActionSheet, getBirimLabel,
+  urun, expanded, onToggle, onViewMovements, onOpenActionSheet, canManage,
+  getBirimLabel,
 }: ArchivedProductRowProps) {
   const { t } = useTranslation(['products', 'common']);
 
@@ -176,13 +185,15 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
                 {urun.kod && ` • ${urun.kod}`}
               </Text>
             </View>
-            <TouchableOpacity
-              style={rowStyles.moreBtn}
-              onPress={handleActionSheet}
-              hitSlop={HIT_SLOP.md}
-            >
-              <MoreVertical size={20} color={colors.textMuted} />
-            </TouchableOpacity>
+            {canManage && (
+              <TouchableOpacity
+                style={rowStyles.moreBtn}
+                onPress={handleActionSheet}
+                hitSlop={HIT_SLOP.md}
+              >
+                <MoreVertical size={20} color={colors.textMuted} />
+              </TouchableOpacity>
+            )}
           </View>
         }
       >
@@ -275,7 +286,8 @@ const rowStyles = StyleSheet.create({
   },
   // giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı; ürün detayıyla tutarlı)
   pillIn: {
-    backgroundColor: '#FEF2F2',
+    // Ham hex yerine palet: ürün detayındaki aylık özet pill'leriyle aynı ton
+    backgroundColor: colors.errorLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,
@@ -286,7 +298,7 @@ const rowStyles = StyleSheet.create({
     color: colors.error,
   },
   pillOut: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successLight,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,

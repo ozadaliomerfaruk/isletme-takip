@@ -1,11 +1,12 @@
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 
 export default function KullanimKosullariPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation('legal');
 
   const sections = [
@@ -25,8 +26,9 @@ export default function KullanimKosullariPage() {
   ] as const;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+    <Screen>
+      <ScrollView
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }} style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
           <Text variant="h3" style={styles.title}>
             {t('terms.title')}
@@ -53,7 +55,7 @@ export default function KullanimKosullariPage() {
           ))}
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

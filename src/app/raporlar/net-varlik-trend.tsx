@@ -1,16 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, ScrollView, StyleSheet, RefreshControl, useWindowDimensions } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LineChart } from 'react-native-gifted-charts';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react-native';
-import { Text, Card, TabFilter } from '@/components/ui';
+import { Text, Card, TabFilter, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { logEvent } from '@/lib/appEvents';
 import { colors } from '@/constants/colors';
 import { spacing, fontSize } from '@/constants/spacing';
-import { formatCurrency, formatCurrencyCompact, formatQuantity } from '@/lib/currency';
+import { formatCurrency, formatCurrencyWithSign, formatCurrencyCompact, formatQuantity } from '@/lib/currency';
+import { getCurrencySymbol } from '@/constants/currencies';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
@@ -22,8 +23,14 @@ import { useNetWorthLenses, LensMode } from '@/hooks/useNetWorthLenses';
  * zaman değerini göstermek. Son nokta canlı "genel durum"a demirlidir.
  */
 // ccy: para birimi kodu ('TRY'|'USD'|'EUR'|'GBP'...) ya da 'gram' (altın).
+//
+// İŞARET: gram dalı formatQuantity ile eksiyi KORUYOR, para dalı formatCurrency ile
+// KAYBEDİYORDU (mutlak değer basar). Aynı satır mercek TRY iken "₺5.000", gram'a
+// çevrilince "-100 gr" görünüyordu — düşüş artıştan ayırt edilemiyordu. Negatifte
+// işaretli format kullan (pozitifte işaretsiz kalsın; tablo dili öyle).
 function fmtValue(v: number, ccy: string): string {
-  return ccy === 'gram' ? `${formatQuantity(v)} gr` : formatCurrency(v, ccy);
+  if (ccy === 'gram') return `${formatQuantity(v)} gr`;
+  return v < 0 ? formatCurrencyWithSign(v, ccy) : formatCurrency(v, ccy);
 }
 function fmtCompact(v: number, ccy: string): string {
   return ccy === 'gram' ? `${formatQuantity(v)}` : formatCurrencyCompact(v, ccy);
@@ -33,6 +40,7 @@ function zeroLabel(ccy: string): string {
 }
 
 export default function NetVarlikTrendPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'net_worth_trend' }); }, []);
   const { t } = useTranslation(['reports', 'common']);
@@ -60,13 +68,13 @@ export default function NetVarlikTrendPage() {
   ];
   const LENS_OPTIONS = repricingSupported
     ? [
-        { label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' },
+        { label: t('reports:netWorthTrend.lensNominal', { ccy: getCurrencySymbol(baseCurrency) }), value: 'nominal' },
         { label: t('reports:netWorthTrend.lensReal'), value: 'reel' },
         { label: 'USD', value: 'usd' },
         { label: 'EUR', value: 'eur' },
         { label: t('reports:netWorthTrend.lensGold'), value: 'altin' },
       ]
-    : [{ label: t('reports:netWorthTrend.lensNominal'), value: 'nominal' }];
+    : [{ label: t('reports:netWorthTrend.lensNominal', { ccy: getCurrencySymbol(baseCurrency) }), value: 'nominal' }];
   const shortLabel: Record<LensMode, string> = {
     nominal: t('reports:netWorthTrend.shortNominal'),
     reel: t('reports:netWorthTrend.shortReal'),
@@ -129,20 +137,22 @@ export default function NetVarlikTrendPage() {
       <View style={styles.deltaCell}>
         <Icon size={14} color={color} />
         <Text style={[styles.deltaText, { color }]} numberOfLines={1}>
-          {up ? '+' : ''}{fmtValue(change, dispCcy)}
+          {/* Simetrik işaret: artışta '+', düşüşte fmtValue'nun '-'si. Eşik altı
+              (±0,005) değişim "sıfır" sayılır — aksi halde -0,001 "−₺0,00" yazıyordu. */}
+          {up ? '+' : ''}{fmtValue(up || down ? change : 0, dispCcy)}
         </Text>
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <Screen>
       <Stack.Screen options={{ headerTitle: t('reports:netWorthTrend.title') }} />
 
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
       >
         {/* Bu sayfa ne işe yarar? — esnaf için sade açıklama */}
         <Card style={styles.introCard}>
@@ -387,12 +397,11 @@ export default function NetVarlikTrendPage() {
           </View>
         ) : null}
       </ScrollView>
-    </SafeAreaView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, paddingBottom: spacing['3xl'], gap: spacing.md },
   rangeBar: { marginBottom: spacing.xs },
   card: { padding: spacing.lg },

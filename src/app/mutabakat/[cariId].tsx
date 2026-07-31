@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, InteractionManager, Share, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { AlertTriangle, Scale } from 'lucide-react-native';
-import { EmptyState, Text } from '@/components/ui';
+import { EmptyState, Screen, Text } from '@/components/ui';
 import { ReportStep, SelectStep } from '@/components/mutabakat';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import type { TransactionType } from '@/components/transaction/QuickTransactionBar/types';
 import { colors } from '@/constants/colors';
-import { spacing } from '@/constants/spacing';
+import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
 import { parseDateFromDB } from '@/lib/date';
 import {
@@ -33,6 +33,7 @@ import { useAllIslemlerByCari } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useToast } from '@/contexts/ToastContext';
 import { logEvent } from '@/lib/appEvents';
+import { usePermissions } from '@/hooks/usePermissions';
 
 type Step = 'select' | 'processing' | 'report';
 
@@ -55,6 +56,10 @@ export default function MutabakatPage() {
   const { t } = useTranslation(['mutabakat', 'clients', 'common']);
   const { formatDateShort } = useDateFormat();
   const { showToast } = useToast();
+  const { canCreateTransactionType } = usePermissions();
+  // Mutabakat yalnız Cari işlemi üretir; geniş QTB kaynak setini istemez.
+  // Böylece Cariler+add, Hesaplar/Personel/Ürünler kapalıyken de çalışır.
+  const canCreateTransactions = canCreateTransactionType('cari_alis');
 
   const [step, setStep] = useState<Step>('select');
   const [picking, setPicking] = useState(false);
@@ -80,10 +85,131 @@ export default function MutabakatPage() {
   const [queueBarVisible, setQueueBarVisible] = useState(false);
   const [addedRows, setAddedRows] = useState<Set<number>>(new Set());
   const [skippedRows, setSkippedRows] = useState<Set<number>>(new Set());
+  const canCreateTransactionsRef = useRef(canCreateTransactions);
+  const permissionEpochRef = useRef(0);
+  const queueSessionRef = useRef(0);
+  const queuePhaseRef = useRef<'idle' | 'open' | 'transition' | 'paused' | 'closing'>('idle');
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (advanceTimer.current) clearTimeout(advanceTimer.current);
+  const advanceTimerTokenRef = useRef(0);
+
+  const clearAdvanceTimer = useCallback(() => {
+    // Süresi dolmuş callback JS kuyruğuna girmiş olsa bile token değişince no-op olur.
+    advanceTimerTokenRef.current += 1;
+    if (advanceTimer.current) {
+      clearTimeout(advanceTimer.current);
+      advanceTimer.current = null;
+    }
   }, []);
+
+  const scheduleQueueTimer = useCallback(
+    ({
+      session,
+      permissionEpoch,
+      expectedPermission,
+      expectedPhase,
+      onFire,
+    }: {
+      session: number;
+      permissionEpoch: number;
+      expectedPermission: boolean;
+      expectedPhase: 'transition' | 'closing';
+      onFire: () => void;
+    }) => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current);
+      const token = advanceTimerTokenRef.current + 1;
+      advanceTimerTokenRef.current = token;
+      advanceTimer.current = setTimeout(() => {
+        if (advanceTimerTokenRef.current !== token) return;
+        advanceTimer.current = null;
+        // Aynı callback ikinci kez çalışamasın; onFire yeni timer kurarsa yeni token alır.
+        advanceTimerTokenRef.current = token + 1;
+        if (
+          queueSessionRef.current !== session ||
+          permissionEpochRef.current !== permissionEpoch ||
+          canCreateTransactionsRef.current !== expectedPermission ||
+          queuePhaseRef.current !== expectedPhase
+        ) {
+          return;
+        }
+        onFire();
+      }, 350);
+    },
+    [],
+  );
+
+  useEffect(
+    () => () => {
+      canCreateTransactionsRef.current = false;
+      permissionEpochRef.current += 1;
+      queueSessionRef.current += 1;
+      queuePhaseRef.current = 'closing';
+      clearAdvanceTimer();
+    },
+    [clearAdvanceTimer],
+  );
+
+  // Yetki commit'iyle aynı anda ref/epoch güncellenir; eski native onSuccess/onDismiss
+  // closure'ları passive effect'i beklemeden geçersiz olur.
+  useLayoutEffect(() => {
+    if (canCreateTransactionsRef.current === canCreateTransactions) return;
+    canCreateTransactionsRef.current = canCreateTransactions;
+    permissionEpochRef.current += 1;
+    queueSessionRef.current += 1;
+    clearAdvanceTimer();
+    setQueueBarVisible(false);
+    if (queue.length === 0) {
+      queuePhaseRef.current = 'idle';
+      return;
+    }
+
+    // QuickTransactionBar visible=false render'ında Modal alt ağacını üretmese de parent,
+    // component instance'ını currentQueueItem üzerinden 350 ms daha korur; form hook'ları
+    // unmount olmaz. Süre bitince queue temizlenir ve parent instance ancak o zaman kalkar.
+    queuePhaseRef.current = 'closing';
+    const closingSession = queueSessionRef.current;
+    const closingPermissionEpoch = permissionEpochRef.current;
+    scheduleQueueTimer({
+      session: closingSession,
+      permissionEpoch: closingPermissionEpoch,
+      expectedPermission: canCreateTransactions,
+      expectedPhase: 'closing',
+      onFire: () => {
+        queueSessionRef.current += 1;
+        queuePhaseRef.current = 'idle';
+        setQueue([]);
+        setQueueIndex(0);
+      },
+    });
+  }, [
+    canCreateTransactions,
+    clearAdvanceTimer,
+    queue.length,
+    scheduleQueueTimer,
+  ]);
+
+  const beginQueueSession = useCallback(
+    (
+      items: BizdeEksikSatir[],
+      expectedPermissionEpoch: number,
+      expectedQueueSession: number,
+    ) => {
+      if (
+        items.length === 0 ||
+        !canCreateTransactionsRef.current ||
+        permissionEpochRef.current !== expectedPermissionEpoch ||
+        queueSessionRef.current !== expectedQueueSession
+      ) {
+        return;
+      }
+      clearAdvanceTimer();
+      queueSessionRef.current += 1;
+      queuePhaseRef.current = 'open';
+      setQueue(items);
+      setQueueIndex(0);
+      setQueueBarVisible(true);
+    },
+    [clearAdvanceTimer],
+  );
 
   const isLinked = !!linkStatus?.is_linked;
 
@@ -291,15 +417,10 @@ export default function MutabakatPage() {
   // eski timer tetiklenirse queueIndex yeni kuyruğun dışına taşar,
   // currentQueueItem null olur ve bar görünürken unmount edilir
   // ("öksüz native modal" donması, bkz. 3802bac ve aşağıdaki DİKKAT notu).
-  const clearAdvanceTimer = useCallback(() => {
-    if (advanceTimer.current) {
-      clearTimeout(advanceTimer.current);
-      advanceTimer.current = null;
-    }
-  }, []);
-
   const startQueue = useCallback(() => {
-    if (!sonuc || !cari) return;
+    if (!canCreateTransactionsRef.current || !sonuc || !cari) return;
+    const actionPermissionEpoch = permissionEpochRef.current;
+    const actionQueueSession = queueSessionRef.current;
     const remaining = sonuc.bizdeEksik.filter(
       (i) => !addedRows.has(i.satir.rowIndex) && !skippedRows.has(i.satir.rowIndex),
     );
@@ -317,26 +438,21 @@ export default function MutabakatPage() {
         {
           text: t('mutabakat:topluOnay.ekle'),
           onPress: () => {
-            clearAdvanceTimer();
-            setQueue(remaining);
-            setQueueIndex(0);
-            setQueueBarVisible(true);
+            beginQueueSession(remaining, actionPermissionEpoch, actionQueueSession);
           },
         },
       ],
     );
-  }, [sonuc, cari, addedRows, skippedRows, clearAdvanceTimer, t]);
+  }, [sonuc, cari, addedRows, skippedRows, beginQueueSession, t]);
 
   // Satıra dokunarak TEK kalem ekleme: tek elemanlı kuyruk olarak aynı akıştan geçer
   const handleAddRow = useCallback(
     (item: BizdeEksikSatir) => {
-      if (addedRows.has(item.satir.rowIndex)) return;
-      const ac = () => {
-        clearAdvanceTimer();
-        setQueue([item]);
-        setQueueIndex(0);
-        setQueueBarVisible(true);
-      };
+      if (!canCreateTransactionsRef.current || addedRows.has(item.satir.rowIndex)) return;
+      const actionPermissionEpoch = permissionEpochRef.current;
+      const actionQueueSession = queueSessionRef.current;
+      const ac = () =>
+        beginQueueSession([item], actionPermissionEpoch, actionQueueSession);
       // Kırmızı-devam durumunda kalem başına ek onay (spec 5.3)
       if (kirmiziDevam) {
         Alert.alert(t('mutabakat:dogrulama.kirmiziBant'), t('mutabakat:topluOnay.tekilKirmizi'), [
@@ -347,7 +463,7 @@ export default function MutabakatPage() {
         ac();
       }
     },
-    [addedRows, clearAdvanceTimer, kirmiziDevam, t],
+    [addedRows, beginQueueSession, kirmiziDevam, t],
   );
 
   const ozet = useMemo(
@@ -377,6 +493,7 @@ export default function MutabakatPage() {
   // Mini rapor "Bakiyeyi Düzelt": başlangıç bakiyesi editörü cari detayında —
   // geri dön + yol tarifi (işlemsiz caride kart zaten düzenlenebilir)
   const handleFixBalance = useCallback(() => {
+    if (!canCreateTransactionsRef.current) return;
     showToast(t('mutabakat:mini.duzeltYonlendirme'), 'info', 4000);
     router.back();
   }, [router, showToast, t]);
@@ -395,38 +512,127 @@ export default function MutabakatPage() {
   // visible=false'tan 350 ms sonra (dismiss animasyonu bittikten sonra) yapılır.
   const currentQueueItem = queueIndex < queue.length ? queue[queueIndex] : null;
 
-  const advanceQueue = useCallback(() => {
-    const item = queue[queueIndex];
-    if (item) {
-      setAddedRows((prev) => new Set(prev).add(item.satir.rowIndex));
-      // Daha önce "atlandı" işaretlenip sonradan eklendiyse çift sayım olmasın
-      setSkippedRows((prev) => {
-        if (!prev.has(item.satir.rowIndex)) return prev;
-        const next = new Set(prev);
-        next.delete(item.satir.rowIndex);
-        return next;
-      });
+  const advanceQueue = useCallback((
+    expectedSession: number,
+    expectedPermissionEpoch: number,
+    expectedRowIndex: number,
+  ) => {
+    // Native Modal eski prop closure'ını geç çağırabilir. Guard herhangi bir state,
+    // toast veya timer değişikliğinden ÖNCE çalışır.
+    if (
+      !canCreateTransactionsRef.current ||
+      permissionEpochRef.current !== expectedPermissionEpoch ||
+      queueSessionRef.current !== expectedSession ||
+      queuePhaseRef.current !== 'open'
+    ) {
+      return;
     }
+    const item = queue[queueIndex];
+    if (!item || item.satir.rowIndex !== expectedRowIndex) return;
+
+    queuePhaseRef.current = 'transition';
+    clearAdvanceTimer();
+    setAddedRows((prev) => new Set(prev).add(item.satir.rowIndex));
+    // Daha önce "atlandı" işaretlenip sonradan eklendiyse çift sayım olmasın
+    setSkippedRows((prev) => {
+      if (!prev.has(item.satir.rowIndex)) return prev;
+      const next = new Set(prev);
+      next.delete(item.satir.rowIndex);
+      return next;
+    });
     setQueueBarVisible(false);
+
     if (queueIndex + 1 < queue.length) {
       // 300 ms'lik resetForm gecikmesini (useQuickTransactionForm) güvenle geçmek için
-      advanceTimer.current = setTimeout(() => {
-        setQueueIndex((i) => i + 1);
-        setQueueBarVisible(true);
-      }, 350);
+      scheduleQueueTimer({
+        session: expectedSession,
+        permissionEpoch: expectedPermissionEpoch,
+        expectedPermission: true,
+        expectedPhase: 'transition',
+        onFire: () => {
+          // Her kalem ayrı generation alır; aynı rowIndex yanlışlıkla yinelense bile
+          // önceki native Modal'ın gecikmiş callback'i yeni kaleme uygulanamaz.
+          queueSessionRef.current += 1;
+          queuePhaseRef.current = 'open';
+          setQueueIndex(queueIndex + 1);
+          setQueueBarVisible(true);
+        },
+      });
     } else {
       // Tek-kalem (satıra dokunma) modunda kümülatif sayı yanıltıcı olur
       const total = queue.length === 1 ? 1 : addedRows.size + 1;
       showToast(t('mutabakat:queue.doneToast', { count: total }), 'success');
+      // Son Modal da kapanış animasyonunu tamamlamadan parent ağacından çıkarılmaz.
+      scheduleQueueTimer({
+        session: expectedSession,
+        permissionEpoch: expectedPermissionEpoch,
+        expectedPermission: true,
+        expectedPhase: 'transition',
+        onFire: () => {
+          queueSessionRef.current += 1;
+          queuePhaseRef.current = 'idle';
+          setQueue([]);
+          setQueueIndex(0);
+        },
+      });
     }
-  }, [queue, queueIndex, addedRows.size, showToast, t]);
+  }, [
+    clearAdvanceTimer,
+    queue,
+    queueIndex,
+    addedRows.size,
+    scheduleQueueTimer,
+    showToast,
+    t,
+  ]);
 
-  const pauseQueue = useCallback(() => {
+  const pauseQueue = useCallback((
+    expectedSession: number,
+    expectedPermissionEpoch: number,
+    expectedRowIndex: number,
+  ) => {
+    // Success önce kabul edildiyse phase='transition' olur; kapanışın onDismiss'i
+    // otomatik ilerleme timer'ını iptal edemez. Pause önceyse geç gelen success no-op'tur.
+    if (
+      !canCreateTransactionsRef.current ||
+      permissionEpochRef.current !== expectedPermissionEpoch ||
+      queueSessionRef.current !== expectedSession ||
+      queuePhaseRef.current !== 'open'
+    ) {
+      return;
+    }
     // Kapatma = bu kalemi atla ve duraklat; buton kalanlarla devam ettirir
     const item = queue[queueIndex];
-    if (item) setSkippedRows((prev) => new Set(prev).add(item.satir.rowIndex));
+    if (!item || item.satir.rowIndex !== expectedRowIndex) return;
+    queuePhaseRef.current = 'paused';
+    clearAdvanceTimer();
+    setSkippedRows((prev) => new Set(prev).add(item.satir.rowIndex));
     setQueueBarVisible(false);
-  }, [queue, queueIndex]);
+  }, [clearAdvanceTimer, queue, queueIndex]);
+
+  const queueCallbackSession = queueSessionRef.current;
+  const queueCallbackPermissionEpoch = permissionEpochRef.current;
+  const queueCallbackRowIndex = currentQueueItem?.satir.rowIndex ?? null;
+
+  const handleQueueSuccess = useCallback(() => {
+    if (queueCallbackRowIndex === null) return;
+    advanceQueue(queueCallbackSession, queueCallbackPermissionEpoch, queueCallbackRowIndex);
+  }, [
+    advanceQueue,
+    queueCallbackPermissionEpoch,
+    queueCallbackRowIndex,
+    queueCallbackSession,
+  ]);
+
+  const handleQueueDismiss = useCallback(() => {
+    if (queueCallbackRowIndex === null) return;
+    pauseQueue(queueCallbackSession, queueCallbackPermissionEpoch, queueCallbackRowIndex);
+  }, [
+    pauseQueue,
+    queueCallbackPermissionEpoch,
+    queueCallbackRowIndex,
+    queueCallbackSession,
+  ]);
 
   const suggestedType = useCallback(
     (item: BizdeEksikSatir): TransactionType => {
@@ -472,7 +678,7 @@ export default function MutabakatPage() {
     : [];
 
   return (
-    <View style={styles.container}>
+    <Screen>
       {step === 'select' && (
         <SelectStep
           cariName={cari.name}
@@ -555,6 +761,7 @@ export default function MutabakatPage() {
           skippedRows={skippedRows}
           queueTotal={sonuc.bizdeEksik.length}
           onStartQueue={startQueue}
+          canCreateTransactions={canCreateTransactions}
         />
       )}
 
@@ -564,10 +771,10 @@ export default function MutabakatPage() {
         <QuickTransactionBar
           // rowIndex key'de ŞART: iki farklı tek-kalem ekleme arasında queueIndex hep 0
           // kalır; remount olmazsa önceki kalemin kategori/ürün state'i sızar
-          key={`queue-${queueIndex}-${currentQueueItem.satir.rowIndex}`}
-          visible={queueBarVisible}
-          onDismiss={pauseQueue}
-          onSuccess={advanceQueue}
+          key={`queue-${queueCallbackSession}-${queueIndex}-${currentQueueItem.satir.rowIndex}`}
+          visible={queueBarVisible && canCreateTransactions}
+          onDismiss={handleQueueDismiss}
+          onSuccess={handleQueueSuccess}
           // #4b KRİTİK: kuyruk otomatik akış — son-kullanılan belleğe YAZMASIN (chip'leri ezmesin)
           suppressLastUsed
           defaultCariId={cari.id}
@@ -581,15 +788,11 @@ export default function MutabakatPage() {
           }
         />
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   center: {
     flex: 1,
     alignItems: 'center',
@@ -610,7 +813,7 @@ const styles = StyleSheet.create({
   },
   blokBirincil: {
     backgroundColor: colors.primary,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing['2xl'],
     marginTop: spacing.md,

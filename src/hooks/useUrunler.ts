@@ -6,17 +6,24 @@ import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import { LinkedRecordsError } from '@/lib/errors';
 import { logEvent } from '@/lib/appEvents';
 import i18n from '@/i18n';
+import { usePermissions } from '@/hooks/usePermissions';
 
 /**
  * Tüm ürünleri getir
  */
-export function useUrunler(includeArchived: boolean = false) {
+export function useUrunler(includeArchived: boolean = false, enabled: boolean = true) {
   const { isletme, isletmeLoading } = useAuthContext();
+  const { canAccessModule } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   const result = useQuery({
-    queryKey: queryKeys.urunler.list(isletme?.id || ''),
+    queryKey: [
+      ...queryKeys.urunler.list(isletme?.id || '', includeArchived),
+      'module-scope',
+      canSeeUrunler,
+    ],
     queryFn: async () => {
-      if (!isletme) return [];
+      if (!canSeeUrunler || !isletme) return [];
 
       let query = supabase
         .from('urunler')
@@ -34,14 +41,17 @@ export function useUrunler(includeArchived: boolean = false) {
       if (error) throw error;
       return data as Urun[];
     },
-    enabled: !!isletme,
+    enabled: enabled && canSeeUrunler && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
 
   return {
     ...result,
-    isLoading: result.isLoading || isletmeLoading,
+    // Rol daralinca onceki yetkili cache satirlari disabled query uzerinden
+    // tuketiciye sizmasin.
+    data: enabled && canSeeUrunler ? result.data ?? [] : [],
+    isLoading: enabled && canSeeUrunler && (result.isLoading || isletmeLoading),
   };
 }
 
@@ -50,22 +60,33 @@ export function useUrunler(includeArchived: boolean = false) {
  */
 export function useUrun(id: string | undefined) {
   const { isletme } = useAuthContext();
+  const { canAccessModule, canSeePassiveRecords } = usePermissions();
+  const canSeeUrunler = canAccessModule('urunler');
 
   return useQuery({
-    queryKey: [...queryKeys.urunler.detail(id || ''), isletme?.id],
+    queryKey: [
+      ...queryKeys.urunler.detail(id || ''),
+      isletme?.id,
+      'passive-scope',
+      canSeePassiveRecords,
+      'module-scope',
+      canSeeUrunler,
+    ],
     queryFn: async () => {
-      if (!id) return null;
+      if (!canSeeUrunler || !id || !isletme) return null;
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('urunler')
         .select('*')
         .eq('id', id)
-        .single();
+        .eq('isletme_id', isletme.id);
+      if (!canSeePassiveRecords) query = query.eq('is_active', true);
+      const { data, error } = await query.single();
 
       if (error) throw error;
       return data as Urun;
     },
-    enabled: !!id,
+    enabled: canSeeUrunler && !!id && !!isletme,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
   });
@@ -209,18 +230,21 @@ export function useDeleteUrun() {
  * hatayı yuttuğu için kullanıcı "silinmiş" sanıyordu.
  */
 export async function countUrunLinkedMovements(urunId: string, isletmeId: string): Promise<number> {
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('urun_hareketler')
     .select('id', { count: 'exact', head: true })
     .eq('urun_id', urunId)
     .eq('isletme_id', isletmeId)
     .not('islem_id', 'is', null);
+
+  if (error) throw error;
   return count ?? 0;
 }
 
 /**
  * Ürünü kalıcı olarak sil (hard delete)
- * Önce ilişkili ürün hareketlerini siler, sonra ürünü siler
+ * İşleme bağlı hareket varsa silmeyi engeller. Manuel hareketler ürünle aynı
+ * transaction'da veritabanındaki FK cascade ile temizlenir.
  */
 export function usePermanentDeleteUrun() {
   const queryClient = useQueryClient();
@@ -234,45 +258,30 @@ export function usePermanentDeleteUrun() {
       // Aksi halde gerçek satış/alış işlemlerinin altındaki ürün dökümü sessizce silinir
       // (işlem "ürünlü" görünmez olur, ürün-bazlı rapor ile geçmiş çelişir). Kullanıcı
       // bunun yerine ürünü arşivlemeli. (Tekli hareket silme de aynı korumayı yapıyor.)
-      const { count: linkedCount } = await supabase
+      const { count: linkedCount, error: linkedCountError } = await supabase
         .from('urun_hareketler')
         .select('id', { count: 'exact', head: true })
         .eq('urun_id', id)
         .eq('isletme_id', isletme.id)
         .not('islem_id', 'is', null);
 
+      if (linkedCountError) throw linkedCountError;
       if (linkedCount && linkedCount > 0) {
         throw new LinkedRecordsError(
           i18n.t('common:errors.hasLinkedProductMovements', { count: linkedCount })
         );
       }
 
-      // Önce ilişkili (yalnızca manuel, islem_id NULL) urun hareketlerini sil
-      const { error: hareketError } = await supabase
-        .from('urun_hareketler')
-        .delete()
-        .eq('urun_id', id)
-        .eq('isletme_id', isletme.id);
-
-      if (hareketError) throw hareketError;
-
-      // Bu ürüne iliştirilmiş notları genel nota çevir (yetim not kalmasın)
-      const { error: notlarError } = await supabase
-        .from('notlar')
-        .update({ entity_type: 'genel', entity_id: null })
-        .eq('entity_id', id)
-        .eq('entity_type', 'urun')
-        .eq('isletme_id', isletme.id);
-      if (notlarError && __DEV__) {
-        console.error('Not temizleme başarısız (yetim not kalabilir):', notlarError);
-      }
-
-      // Sonra ürünü sil
+      // Kanonik bağlı-hareket guard'ı silme transaction'ında sunucuda yeniden
+      // doğrulanır; notlar aynı BEFORE DELETE transaction'ında genel nota çevrilir,
+      // yalnız manuel hareketler FK ON DELETE CASCADE ile atomik temizlenir.
       const { error } = await supabase
         .from('urunler')
         .delete()
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },

@@ -1,4 +1,5 @@
 const {
+  withAndroidManifest,
   withAppBuildGradle,
   withGradleProperties,
   withDangerousMod,
@@ -7,6 +8,25 @@ const fs = require('fs');
 const path = require('path');
 
 module.exports = function withBuildConfig(config) {
+  // Keep Expo ImagePicker's legacy permissions only on Android versions where
+  // its native implementation still requests them. ImagePicker 17 asks for
+  // both READ and WRITE before opening the gallery on every Android API below
+  // 33, even though WRITE is otherwise obsolete on scoped-storage versions.
+  // Limiting both to API 32 preserves that native permission contract without
+  // exposing either permission on Android 13+.
+  config = withAndroidManifest(config, (config) => {
+    const permissions = config.modResults.manifest['uses-permission'] ?? [];
+    for (const permission of permissions) {
+      const name = permission.$?.['android:name'];
+      if (name === 'android.permission.READ_EXTERNAL_STORAGE') {
+        permission.$['android:maxSdkVersion'] = '32';
+      } else if (name === 'android.permission.WRITE_EXTERNAL_STORAGE') {
+        permission.$['android:maxSdkVersion'] = '32';
+      }
+    }
+    return config;
+  });
+
   // 1. Inject buildFeatures { buildConfig = true } into app/build.gradle
   config = withAppBuildGradle(config, (config) => {
     const contents = config.modResults.contents;

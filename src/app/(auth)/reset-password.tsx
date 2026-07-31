@@ -4,11 +4,10 @@ import {
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Linking from 'expo-linking';
-import { Text } from '@/components/ui';
+import { Text, Screen } from '@/components/ui';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
@@ -101,7 +100,7 @@ export default function ResetPasswordPage() {
 
   if (error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen top>
         <View style={styles.centerContainer}>
           <Text variant="h2" color="error" style={styles.errorTitle}>
             {t('common:status.error')}
@@ -113,19 +112,19 @@ export default function ResetPasswordPage() {
             {t('auth:forgotPassword.backToLogin')}...
           </Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color={colors.primary} />
         <Text variant="body" style={styles.loadingText}>
           {t('common:status.loading')}
         </Text>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

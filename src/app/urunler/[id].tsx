@@ -1,16 +1,7 @@
-import { useState, useCallback } from 'react';
-import {
-  View,
-  StyleSheet,
-  Alert,
-  TouchableOpacity,
-  Modal,
-  RefreshControl,
-  FlatList,
-  Platform,
-  ListRenderItemInfo,
-} from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
+import { View, StyleSheet, Alert, TouchableOpacity, RefreshControl, FlatList, Platform, ListRenderItemInfo } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, Stack, Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {
@@ -26,41 +17,53 @@ import {
   ArchiveRestore,
   Building2,
   User,
-  FileSpreadsheet,
+  Share as ShareIcon,
   CreditCard,
   Wallet,
   RotateCcw,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
-import { Text, Card, Button, ExpandableCard, EmptyState } from '@/components/ui';
+import { Text, Card, Button, ExpandableCard, EmptyState, Screen } from '@/components/ui';
+import { OzetModeToggle } from '@/components/urunlerPage/OzetModeToggle';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { QuickUrunBar } from '@/components/urun/QuickUrunBar';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { UrunExportSheet } from '@/components/export/UrunExportSheet';
 import { AddNoteButton } from '@/components/notes/AddNoteButton';
-import { NoteRow } from '@/components/notes/NoteRow';
+import { NoteListRow } from '@/components/notes/NoteListRow';
 import { NoteInputModal } from '@/components/notes/NoteInputModal';
-import { SwipeableRow } from '@/components/ui/SwipeableRow';
 import { useNotlarByEntity } from '@/hooks/useNotlar';
 import { useDetailNoteHandlers } from '@/hooks/useDetailNoteHandlers';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
+import {
+  getTransactionProductMutationDecision,
+} from '@/lib/transactionProductMutationGate';
 import { useToast } from '@/contexts/ToastContext';
 import { useHaptics } from '@/hooks/useHaptics';
 import { useUndoDelete } from '@/hooks/useUndoDelete';
 import { UndoSnackbar } from '@/components/ui/UndoSnackbar';
 import { colors } from '@/constants/colors';
-import { parseDateFromDB } from '@/lib/date';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { parseDateFromDB, getLocale } from '@/lib/date';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { useUrun, usePermanentDeleteUrun, useArchiveUrun, useUnarchiveUrun } from '@/hooks/useUrunler';
-import { useUrunHareketler, useAylikUrunOzet, useDeleteUrunHareket, useUrunOzet, UrunHareketWithSource } from '@/hooks/useUrunHareketler';
+import {
+  useUrunHareketler,
+  useUrunHareketKaynakEtiketleri,
+  useAylikUrunOzet,
+  useDeleteUrunHareket,
+  useUrunOzet,
+  UrunHareketWithSource,
+} from '@/hooks/useUrunHareketler';
 import { DetailSummaryCard, type DetailSummaryRow } from '@/components/detail/DetailSummaryCard';
+import { DetailActionMenu } from '@/components/detail/DetailActionMenu';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { urunHareketYon, isAlisAilesi, isIadeYon } from '@/lib/urunHareket';
 import { BirimType } from '@/types/database';
 import { formatCurrency, formatQuantity } from '@/lib/currency';
 import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
 
 // Hareket satırları yapışık; ayrım 1px gri çizgi (cariler listesi dili)
 const HareketSeparator = () => (
@@ -68,6 +71,7 @@ const HareketSeparator = () => (
 );
 
 export default function UrunDetayPage() {
+  const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, i18n } = useTranslation(['products', 'common', 'errors', 'navigation']);
@@ -77,6 +81,10 @@ export default function UrunDetayPage() {
   // Dashboard kartı toplamları (RPC + client aile netleştirmesi)
   const { data: urunOzet } = useUrunOzet(id);
   const { data: hareketler, isLoading: hareketlerLoading, refetch: refetchHareketler } = useUrunHareketler(id);
+  const {
+    data: minimalSourceLabels = [],
+    refetch: refetchMinimalSourceLabels,
+  } = useUrunHareketKaynakEtiketleri(id);
   const { data: aylikOzet, refetch: refetchOzet } = useAylikUrunOzet(id);
   const { isletme } = useAuthContext();
   // Bu ürüne ait notlar (ürün detayında oluşturulanlar burada da görünür)
@@ -99,10 +107,47 @@ export default function UrunDetayPage() {
   const insets = useSafeAreaInsets();
 
   // Yetki gizleme (diğer detay/liste sayfalarıyla aynı desen; owner'da hepsi true)
-  const { canCreate, canUpdate, canDelete } = usePermissions();
-  const canEdit = canUpdate('urunler', urun?.created_by ?? null);
+  const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canAccessModule,
+    isOwner,
+  } = usePermissions();
+  const canEditProduct = canUpdate('urunler', urun?.created_by ?? null);
   const canRemove = canDelete('urunler', urun?.created_by ?? null);
   const canAddStock = canCreate('urunler');
+  const canSeeCariler = canAccessModule('cariler');
+  const canSeePersonel = canAccessModule('personel');
+  const canSeeHesaplar = canAccessModule('hesaplar');
+  const getLinkedProductMutationDecision = useCallback(
+    (hareket: UrunHareketWithSource) => {
+      const creatorResolved = hareket.islemCreatedBy !== undefined;
+      return getTransactionProductMutationDecision({
+        type: hareket.islemType,
+        productItemsResolved: !!hareket.islemType,
+        productItemCount: 1,
+        isOwner,
+        canAccessModule,
+        canMutateTransaction:
+          creatorResolved
+          && canUpdate('islemler', hareket.islemCreatedBy ?? null),
+        canMutateProduct:
+          creatorResolved
+          && canUpdate('urunler', hareket.islemCreatedBy ?? null),
+      });
+    },
+    [canAccessModule, canUpdate, isOwner],
+  );
+  const minimalSourceLabelByHareketId = useMemo(
+    () => new Map(
+      minimalSourceLabels.map((label) => [
+        label.movement_id,
+        label,
+      ]),
+    ),
+    [minimalSourceLabels],
+  );
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [quickUrunVisible, setQuickUrunVisible] = useState(false);
@@ -115,10 +160,21 @@ export default function UrunDetayPage() {
   // Aylık özet: miktar/tutar görünümü + akordiyon (varsayılan kapalı — sayfa kısa kalsın)
   const [ozetMode, setOzetMode] = useState<'miktar' | 'tutar'>('miktar');
   const [ozetExpanded, setOzetExpanded] = useState(false);
-  const { refreshing, onRefresh } = usePullToRefresh(refetchUrun, refetchHareketler, refetchOzet);
+  const { refreshing, onRefresh } = usePullToRefresh(
+    refetchUrun,
+    refetchHareketler,
+    refetchMinimalSourceLabels,
+    refetchOzet,
+  );
 
   const { pendingDeleteIds, requestDelete: requestDeleteHareket, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<UrunHareketWithSource>({
     onCommitDelete: async (hareketId) => { await deleteUrunHareket.mutateAsync(hareketId); },
+    onError: (error) => {
+      showToast(
+        toErrorMessage(error, t('common:errors.permissionDenied')),
+        'error',
+      );
+    },
   });
 
   // Edit mode state
@@ -134,6 +190,36 @@ export default function UrunDetayPage() {
   // İşleme bağlı (cari/hesap/kart/personel) hareketi düzenlemek için QuickTransactionBar edit modu
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
+  const selectedEditHareket = editHareketId
+    ? hareketler?.find((hareket) => hareket.id === editHareketId)
+    : undefined;
+  // Edit modalinin izni ürün sahibinden değil, düzenlenen hareketin güncel
+  // created_by değerinden gelir. Kayıt cache'ten düşerse de fail-closed kapanır.
+  const canEdit = !!selectedEditHareket
+    && canUpdate('urunler', selectedEditHareket.created_by ?? null);
+  const selectedLinkedEditHareket = editTransactionId
+    ? hareketler?.find(
+        (hareket) => hareket.islem_id === editTransactionId,
+      )
+    : undefined;
+  const selectedLinkedEditType = selectedLinkedEditHareket?.islemType;
+  const selectedLinkedEditCari = selectedLinkedEditHareket?.cari;
+  const selectedLinkedEditIsCari =
+    typeof selectedLinkedEditType === 'string'
+    && selectedLinkedEditType.startsWith('cari_');
+  const canEditSelectedLinkedTransaction =
+    !!selectedLinkedEditHareket
+    && getLinkedProductMutationDecision(
+      selectedLinkedEditHareket,
+    ).allowed;
+
+  useEffect(() => {
+    if (!quickUrunVisible || (editMode ? canEdit : canAddStock)) return;
+    setQuickUrunVisible(false);
+    setEditMode(false);
+    setEditHareketId(undefined);
+    setEditInitialValues(undefined);
+  }, [quickUrunVisible, editMode, canEdit, canAddStock]);
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -145,6 +231,7 @@ export default function UrunDetayPage() {
   };
 
   const openQuickUrun = (type: 'giris' | 'cikis') => {
+    if (!canAddStock) return;
     setEditMode(false);
     setEditHareketId(undefined);
     setEditInitialValues(undefined);
@@ -154,6 +241,8 @@ export default function UrunDetayPage() {
 
   // Doğrudan urun hareketi düzenleme
   const handleEditDirectHareket = (hareket: UrunHareketWithSource) => {
+    const canEdit = canUpdate('urunler', hareket.created_by ?? null);
+    if (!canEdit) return;
     setEditMode(true);
     setEditHareketId(hareket.id);
     setEditInitialValues({
@@ -217,7 +306,10 @@ export default function UrunDetayPage() {
   // Cari ile aynı standart: satıra tıkla → sadece düzenle → QTB.
   const handleEditIslemHareket = (hareket: UrunHareketWithSource) => {
     setExpandedHareketId(null);
-    if (!hareket.islem_id) return;
+    if (
+      !hareket.islem_id
+      || !getLinkedProductMutationDecision(hareket).allowed
+    ) return;
     setEditTransactionId(hareket.islem_id);
     setShowEditBar(true);
   };
@@ -225,6 +317,7 @@ export default function UrunDetayPage() {
   // Urun hareketi silme (doğrudan girişler için)
   const handleDeleteHareket = (hareket: UrunHareketWithSource) => {
     setExpandedHareketId(null);
+    if (!canDelete('urunler', hareket.created_by ?? null)) return;
     const desc = `${hareket.hareket_tipi === 'giris' ? '↑' : '↓'} ${formatQuantity(hareket.miktar)}`;
     requestDeleteHareket(hareket.id, hareket, desc);
   };
@@ -237,6 +330,24 @@ export default function UrunDetayPage() {
     const yon = urunHareketYon(hareket.hareket_tipi, hareket.islemType);
     const alisAilesi = isAlisAilesi(yon);
     const iade = isIadeYon(yon);
+    const minimalSourceLabel =
+      minimalSourceLabelByHareketId.get(hareket.id);
+    const minimalCariName = !canSeeCariler
+      ? minimalSourceLabel?.cari_name
+      : undefined;
+    const minimalPersonelName = !canSeePersonel
+      ? minimalSourceLabel?.personel_name
+      : undefined;
+    const minimalHesapName = !canSeeHesaplar
+      ? minimalSourceLabel?.hesap_name
+      : undefined;
+    const canEditHareket = hareket.islem_id
+      ? getLinkedProductMutationDecision(hareket).allowed
+      : canUpdate('urunler', hareket.created_by ?? null);
+    const canDeleteHareket = canDelete(
+      'urunler',
+      hareket.created_by ?? null,
+    );
     return (
     <View style={{ paddingHorizontal: spacing.lg }}>
       {/* Yapışık düz-liste görünümü (cariler dili) — ayrım FlatList ayracından */}
@@ -275,13 +386,19 @@ export default function UrunDetayPage() {
                 <Text variant="body">
                   {/* İş tarihi (islem.date) — created_at değil; created_at düzenlemede NOW()'a kayıyor.
                       parseDateFromDB: boşluklu format + Invalid guard (1970 bug ailesi) */}
-                  {parseDateFromDB(hareket.islemDate ?? hareket.created_at).toLocaleDateString(i18n.language === 'tr' ? 'tr-TR' : 'en-US', {
+                  {/* getLocale(): dil + kullanıcının DMY/MDY tercihi tek kaynak;
+                      satır-içi tr/en ternary'si sayfanın geri kalanıyla çelişiyordu */}
+                  {parseDateFromDB(hareket.islemDate ?? hareket.created_at).toLocaleDateString(getLocale(), {
                     day: 'numeric',
                     month: 'short',
                   })}
                 </Text>
-                {hareket.cari ? (
-                  <View style={styles.cariBadge}>
+                {hareket.cari && canSeeCariler ? (
+                  <TouchableOpacity
+                    style={styles.cariBadge}
+                    onPress={() => router.push(`/cariler/${hareket.cari!.id}`)}
+                    accessibilityRole="button"
+                  >
                     {hareket.cari.type === 'tedarikci' ? (
                       <Building2 size={12} color={colors.warning} />
                     ) : (
@@ -290,15 +407,29 @@ export default function UrunDetayPage() {
                     <Text style={styles.cariName} numberOfLines={1}>
                       {hareket.cari.name}
                     </Text>
+                  </TouchableOpacity>
+                ) : minimalCariName ? (
+                  <View style={styles.cariBadge}>
+                    <User size={12} color={colors.info} />
+                    <Text style={styles.cariName} numberOfLines={1}>
+                      {minimalCariName}
+                    </Text>
                   </View>
-                ) : hareket.personel ? (
+                ) : hareket.personel && canSeePersonel ? (
                   <View style={styles.cariBadge}>
                     <User size={12} color={colors.info} />
                     <Text style={styles.cariName} numberOfLines={1}>
                       {hareket.personel.name}
                     </Text>
                   </View>
-                ) : hareket.hesap ? (
+                ) : minimalPersonelName ? (
+                  <View style={styles.cariBadge}>
+                    <User size={12} color={colors.info} />
+                    <Text style={styles.cariName} numberOfLines={1}>
+                      {minimalPersonelName}
+                    </Text>
+                  </View>
+                ) : hareket.hesap && canSeeHesaplar ? (
                   <View style={styles.cariBadge}>
                     {hareket.hesap.type === 'kredi_karti' ? (
                       <CreditCard size={12} color={colors.primary} />
@@ -307,6 +438,13 @@ export default function UrunDetayPage() {
                     )}
                     <Text style={styles.cariName} numberOfLines={1}>
                       {hareket.hesap.name}
+                    </Text>
+                  </View>
+                ) : minimalHesapName ? (
+                  <View style={styles.cariBadge}>
+                    <Wallet size={12} color={colors.primary} />
+                    <Text style={styles.cariName} numberOfLines={1}>
+                      {minimalHesapName}
                     </Text>
                   </View>
                 ) : null}
@@ -374,7 +512,7 @@ export default function UrunDetayPage() {
         <View style={styles.hareketActions}>
           {hareket.islem_id ? (
             // İşleme bağlı (cari/hesap/kart/personel) - sadece düzenle → QuickTransactionBar edit
-            canEdit && (
+            canEditHareket && (
               <Button
                 variant="secondary"
                 size="sm"
@@ -390,7 +528,7 @@ export default function UrunDetayPage() {
             // NOT: 'duzeltme' hareketinin Düzenle yolu stoğu bozar (giriş/çıkış'a map ediliyor),
             // bu yüzden düzeltme satırında yalnızca Sil gösterilir (yanlışsa sil + yeniden oluştur).
             <>
-              {canEdit && hareket.hareket_tipi !== 'duzeltme' && (
+              {canEditHareket && hareket.hareket_tipi !== 'duzeltme' && (
                 <Button
                   variant="secondary"
                   size="sm"
@@ -401,7 +539,7 @@ export default function UrunDetayPage() {
                   {t('common:buttons.edit')}
                 </Button>
               )}
-              {canRemove && (
+              {canDeleteHareket && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -421,27 +559,41 @@ export default function UrunDetayPage() {
     // handler'lar (handleDelete/Edit*) ve getBirimLabel stabil setter + hareket arg + t üzerinden çalışır;
     // eksik dep'ler fonksiyonel olarak güvenli (renderHareket her render yeniden üretilse de FlatList sanallaştırması korunur).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandedHareketId, urun, canEdit, canRemove, t, i18n, ozetMode]);
+  }, [
+    expandedHareketId,
+    urun,
+    canUpdate,
+    canDelete,
+    getLinkedProductMutationDecision,
+    canSeeCariler,
+    minimalSourceLabelByHareketId,
+    canSeePersonel,
+    canSeeHesaplar,
+    router,
+    t,
+    i18n,
+    ozetMode,
+  ]);
 
   if (urunLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen>
         <View style={styles.loadingContainer}>
           <Text color="secondary">{t('common:status.loading')}</Text>
         </View>
-      </SafeAreaView>
+      </Screen>
     );
   }
 
   if (!urun) {
     return (
-      <SafeAreaView style={styles.container}>
+      <Screen>
         <EmptyState
           icon={<Package size={48} color={colors.textMuted} />}
           title={t('errors:product.notFound')}
           description={t('products:notFoundDescription')}
         />
-      </SafeAreaView>
+      </Screen>
     );
   }
 
@@ -457,12 +609,22 @@ export default function UrunDetayPage() {
           headerBackVisible: false,
           headerLeft: () => <BackButton size={28} />,
           headerRight: () => (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <TouchableOpacity onPress={() => setExportSheetVisible(true)}>
-                <FileSpreadsheet size={22} color={colors.success} />
+            // Cari/hesap/personel detayıyla aynı header sağ grubu: dolgu + hitSlop
+            // olmadan dokunma hedefi ikon kutusu kadar (22/24px) kalıyordu.
+            <View style={styles.headerRightContainer}>
+              <TouchableOpacity
+                onPress={() => setExportSheetVisible(true)}
+                style={styles.headerBtn}
+                hitSlop={HIT_SLOP.md}
+              >
+                <ShareIcon size={22} color={colors.text} />
               </TouchableOpacity>
-              {(canEdit || canRemove) && (
-                <TouchableOpacity onPress={() => setMenuVisible(true)}>
+              {(canEditProduct || canRemove) && (
+                <TouchableOpacity
+                  onPress={() => setMenuVisible(true)}
+                  style={styles.headerBtn}
+                  hitSlop={HIT_SLOP.md}
+                >
                   <MoreVertical size={24} color={colors.text} />
                 </TouchableOpacity>
               )}
@@ -470,8 +632,9 @@ export default function UrunDetayPage() {
           ),
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
         <FlatList
+          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
           style={styles.scrollView}
           data={hareketlerLoading ? [] : (hareketler?.filter(h => !pendingDeleteIds.has(h.id)) ?? [])}
           keyExtractor={(h) => h.id}
@@ -551,26 +714,8 @@ export default function UrunDetayPage() {
                       <View style={styles.ozetHeaderRow}>
                         <Text variant="label" style={{ fontSize: 16 }}>{t('products:stock.monthlyReport')}</Text>
                         {/* Miktar / Tutar gecisi — header icindeki dokunma kartı acip kapatmaz */}
-                        <View style={styles.ozetToggle}>
-                          <TouchableOpacity
-                            style={[styles.ozetToggleBtn, ozetMode === 'miktar' && styles.ozetToggleBtnActive]}
-                            onPress={() => setOzetMode('miktar')}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={[styles.ozetToggleText, ozetMode === 'miktar' && styles.ozetToggleTextActive]}>
-                              {t('products:stock.quantity')}
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.ozetToggleBtn, ozetMode === 'tutar' && styles.ozetToggleBtnActive]}
-                            onPress={() => setOzetMode('tutar')}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={[styles.ozetToggleText, ozetMode === 'tutar' && styles.ozetToggleTextActive]}>
-                              {t('products:stock.amount')}
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
+                        {/* Paylaşılan bileşen: ürün LİSTESİNDEKİ geçişin AYNISI */}
+                        <OzetModeToggle mode={ozetMode} onChange={setOzetMode} />
                       </View>
                     }
                   >
@@ -624,18 +769,16 @@ export default function UrunDetayPage() {
                     {t('common:notes.title')}
                   </Text>
                   {entityNotes.map((note) => (
-                    <SwipeableRow
+                    <NoteListRow
                       key={note.id}
-                      onDelete={() => handleNoteDelete(note.id)}
+                      note={note}
+                      onEditId={setEditingNoteId}
+                      onDeleteId={handleNoteDelete}
+                      onToggleComplete={handleToggleNoteCompletion}
+                      onMarkAsTask={handleMarkAsTask}
                       deleteLabel={t('common:buttons.delete')}
-                    >
-                      <NoteRow
-                        note={note}
-                        onEdit={() => setEditingNoteId(note.id)}
-                        onToggleComplete={handleToggleNoteCompletion}
-                        onMarkAsTask={handleMarkAsTask}
-                      />
-                    </SwipeableRow>
+                      contextModule="urunler"
+                    />
                   ))}
                 </View>
               )}
@@ -664,63 +807,48 @@ export default function UrunDetayPage() {
           }
         />
 
-        {/* Menu Modal */}
-        <Modal
+        {/* ⋮ menüsü — cari/hesap/personel detayıyla aynı sağ-üst dropdown */}
+        <DetailActionMenu
           visible={menuVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setMenuVisible(false)}
-        >
-          <TouchableOpacity
-            style={styles.modalOverlay}
-            activeOpacity={1}
-            onPress={() => setMenuVisible(false)}
-          >
-            <View style={styles.menuContent}>
-              {canEdit && (
-                <TouchableOpacity
-                  style={styles.menuItem}
-                  onPress={() => {
-                    setMenuVisible(false);
-                    router.push(`/urunler/duzenle/${id}` as Href);
-                  }}
-                >
-                  <Pencil size={20} color={colors.text} />
-                  <Text variant="body">{t('products:editProduct')}</Text>
-                </TouchableOpacity>
-              )}
-              {canEdit && <View style={styles.menuDivider} />}
-              {canEdit && (urun.is_archived ? (
-                <TouchableOpacity style={styles.menuItem} onPress={handleUnarchive}>
-                  <ArchiveRestore size={20} color={colors.success} />
-                  <Text variant="body" style={{ color: colors.success }}>
-                    {t('products:actions.unarchive')}
-                  </Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity style={styles.menuItem} onPress={handleArchive}>
-                  <Archive size={20} color={colors.warning} />
-                  <Text variant="body" style={{ color: colors.warning }}>
-                    {t('products:actions.archive')}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-              {canEdit && canRemove && <View style={styles.menuDivider} />}
-              {canRemove && (
-                <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
-                  <Trash2 size={20} color={colors.error} />
-                  <Text variant="body" style={{ color: colors.error }}>
-                    {t('common:buttons.delete')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </TouchableOpacity>
-        </Modal>
+          onClose={() => setMenuVisible(false)}
+          actions={[
+            {
+              icon: Pencil,
+              label: t('products:editProduct'),
+              visible: canEditProduct,
+              onPress: () => {
+                setMenuVisible(false);
+                router.push(`/urunler/duzenle/${id}` as Href);
+              },
+            },
+            urun.is_archived
+              ? {
+                  icon: ArchiveRestore,
+                  label: t('products:actions.unarchive'),
+                  visible: canEditProduct,
+                  iconColor: colors.success,
+                  onPress: handleUnarchive,
+                }
+              : {
+                  icon: Archive,
+                  label: t('products:actions.archive'),
+                  visible: canEditProduct,
+                  iconColor: colors.warning,
+                  onPress: handleArchive,
+                },
+            {
+              icon: Trash2,
+              label: t('common:buttons.delete'),
+              visible: canRemove,
+              danger: true,
+              onPress: handleDelete,
+            },
+          ]}
+        />
 
         {/* QuickUrunBar */}
         <QuickUrunBar
-          visible={quickUrunVisible}
+          visible={quickUrunVisible && (editMode ? canEdit : canAddStock)}
           onDismiss={() => {
             setQuickUrunVisible(false);
             setEditMode(false);
@@ -736,16 +864,43 @@ export default function UrunDetayPage() {
 
         {/* İşleme bağlı (cari/hesap/kart/personel) ürünlü hareket düzenleme — cari sayfasıyla aynı standart */}
         <QuickTransactionBar
-          visible={showEditBar}
+          visible={
+            showEditBar
+            && !!editTransactionId
+            && !!selectedLinkedEditType
+            && canEditSelectedLinkedTransaction
+          }
           onDismiss={() => { setShowEditBar(false); setEditTransactionId(null); }}
           mode="edit"
           transactionId={editTransactionId ?? undefined}
           isScheduledTransaction={false}
+          defaultCariId={
+            selectedLinkedEditIsCari ? selectedLinkedEditCari?.id : undefined
+          }
+          defaultCariType={
+            selectedLinkedEditIsCari ? selectedLinkedEditCari?.type : undefined
+          }
+          defaultHesapId={selectedLinkedEditHareket?.hesap?.id}
+          defaultPersonelId={selectedLinkedEditHareket?.personel?.id}
+          createScope={
+            getQuickTransactionScopeForApiType(selectedLinkedEditType)
+              ?? undefined
+          }
+          minimalAccountReferenceMode={
+            selectedLinkedEditIsCari
+            && selectedLinkedEditCari
+            && !canAccessModule('hesaplar')
+              ? 'cari'
+              : selectedLinkedEditHareket?.personel
+                && !canAccessModule('hesaplar')
+                ? 'personel'
+              : undefined
+          }
           onSuccess={() => { setShowEditBar(false); setEditTransactionId(null); }}
         />
 
         {/* Not Ekle FAB */}
-        {!urun.is_archived && (
+        {urun.is_active !== false && (
           <AddNoteButton
             entityType="urun"
             entityId={id!}
@@ -789,7 +944,7 @@ export default function UrunDetayPage() {
           onUndo={undoDelete}
           onDismiss={dismissDelete}
         />
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }
@@ -888,31 +1043,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  ozetToggle: {
-    flexDirection: 'row',
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.full,
-    padding: 2,
-  },
-  ozetToggleBtn: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    borderRadius: borderRadius.full,
-  },
-  ozetToggleBtnActive: {
-    backgroundColor: colors.primary,
-  },
-  ozetToggleText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  ozetToggleTextActive: {
-    color: colors.white,
-  },
+  // Miktar/Tutar geçişinin stilleri artık paylaşılan OzetModeToggle bileşeninde.
   // Pill renkleri: giriş = ALIŞ → kırmızı, çıkış = SATIŞ → yeşil (gelir/gider mantığı)
   aylikPillIn: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.errorLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -923,7 +1057,7 @@ const styles = StyleSheet.create({
     color: colors.error,
   },
   aylikPillOut: {
-    backgroundColor: '#ECFDF5',
+    backgroundColor: colors.successLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -934,7 +1068,7 @@ const styles = StyleSheet.create({
     color: colors.success,
   },
   aylikPillDuzeltme: {
-    backgroundColor: '#FEF9C3',
+    backgroundColor: colors.warningLight,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -942,7 +1076,7 @@ const styles = StyleSheet.create({
   aylikPillDuzeltmeText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#A16207',
+    color: colors.warningDark,
   },
   hareketHeader: {
     flexDirection: 'row',
@@ -994,26 +1128,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: spacing.lg,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  menuContent: {
-    backgroundColor: colors.surface,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    padding: spacing.lg,
-    paddingBottom: spacing['3xl'],
-  },
-  menuItem: {
+  // Header sağ butonları — cari/hesap/personel detayıyla birebir aynı ölçüler
+  headerRightContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.lg,
+    gap: spacing.xs,
+    marginRight: spacing.sm,
   },
-  menuDivider: {
-    height: 1,
-    backgroundColor: colors.border,
+  headerBtn: {
+    padding: spacing.xs,
   },
 });

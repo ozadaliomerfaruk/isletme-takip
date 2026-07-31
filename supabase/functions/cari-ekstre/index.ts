@@ -6,8 +6,16 @@
 // Güvenlik:
 //  * verify_jwt = OFF (config.toml) — token TEK yetki kaynağıdır: 48-hex opak,
 //    cari başına tek aktif, süreli (varsayılan 30 gün), app'ten iptal edilebilir.
-//  * service-role client YALNIZ token doğrulandıktan sonra o carinin verisini okur.
+//  * service-role client tokeni yalnız service_role-only
+//    cari_ekstre_token_dogrula_v1 RPC'siyle doğrular. RPC, linki oluşturan
+//    kullanıcının güncel Cariler yetkisini de her açılışta yeniden denetler.
+//  * Doğrulanmış isletme_id+cari_id dışında hiçbir veri okunmaz.
 //  * Yanıt hiçbir kimlik/oturum bilgisi taşımaz; robots noindex.
+//
+// LIVE BASELINE: Supabase cari-ekstre v5,
+// ezbr_sha256=ef24f5d124cc2803665f5e83fa59c895e90dcee80d95952db9c8c34c5e01b954.
+// Bu dosya v5'in JSON/HTML/hata ve bakiye hesaplama sözleşmesini korur; yalnız
+// doğrudan link-tablosu okumasını yetki doğrulayan RPC ile değiştirir.
 //
 // Bakiye matematiği computeBalanceOps'un CARİ bacağının aynasıdır (owner-canonical):
 //   satis +amount · alis −amount · tahsilat −converted · odeme +converted ·
@@ -59,6 +67,14 @@ function fmtDate(d: string): string {
   const p = String(d).slice(0, 10).split("-");
   return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : String(d);
 }
+
+type ValidatedStatementLink = {
+  id: string;
+  isletme_id: string;
+  cari_id: string;
+  expires_at: string;
+  revoked: boolean;
+};
 
 // calculateTargetAmount aynası (TRY-referanslı kur) — cari-taraf converted tutar.
 function cariDelta(row: {
@@ -150,11 +166,10 @@ Deno.serve(async (req) => {
     { auth: { persistSession: false } },
   );
 
-  const { data: link, error: linkErr } = await supabase
-    .from("cari_ekstre_links")
-    .select("id, isletme_id, cari_id, expires_at, revoked")
-    .eq("token", token)
+  const { data: rawLink, error: linkErr } = await supabase
+    .rpc("cari_ekstre_token_dogrula_v1", { p_token: token })
     .maybeSingle();
+  const link = rawLink as ValidatedStatementLink | null;
 
   if (linkErr) return fail("Beklenmeyen bir hata oluştu.", 500);
   if (!link || link.revoked) return fail("Bu bağlantı iptal edilmiş veya geçersiz.", 404);

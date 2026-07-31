@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
 import { Building2 } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -13,12 +13,19 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { useCariler } from '@/hooks/useCariler';
+import { useReportCariler } from '@/hooks/useCariler';
 import { useLinkedCariler } from '@/hooks/useCariSharing';
-import { useAllIslemlerByCari } from '@/hooks/useIslemler';
+import {
+  useAllIslemlerByCari,
+  type CariTransactionRow,
+} from '@/hooks/useIslemler';
 import { toNumber } from '@/lib/currency';
-import type { IslemWithRelations, Cari } from '@/types/database';
+import type { Cari } from '@/types/database';
 import type { TabContentProps } from './types';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { getTransactionActionDeniedMessageKey } from '@/lib/errors';
+import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
 
 interface CariTabContentProps extends TabContentProps {
   initialCariId?: string;
@@ -26,7 +33,9 @@ interface CariTabContentProps extends TabContentProps {
 
 export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTabContentProps) {
   const { t } = useTranslation(['reports']);
-  const { data: cariler } = useCariler();
+  const { user, isletme } = useAuthContext();
+  const { canUpdate, canAccessModule } = usePermissions();
+  const { data: cariler } = useReportCariler();
   const { data: linkedCarilerData } = useLinkedCariler();
   const [selectedCariId, setSelectedCariId] = useState<string | null>(initialCariId ?? null);
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
@@ -50,14 +59,39 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
     return [...own, ...linked];
   }, [cariler, linkedCarilerData]);
 
-  const { data: cariIslemler = [], isLoading: cariIslemlerLoading } = useAllIslemlerByCari(selectedCariId || '');
+  const { data: cariIslemler = [], isLoading: cariIslemlerLoading } =
+    useAllIslemlerByCari(selectedCariId || '', true, true);
 
   const selectedCari = mergedCariler.find((c) => c.id === selectedCariId) || null;
 
-  const handleTransactionPress = useCallback((transaction: IslemWithRelations) => {
+  const canOpenTransactionEditor = useCallback(
+    (transaction: CariTransactionRow) =>
+      transaction.isletme_id === isletme?.id
+      && canUpdate('islemler', transaction.created_by ?? null)
+      && canAccessTransactionSources(
+        [transaction.type],
+        canAccessModule,
+      ),
+    [canAccessModule, canUpdate, isletme?.id],
+  );
+
+  const handleTransactionPress = useCallback((transaction: CariTransactionRow) => {
+    const createdBy = transaction.created_by ?? null;
+    const canOpenEditor = canOpenTransactionEditor(transaction);
+    if (!canOpenEditor) {
+      const messageKey = getTransactionActionDeniedMessageKey('update', {
+        createdBy,
+        currentUserId: user?.id,
+        canActOnOwnRecord:
+          !!user?.id && canUpdate('islemler', user.id),
+        canActOnRecord: canOpenEditor,
+      });
+      Alert.alert(t('common:status.error'), t(messageKey));
+      return;
+    }
     setEditTransactionId(transaction.id);
     setShowEditBar(true);
-  }, []);
+  }, [canOpenTransactionEditor, canUpdate, t, user?.id]);
 
   const filteredCariIslemler = useMemo(() => {
     if (!cariIslemler) return [];
@@ -102,6 +136,7 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
                 transactions={filteredCariIslemler}
                 maxItems={0}
                 onTransactionPress={handleTransactionPress}
+                canEditTransaction={canOpenTransactionEditor}
               />
             )}
           </View>
@@ -117,22 +152,28 @@ export function CariTabContent({ dateRange, periodLabel, initialCariId }: CariTa
         </View>
       )}
 
-      <QuickTransactionBar
-        visible={showEditBar}
-        onDismiss={() => {
-          setShowEditBar(false);
-          setEditTransactionId(null);
-        }}
-        mode="edit"
-        transactionId={editTransactionId ?? undefined}
-        isScheduledTransaction={false}
-        defaultCariId={selectedCariId ?? undefined}
-        defaultCariType={selectedCari?.type}
-        onSuccess={() => {
-          setShowEditBar(false);
-          setEditTransactionId(null);
-        }}
-      />
+      {!!editTransactionId && (
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={() => {
+            setShowEditBar(false);
+            setEditTransactionId(null);
+          }}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          defaultCariId={selectedCariId ?? undefined}
+          defaultCariType={selectedCari?.type}
+          createScope="cari"
+          minimalAccountReferenceMode={
+            !canAccessModule('hesaplar') ? 'cari' : undefined
+          }
+          onSuccess={() => {
+            setShowEditBar(false);
+            setEditTransactionId(null);
+          }}
+        />
+      )}
     </>
   );
 }

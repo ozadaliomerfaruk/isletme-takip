@@ -1,17 +1,6 @@
+import { Modal } from './Modal';
 import { useEffect, useRef, useCallback, useState } from 'react';
-import {
-  View,
-  StyleSheet,
-  Modal,
-  Animated,
-  PanResponder,
-  useWindowDimensions,
-  TouchableWithoutFeedback,
-  Platform,
-  Keyboard,
-  KeyboardEvent,
-  Easing,
-} from 'react-native';
+import { View, StyleSheet, Animated, PanResponder, useWindowDimensions, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
 import { borderRadius } from '@/constants/spacing';
@@ -305,6 +294,8 @@ export function BottomSheet({
 
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+      {/* ui/Modal içeriği ModalInsets ile sarar: buradaki insets GERÇEK
+          (tab bar'sız) değerdir, elle sarmaya gerek yok. */}
       {/* Backdrop */}
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
         <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />

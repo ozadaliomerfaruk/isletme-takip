@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Text, AnimatedNumber } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows } from '@/constants/spacing';
-import { formatCurrency } from '@/lib/currency';
+import { formatCurrency, getLocaleSeparators } from '@/lib/currency';
 import useSettings from '@/hooks/useSettings';
 
 interface HeroCardProps {
@@ -24,10 +24,14 @@ export function HeroCard({
   const { t } = useTranslation(['common']);
   const { currencyConfig: config } = useSettings();
 
+  // Ayraçlar TEK kaynaktan (getLocaleSeparators). Eski elle hesap `de` locale'ini
+  // İNGİLİZCE grubuna sokuyordu: ana para birimi EUR olan kullanıcı bu kartlarda
+  // "€1,234.56" görürken hesap satırında "€1.234,56" görüyordu (tam ters ayraç).
+  const seps = getLocaleSeparators();
   const currencyConfig = {
     prefix: config.symbol,
-    decimalSeparator: (config.locale.startsWith('en') || config.locale.startsWith('de')) ? ('.' as const) : (',' as const),
-    thousandsSeparator: (config.locale.startsWith('en') || config.locale.startsWith('de')) ? (',' as const) : ('.' as const),
+    decimalSeparator: seps.decimal as '.' | ',',
+    thousandsSeparator: seps.thousands as '.' | ',',
   };
 
   const totalPositive = assets + receivables;

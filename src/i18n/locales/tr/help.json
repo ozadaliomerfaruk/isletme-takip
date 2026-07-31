@@ -57,7 +57,7 @@
     },
     "disaAktarma": {
       "title": "Dışa Aktarma, Yedek & Güvenlik",
-      "content": "Hesap özeti ve bakiye ekstrelerini istediğiniz tarih aralığında PDF veya Excel olarak paylaşabilir ya da çıktısını alabilirsiniz.\nDaha menüsündeki Veri İçe Aktar ile Excel dosyasından toplu işlem aktarabilirsiniz.\nVerileriniz sunucularımızda yedeklenir ve kaybolmaz; girdiğiniz tüm cirolar, gelirler ve giderler şifreli olarak saklanır, başkaları göremez. Özetle verileriniz güvenli ve yedeklidir."
+      "content": "Hesap özeti ve bakiye ekstrelerini istediğiniz tarih aralığında PDF veya Excel olarak paylaşabilir ya da çıktısını alabilirsiniz.\nDaha menüsündeki Veri İçe Aktar ile Excel dosyasından toplu işlem aktarabilirsiniz.\nKayıtlarınız güvenli bulut altyapısında saklanır ve cihazlarınız arasında eşitlenir. Veriler güvenli bağlantı üzerinden aktarılır; işletme içindeki erişim, sahibin verdiği rol ve yetkilerle sınırlandırılır."
     },
     "tips": {
       "title": "Pratik İpuçları",

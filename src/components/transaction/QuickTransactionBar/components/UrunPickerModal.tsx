@@ -1,32 +1,26 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import {
-  View,
-  Modal,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  TextInput,
-  ScrollView,
-  Dimensions,
-  Keyboard,
-  StyleSheet,
-  ActivityIndicator,
-  LayoutAnimation,
-  Platform,
-  UIManager,
-} from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, Dimensions, Keyboard, StyleSheet, ActivityIndicator, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
-import { Text, Button, UndoSnackbar, ModalSearchBar } from '@/components/ui';
+import { Text, Button, UndoSnackbar, ModalSearchBar, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, shadows, HIT_SLOP } from '@/constants/spacing';
-import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput } from '@/lib/currency';
-import { useKategoriler } from '@/hooks/useKategoriler';
+import {
+  formatCurrency,
+  parseCurrency,
+  formatQuantity,
+  formatAmountForInput,
+  formatPercent,
+  roundUnitPrice,
+} from '@/lib/currency';
+import { useKategoriSecimReferanslari } from '@/hooks/useKategoriSecimReferanslari';
 import { useSonUrunFiyati } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHaptics } from '@/hooks/useHaptics';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
+import { resolveProductQuantityInput } from '@/lib/productQuantityInput';
 import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
@@ -84,7 +78,9 @@ export function UrunPickerModal({
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
   const windowHeight = Dimensions.get('window').height;
-  const { data: kategoriler } = useKategoriler();
+  // Eski veride urun, yanlis-tip ama aktif bir kategoriye bagli olabilir.
+  // Etiket/aramanin kaybolmamasi icin map tum aktif dar referanslardan kurulur.
+  const { data: kategoriler } = useKategoriSecimReferanslari();
   const kategoriNameMap = useMemo(
     () => new Map(kategoriler?.map(k => [k.id, k.name]) || []),
     [kategoriler]
@@ -230,12 +226,12 @@ export function UrunPickerModal({
   const handleConfirmAdd = useCallback(() => {
     if (!addingProduct) return;
 
-    // Default to 1 if miktar is empty
-    const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseQuantity(miktarStr) || 1;
-    const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
+    const miktar = resolveProductQuantityInput(addingProduct.miktar);
+    const birimFiyat = roundUnitPrice(
+      parseCurrency(addingProduct.birimFiyat) || 0,
+    );
 
-    if (miktar <= 0) return;
+    if (miktar === null) return;
 
     const newItem: UrunItem = {
       urunId: addingProduct.urun.id,
@@ -309,10 +305,10 @@ export function UrunPickerModal({
   // Ekleme modundaki ürünün satır toplamı
   const addingLineTotal = useMemo(() => {
     if (!addingProduct) return { subtotal: 0, kdvAmount: 0, total: 0 };
-    // Default to 1 if miktar is empty
-    const miktarStr = addingProduct.miktar.trim() || '1';
-    const miktar = parseQuantity(miktarStr) || 1;
-    const birimFiyat = parseCurrency(addingProduct.birimFiyat) || 0;
+    const miktar = resolveProductQuantityInput(addingProduct.miktar) ?? 0;
+    const birimFiyat = roundUnitPrice(
+      parseCurrency(addingProduct.birimFiyat) || 0,
+    );
     const subtotal = miktar * birimFiyat;
     const kdvAmount = subtotal * (addingProduct.kdvOrani / 100);
     return { subtotal, kdvAmount, total: subtotal + kdvAmount };
@@ -551,7 +547,7 @@ export function UrunPickerModal({
                                 addingProduct.kdvOrani === oran && styles.kdvButtonTextActive,
                               ]}
                             >
-                              %{oran}
+                              {formatPercent(oran)}
                             </Text>
                           </TouchableOpacity>
                         ))}
@@ -567,7 +563,7 @@ export function UrunPickerModal({
                           <Text style={styles.addingBreakdownNet}>{formatCurrency(addingLineTotal.subtotal, currency)}</Text>
                         </View>
                         <View style={styles.addingBreakdownRow}>
-                          <Text style={styles.addingTotalLabel}>{t('common:tax.vat')} (%{addingProduct.kdvOrani})</Text>
+                          <Text style={styles.addingTotalLabel}>{t('common:tax.vat')} ({formatPercent(addingProduct.kdvOrani)})</Text>
                           <Text style={styles.addingBreakdownKdv}>{formatCurrency(addingLineTotal.kdvAmount, currency)}</Text>
                         </View>
                         <View style={styles.addingBreakdownRow}>

@@ -58,7 +58,7 @@
     "openingReceivableOptional": "Opening Receivable (Optional)"
   },
   "miniDashboard": {
-    "genelTitle": "Client Status",
+    "genelTitle": "Contact Status",
     "buAyTaksitTitle": "This Month's Installments",
     "buAyTaksitYok": "No installments due this month",
     "tahsil": "Collect",
@@ -85,7 +85,7 @@
   },
   "actions": {
     "payment": "Make Payment",
-    "collection": "Receive Payment",
+    "collection": "Collect Payment",
     "purchase": "Add Purchase",
     "sale": "Add Sale",
     "return": "Return",
@@ -98,7 +98,7 @@
   },
   "transactionTitles": {
     "payment": "Client Payment",
-    "collection": "Payment from Client",
+    "collection": "Contact Collection",
     "purchase": "Supplier Purchase",
     "sale": "Customer Sale",
     "purchaseReturn": "Purchase Return",
@@ -214,8 +214,8 @@
     "toplamAlis": "Total Purchases",
     "toplamTahsilat": "Total Collected",
     "toplamOdeme": "Total Paid",
-    "kalanBorc": "Remaining We Owe",
-    "kalanAlacak": "Remaining They Owe",
+    "kalanBorc": "Remaining Payable",
+    "kalanAlacak": "Remaining Receivable",
     "vadesiGecenAlacak": "Overdue Receivable",
     "vadesiGecenBorc": "Overdue Payable",
     "vadesiGelmemisAlacak": "Not Yet Due Receivable",

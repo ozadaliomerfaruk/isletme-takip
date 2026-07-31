@@ -1,10 +1,10 @@
 import { useState, useMemo, type ReactNode } from 'react';
+import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { View, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { Trash2, Pencil, Calendar, Users, Wallet, Tag, User, FileText, Info } from 'lucide-react-native';
 import { Stack } from 'expo-router';
-import { Text, Card } from '@/components/ui';
+import { Text, Card, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDeletedIslemler, useEditedIslemler } from '@/hooks/useAuditLog';
@@ -13,6 +13,7 @@ import { useSettings } from '@/hooks/useSettings';
 import { parseDateFromDB } from '@/lib/date';
 import { formatCurrency } from '@/lib/currency';
 import type { IslemAuditLog } from '@/types/multiUser';
+import { OwnerRouteGuard } from '@/components/permissions/ModuleRouteGuard';
 
 type TabType = 'deleted' | 'edited';
 type ModuleFilterKey = 'all' | 'hesaplar' | 'cariler' | 'personel' | 'urunler';
@@ -28,6 +29,15 @@ const MODULE_FILTERS: { key: ModuleFilterKey; labelKey: string }[] = [
 ];
 
 export default function IslemGecmisiPage() {
+  return (
+    <OwnerRouteGuard>
+      <IslemGecmisiContent />
+    </OwnerRouteGuard>
+  );
+}
+
+function IslemGecmisiContent() {
+  const contentPaddingBottom = useContentBottomPadding();
   const { t } = useTranslation(['multiUser', 'common', 'transactions']);
   const { formatDateNative } = useDateFormat();
   const { currency } = useSettings();
@@ -160,7 +170,7 @@ export default function IslemGecmisiPage() {
           headerShadowVisible: false,
         }}
       />
-      <SafeAreaView style={styles.container} edges={['bottom']}>
+      <Screen>
       {/* Bilgilendirme */}
       <View style={styles.infoBanner}>
         <Info size={15} color={colors.textMuted} />
@@ -220,7 +230,12 @@ export default function IslemGecmisiPage() {
         })}
       </ScrollView>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {/* Alt boşluk YATAY chip şeridine değil, kaydırılan DİKEY listeye ait */}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.section}>
           {isLoading ? (
             <Card>
@@ -242,7 +257,7 @@ export default function IslemGecmisiPage() {
           )}
         </View>
       </ScrollView>
-      </SafeAreaView>
+      </Screen>
     </>
   );
 }

@@ -1,4 +1,12 @@
 {
-  "CFBundleDisplayName": "İşletme Takip",
-  "CFBundleName": "İşletme Takip"
+  "ios": {
+    "CFBundleDisplayName": "İşletme Takip",
+    "CFBundleName": "İşletme Takip",
+    "NSContactsUsageDescription": "Yalnızca seçtiğiniz kişinin adını ve telefon numarasını cari veya personel formuna aktarmak için rehber kullanılır.",
+    "NSCameraUsageDescription": "Kamera yalnızca fatura veya belge fotoğrafı çekmeyi seçtiğinizde kullanılır.",
+    "NSPhotoLibraryUsageDescription": "Fotoğraf arşivi yalnızca fotoğraf, fatura veya belge eklemeyi seçtiğinizde kullanılır."
+  },
+  "android": {
+    "app_name": "İşletme Takip"
+  }
 }

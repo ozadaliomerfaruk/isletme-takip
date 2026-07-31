@@ -193,7 +193,7 @@
       "viewDetails": "View Details",
       "downloadExcel": "Download Excel",
       "continueAnyway": "Continue Anyway",
-      "convertToClient": "Make Client",
+      "convertToClient": "Make Contact",
       "convertToAccount": "Make Account",
       "undoImport": "Undo"
     },
@@ -208,7 +208,7 @@
       "tedarikci": "Supplier"
     },
     "entityTypes": {
-      "cari": "Client",
+      "cari": "Contact",
       "personel": "Staff"
     },
     "template": {
@@ -289,7 +289,7 @@
       "clientsStaff": "Search contacts or staff...",
       "categories": "Search categories...",
       "skipped": "Search skipped...",
-      "default": "Search..."
+      "default": "Search"
     },
     "empty": {
       "transactions": "No transactions found",
@@ -321,7 +321,7 @@
     },
     "badges": {
       "account": "ACCOUNT",
-      "client": "CLIENT",
+      "client": "CONTACT",
       "staff": "STAFF",
       "income": "INCOME",
       "expense": "EXPENSE"
@@ -422,7 +422,7 @@
     "results": {
       "category": "Category",
       "account": "Account",
-      "client": "Client",
+      "client": "Contact",
       "staff": "Staff",
       "transaction": "Transaction",
       "startingBalance": "Opening Balance",
@@ -503,7 +503,38 @@
       "staffNotFound": "Staff not found: \"{{name}}\"",
       "accountBalanceAlreadySet": "Opening balance already set for this account (current: {{balance}})",
       "clientBalanceAlreadySet": "Opening balance already set for this client (current opening balance: {{balance}})",
-      "staffBalanceAlreadySet": "Opening balance already set for this staff member (current opening balance: {{balance}})"
+      "staffBalanceAlreadySet": "Opening balance already set for this staff member (current opening balance: {{balance}})",
+      "invalidDate": "Invalid date",
+      "invalidAmount": "Invalid amount",
+      "amountEmpty": "Amount is empty or missing",
+      "amountInvalidValue": "Invalid amount value: \"{{value}}\"",
+      "amountTooSmall": "Amount cannot be zero or too small",
+      "dateMissing": "Date is missing",
+      "dateExcelInvalid": "Invalid Excel date value: {{value}}",
+      "dateUnrecognized": "Unrecognized date format: \"{{value}}\"",
+      "dateUnexpectedType": "Unexpected date type: {{value}}",
+      "invalidMonth": "Invalid month: {{month}}",
+      "invalidDay": "Invalid day: {{day}}",
+      "typeMissing": "Transaction type is missing",
+      "dbError": "Database error: {{message}}",
+      "batchInsertError": "Batch insert error: {{message}}",
+      "silentFailure": "The row failed silently (server returned no record)",
+      "unknownError": "Unknown error"
+    },
+    "skippedExcel": {
+      "rowNo": "ROW NO",
+      "reason": "SKIP REASON",
+      "date": "DATE",
+      "type": "TRANSACTION TYPE",
+      "description": "DESCRIPTION",
+      "category": "CATEGORY",
+      "account": "ACCOUNT",
+      "staff": "STAFF",
+      "supplier": "SUPPLIER",
+      "customer": "CUSTOMER",
+      "counterAccount": "COUNTER ACCOUNT",
+      "amount": "AMOUNT",
+      "sheetName": "Skipped Transactions"
     }
   },
   "account": {
@@ -511,25 +542,35 @@
     "logout": "Logout",
     "deleteAccount": "Delete Account",
     "accountDeletion": "Account Deletion",
-    "deletionWarning": "Your account will be permanently deleted within 7 days.",
+    "deletionWarning": "Your account will be closed after 7 days and the deletion request will be processed.",
     "cancelDeletion": "Cancel Deletion Request",
     "deleteTitle": "Delete Account",
-    "deleteDescription": "When you request account deletion, a 7-day grace period begins. You can cancel anytime by logging back in. After 7 days, all the following data will be permanently deleted:",
+    "deleteDescription": "A 7-day grace period begins when you request deletion, and you may cancel during this time. Afterward, your account is closed and the following records enter the deletion process. Limited records required by law, and records that must remain in another business workspace, may be retained:",
+    "deleteDescriptionNoBusiness": "A 7-day grace period begins when you request deletion, and you may cancel during this time. Afterward, your user account is closed and your memberships in shared businesses are removed. Transactions and other records belonging to those businesses are preserved.",
+    "sharedRecordsPreserved": "• Transactions and records belonging to shared businesses are not deleted",
     "deleteWarnings": {
       "transactions": "• All your transactions (income, expense, transfer)",
       "accounts": "• All your accounts and balances",
       "clients": "• All your contact accounts",
-      "personnel": "• All your personnel records",
+      "personnel": "• All your staff records",
       "categories": "• All your categories",
       "business": "• Your business information"
     },
     "confirmLabel": "Type your business name to confirm:",
     "confirmPlaceholder": "Enter business name",
+    "confirmAccountLabel": "Type your email address to confirm:",
+    "confirmAccountPlaceholder": "Enter your email address",
     "confirmDeleteButton": "Yes, Create Deletion Request",
     "deleteRequestTitle": "Account Deletion Request",
-    "deleteRequestDescription": "Your account will be deleted within 7 days. You can cancel the deletion by logging in during this time.\n\nDo you want to continue?",
+    "deleteRequestDescription": "Your account will be closed after 7 days and the deletion request will be processed. You can cancel by logging in during this time.\n\nDo you want to continue?",
     "deleteRequestCreated": "Request Created",
-    "deleteRequestCreatedMessage": "Your account will be deleted within 7 days. You can cancel by logging in during this time."
+    "deleteRequestCreatedMessage": "Your account will be closed after 7 days and the deletion request will be processed. You can cancel by logging in during this time.",
+    "deleteRequestCancelledMessage": "Your account deletion request has been canceled. Your account and records will remain available.",
+    "pendingDeletionTitle": "Your Deletion Request Is Pending",
+    "pendingDeletionDescription": "An account deletion request is pending. Before the 7-day period ends, you may cancel the request or sign out safely.",
+    "appleManualRevokeTitle": "Remove Apple Access",
+    "appleManualRevokeDescription": "The Apple connection could not be removed automatically. You may continue with account deletion; then on your iPhone go to Settings > [Your Name] > Sign in with Apple > Defter > Stop Using Sign in with Apple.",
+    "continueDeletion": "Continue Deletion Request"
   },
   "messages": {
     "saveSuccess": "Settings saved",
@@ -540,7 +581,9 @@
     "cacheCleared": "Cache cleared",
     "businessUpdateFailed": "Could not update business info",
     "deleteRequestFailed": "An error occurred while creating the deletion request. Please try again.",
-    "confirmBusinessName": "Please enter the correct business name and try again."
+    "confirmBusinessName": "Please enter the correct business name and try again.",
+    "confirmAccountIdentifier": "Please enter your email address correctly and try again.",
+    "cancelDeletionFailed": "The request could not be canceled. Deletion may have started; please contact support."
   },
   "validation": {
     "businessNameRequired": "Business name is required"

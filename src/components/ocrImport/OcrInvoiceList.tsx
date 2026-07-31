@@ -1,7 +1,8 @@
 import { View, FlatList, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Camera, ImagePlus } from 'lucide-react-native';
+import { ImagePlus } from 'lucide-react-native';
 import { Text, Button } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { MultiInvoiceEntry } from '@/types/ocrImport';
@@ -26,6 +27,9 @@ export function OcrInvoiceList({
   isSaving,
 }: OcrInvoiceListProps) {
   const { t } = useTranslation('ocrImport');
+  // Sabit alt aksiyon çubuğu → alt boşluk BURAYA ait (kardeş review.tsx ile aynı desen);
+  // yoksa "Hepsini Kaydet" cam tab bar'ın arkasında kalıyor
+  const footerInset = useFooterBottomPadding();
 
   const unsavedCount = entries.filter(e => !e.isSaved).length;
   const allSaved = unsavedCount === 0;
@@ -71,7 +75,7 @@ export function OcrInvoiceList({
       />
 
       {/* Footer */}
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: spacing.md + footerInset }]}>
         <View style={styles.footerTop}>
           <View style={styles.footerInfo}>
             <Text variant="caption" color="secondary">

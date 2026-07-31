@@ -1,5 +1,5 @@
 import { useMemo, useState, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { Alert, View, StyleSheet } from 'react-native';
 import { Users } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 
@@ -13,10 +13,16 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { SkeletonAccountList } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
-import { usePersonelList } from '@/hooks/usePersonel';
-import { useAllIslemlerByPersonel } from '@/hooks/useIslemler';
-import type { IslemWithRelations } from '@/types/database';
+import { useReportPersonelList } from '@/hooks/usePersonel';
+import {
+  useAllIslemlerByPersonel,
+  type PersonelTransactionRow,
+} from '@/hooks/useIslemler';
 import type { TabContentProps } from './types';
+import { usePermissions } from '@/hooks/usePermissions';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { getTransactionActionDeniedMessageKey } from '@/lib/errors';
+import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
 
 interface PersonelTabContentProps extends TabContentProps {
   initialPersonelId?: string;
@@ -24,19 +30,58 @@ interface PersonelTabContentProps extends TabContentProps {
 
 export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }: PersonelTabContentProps) {
   const { t } = useTranslation(['reports']);
-  const { data: personelList } = usePersonelList();
+  const { user, isletme } = useAuthContext();
+  const { canUpdate, canAccessModule } = usePermissions();
+  const { data: personelList } = useReportPersonelList();
   const [selectedPersonelId, setSelectedPersonelId] = useState<string | null>(initialPersonelId ?? null);
   const [editTransactionId, setEditTransactionId] = useState<string | null>(null);
   const [showEditBar, setShowEditBar] = useState(false);
 
-  const { data: personelIslemler = [], isLoading: personelIslemlerLoading } = useAllIslemlerByPersonel(selectedPersonelId || '');
+  const {
+    data: personelIslemler = [],
+    isLoading: personelIslemlerLoading,
+  } = useAllIslemlerByPersonel(selectedPersonelId || '', true);
 
   const selectedPersonel = personelList?.find((p) => p.id === selectedPersonelId) || null;
 
-  const handleTransactionPress = useCallback((transaction: IslemWithRelations) => {
+  const canOpenTransactionEditor = useCallback(
+    (transaction: PersonelTransactionRow) => {
+      // Shared personel projection rows intentionally omit tenant ids. Those
+      // rows are already scoped by the active-tenant RPC/query key; owner rows
+      // still carry an id that must match the current tenant.
+      const belongsToActiveTenant =
+        'isletme_id' in transaction
+          ? transaction.isletme_id === isletme?.id
+          : !!isletme?.id;
+
+      return belongsToActiveTenant
+        && canUpdate('islemler', transaction.created_by ?? null)
+        && canAccessTransactionSources(
+          [transaction.type],
+          canAccessModule,
+        );
+    },
+    [canAccessModule, canUpdate, isletme?.id],
+  );
+
+  const handleTransactionPress = useCallback((transaction: PersonelTransactionRow) => {
+    const createdBy = transaction.created_by ?? null;
+    const canUpdateRecord = canUpdate('islemler', createdBy);
+    const canOpenEditor = canOpenTransactionEditor(transaction);
+    if (!canOpenEditor) {
+      const messageKey = getTransactionActionDeniedMessageKey('update', {
+        createdBy,
+        currentUserId: user?.id,
+        canActOnOwnRecord:
+          !!user?.id && canUpdate('islemler', user.id),
+        canActOnRecord: canOpenEditor,
+      });
+      Alert.alert(t('common:status.error'), t(messageKey));
+      return;
+    }
     setEditTransactionId(transaction.id);
     setShowEditBar(true);
-  }, []);
+  }, [canOpenTransactionEditor, canUpdate, t, user?.id]);
 
   const filteredPersonelIslemler = useMemo(() => {
     if (!personelIslemler) return [];
@@ -94,6 +139,7 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
                 transactions={filteredPersonelIslemler}
                 maxItems={0}
                 onTransactionPress={handleTransactionPress}
+                canEditTransaction={canOpenTransactionEditor}
               />
             )}
           </View>
@@ -109,21 +155,27 @@ export function PersonelTabContent({ dateRange, periodLabel, initialPersonelId }
         </View>
       )}
 
-      <QuickTransactionBar
-        visible={showEditBar}
-        onDismiss={() => {
-          setShowEditBar(false);
-          setEditTransactionId(null);
-        }}
-        mode="edit"
-        transactionId={editTransactionId ?? undefined}
-        isScheduledTransaction={false}
-        defaultPersonelId={selectedPersonelId ?? undefined}
-        onSuccess={() => {
-          setShowEditBar(false);
-          setEditTransactionId(null);
-        }}
-      />
+      {!!editTransactionId && (
+        <QuickTransactionBar
+          visible={showEditBar}
+          onDismiss={() => {
+            setShowEditBar(false);
+            setEditTransactionId(null);
+          }}
+          mode="edit"
+          transactionId={editTransactionId ?? undefined}
+          isScheduledTransaction={false}
+          defaultPersonelId={selectedPersonelId ?? undefined}
+          createScope="personel"
+          minimalAccountReferenceMode={
+            !canAccessModule('hesaplar') ? 'personel' : undefined
+          }
+          onSuccess={() => {
+            setShowEditBar(false);
+            setEditTransactionId(null);
+          }}
+        />
+      )}
     </>
   );
 }

@@ -1,7 +1,7 @@
-import { Modal, View, TouchableWithoutFeedback, TouchableOpacity, Platform } from 'react-native';
+import { View, TouchableWithoutFeedback, TouchableOpacity, Platform } from 'react-native';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { ensureValidDate } from '@/lib/date';
-import { Text } from '@/components/ui';
+import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { styles } from './styles';
 

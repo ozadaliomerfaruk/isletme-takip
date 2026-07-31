@@ -7,12 +7,12 @@
  * Hepsi opsiyonel — "Devam" ile kutlama ekranına geçilir.
  */
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, type Href } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Wallet, Users, UserCircle, Check, ChevronRight, type LucideIcon } from 'lucide-react-native';
 
-import { Text, Button } from '@/components/ui';
+import { Text, Button, Screen } from '@/components/ui';
+import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useHesaplar } from '@/hooks/useHesaplar';
@@ -21,6 +21,7 @@ import { usePersonelList } from '@/hooks/usePersonel';
 import { logEvent } from '@/lib/appEvents';
 
 export default function KurulumOlustur() {
+  const footerInset = useFooterBottomPadding();
   const router = useRouter();
   const { t } = useTranslation(['auth']);
 
@@ -44,7 +45,7 @@ export default function KurulumOlustur() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen top>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Text variant="caption" style={styles.stepLabel}>
@@ -89,12 +90,12 @@ export default function KurulumOlustur() {
         </View>
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: spacing.lg + footerInset }]}>
         <Button variant="primary" size="lg" fullWidth onPress={handleFinish}>
           {t('auth:setup.create.continue')}
         </Button>
       </View>
-    </SafeAreaView>
+    </Screen>
   );
 }
 

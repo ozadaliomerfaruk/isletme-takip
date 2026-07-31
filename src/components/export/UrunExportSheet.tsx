@@ -1,3 +1,4 @@
+import { Modal } from '@/components/ui';
 import { upperTr } from '@/lib/turkishTextUtils';
 /**
  * Ürün Export Sheet Component
@@ -5,7 +6,7 @@ import { upperTr } from '@/lib/turkishTextUtils';
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Modal, Pressable } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Pressable } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
 import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';

@@ -21,14 +21,23 @@ export const queryClient = new QueryClient({
       refetchOnReconnect: true, // İnternet geldiğinde yenile
       retry: 1, // Mobilde 1 retry yeterli, hızlı hata göster
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff, max 10sn
-      networkMode: 'online', // React Native'de offlineFirst güvenilir değil (netinfo olmadan)
+      networkMode: 'online', // expo-network onlineManager'a bağlı; reconnect'te aktif okumalar yenilenir
     },
     mutations: {
-      retry: 1,
-      networkMode: 'online',
+      // Finansal yazılar otomatik retry/çevrimdışı kuyruk yapılamaz: sunucu yazıp
+      // cevap kaybolduysa ikinci deneme duplicate üretebilir. İdempotent akışlar
+      // kendi hook'larında bilinçli olarak opt-in olabilir.
+      retry: false,
+      // `online` modu offline mutation'ı pause edip reconnect'te sessizce oynatır.
+      // `always`, yerel offline guard'ın anında hata döndürmesini ve formun açık
+      // kalmasını sağlar; kullanıcı yeniden denemeye kendisi karar verir.
+      networkMode: 'always',
     },
   },
 });
+
+/** Finansal mutation'lar read-cache ile birlikte AsyncStorage'a asla yazılmaz. */
+export const neverDehydrateMutation = (): false => false;
 
 // ============================================================================
 // DİSK PERSISTER (read-cache) — React Query cache'ini AsyncStorage'a yazar.
@@ -40,10 +49,12 @@ export const queryClient = new QueryClient({
 //  • Kritik finansal karar (mutabakat / işlem yazma) öncesi HER ZAMAN taze çekilir
 // Not: AsyncStorage şifreli DEĞİLDİR; hassas veri diskte açıktır (Faz 3'te şifreleme).
 // ============================================================================
-// '-s2' = serileştirme şema revizyonu: Map/Set artık persist EDİLMİYOR (JSON'a
-// serileşmiyor). Bu son ek, eski (Map'leri {} olarak zehirlenmiş) disk cache'ini bir
-// kez süpürmek için buster'ı değiştirir; sonraki sürüm bump'ları normal çalışır.
-export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}-s2`;
+// '-s6' = ürün alış/satış aggregate'i de V2 kullanıcı/yetki imzalı key'e ve
+// persist:false sözleşmesine taşındı. Eski sürümün şifresiz diskte bıraktığı geniş
+// not/rapor/ürün-raporu cache'leri ile S3 öncesi tam kategori satırları yeni shared
+// oturumda rehydrate edilmesin diye read-cache bir kez topluca geçersizleştirilir.
+// Kullanıcı verisi silinmez; yalnız yerel okuma cache'i internetten yeniden dolar.
+export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}-s6`;
 
 const PERSIST_KEY = 'ISLETME_TAKIP_RQ_CACHE_V1';
 
