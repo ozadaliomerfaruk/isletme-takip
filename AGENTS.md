@@ -61,10 +61,7 @@
 
 ## Referans dokümanlar (repo içi — güncel durum için önce bunlara bak)
 
-- `docs/DENETIM-UYGULAMA-DURUMU.md` — front-end/liquid-glass denetiminin uygulama durumu ve devam noktası.
-- `docs/RAPOR-DENETIMI.md` — rapor ekranları denetimi (160 bulgu); güncel satırlar TAZELEME-2 tablosunda, gövde "NEREDE"leri eski olabilir.
 - `docs/security/YETKI-SOZLESMESI.md` — ortak kullanıcı modül/seviye sözleşmesi, RLS/RPC/Storage sınırları ve doğrulama matrisi.
-- `docs/UI-UX-PRATIKLIK-ANALIZI.md` — UI/UX iş listesi.
 - `docs/AUTH-KAYIT-ASILMASI-BULGULAR.md` — QTB kayıt-asılması İLK teşhisi (TARİHSEL; güncel kök neden ve fix durumu için bu dosyanın "Güncel durum fotoğrafı" bölümüne bak).
 - `supabase/migrations/` — şema gerçeği; migration adlandırması `YYYYMMDDHHMMSS_ad`.
 
