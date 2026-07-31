@@ -104,11 +104,25 @@ describe('device contact picker source and release contract', () => {
   });
 
   it('localizes the iOS permission description in both app locales', () => {
-    const trApp = JSON.parse(read('src/i18n/locales/tr/app.json')) as Record<string, string>;
-    const enApp = JSON.parse(read('src/i18n/locales/en/app.json')) as Record<string, string>;
+    const trApp = JSON.parse(read('src/i18n/locales/tr/app.json')) as {
+      ios: Record<string, string>;
+      android: Record<string, string>;
+    };
+    const enApp = JSON.parse(read('src/i18n/locales/en/app.json')) as {
+      ios: Record<string, string>;
+      android: Record<string, string>;
+    };
 
-    expect(trApp.NSContactsUsageDescription).toBeTruthy();
-    expect(enApp.NSContactsUsageDescription).toBeTruthy();
+    expect(trApp.ios.NSContactsUsageDescription).toBeTruthy();
+    expect(enApp.ios.NSContactsUsageDescription).toBeTruthy();
+    expect(trApp.ios.NSCameraUsageDescription).toBeTruthy();
+    expect(enApp.ios.NSCameraUsageDescription).toBeTruthy();
+    expect(trApp.ios.NSPhotoLibraryUsageDescription).toBeTruthy();
+    expect(enApp.ios.NSPhotoLibraryUsageDescription).toBeTruthy();
+    expect(trApp.android.app_name).toBeTruthy();
+    expect(enApp.android.app_name).toBeTruthy();
+    expect(trApp).not.toHaveProperty('NSContactsUsageDescription');
+    expect(enApp).not.toHaveProperty('NSContactsUsageDescription');
   });
 
   it.each([
