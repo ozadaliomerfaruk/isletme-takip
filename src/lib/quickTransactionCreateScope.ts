@@ -3,6 +3,8 @@ import type { CariType, IslemType } from '@/types/database';
 import { getTransactionSourceModules } from '@/lib/transactionSourceModules';
 
 export type QuickTransactionCreateScope = 'hesap' | 'cari' | 'personel';
+export type HesapOdemeHedefType = 'tedarikci' | 'staff' | 'kredi_karti';
+export type HesapTahsilatHedefType = 'musteri' | 'tedarikci' | 'personel';
 export type QuickTransactionMinimalAccountScope = Exclude<
   QuickTransactionCreateScope,
   'hesap'
@@ -126,6 +128,8 @@ const HESAP_CREATE_TYPES = [
   'gelir',
   'gider',
   'transfer',
+  'odeme',
+  'tahsilat',
 ] as const satisfies readonly TransactionType[];
 
 const SCOPED_API_TYPE_BY_UI_TYPE: Readonly<
@@ -205,7 +209,45 @@ export function getAllowedScopedQuickTransactionTypes({
   });
 
   return candidates.filter((type) => {
+    if (scope === 'hesap' && type === 'odeme') {
+      return canCreateTransactionType('cari_odeme')
+        || canCreateTransactionType('personel_odeme');
+    }
+    if (scope === 'hesap' && type === 'tahsilat') {
+      return canCreateTransactionType('cari_tahsilat')
+        || canCreateTransactionType('personel_tahsilat');
+    }
+
     const apiType = getScopedQuickTransactionApiType(type);
     return apiType !== null && canCreateTransactionType(apiType);
   });
+}
+
+export function getAllowedHesapOdemeHedefTypes({
+  canCreateTransactionType,
+  isOwner,
+}: {
+  canCreateTransactionType: (type: IslemType) => boolean;
+  isOwner: boolean;
+}): HesapOdemeHedefType[] {
+  const result: HesapOdemeHedefType[] = [];
+  if (canCreateTransactionType('cari_odeme')) result.push('tedarikci');
+  if (canCreateTransactionType('personel_odeme')) result.push('staff');
+  // Hesap-only paylasiminda Odeme sekmesi acilmaz. Kredi karti borcu secenegi,
+  // uygulamanin tumune sahip owner'in eski tam QTB davranisidir.
+  if (isOwner && canCreateTransactionType('transfer')) result.push('kredi_karti');
+  return result;
+}
+
+export function getAllowedHesapTahsilatHedefTypes({
+  canCreateTransactionType,
+}: {
+  canCreateTransactionType: (type: IslemType) => boolean;
+}): HesapTahsilatHedefType[] {
+  const result: HesapTahsilatHedefType[] = [];
+  if (canCreateTransactionType('cari_tahsilat')) {
+    result.push('musteri', 'tedarikci');
+  }
+  if (canCreateTransactionType('personel_tahsilat')) result.push('personel');
+  return result;
 }

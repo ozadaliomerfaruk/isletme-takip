@@ -62,6 +62,17 @@ describe('resolveHedefIslemId — yazılmayan durumlar', () => {
     ).toBeNull();
   });
 
+  it('personel tahsilati cari faturasi hedefleyemez', () => {
+    expect(
+      resolveHedefIslemId({
+        isEditMode: false,
+        hedefIslemId: HEDEF,
+        type: 'tahsilat',
+        tahsilatHedefType: 'personel',
+      })
+    ).toBeNull();
+  });
+
   it('KREDİ KARTI ödemesi (API tarafında transfer) → pointer yazılmaz', () => {
     expect(
       resolveHedefIslemId({

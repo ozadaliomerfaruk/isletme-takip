@@ -2,7 +2,7 @@ import { Currency } from '@/types/database';
 import {
   TransactionType,
   OdemeHedefType,
-  PendingExchangeData,
+  TahsilatHedefType,
 } from '../types';
 import { mapTransactionTypeToApi, NO_HESAP_TYPES } from './transactionTypeMapper';
 
@@ -20,6 +20,7 @@ export interface BuildTransactionParams {
   cariId?: string | null;
   personelId?: string | null;
   odemeHedefType?: OdemeHedefType;
+  tahsilatHedefType?: TahsilatHedefType;
   // Exchange rate data (optional)
   exchangeData?: {
     sourceCurrency: Currency;
@@ -66,12 +67,17 @@ export function buildTransactionData(params: BuildTransactionParams): Transactio
     cariId,
     personelId,
     odemeHedefType,
+    tahsilatHedefType,
     exchangeData,
     dateEnd,
   } = params;
 
   // Map UI type to API type
-  const apiType = mapTransactionTypeToApi(type, odemeHedefType);
+  const apiType = mapTransactionTypeToApi(
+    type,
+    odemeHedefType,
+    tahsilatHedefType,
+  );
 
   // Check if hesap_id is needed for this transaction type
   // Alis/Satis/Iade and Personel Gider/Satis don't require hesap_id
@@ -104,7 +110,11 @@ export function buildTransactionData(params: BuildTransactionParams): Transactio
   }
 
   if (type === 'tahsilat') {
-    data.cari_id = cariId || null;
+    if (tahsilatHedefType === 'personel') {
+      data.personel_id = personelId || null;
+    } else {
+      data.cari_id = cariId || null;
+    }
   }
 
   // Cari mode transaction types

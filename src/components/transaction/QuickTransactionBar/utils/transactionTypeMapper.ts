@@ -1,4 +1,8 @@
-import { TransactionType, OdemeHedefType } from '../types';
+import {
+  TransactionType,
+  OdemeHedefType,
+  TahsilatHedefType,
+} from '../types';
 
 /**
  * Maps UI transaction type to API transaction type.
@@ -6,7 +10,8 @@ import { TransactionType, OdemeHedefType } from '../types';
  */
 export function mapTransactionTypeToApi(
   type: TransactionType,
-  odemeHedefType?: OdemeHedefType
+  odemeHedefType?: OdemeHedefType,
+  tahsilatHedefType?: TahsilatHedefType,
 ): string {
   // Special handling for odeme (payment) based on target type
   if (type === 'odeme') {
@@ -17,6 +22,10 @@ export function mapTransactionTypeToApi(
       return 'transfer'; // Credit card payment is saved as transfer
     }
     return 'cari_odeme';
+  }
+
+  if (type === 'tahsilat' && tahsilatHedefType === 'personel') {
+    return 'personel_tahsilat';
   }
 
   // Direct mappings for other types

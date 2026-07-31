@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react';
 import { View, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Check, ChevronRight } from 'lucide-react-native';
@@ -13,10 +14,11 @@ export interface TahsilatHedefTypePickerProps {
   onDismiss: () => void;
   onSelect: (type: TahsilatHedefType, nextModal: 'cari' | 'personel') => void;
   selectedType: TahsilatHedefType;
+  allowedTypes?: readonly NonNullable<TahsilatHedefType>[];
 }
 
 const OPTIONS: {
-  type: TahsilatHedefType;
+  type: NonNullable<TahsilatHedefType>;
   nextModal: 'cari' | 'personel';
   titleKey: string;
   subtextKey: string;
@@ -46,11 +48,24 @@ export function TahsilatHedefTypePicker({
   onDismiss,
   onSelect,
   selectedType,
+  allowedTypes,
 }: TahsilatHedefTypePickerProps) {
   const { t } = useTranslation(['transactions', 'clients', 'staff']);
   const insets = useSafeAreaInsets();
+  const visibleOptions = useMemo(
+    () => OPTIONS.filter(
+      (opt) => !allowedTypes || allowedTypes.includes(opt.type),
+    ),
+    [allowedTypes],
+  );
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (!visible || visibleOptions.length !== 1) return;
+    const option = visibleOptions[0];
+    onSelect(option.type, option.nextModal);
+  }, [onSelect, visible, visibleOptions]);
+
+  if (!visible || visibleOptions.length === 1) return null;
 
   // Aksan rengi: tahsilat = para girişi → yeşil (standart işlem satırı dili)
   const accent = colors.success;
@@ -76,7 +91,7 @@ export function TahsilatHedefTypePicker({
               </View>
 
               <View style={styles.hedefList}>
-                {OPTIONS.map((opt) => {
+                {visibleOptions.map((opt) => {
                   const selected = selectedType === opt.type;
                   return (
                     <TouchableOpacity

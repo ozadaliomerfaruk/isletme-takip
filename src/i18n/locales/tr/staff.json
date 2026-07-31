@@ -234,6 +234,9 @@
     "selectAll": "Hepsini Seç",
     "selectNone": "Hiçbirini Seçme",
     "description": "Maaş tahakkuku",
+    "savingTitle": "Maaşlar kaydediliyor",
+    "savingHint": "İşlem tamamlanana kadar uygulamayı kapatmayın.",
+    "savingProgress": "{{completed}} / {{total}} kayıt tamamlandı",
     "success": "{{count}} personele gider kaydedildi",
     "partialError": "{{success}} gider kaydedildi, {{failed}} başarısız oldu. Başarısız olanlar seçili kaldı; tekrar deneyebilirsiniz (kaydedilen personel artık seçili değil, çift kayıt olmaz)."
   },

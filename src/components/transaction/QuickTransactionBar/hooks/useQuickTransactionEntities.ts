@@ -151,16 +151,22 @@ export function useQuickTransactionEntities({
     && (
       !createScope
       || (isScopedCariCreate && defaultCariType === 'tedarikci')
+      || (isScopedHesapCreate && isCariCashType)
     );
   const shouldLoadMusteriCariler =
     canAccessModule('cariler')
     && (
       !createScope
       || (isScopedCariCreate && defaultCariType !== 'tedarikci')
+      || (isScopedHesapCreate && isCariCashType)
     );
   const shouldLoadPersonel =
     canAccessModule('personel')
-    && (!createScope || isScopedPersonelCreate);
+    && (
+      !createScope
+      || isScopedPersonelCreate
+      || (isScopedHesapCreate && isCariCashType)
+    );
   const shouldLoadUrunler =
     canAccessModule('urunler')
     && (

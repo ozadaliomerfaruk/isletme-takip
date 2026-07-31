@@ -1,14 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, TextInput } from 'react-native';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, TouchableWithoutFeedback, TextInput, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
 import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Check, Calendar } from 'lucide-react-native';
 import { Text, Button, Card, CategoryPicker, CurrencyInput, Screen, Modal } from '@/components/ui';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius, fontSize } from '@/constants/spacing';
+import { spacing, borderRadius, fontSize, shadows } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -18,6 +20,11 @@ import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
+import { invalidateRelatedQueries } from '@/lib/queryKeys';
+import { logEvent } from '@/lib/appEvents';
+import { runSettledWithConcurrency } from '@/lib/runSettledWithConcurrency';
+
+const BULK_SALARY_CONCURRENCY = 4;
 
 export default function TopluGiderPage() {
   const router = useRouter();
@@ -25,7 +32,8 @@ export default function TopluGiderPage() {
   const { t } = useTranslation(['staff', 'common', 'transactions']);
   const footerInset = useFooterBottomPadding();
   usePagePermission({ module: 'personel', action: 'create' });
-  const createIslem = useCreateIslem();
+  const queryClient = useQueryClient();
+  const createIslem = useCreateIslem({ deferSuccessEffects: true });
   const { locale, formatDateMedium } = useDateFormat();
   const insets = useSafeAreaInsets();
 
@@ -47,8 +55,11 @@ export default function TopluGiderPage() {
   const [amounts, setAmounts] = useState<Record<string, string>>({});
   const [description, setDescription] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [saveProgress, setSaveProgress] = useState({ completed: 0, total: 0 });
+  const savingRef = useRef(false);
+  const mutationIdsRef = useRef<Record<string, string>>({});
 
-  const { data: personelList, isLoading } = usePersonelList();
+  const { data: personelList } = usePersonelList();
 
   // Aktif personel listesi (A-Z sıralı)
   const activePersonel = useMemo(() => {
@@ -124,6 +135,10 @@ export default function TopluGiderPage() {
   }, [selectedPersonel, amounts]);
 
   const handleSave = async () => {
+    // React state'i bir sonraki render'da güncellenir; ref hızlı çift dokunuşu aynı
+    // tick içinde de keser ve aynı maaş grubunun iki kez başlamasını önler.
+    if (savingRef.current) return;
+
     if (selectedCount === 0) {
       Alert.alert(t('common:status.error'), t('transactions:dailyCash.noEntries'));
       return;
@@ -135,29 +150,39 @@ export default function TopluGiderPage() {
       return;
     }
 
+    const targets = Array.from(selectedPersonel).filter(
+      (id) => parseCurrency(amounts[id] || '0') > 0
+    );
+
+    savingRef.current = true;
     setIsSaving(true);
+    setSaveProgress({ completed: 0, total: targets.length });
 
     try {
-      // Her seçili (tutarı > 0) personel için gider işlemini PARALEL başlat ama
-      // Promise.allSettled ile AYRI değerlendir. Promise.all kısmi başarıda hata fırlatır
-      // ama commit olmuş giderler geri alınmaz; kullanıcı tekrar basınca AYNI seçimi
-      // gönderip çift gider yapardı. Başarılı personeli seçimden çıkarıyoruz; böylece
-      // tekrar deneme yalnızca başarısızları gönderir. (toplu-odeme.tsx ile aynı desen.)
-      const targets = Array.from(selectedPersonel).filter(
-        (id) => parseCurrency(amounts[id] || '0') > 0
-      );
+      // Mobil bağlantıyı onlarca eşzamanlı istekle doldurma. Dört işlik havuz
+      // Promise.allSettled kısmi-başarı semantiğini korur; sonuçlar hedef sırasındadır.
+      // Her personelin UUID'si aynı ekran içindeki belirsiz yanıt/tekrar denemesinde
+      // sabit kalır: server idempotency yolu bakiyeyi ve gideri ikinci kez yazmaz.
+      const results = await runSettledWithConcurrency(
+        targets,
+        BULK_SALARY_CONCURRENCY,
+        async (personelId) => {
+          const mutationId =
+            mutationIdsRef.current[personelId] ?? Crypto.randomUUID();
+          mutationIdsRef.current[personelId] = mutationId;
 
-      const results = await Promise.allSettled(
-        targets.map((personelId) =>
-          createIslem.mutateAsync({
+          await createIslem.mutateAsync({
+            id: mutationId,
             type: 'personel_gider',
             amount: parseCurrency(amounts[personelId] || '0'),
             personel_id: personelId,
             kategori_id: kategoriId,
             date: formatDateTimeForDB(safeDate),
             description: description.trim() || (kategoriId ? null : t('staff:bulkSalary.description')),
-          }).then(() => personelId)
-        )
+          });
+          return personelId;
+        },
+        ({ completed, total }) => setSaveProgress({ completed, total }),
       );
 
       const succeededIds = new Set<string>();
@@ -173,6 +198,9 @@ export default function TopluGiderPage() {
 
       // Başarılı kaydedilenleri seçimden çıkar (çift gideri önler) ve tutarlarını temizle
       if (succeededIds.size > 0) {
+        // Tekil mutation'ların geniş invalidation/telemetri yan etkileri ertelendi.
+        // Bütün seri için yalnız bir kez çalıştırarak refetch fırtınasını önle.
+        invalidateRelatedQueries(queryClient, 'islem');
         setSelectedPersonel((prev) => {
           const next = new Set(prev);
           succeededIds.forEach((id) => next.delete(id));
@@ -183,7 +211,16 @@ export default function TopluGiderPage() {
           succeededIds.forEach((id) => { delete next[id]; });
           return next;
         });
+        succeededIds.forEach((id) => {
+          delete mutationIdsRef.current[id];
+        });
       }
+
+      logEvent('bulk_salary_save_completed', {
+        requested_count: targets.length,
+        success_count: succeededIds.size,
+        failed_count: failedCount,
+      });
 
       if (failedCount === 0) {
         notifySaved(t('staff:bulkSalary.success', { count: succeededIds.size }));
@@ -201,9 +238,15 @@ export default function TopluGiderPage() {
       }
       Alert.alert(t('common:status.error'), toErrorMessage(error) || t('transactions:messages.saveFailed'));
     } finally {
+      savingRef.current = false;
       setIsSaving(false);
     }
   };
+
+  const saveProgressPercent = saveProgress.total > 0
+    ? Math.round((saveProgress.completed / saveProgress.total) * 100)
+    : 0;
+  const saveProgressWidth = `${saveProgressPercent}%` as `${number}%`;
 
   return (
     <>
@@ -365,13 +408,66 @@ export default function TopluGiderPage() {
               size="lg"
               loading={isSaving}
               onPress={handleSave}
-              disabled={selectedCount === 0}
+              disabled={selectedCount === 0 || isSaving}
               style={styles.saveButton}
             >
               {t('common:buttons.save')}
             </Button>
           </View>
         </KeyboardAvoidingView>
+
+        <Modal
+          visible={isSaving}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => undefined}
+        >
+          <View style={styles.savingBackdrop}>
+            <View
+              style={styles.savingCard}
+              accessibilityRole="progressbar"
+              accessibilityLabel={t('staff:bulkSalary.savingTitle')}
+              accessibilityValue={{
+                min: 0,
+                max: saveProgress.total,
+                now: saveProgress.completed,
+              }}
+            >
+              <View style={styles.savingHeader}>
+                <View style={styles.savingIcon}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+                <View style={styles.savingCopy}>
+                  <Text variant="h3">{t('staff:bulkSalary.savingTitle')}</Text>
+                  <Text variant="caption" color="secondary">
+                    {t('staff:bulkSalary.savingHint')}
+                  </Text>
+                </View>
+                <View style={styles.savingCountBadge}>
+                  <Text variant="caption" bold style={styles.savingCountText}>
+                    {saveProgress.completed}/{saveProgress.total}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.savingProgressTrack}>
+                <View
+                  style={[
+                    styles.savingProgressFill,
+                    { width: saveProgressWidth },
+                  ]}
+                />
+              </View>
+              <Text variant="caption" color="secondary" style={styles.savingProgressText}>
+                {t('staff:bulkSalary.savingProgress', {
+                  completed: saveProgress.completed,
+                  total: saveProgress.total,
+                })}
+              </Text>
+            </View>
+          </View>
+        </Modal>
 
         {/* Date Picker Modal */}
         {showDatePicker && (
@@ -569,6 +665,65 @@ const styles = StyleSheet.create({
     color: colors.text,
     minHeight: 60,
     textAlignVertical: 'top',
+  },
+  savingBackdrop: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: spacing['2xl'],
+    backgroundColor: 'rgba(9, 35, 30, 0.38)',
+  },
+  savingCard: {
+    width: '100%',
+    maxWidth: 420,
+    alignSelf: 'center',
+    padding: spacing.xl,
+    borderRadius: borderRadius['2xl'],
+    backgroundColor: colors.surface,
+    ...shadows.lg,
+  },
+  savingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  savingIcon: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryLight,
+  },
+  savingCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  savingCountBadge: {
+    minWidth: 54,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primaryLight,
+  },
+  savingCountText: {
+    color: colors.primary,
+  },
+  savingProgressTrack: {
+    height: 8,
+    marginTop: spacing.xl,
+    overflow: 'hidden',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.borderLight,
+  },
+  savingProgressFill: {
+    height: '100%',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.primary,
+  },
+  savingProgressText: {
+    marginTop: spacing.sm,
+    textAlign: 'right',
   },
   // Date Picker Modal Styles
   pickerBackdrop: {

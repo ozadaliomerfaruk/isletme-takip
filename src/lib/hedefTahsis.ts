@@ -34,6 +34,8 @@ export interface HedefTahsisKarari {
   type: HedefTahsisIslemTipi;
   /** 'odeme' tipinde ödemenin kime yapıldığı ('tedarikci' | 'staff' | 'kredi_karti' | null). */
   odemeHedefType?: string | null;
+  /** Personel tahsilati bir cari faturasi hedefleyemez. */
+  tahsilatHedefType?: string | null;
 }
 
 /**
@@ -42,12 +44,18 @@ export interface HedefTahsisKarari {
  * @returns yazılacaksa pointer id'si, yazılmayacaksa null (alan hiç eklenmez).
  */
 export function resolveHedefIslemId(karar: HedefTahsisKarari): string | null {
-  const { isEditMode, hedefIslemId, type, odemeHedefType } = karar;
+  const {
+    isEditMode,
+    hedefIslemId,
+    type,
+    odemeHedefType,
+    tahsilatHedefType,
+  } = karar;
 
   if (isEditMode) return null;
   if (!hedefIslemId) return null;
 
-  const cariTahsilat = type === 'tahsilat';
+  const cariTahsilat = type === 'tahsilat' && tahsilatHedefType !== 'personel';
   const cariOdemesi = type === 'odeme' && odemeHedefType === 'tedarikci';
   if (!cariTahsilat && !cariOdemesi) return null;
 

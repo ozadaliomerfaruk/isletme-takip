@@ -73,6 +73,8 @@ import { useUrunKalemlerByIslemIds } from '@/hooks/useUrunHareketler';
 import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
 import {
   canUseMinimalAccountRefs,
+  getAllowedHesapOdemeHedefTypes,
+  getAllowedHesapTahsilatHedefTypes,
   getAllowedScopedQuickTransactionTypes,
 } from '@/lib/quickTransactionCreateScope';
 import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
@@ -285,6 +287,19 @@ export function QuickTransactionBar({
     scopedCreateContext,
   ]);
   const visibleTransactionTypes = allowedTypes;
+  const allowedOdemeHedefTypes = useMemo(() => {
+    return scopedCreateContext === 'hesap'
+      ? getAllowedHesapOdemeHedefTypes({
+          canCreateTransactionType,
+          isOwner,
+        })
+      : undefined;
+  }, [canCreateTransactionType, isOwner, scopedCreateContext]);
+  const allowedTahsilatHedefTypes = useMemo(() => {
+    return scopedCreateContext === 'hesap'
+      ? getAllowedHesapTahsilatHedefTypes({ canCreateTransactionType })
+      : undefined;
+  }, [canCreateTransactionType, scopedCreateContext]);
   const productPresenceIds = useMemo(
     () => (
       visible
@@ -705,6 +720,7 @@ export function QuickTransactionBar({
     kategoriId: form.kategoriId,
     isScheduled: form.isScheduled,
     odemeHedefType: form.odemeHedefType,
+    tahsilatHedefType: form.tahsilatHedefType,
     categorySkipped: modals.categorySkipped,
     // DB'den yüklenen mevcut storage path yeni yerel fotoğraf değildir; editte tekrar
     // sıkıştırılıp upload edilmesin. Yalnız kullanıcı gerçekten yeni fotoğraf seçtiyse gönder.
@@ -2251,6 +2267,7 @@ export function QuickTransactionBar({
         onDismiss={() => modals.setShowOdemeHedefTypePicker(false)}
         onSelect={handleOdemeTypeSelect}
         selectedType={form.odemeHedefType}
+        allowedTypes={allowedOdemeHedefTypes}
       />
 
       {/* Tahsilat Hedef Tipi Picker Modal - Bottom Sheet */}
@@ -2259,6 +2276,7 @@ export function QuickTransactionBar({
         onDismiss={() => modals.setShowTahsilatHedefTypePicker(false)}
         onSelect={handleTahsilatTypeSelect}
         selectedType={form.tahsilatHedefType}
+        allowedTypes={allowedTahsilatHedefTypes}
       />
 
       {/* Kredi Kartı Picker Modal - Bottom Sheet */}

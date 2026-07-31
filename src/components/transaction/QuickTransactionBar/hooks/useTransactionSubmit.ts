@@ -19,7 +19,15 @@ import { parseCurrency, isValidAmount, roundCurrency, toNumber } from '@/lib/cur
 import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { isCrossCurrency } from '@/constants/currencies';
 import { resolveHedefIslemId } from '@/lib/hedefTahsis';
-import type { TransactionType, OdemeHedefType, HesapPickerTarget, PendingModal, QuickTransactionMode, UrunItem } from '../types';
+import type {
+  TransactionType,
+  OdemeHedefType,
+  TahsilatHedefType,
+  HesapPickerTarget,
+  PendingModal,
+  QuickTransactionMode,
+  UrunItem,
+} from '../types';
 import type { Currency, IslemInsert, UrunHareketTipi } from '@/types/database';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -44,6 +52,7 @@ import {
   type InstallmentRpcRow,
 } from '@/lib/installmentDistribution';
 import type { EditOriginalSnapshot } from './useQuickTransactionForm';
+import { mapTransactionTypeToApi } from '../utils/transactionTypeMapper';
 import {
   clearIslemPhotoCopyOnWrite,
   getValidatedIslemPhotoPath,
@@ -120,6 +129,7 @@ interface UseTransactionSubmitOptions {
   kategoriId: string | null;
   isScheduled: boolean;
   odemeHedefType: OdemeHedefType;
+  tahsilatHedefType: TahsilatHedefType;
   categorySkipped: boolean;
 
   // Photo
@@ -188,27 +198,6 @@ interface UseTransactionSubmitOptions {
 interface UseTransactionSubmitReturn {
   handleSave: () => Promise<void>;
   handleExchangeRateConfirm: (exchangeRate: number, targetAmount: number) => Promise<void>;
-}
-
-// Helper: Map UI type to API type
-function mapTypeToApiType(type: TransactionType, odemeHedefType: OdemeHedefType): string {
-  if (type === 'odeme') {
-    if (odemeHedefType === 'staff') return 'personel_odeme';
-    if (odemeHedefType === 'kredi_karti') return 'transfer';
-    return 'cari_odeme';
-  }
-  if (type === 'tahsilat') return 'cari_tahsilat';
-  if (type === 'alis') return 'cari_alis';
-  if (type === 'satis') return 'cari_satis';
-  if (type === 'alis_iade') return 'cari_alis_iade';
-  if (type === 'satis_iade') return 'cari_satis_iade';
-  if (type === 'personel_odeme_tab') return 'personel_odeme';
-  if (type === 'personel_gider_tab') return 'personel_gider';
-  if (type === 'personel_tahsilat_tab') return 'personel_tahsilat';
-  if (type === 'personel_satis_tab') return 'personel_satis';
-  if (type === 'personel_izin_hakki_tab') return 'personel_izin_hakki';
-  if (type === 'personel_izin_kullanimi_tab') return 'personel_izin_kullanimi';
-  return type;
 }
 
 // Helper: Check if type needs hesap
@@ -440,6 +429,7 @@ export function useTransactionSubmit({
   kategoriId,
   isScheduled,
   odemeHedefType,
+  tahsilatHedefType,
   categorySkipped,
   photoUri,
   originalPhotoPath = null,
@@ -643,7 +633,11 @@ export function useTransactionSubmit({
   // Build transaction data
   const buildTransactionData = useCallback(
     (parsedAmount: number, exchangeRateInfo?: { sourceCurrency: Currency; targetCurrency: Currency; exchangeRate: number }) => {
-      const apiType = mapTypeToApiType(type, odemeHedefType);
+      const apiType = mapTransactionTypeToApi(
+        type,
+        odemeHedefType,
+        tahsilatHedefType,
+      );
       const needsHesap = needsHesapInData(type);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any -- dynamically built per transaction type, consumed by typed mutateAsync calls
@@ -682,7 +676,11 @@ export function useTransactionSubmit({
         }
       }
       if (type === 'tahsilat') {
-        data.cari_id = cariId;
+        if (tahsilatHedefType === 'personel') {
+          data.personel_id = personelId;
+        } else {
+          data.cari_id = cariId;
+        }
       }
       if (['alis', 'satis', 'alis_iade', 'satis_iade'].includes(type)) {
         data.cari_id = cariId;
@@ -708,14 +706,20 @@ export function useTransactionSubmit({
       // sessiz bozulma sınıfı, çünkü edit'te yanlışlıkla yazılırsa hata çıkmaz, yalnız
       // eski hedefleme kaybolur. Sunucu ayrıca doğrular (aynı cari + alis/satis +
       // iki-yabancı değil); uyumsuz → NULL degrade.
-      const hedefPointer = resolveHedefIslemId({ isEditMode, hedefIslemId, type, odemeHedefType });
+      const hedefPointer = resolveHedefIslemId({
+        isEditMode,
+        hedefIslemId,
+        type,
+        odemeHedefType,
+        tahsilatHedefType,
+      });
       if (hedefPointer) {
         data.hedef_islem_id = hedefPointer;
       }
 
       return data;
     },
-    [type, odemeHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd, vadeTarihi, urunItems.length, isEditMode, hedefIslemId]
+    [type, odemeHedefType, tahsilatHedefType, description, hesapId, kategoriId, hedefHesapId, cariId, personelId, safeDateEnd, vadeTarihi, urunItems.length, isEditMode, hedefIslemId]
   );
 
   // Check cross-currency
@@ -783,13 +787,29 @@ export function useTransactionSubmit({
       }
 
       // Payment/collection cross-currency check - compare hesap currency with cari currency
-      if (['odeme', 'tahsilat'].includes(type) && sourceHesapId && cariId) {
+      if (
+        ['odeme', 'tahsilat'].includes(type)
+        && tahsilatHedefType !== 'personel'
+        && sourceHesapId
+        && cariId
+      ) {
         const targetCari = cariler?.find((c) => c.id === cariId);
         if (openBarIfCross(accCurrency(sourceHesapId), targetCari?.currency)) return true;
       }
 
       // Normal mode personel payment cross-currency check - compare hesap currency with personel currency
       if (!isPersonelMode && type === 'odeme' && odemeHedefType === 'staff' && hesapId && personelId) {
+        const targetPersonel = personelList?.find((p) => p.id === personelId);
+        if (openBarIfCross(accCurrency(hesapId), targetPersonel?.currency)) return true;
+      }
+
+      if (
+        !isPersonelMode
+        && type === 'tahsilat'
+        && tahsilatHedefType === 'personel'
+        && hesapId
+        && personelId
+      ) {
         const targetPersonel = personelList?.find((p) => p.id === personelId);
         if (openBarIfCross(accCurrency(hesapId), targetPersonel?.currency)) return true;
       }
@@ -802,7 +822,7 @@ export function useTransactionSubmit({
 
       return false;
     },
-    [type, hesapId, hedefHesapId, sourceHesapId, cariId, personelId, odemeHedefType, hesaplar, cariler, personelList, isPersonelMode, isEditMode, editOriginal, setPendingExchangeData, setShowExchangeRateBar]
+    [type, hesapId, hedefHesapId, sourceHesapId, cariId, personelId, odemeHedefType, tahsilatHedefType, hesaplar, cariler, personelList, isPersonelMode, isEditMode, editOriginal, setPendingExchangeData, setShowExchangeRateBar]
   );
 
   const guardRegularProductEdit = useCallback((): boolean => {
@@ -815,7 +835,11 @@ export function useTransactionSubmit({
     const hasPersistedProductItems = persistedProductItemCount > 0;
     const hasAnyProductItems =
       hasPersistedProductItems || urunItems.length > 0;
-    const finalType = mapTypeToApiType(type, odemeHedefType);
+    const finalType = mapTransactionTypeToApi(
+      type,
+      odemeHedefType,
+      tahsilatHedefType,
+    );
     const editablePayloadComplete = isEditableProductPayloadComplete({
       productItemsResolved,
       persistedProductItemCount,
@@ -856,6 +880,7 @@ export function useTransactionSubmit({
     isOwner,
     isScheduledTransaction,
     odemeHedefType,
+    tahsilatHedefType,
     productEditDataResolved,
     productItemsResolved,
     persistedProductItemCount,
@@ -1005,7 +1030,17 @@ export function useTransactionSubmit({
       }
 
       if (type === 'tahsilat') {
-        if (!cariId) {
+        if (!tahsilatHedefType) {
+          setShowTahsilatHedefTypePicker(true);
+          return;
+        }
+        if (tahsilatHedefType === 'personel') {
+          if (!personelId) {
+            if (!kategoriId && !categorySkipped) setPendingModal('category');
+            setShowPersonelPicker(true);
+            return;
+          }
+        } else if (!cariId) {
           if (!kategoriId && !categorySkipped) setPendingModal('category');
           setShowCariPicker(true);
           return;
@@ -1094,9 +1129,15 @@ export function useTransactionSubmit({
       }
     }
 
-    if (type === 'tahsilat' && !cariId) {
-      Alert.alert(t('common:status.error'), t('clients:transactionForm.selectCustomer'));
-      return;
+    if (type === 'tahsilat') {
+      if (tahsilatHedefType === 'personel' && !personelId) {
+        Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
+        return;
+      }
+      if (tahsilatHedefType !== 'personel' && !cariId) {
+        Alert.alert(t('common:status.error'), t('clients:transactionForm.selectCustomer'));
+        return;
+      }
     }
 
     if ((type === 'alis' || type === 'alis_iade') && !cariId) {
@@ -1596,6 +1637,7 @@ export function useTransactionSubmit({
     isScheduledTransaction,
     type,
     odemeHedefType,
+    tahsilatHedefType,
     hedefHesapId,
     sourceHesapId,
     cariId,
@@ -1616,6 +1658,7 @@ export function useTransactionSubmit({
     setShowCariPicker,
     setShowPersonelPicker,
     setShowOdemeHedefTypePicker,
+    setShowTahsilatHedefTypePicker,
     setShowKrediKartiPicker,
     setCategoryPickerOpen,
     setPendingModal,

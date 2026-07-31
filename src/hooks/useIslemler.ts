@@ -589,7 +589,15 @@ export function useIslem(id: string | undefined) {
   });
 }
 
-export function useCreateIslem() {
+interface UseCreateIslemOptions {
+  /**
+   * Toplu akışlar tekil başarı yan etkilerini erteleyip bütün seri sonunda bir
+   * kez invalidation/telemetri çalıştırır. Varsayılan davranış değişmez.
+   */
+  deferSuccessEffects?: boolean;
+}
+
+export function useCreateIslem(options: UseCreateIslemOptions = {}) {
   const queryClient = useQueryClient();
   const { isletme } = useAuthContext();
   const { canCreate, canAccessModule } = usePermissions();
@@ -673,6 +681,7 @@ export function useCreateIslem() {
       }
     },
     onSuccess: (data) => {
+      if (options.deferSuccessEffects) return;
       invalidateRelatedQueries(queryClient, 'islem');
       logEvent('transaction_created', {
         type: data?.type,

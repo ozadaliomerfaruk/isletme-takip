@@ -2,6 +2,8 @@ import {
   canUseCariMinimalAccountRefs,
   canUseMinimalAccountRefs,
   getCariTypeForApiTransactionType,
+  getAllowedHesapOdemeHedefTypes,
+  getAllowedHesapTahsilatHedefTypes,
   getAllowedScopedQuickTransactionTypes,
   getQuickTransactionScopeForApiType,
   getScopedQuickTransactionApiType,
@@ -137,7 +139,7 @@ describe('scoped QuickTransactionBar create types', () => {
     ]);
   });
 
-  it('keeps Hesap scope limited to direct account transaction types', () => {
+  it('keeps Hesap-only sharing limited to direct account transaction types', () => {
     const accountsOnly = (type: IslemType) =>
       type === 'gelir' || type === 'gider' || type === 'transfer';
 
@@ -152,7 +154,73 @@ describe('scoped QuickTransactionBar create types', () => {
         scope: 'hesap',
         requestedType: 'odeme',
       }),
-    ).toBe('gelir');
+    ).toBe('odeme');
+  });
+
+  it('adds payment and collection to Hesap + Cari sharing', () => {
+    const hesapAndCari = (type: IslemType) =>
+      ['gelir', 'gider', 'transfer'].includes(type)
+      || type.startsWith('cari_');
+
+    expect(
+      getAllowedScopedQuickTransactionTypes({
+        scope: 'hesap',
+        canCreateTransactionType: hesapAndCari,
+      }),
+    ).toEqual(['gelir', 'gider', 'transfer', 'odeme', 'tahsilat']);
+  });
+
+  it('adds payment and collection to Hesap + Personel sharing', () => {
+    const hesapAndPersonel = (type: IslemType) =>
+      ['gelir', 'gider', 'transfer'].includes(type)
+      || type.startsWith('personel_');
+
+    expect(
+      getAllowedScopedQuickTransactionTypes({
+        scope: 'hesap',
+        canCreateTransactionType: hesapAndPersonel,
+      }),
+    ).toEqual(['gelir', 'gider', 'transfer', 'odeme', 'tahsilat']);
+  });
+
+  it('filters Hesap payment/collection targets by shared modules', () => {
+    const cariOnly = (type: IslemType) => type.startsWith('cari_');
+    const personelOnly = (type: IslemType) => type.startsWith('personel_');
+    const owner = () => true;
+
+    expect(
+      getAllowedHesapOdemeHedefTypes({
+        canCreateTransactionType: cariOnly,
+        isOwner: false,
+      }),
+    ).toEqual(['tedarikci']);
+    expect(
+      getAllowedHesapTahsilatHedefTypes({
+        canCreateTransactionType: cariOnly,
+      }),
+    ).toEqual(['musteri', 'tedarikci']);
+    expect(
+      getAllowedHesapOdemeHedefTypes({
+        canCreateTransactionType: personelOnly,
+        isOwner: false,
+      }),
+    ).toEqual(['staff']);
+    expect(
+      getAllowedHesapTahsilatHedefTypes({
+        canCreateTransactionType: personelOnly,
+      }),
+    ).toEqual(['personel']);
+    expect(
+      getAllowedHesapOdemeHedefTypes({
+        canCreateTransactionType: owner,
+        isOwner: true,
+      }),
+    ).toEqual(['tedarikci', 'staff', 'kredi_karti']);
+    expect(
+      getAllowedHesapTahsilatHedefTypes({
+        canCreateTransactionType: owner,
+      }),
+    ).toEqual(['musteri', 'tedarikci', 'personel']);
   });
 
   it('derives the canonical edit scope from the persisted API type', () => {

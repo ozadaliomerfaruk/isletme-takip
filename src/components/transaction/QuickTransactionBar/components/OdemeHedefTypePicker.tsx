@@ -1,3 +1,4 @@
+import { useEffect, useMemo } from 'react';
 import { View, TouchableOpacity, TouchableWithoutFeedback } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Check, ChevronRight } from 'lucide-react-native';
@@ -13,10 +14,11 @@ export interface OdemeHedefTypePickerProps {
   onDismiss: () => void;
   onSelect: (type: OdemeHedefType, nextModal: 'cari' | 'personel' | 'hesap') => void;
   selectedType: OdemeHedefType;
+  allowedTypes?: readonly NonNullable<OdemeHedefType>[];
 }
 
 const OPTIONS: {
-  type: OdemeHedefType;
+  type: NonNullable<OdemeHedefType>;
   nextModal: 'cari' | 'personel' | 'hesap';
   titleKey: string;
   subtextKey: string;
@@ -46,11 +48,24 @@ export function OdemeHedefTypePicker({
   onDismiss,
   onSelect,
   selectedType,
+  allowedTypes,
 }: OdemeHedefTypePickerProps) {
   const { t } = useTranslation(['transactions', 'clients', 'staff', 'accounts']);
   const insets = useSafeAreaInsets();
+  const visibleOptions = useMemo(
+    () => OPTIONS.filter(
+      (opt) => !allowedTypes || allowedTypes.includes(opt.type),
+    ),
+    [allowedTypes],
+  );
 
-  if (!visible) return null;
+  useEffect(() => {
+    if (!visible || visibleOptions.length !== 1) return;
+    const option = visibleOptions[0];
+    onSelect(option.type, option.nextModal);
+  }, [onSelect, visible, visibleOptions]);
+
+  if (!visible || visibleOptions.length === 1) return null;
 
   // Aksan rengi: ödeme = para çıkışı → turuncu (standart işlem satırı dili)
   const accent = colors.orange;
@@ -76,7 +91,7 @@ export function OdemeHedefTypePicker({
               </View>
 
               <View style={styles.hedefList}>
-                {OPTIONS.map((opt) => {
+                {visibleOptions.map((opt) => {
                   const selected = selectedType === opt.type;
                   return (
                     <TouchableOpacity
