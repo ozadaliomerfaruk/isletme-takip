@@ -1,68 +1,31 @@
-import { useMemo, useState, useCallback, useEffect, useRef } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl, Animated, Pressable } from 'react-native';
+import { View, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { Stack, useRouter, type Href } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { CalendarClock, ChevronRight, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
-import { Text, EmptyState, GlassFab, GlassFabMenuItem, GlassContainer, GLASS_MERGE_SPACING, FAB_SIZE, Screen } from '@/components/ui';
+import { ArrowDownLeft, ArrowUpRight, CalendarClock, ChevronRight } from 'lucide-react-native';
+import { Text, EmptyState, Screen } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, roundCurrency } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 import { useTaksitPlanListesi, type TaksitPlanOzet } from '@/hooks/useTaksit';
-import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
-import { CariPickerSheet, type CariPickerMode } from '@/components/transaction/QuickTransactionBar/components';
-import { useCariler } from '@/hooks/useCariler';
-import type { CariType } from '@/types/database';
+import { TrackingQuickStartCard } from '@/components/tracking/TrackingQuickStartCard';
+import {
+  getListEdgePosition,
+  getListEdgeStyle,
+} from '@/components/ui/listEdgeStyles';
 
 /**
  * Taksit Takip (Faz 3) — işletmedeki tüm taksit planları.
  * Ödenen/kalan değerleri tahsis defterinden türer (get_taksit_plan_listesi RPC).
  */
-// Satırlar yapışık; ayrım 1px gri çizgi (cariler listesi dili)
-const TaksitSeparator = () => <View style={styles.separator} />;
-
 export default function TaksitTakipPage() {
   const contentPaddingBottom = useContentBottomPadding();
-  // Yüzen kontrolün alt boşluğu KENDİSİNE ait: cam tab bar overlay çizildiği için
-  // insets.bottom olmadan FAB bar'ın arkasında kalıyordu (diğer FAB'larla aynı kalıp).
-  const insets = useSafeAreaInsets();
   const { t } = useTranslation(['transactions', 'common', 'clients']);
   const router = useRouter();
   const { data: planlar, isLoading, refetch, isRefetching } = useTaksitPlanListesi();
   const [tab, setTab] = useState<'satis' | 'alis'>('satis');
-
-  // FAB → taksitli satış/alış: ANA SAYFA FAB'ıyla BİREBİR desen — inline menü (MODAL DEĞİL)
-  // → CariPicker (non-modal bağlamdan açıldığı için modal-üstü-modal DONMASI YOK) → QTB
-  // cari-modunda. Eski ActionSheet(modal) → CariPicker(modal) zinciri iOS'ta donuyordu.
-  const { data: musteriler } = useCariler('musteri');
-  const { data: tedarikciler } = useCariler('tedarikci');
-  const [showFabMenu, setShowFabMenu] = useState(false);
-  const [showCariPicker, setShowCariPicker] = useState(false);
-  const [cariPickerMode, setCariPickerMode] = useState<CariPickerMode>('customer');
-  const [qtbCari, setQtbCari] = useState<{ id: string; type: CariType } | null>(null);
-  const fabAnim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.spring(fabAnim, {
-      toValue: showFabMenu ? 1 : 0,
-      damping: 15,
-      stiffness: 200,
-      useNativeDriver: true,
-    }).start();
-  }, [showFabMenu, fabAnim]);
-
-  const handleFabMenuOption = useCallback((action: () => void) => {
-    setShowFabMenu(false);
-    setTimeout(action, 250); // menü kapanış animasyonu bitince aç
-  }, []);
-
-  const handleCariSelect = useCallback((cariId: string) => {
-    const cariType: CariType = cariPickerMode === 'customer' ? 'musteri' : 'tedarikci';
-    setShowCariPicker(false);
-    setTimeout(() => setQtbCari({ id: cariId, type: cariType }), 300);
-  }, [cariPickerMode]);
 
   const filtreli = useMemo(
     () => (planlar ?? []).filter((p) => (tab === 'satis' ? p.type === 'cari_satis' : p.type === 'cari_alis')),
@@ -93,30 +56,73 @@ export default function TaksitTakipPage() {
   }, [planlar]);
 
   const renderItem = useCallback(
-    ({ item }: { item: TaksitPlanOzet }) => {
+    ({ item, index }: { item: TaksitPlanOzet; index: number }) => {
       const tamamlandi = item.odenen_taksit_adedi >= item.taksit_adedi;
       const oran = item.toplam > 0 ? Math.min(1, item.odenen / item.toplam) : 0;
+      const position = getListEdgePosition(index, filtreli.length);
       return (
         <TouchableOpacity
-          style={styles.card}
+          style={[
+            styles.card,
+            getListEdgeStyle(position),
+            position !== 'last' && position !== 'only' && styles.cardDivider,
+          ]}
           activeOpacity={0.7}
           onPress={() => router.push(`/taksit/${item.plan_id}` as Href)}
+          accessibilityRole="button"
+          accessibilityLabel={`${item.cari_name}, ${t('transactions:vade.kalan')} ${formatCurrency(Math.max(0, item.toplam - item.odenen), item.currency)}`}
         >
           <View style={styles.cardHeader}>
-            <Text variant="body" style={styles.cariName} numberOfLines={1}>
-              {item.cari_name}
-            </Text>
+            <View style={styles.cardTitleWrap}>
+              <Text variant="body" style={styles.cariName} numberOfLines={1}>
+                {item.cari_name}
+              </Text>
+              <Text variant="caption" color="secondary" numberOfLines={1}>
+                {t('transactions:taksit.odenenOran', { odenen: item.odenen_taksit_adedi, toplam: item.taksit_adedi })}
+              </Text>
+            </View>
             <ChevronRight size={18} color={colors.textMuted} />
           </View>
 
           <View style={styles.amountRow}>
-            {/* Büyük rakam = KALAN (kullanıcının asıl merak ettiği); ödenen/toplam ikincil */}
-            <Text variant="h3" color={tamamlandi ? 'success' : undefined} numberOfLines={1} style={styles.kalanAmount}>
-              {t('transactions:vade.kalan')}: {formatCurrency(Math.max(0, item.toplam - item.odenen), item.currency)}
-            </Text>
-            <Text variant="caption" color="secondary" numberOfLines={1} style={styles.odenenText}>
-              {t('transactions:taksit.odenenLabel')}: {formatCurrency(item.odenen, item.currency)} / {formatCurrency(item.toplam, item.currency)}
-            </Text>
+            <View style={styles.amountCopy}>
+              <Text variant="caption" color="secondary">
+                {t('transactions:vade.kalan')}
+              </Text>
+              <Text variant="h3" color={tamamlandi ? 'success' : undefined} numberOfLines={1} style={styles.kalanAmount}>
+                {formatCurrency(Math.max(0, item.toplam - item.odenen), item.currency)}
+              </Text>
+            </View>
+            <View
+              style={[
+                styles.statusPill,
+                tamamlandi
+                  ? styles.statusPillComplete
+                  : item.gecikmis_adet > 0
+                    ? styles.statusPillLate
+                    : styles.statusPillOpen,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusPillText,
+                  tamamlandi
+                    ? styles.statusTextComplete
+                    : item.gecikmis_adet > 0
+                      ? styles.statusTextLate
+                      : styles.statusTextOpen,
+                ]}
+                numberOfLines={1}
+              >
+                {tamamlandi
+                  ? t('transactions:taksit.tamamlandi')
+                  : item.gecikmis_adet > 0
+                    ? t('transactions:taksit.gecikmisAdet', { adet: item.gecikmis_adet })
+                    : item.sonraki_vade
+                      ? formatDateShort(item.sonraki_vade)
+                      : t('transactions:taksit.open')}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.progressBar}>
@@ -125,15 +131,9 @@ export default function TaksitTakipPage() {
 
           <View style={styles.metaRow}>
             <Text variant="caption" color="secondary">
-              {t('transactions:taksit.odenenOran', { odenen: item.odenen_taksit_adedi, toplam: item.taksit_adedi })}
+              {t('transactions:taksit.odenenLabel')}: {formatCurrency(item.odenen, item.currency)} / {formatCurrency(item.toplam, item.currency)}
             </Text>
-            {tamamlandi ? (
-              <Text variant="caption" color="success">{t('transactions:taksit.tamamlandi')}</Text>
-            ) : item.gecikmis_adet > 0 ? (
-              <Text variant="caption" style={styles.gecikmisText}>
-                {t('transactions:taksit.gecikmisAdet', { adet: item.gecikmis_adet })}
-              </Text>
-            ) : item.sonraki_vade ? (
+            {!tamamlandi && item.gecikmis_adet === 0 && item.sonraki_vade ? (
               <Text variant="caption" color="secondary">
                 {t('transactions:taksit.sonrakiVade')}: {formatDateShort(item.sonraki_vade)}
               </Text>
@@ -142,149 +142,103 @@ export default function TaksitTakipPage() {
         </TouchableOpacity>
       );
     },
-    [router, t],
+    [filtreli.length, router, t],
   );
 
   return (
     <>
       <Stack.Screen options={{ headerTitle: t('transactions:taksit.title') }} />
       <Screen>
-        {/* Üst özet — açık planların yön bazlı kalan toplamları */}
-        {ozet && (
-          <View style={styles.ozetRow}>
-            <View style={[styles.ozetBox, styles.ozetBoxTahsil]}>
-              <Text style={styles.ozetDeger} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                {formatCurrency(ozet.tahsil, ozet.cur)}
-              </Text>
-              <Text style={styles.ozetLabel} numberOfLines={1}>
-                {t('transactions:taksit.ozetTahsil')}
-                {ozet.tahsilAdet > 0 ? ` · ${t('transactions:taksit.planAdet', { adet: ozet.tahsilAdet })}` : ''}
-              </Text>
-            </View>
-            <View style={[styles.ozetBox, styles.ozetBoxOde]}>
-              <Text style={styles.ozetDeger} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                {formatCurrency(ozet.ode, ozet.cur)}
-              </Text>
-              <Text style={styles.ozetLabel} numberOfLines={1}>
-                {t('transactions:taksit.ozetOde')}
-                {ozet.odeAdet > 0 ? ` · ${t('transactions:taksit.planAdet', { adet: ozet.odeAdet })}` : ''}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Satış / Alış sekmeleri */}
-        <View style={styles.tabs}>
-          {(['satis', 'alis'] as const).map((tabKey) => (
-            <TouchableOpacity
-              key={tabKey}
-              style={[styles.tabButton, tab === tabKey && styles.tabButtonActive]}
-              onPress={() => setTab(tabKey)}
-            >
-              <Text style={[styles.tabText, tab === tabKey && styles.tabTextActive]}>
-                {tabKey === 'satis' ? t('transactions:taksit.satis') : t('transactions:taksit.alis')}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
         <FlatList
           data={filtreli}
           keyExtractor={(item) => item.plan_id}
           renderItem={renderItem}
-          ItemSeparatorComponent={TaksitSeparator}
           contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={true}
+          keyboardShouldPersistTaps="handled"
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+          ListHeaderComponent={
+            <View style={styles.listHeader}>
+              <TrackingQuickStartCard kind="taksit" />
+
+              {ozet ? (
+                <View style={styles.summaryPanel}>
+                  <View style={styles.summaryItem}>
+                    <View style={styles.summaryLabelRow}>
+                      <View style={[styles.summaryIcon, styles.summaryIconReceive]}>
+                        <ArrowDownLeft size={16} color={colors.successDark} />
+                      </View>
+                      <Text style={styles.summaryLabel} numberOfLines={1}>
+                        {t('transactions:taksit.ozetTahsil')}
+                      </Text>
+                    </View>
+                    <Text style={[styles.summaryValue, styles.summaryValueReceive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>
+                      {formatCurrency(ozet.tahsil, ozet.cur)}
+                    </Text>
+                    <Text variant="caption" color="secondary">
+                      {t('transactions:taksit.planAdet', { adet: ozet.tahsilAdet })}
+                    </Text>
+                  </View>
+
+                  <View style={styles.summaryDivider} />
+
+                  <View style={styles.summaryItem}>
+                    <View style={styles.summaryLabelRow}>
+                      <View style={[styles.summaryIcon, styles.summaryIconPay]}>
+                        <ArrowUpRight size={16} color={colors.errorDark} />
+                      </View>
+                      <Text style={styles.summaryLabel} numberOfLines={1}>
+                        {t('transactions:taksit.ozetOde')}
+                      </Text>
+                    </View>
+                    <Text style={[styles.summaryValue, styles.summaryValuePay]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.65}>
+                      {formatCurrency(ozet.ode, ozet.cur)}
+                    </Text>
+                    <Text variant="caption" color="secondary">
+                      {t('transactions:taksit.planAdet', { adet: ozet.odeAdet })}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
+
+              <View style={styles.listHeadingRow}>
+                <Text variant="h3">{t('transactions:taksit.plansTitle')}</Text>
+                <Text variant="caption" color="secondary">
+                  {t('transactions:taksit.planAdet', { adet: filtreli.length })}
+                </Text>
+              </View>
+
+              <View style={styles.tabs}>
+                {(['satis', 'alis'] as const).map((tabKey) => (
+                  <TouchableOpacity
+                    key={tabKey}
+                    style={[styles.tabButton, tab === tabKey && styles.tabButtonActive]}
+                    onPress={() => setTab(tabKey)}
+                    accessibilityRole="tab"
+                    accessibilityState={{ selected: tab === tabKey }}
+                  >
+                    <Text style={[styles.tabText, tab === tabKey && styles.tabTextActive]}>
+                      {tabKey === 'satis' ? t('transactions:taksit.satis') : t('transactions:taksit.alis')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          }
           ListEmptyComponent={
             isLoading ? null : (
-              <EmptyState
-                icon={<CalendarClock size={44} color={colors.textMuted} />}
-                title={t('transactions:taksit.bos')}
-                description={t('transactions:taksit.bosAciklama')}
-              />
+              <View style={styles.emptyWrap}>
+                <EmptyState
+                  icon={<CalendarClock size={44} color={colors.textMuted} />}
+                  title={t('transactions:taksit.bos')}
+                  description={t('transactions:taksit.emptyGuidedDescription')}
+                />
+              </View>
             )
           }
-        />
-
-        {/* FAB Menü - Backdrop (MODAL DEĞİL — non-modal overlay; ana FAB deseni) */}
-        {showFabMenu && (
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowFabMenu(false)}>
-            <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.3)', opacity: fabAnim }]} />
-          </Pressable>
-        )}
-
-        {/* FAB Menü - Taksitli Satış / Alış (inline, yukarı açılır) */}
-        {showFabMenu && (
-          <GlassContainer
-            spacing={GLASS_MERGE_SPACING}
-            style={[styles.fabMenuContainer, { bottom: spacing.lg + insets.bottom + FAB_SIZE + spacing.md }]}
-          >
-            {[
-              {
-                label: t('transactions:taksit.fabSatis'),
-                icon: <TrendingUp size={18} color={colors.success} />,
-                onPress: () => handleFabMenuOption(() => { setCariPickerMode('customer'); setShowCariPicker(true); }),
-                index: 1,
-              },
-              {
-                label: t('transactions:taksit.fabAlis'),
-                icon: <TrendingDown size={18} color={colors.error} />,
-                onPress: () => handleFabMenuOption(() => { setCariPickerMode('supplier'); setShowCariPicker(true); }),
-                index: 0,
-              },
-            ].map((item) => (
-              <Animated.View
-                key={item.label}
-                style={{
-                  // OPACITY YOK: içerideki satır cam (GlassFabMenuItem) ve cam
-                  // yüzeyin atasında alpha<1 malzemeyi çökertiyor — yazı görünür,
-                  // kapsül kaybolur. Geçiş yalnız transform ile. Bkz. GlassSurface.
-                  transform: [
-                    { translateY: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [20 + item.index * 10, 0] }) },
-                    { scale: fabAnim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) },
-                  ],
-                }}
-              >
-                <GlassFabMenuItem icon={item.icon} label={item.label} onPress={item.onPress} />
-              </Animated.View>
-            ))}
-          </GlassContainer>
-        )}
-
-        {/* FAB Button (+ → 45° döner) */}
-        <GlassFab
-          style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
-          iconSize={26}
-          onPress={() => setShowFabMenu((prev) => !prev)}
-          renderIcon={({ color, size }) => (
-            <Animated.View style={{ transform: [{ rotate: fabAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '45deg'] }) }] }}>
-              <Plus size={size} color={color} />
-            </Animated.View>
-          )}
-        />
-
-        {/* Cari Picker (FAB menüsünden — NON-MODAL bağlamdan açılır → donmaz) */}
-        <CariPickerSheet
-          visible={showCariPicker}
-          onDismiss={() => setShowCariPicker(false)}
-          onSelect={handleCariSelect}
-          cariler={cariPickerMode === 'customer' ? (musteriler || []) : (tedarikciler || [])}
-          selectedId={null}
-          mode={cariPickerMode}
-        />
-
-        {/* Cari seçilince QTB (cari-modu; taksit Vade → Taksit menüsünden kurulur) */}
-        <QuickTransactionBar
-          visible={!!qtbCari}
-          onDismiss={() => setQtbCari(null)}
-          defaultCariId={qtbCari?.id}
-          defaultCariType={qtbCari?.type}
-          defaultType={qtbCari?.type === 'tedarikci' ? 'alis' : 'satis'}
-          onSuccess={() => setQtbCari(null)}
         />
       </Screen>
     </>
@@ -292,59 +246,84 @@ export default function TaksitTakipPage() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
+  listHeader: {
+    gap: spacing.lg,
+    paddingBottom: spacing.sm,
   },
-  // Üst özet kutuları — sol kenar şeritli, yön renkleriyle
-  ozetRow: {
+  summaryPanel: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-  },
-  ozetBox: {
-    flex: 1,
+    alignItems: 'stretch',
     backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius['2xl'],
+    paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
-    gap: 2,
-    borderLeftWidth: 4,
   },
-  ozetBoxTahsil: {
-    borderLeftColor: colors.success,
+  summaryItem: {
+    flex: 1,
+    paddingHorizontal: spacing.xs,
+    gap: 3,
   },
-  ozetBoxOde: {
-    borderLeftColor: colors.error,
+  summaryLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
-  ozetDeger: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
+  summaryIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  ozetLabel: {
-    fontSize: 12,
+  summaryIconReceive: {
+    backgroundColor: colors.successLight,
+  },
+  summaryIconPay: {
+    backgroundColor: colors.errorLight,
+  },
+  summaryLabel: {
+    flex: 1,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.textSecondary,
   },
+  summaryValue: {
+    fontSize: 19,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  summaryValueReceive: {
+    color: colors.successDark,
+  },
+  summaryValuePay: {
+    color: colors.errorDark,
+  },
+  summaryDivider: {
+    width: 1,
+    backgroundColor: colors.borderLight,
+    marginHorizontal: spacing.sm,
+  },
+  listHeadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   tabs: {
     flexDirection: 'row',
-    margin: spacing.lg,
-    marginBottom: spacing.sm,
-    backgroundColor: colors.surfaceLight,
-    borderRadius: borderRadius.lg,
-    padding: 3,
-    gap: 3,
+    backgroundColor: colors.surfaceLighter,
+    borderRadius: borderRadius.xl,
+    padding: 4,
+    gap: 4,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: borderRadius.md,
+    minHeight: 40,
+    borderRadius: borderRadius.lg,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   tabButtonActive: {
-    backgroundColor: colors.surface,
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 14,
@@ -352,74 +331,97 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
   tabTextActive: {
-    color: colors.text,
+    color: colors.white,
   },
-  // Yapışık düz-liste görünümü (cariler dili): kart boşluğu/köşesi yok, 1px ayraç
   listContent: {
-    padding: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    flexGrow: 1,
   },
-  separator: {
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  /** Yalnız KONUM — boyut/görsel GlassFab'de (cam vs dolu disk orada ayrışır). */
-  fab: {
-    position: 'absolute',
-    right: spacing.lg,
-    zIndex: 10,
-  },
-  fabMenuContainer: {
-    position: 'absolute',
-    right: spacing.lg,
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    zIndex: 9,
-  },
-  // fabMenuItem / fabMenuIcon / fabMenuLabel → GlassFabMenuItem'a taşındı.
   card: {
     backgroundColor: colors.surface,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+  },
+  cardDivider: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  cardTitleWrap: {
+    flex: 1,
+    gap: 1,
   },
   cariName: {
-    fontWeight: '600',
-    flex: 1,
+    fontWeight: '700',
   },
   amountRow: {
-    marginBottom: 6,
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  amountCopy: {
+    flex: 1,
   },
   kalanAmount: {
     flexShrink: 1,
+    fontVariant: ['tabular-nums'],
   },
-  odenenText: {
-    flexShrink: 1,
+  statusPill: {
+    maxWidth: '48%',
+    borderRadius: borderRadius.full,
+    paddingVertical: 5,
+    paddingHorizontal: spacing.sm,
+  },
+  statusPillComplete: {
+    backgroundColor: colors.successLight,
+  },
+  statusPillLate: {
+    backgroundColor: colors.errorLight,
+  },
+  statusPillOpen: {
+    backgroundColor: colors.primaryLight,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  statusTextComplete: {
+    color: colors.successDark,
+  },
+  statusTextLate: {
+    color: colors.errorDark,
+  },
+  statusTextOpen: {
+    color: colors.primary,
   },
   progressBar: {
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.border,
+    height: 6,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.surfaceLighter,
     overflow: 'hidden',
-    marginBottom: 6,
+    marginBottom: spacing.sm,
   },
   progressFill: {
     height: '100%',
     backgroundColor: colors.primary,
-    borderRadius: 3,
+    borderRadius: borderRadius.full,
   },
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  gecikmisText: {
-    color: colors.error,
-    fontWeight: '700',
+  emptyWrap: {
+    paddingTop: spacing.xl,
   },
 });
