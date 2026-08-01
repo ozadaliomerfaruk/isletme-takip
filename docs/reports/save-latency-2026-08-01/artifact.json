@@ -1,0 +1,282 @@
+{
+  "surface": "report",
+  "manifest": {
+    "version": 1,
+    "surface": "report",
+    "title": "Kaydetme Gecikmesi: Tutar mı, Veri Büyüklüğü mü?",
+    "description": "Son 14 günlük istemci telemetrisi, işlem eşleştirmeleri ve PostgreSQL çalışma süreleriyle kaydetme gecikmesinin olası sürücülerini inceler.",
+    "generatedAt": "2026-08-01T12:05:00Z",
+    "cards": [
+      {
+        "id": "current_high_amount_card",
+        "description": "Güncel ölçümlü kullanıcıda yüksek tutarlı, başarıyla eşleşen kayıtlar içindeki 2 saniye üzeri olay alt sınırı.",
+        "dataset": "current_amount_buckets",
+        "sourceId": "current_amount_match_sql",
+        "filter": { "bucket": "₺100 bin+" },
+        "metrics": [
+          { "label": "₺100 bin+ yavaş eşleşme (%)", "field": "slow_lower_bound_pct", "format": "number" }
+        ]
+      },
+      {
+        "id": "server_max_card",
+        "description": "Güncel atomik V2 kayıt RPC'sinin gözlenen en yüksek PostgreSQL çalışma süresi.",
+        "dataset": "server_runtime",
+        "sourceId": "server_runtime_sql",
+        "metrics": [
+          { "label": "V2 RPC en yüksek süre (ms)", "field": "max_exec_ms", "format": "number" }
+        ]
+      },
+      {
+        "id": "ledger_size_card",
+        "description": "İncelenen işletmenin toplam işlem sayısı; 497 işletme içindeki en yüksek değerdir.",
+        "dataset": "ledger_summary",
+        "sourceId": "ledger_summary_sql",
+        "metrics": [
+          { "label": "İşletmedeki işlem sayısı", "field": "transaction_count", "format": "compact" }
+        ]
+      },
+      {
+        "id": "peer_incidence_card",
+        "description": "1.5.6 iOS kohortunda en az 5 başarılı kayıt yapan kullanıcıların, en az bir yavaş olay yaşayan payı.",
+        "dataset": "peer_incidence",
+        "sourceId": "peer_incidence_sql",
+        "metrics": [
+          { "label": "En az bir takılma yaşayan kullanıcı (%)", "field": "users_with_slow_pct", "format": "number" }
+        ]
+      }
+    ],
+    "charts": [
+      {
+        "id": "peer_amount_chart",
+        "title": "1.5.6 iOS'ta tutar kovasına göre yavaş kayıt alt sınırı",
+        "subtitle": "Yüksek tutarlar yavaş örneklerde daha sık görünse de yavaş olayların medyan süresi ₺1 bin altında 12,1 sn, ₺100 bin üzerinde 3,1 sn.",
+        "type": "bar",
+        "dataset": "peer_amount_buckets",
+        "sourceId": "peer_amount_match_sql",
+        "valueFormat": "number",
+        "unit": "%",
+        "encodings": {
+          "x": { "field": "bucket", "type": "ordinal", "label": "İşlem tutarı" },
+          "y": { "field": "slow_lower_bound_pct", "type": "quantitative", "label": "Yavaş kayıt alt sınırı", "format": "number", "unit": "%" },
+          "tooltip": [
+            { "field": "successful", "type": "quantitative", "label": "Başarılı eşleşme", "format": "number" },
+            { "field": "slow_events", "type": "quantitative", "label": "Yavaş eşleşme", "format": "number" },
+            { "field": "median_slow_ms", "type": "quantitative", "label": "Yavaş olay medyanı", "format": "number", "unit": "ms" }
+          ]
+        }
+      },
+      {
+        "id": "ledger_size_chart",
+        "title": "1.5.6 iOS'ta işletme işlem sayısına göre gözlenen yavaş olay oranı",
+        "subtitle": "Oran veri büyüklüğüyle düzenli yükselmiyor; 5.000+ grubu yalnız bir işletmeden oluşuyor.",
+        "type": "bar",
+        "dataset": "ledger_size_cohorts",
+        "sourceId": "ledger_size_cohort_sql",
+        "valueFormat": "number",
+        "unit": "%",
+        "encodings": {
+          "x": { "field": "size_bucket", "type": "ordinal", "label": "Toplam işlem sayısı" },
+          "y": { "field": "observed_slow_pct", "type": "quantitative", "label": "Gözlenen yavaş olay", "format": "number", "unit": "%" },
+          "tooltip": [
+            { "field": "businesses", "type": "quantitative", "label": "İşletme", "format": "number" },
+            { "field": "users", "type": "quantitative", "label": "Kullanıcı", "format": "number" },
+            { "field": "creates", "type": "quantitative", "label": "Başarılı kayıt olayı", "format": "number" },
+            { "field": "slow_events", "type": "quantitative", "label": "Yavaş olay", "format": "number" }
+          ]
+        }
+      }
+    ],
+    "tables": [
+      {
+        "id": "current_amount_table",
+        "title": "Güncel ölçümlü kullanıcı: tutar kovaları",
+        "subtitle": "Yeni telemetri yalnız 2 saniyeyi aşan olayları kaydeder; oranlar benzersiz eşleşmelerden hesaplanan alt sınırlardır.",
+        "dataset": "current_amount_buckets",
+        "sourceId": "current_amount_match_sql",
+        "defaultSort": { "field": "successful", "direction": "desc" },
+        "columns": [
+          { "field": "bucket", "label": "Tutar", "type": "text" },
+          { "field": "successful", "label": "Başarılı eşleşme", "format": "number" },
+          { "field": "slow_events", "label": "Yavaş eşleşme", "format": "number" },
+          { "field": "slow_lower_bound_pct", "label": "Alt sınır (%)", "format": "number" },
+          { "field": "median_slow_ms", "label": "Yavaş medyan (ms)", "format": "number" },
+          { "field": "max_slow_ms", "label": "Yavaş maksimum (ms)", "format": "number" }
+        ]
+      }
+    ],
+    "sources": [
+      { "id": "current_amount_match_sql", "label": "Güncel kullanıcı tutar eşleştirmesi" },
+      { "id": "peer_amount_match_sql", "label": "1.5.6 iOS tutar eşleştirmesi" },
+      { "id": "server_runtime_sql", "label": "PostgreSQL V2 RPC istatistikleri" },
+      { "id": "ledger_summary_sql", "label": "İşletme işlem sayısı dağılımı" },
+      { "id": "ledger_size_cohort_sql", "label": "Veri büyüklüğü kohortları" },
+      { "id": "peer_incidence_sql", "label": "Diğer kullanıcılar yavaş olay kohortu" }
+    ],
+    "blocks": [
+      {
+        "id": "title",
+        "type": "markdown",
+        "body": "# Kaydetme Gecikmesi: Tutar mı, Veri Büyüklüğü mü?\n\n**İnceleme penceresi:** Son 14 gün · **Platform:** iOS · **Yavaş kayıt tanımı:** istemcide 2 saniyeyi aşan kaydetme olayı"
+      },
+      {
+        "id": "executive_summary",
+        "type": "markdown",
+        "body": "## Executive Summary\n\n- **₺150.000 sayısının kendisi işlemi hesaplama açısından ağırlaştırmıyor.** Güncel ölçümlü kullanıcıda benzersiz eşleşen ₺100 bin üzeri 8 başarılı kaydın hiçbirinde 2 saniye üzeri olay eşleşmedi. Ekran görüntüsündeki ₺14.600 personel ödemesi ise 11,9 saniye sürdü.\n- **Hesap çok büyük, ancak bu tek başına kaydetme süresini açıklamıyor.** İşletmede 40.474 işlem var ve incelenen 497 işletme içinde en büyük veri seti. Buna rağmen veri büyüklüğü kohortlarında gecikme oranı düzenli yükselmiyor.\n- **Sunucu yazımı hızlı.** Atomik V2 kayıt RPC'sinin 20 çağrıdaki ortalaması 123 ms, maksimumu 382 ms. 11,9 saniyelik bekleme veritabanında geçen süre değil.\n- **Sorun diğer kullanıcılarda da görülüyor.** En az 5 kayıt yapan 97 eski iOS kullanıcısının 53'ü en az bir yavaş olay yaşamış. En güçlü aday istemci–ağ bağlantısı ve işlem akışındaki ek işler; yalnız tutar veya yalnız Free plan değil."
+      },
+      { "id": "headline_metrics", "type": "metric-strip", "cardIds": ["current_high_amount_card", "server_max_card", "ledger_size_card", "peer_incidence_card"] },
+      {
+        "id": "amount_finding",
+        "type": "markdown",
+        "body": "## Tutarın kendisi ana neden değil\n\nPostgreSQL `numeric` alanında ₺100 ile ₺150.000'i toplamak pratikte aynı sabit maliyetli işlemdir; istemci de tutarı yalnız iki ondalığa yuvarlayıp tek RPC'ye gönderiyor. Eski 1.5.6 verisinde yüksek tutarlar yavaş örneklerde daha sık görünse de yavaş olayların süresi tutarla büyümüyor. Bu görünüm, yüksek tutarların daha sık cari alış/satış veya ürünlü akışlara denk gelmesi gibi işlem karışımı etkilerine işaret ediyor."
+      },
+      { "id": "current_amount", "type": "table", "tableId": "current_amount_table" },
+      { "id": "peer_amount", "type": "chart", "chartId": "peer_amount_chart" },
+      {
+        "id": "ledger_finding",
+        "type": "markdown",
+        "body": "## Veri büyüklüğü ikincil bir risk, kanıtlanmış kayıt darboğazı değil\n\n40.474 işlem; liste, rapor, cache invalidation ve kayıt sonrası yenileme işlerini sıradan kullanıcılardan daha hassas hâle getirebilir. Fakat güncel personel ödemesi V2 yolu geçmişin tamamını taramak yerine yeni satırı ekleyip ilgili bakiye kayıtlarını kimlikle güncelliyor. Ayrıca küçük işletmelerde de yavaş olaylar görülüyor ve kohort oranı işlem sayısıyla monoton artmıyor. 5.000+ grubu tek işletme olduğu için büyük hesap etkisini cihaz, ağ ve kullanım biçiminden ayıracak yeterli örnek yok."
+      },
+      { "id": "ledger_chart", "type": "chart", "chartId": "ledger_size_chart" },
+      {
+        "id": "peer_finding",
+        "type": "markdown",
+        "body": "## Normal kullanıcılarda da takılma var\n\n1.5.6 iOS kohortunda en az 5 başarılı kayıt yapan 97 kullanıcıdan 53'ü (%54,6) en az bir kez 2 saniye üzeri kaydetme telemetrisi üretmiş. Toplam 3.634 başarılı kayıt olayına karşı 231 yavaş olay var (%6,4 gözlenen oran). Bu oran yaklaşık bir göstergedir; eski telemetri tüm hızlı kayıtların süresini ölçmediği ve farklı işlem girişlerini aynı paydada topladığı için kesin SLA olarak kullanılmamalıdır."
+      },
+      {
+        "id": "recommendations",
+        "type": "markdown",
+        "body": "## Önerilen sonraki adımlar\n\n1. Bir sonraki ölçümde hızlı kayıtları da örnekleyerek `rpc_ms`, RPC sonrası UI/cache süresi, bağlantı türü, uygulama build numarası, işlem türü ve `has_products` alanlarını ayrı toplayın; ham tutar veya kişisel veri kaydetmeyin.\n2. Aynı cihaz ve aynı bağlantıda, aynı işlem türüyle ₺100 ve ₺150.000 için dönüşümlü 10'ar deneme yapın. RPC süreleri benzerse tutar hipotezi doğrudan elenir.\n3. Kayıt kapandıktan sonra başlayan refetch/invalidation işlerini RPC beklemesinden ayrı ölçün. 40 bin satırlık hesapta iyileştirme alanı en çok burada olabilir.\n4. LTE ve Wi‑Fi sonuçlarını ayrı izleyin. 11,9 saniyelik olayda veritabanı üst sınırı 382 ms olduğundan kalan süreyi ağ/istemci katmanında parçalamak en yüksek getirili adımdır."
+      },
+      {
+        "id": "further_questions",
+        "type": "markdown",
+        "body": "## Further Questions\n\n- Yavaş hissettiren ₺150 bin işlemler çoğunlukla cari alış/satış veya ürünlü işlem mi?\n- Takılmalar LTE'de mi, Wi‑Fi'da mı daha sık?\n- Uyarı görünürken kayıt sunucuda oluşmuş oluyor mu, yoksa işlem gerçekten daha sonra mı tamamlanıyor?\n- Aynı tutar ve işlem türü başka, küçük bir işletme hesabında tekrarlandığında sonuç değişiyor mu?"
+      },
+      {
+        "id": "caveats",
+        "type": "markdown",
+        "body": "## Caveats & Assumptions\n\n- Güncel `save_submit_perf` telemetrisi yeni build'de yalnız tek kullanıcıdan geliyor; güncel sürüm için kullanıcılar arası oran henüz hesaplanamaz.\n- Telemetri yalnız 2 saniyeyi aşan olayları kaydediyor. Bu nedenle hızlı kayıtların gerçek gecikme dağılımı bilinmiyor.\n- Eski 1.5.6 karşılaştırması farklı istemci kodunu temsil ediyor; yalnız yaygınlık ve karışım etkisini görmek için kullanıldı.\n- Yavaş olay–işlem eşleştirmeleri kullanıcı, işletme, tür ve zaman penceresiyle yapıldı. Güncel 7 yavaş create olayının 6'sı benzersiz eşleşti; oranlar bu nedenle alt sınır olarak sunuldu.\n- `pg_stat_statements` veritabanı çalışma süresini gösterir; mobil cihaz ile PostgREST arasındaki DNS/TLS/socket beklemesini içermez."
+      }
+    ]
+  },
+  "snapshot": {
+    "version": 1,
+    "generatedAt": "2026-08-01T12:05:00Z",
+    "status": "ready",
+    "datasets": {
+      "current_amount_buckets": [
+        { "bucket": "<₺1 bin", "successful": 24, "slow_events": 1, "slow_lower_bound_pct": 4.2, "median_slow_ms": 2016, "max_slow_ms": 2016 },
+        { "bucket": "₺1–10 bin", "successful": 46, "slow_events": 0, "slow_lower_bound_pct": 0.0, "median_slow_ms": null, "max_slow_ms": null },
+        { "bucket": "₺10–100 bin", "successful": 40, "slow_events": 5, "slow_lower_bound_pct": 12.5, "median_slow_ms": 3204, "max_slow_ms": 11892 },
+        { "bucket": "₺100 bin+", "successful": 8, "slow_events": 0, "slow_lower_bound_pct": 0.0, "median_slow_ms": null, "max_slow_ms": null }
+      ],
+      "peer_amount_buckets": [
+        { "bucket": "<₺1 bin", "successful": 869, "slow_events": 8, "slow_lower_bound_pct": 0.9, "median_slow_ms": 12140, "max_slow_ms": 37313 },
+        { "bucket": "₺1–10 bin", "successful": 1416, "slow_events": 44, "slow_lower_bound_pct": 3.1, "median_slow_ms": 3536, "max_slow_ms": 49951 },
+        { "bucket": "₺10–100 bin", "successful": 907, "slow_events": 42, "slow_lower_bound_pct": 4.6, "median_slow_ms": 3112, "max_slow_ms": 47037 },
+        { "bucket": "₺100 bin+", "successful": 256, "slow_events": 13, "slow_lower_bound_pct": 5.1, "median_slow_ms": 3138, "max_slow_ms": 36118 }
+      ],
+      "server_runtime": [
+        { "calls": 20, "mean_exec_ms": 123.12, "max_exec_ms": 381.97, "total_exec_ms": 2462.35 }
+      ],
+      "ledger_summary": [
+        { "transaction_count": 40474, "percentile": 100.0, "businesses": 497, "median_transactions": 6, "p90_transactions": 137, "p99_transactions": 1020, "max_transactions": 40474 }
+      ],
+      "ledger_size_cohorts": [
+        { "size_bucket": "<100", "businesses": 92, "users": 93, "creates": 1029, "slow_events": 109, "observed_slow_pct": 10.6 },
+        { "size_bucket": "100–999", "businesses": 36, "users": 37, "creates": 2076, "slow_events": 107, "observed_slow_pct": 5.2 },
+        { "size_bucket": "1.000–4.999", "businesses": 4, "users": 4, "creates": 532, "slow_events": 12, "observed_slow_pct": 2.3 },
+        { "size_bucket": "5.000+", "businesses": 1, "users": 1, "creates": 40, "slow_events": 7, "observed_slow_pct": 17.5 }
+      ],
+      "peer_incidence": [
+        { "eligible_users": 97, "users_with_slow": 53, "users_with_slow_pct": 54.6, "creates": 3634, "slow_events": 231, "observed_slow_event_pct": 6.4, "median_user_slow_pct": 1.9, "p90_user_slow_pct": 30.5 }
+      ]
+    }
+  },
+  "sources": [
+    {
+      "id": "current_amount_match_sql",
+      "label": "Güncel kullanıcı tutar eşleştirmesi",
+      "query": {
+        "engine": "PostgreSQL",
+        "language": "sql",
+        "executed_at": "2026-08-01T12:00:00Z",
+        "description": "1.5.7 iOS'taki güncel ölçümlü kullanıcı için transaction_created olaylarını gerçek işlemlerle 5 saniye, yavaş create olaylarını 30 saniye içinde tür ve kullanıcı/işletme anahtarlarıyla benzersiz eşleştirip tutar kovalarına toplar.",
+        "sql": "WITH focal AS (SELECT user_id,isletme_id,min(created_at) since_at FROM public.app_events WHERE event_name='save_submit_perf' AND created_at>=now()-interval '14 days' AND platform='ios' AND app_version='1.5.7' GROUP BY user_id,isletme_id ORDER BY since_at LIMIT 1), created_e AS (SELECT e.id event_id,e.created_at,e.user_id,e.isletme_id,e.meta->>'type' event_type FROM public.app_events e JOIN focal f USING(user_id,isletme_id) WHERE e.event_name='transaction_created' AND e.created_at>=f.since_at AND e.platform='ios' AND e.app_version='1.5.7'), created_c AS (SELECT e.event_id,i.id transaction_id,i.amount,count(*) OVER(PARTITION BY e.event_id) candidate_count,row_number() OVER(PARTITION BY e.event_id ORDER BY abs(extract(epoch FROM(i.created_at-e.created_at)))) rn FROM created_e e JOIN public.islemler i ON i.created_by=e.user_id AND i.isletme_id=e.isletme_id AND abs(extract(epoch FROM(i.created_at-e.created_at)))<=5 AND i.type=e.event_type), success AS (SELECT DISTINCT transaction_id,amount FROM created_c WHERE rn=1 AND candidate_count=1), slow_e AS (SELECT e.id event_id,e.created_at,e.user_id,e.isletme_id,(e.meta->>'submit_ms')::numeric submit_ms,e.meta->>'type' event_type FROM public.app_events e JOIN focal f USING(user_id,isletme_id) WHERE e.event_name='save_submit_perf' AND e.created_at>=f.since_at AND e.platform='ios' AND e.app_version='1.5.7' AND e.meta->>'mode'='create'), slow_c AS (SELECT e.event_id,i.id transaction_id,i.amount,e.submit_ms,count(*) OVER(PARTITION BY e.event_id) candidate_count,row_number() OVER(PARTITION BY e.event_id ORDER BY abs(extract(epoch FROM(i.created_at-e.created_at)))) rn FROM slow_e e JOIN public.islemler i ON i.created_by=e.user_id AND i.isletme_id=e.isletme_id AND abs(extract(epoch FROM(i.created_at-e.created_at)))<=30 AND ((e.event_type='personel_odeme_tab' AND i.type='personel_odeme') OR (e.event_type='personel_gider_tab' AND i.type='personel_gider') OR (e.event_type='alis' AND i.type IN('alis','cari_alis')) OR (e.event_type='satis' AND i.type IN('satis','cari_satis')) OR (e.event_type='odeme' AND i.type IN('odeme','cari_odeme')) OR (e.event_type='tahsilat' AND i.type IN('tahsilat','cari_tahsilat')) OR (e.event_type NOT IN('personel_odeme_tab','personel_gider_tab','alis','satis','odeme','tahsilat') AND i.type=e.event_type))), slow AS (SELECT transaction_id,amount,submit_ms FROM slow_c WHERE rn=1 AND candidate_count=1), buckets AS (SELECT '<₺1 bin' bucket,0 ord UNION ALL SELECT '₺1–10 bin',1 UNION ALL SELECT '₺10–100 bin',2 UNION ALL SELECT '₺100 bin+',3), sa AS (SELECT CASE WHEN amount<1000 THEN '<₺1 bin' WHEN amount<10000 THEN '₺1–10 bin' WHEN amount<100000 THEN '₺10–100 bin' ELSE '₺100 bin+' END bucket,count(*) successful FROM success GROUP BY 1), sl AS (SELECT CASE WHEN amount<1000 THEN '<₺1 bin' WHEN amount<10000 THEN '₺1–10 bin' WHEN amount<100000 THEN '₺10–100 bin' ELSE '₺100 bin+' END bucket,count(*) slow_events,round(percentile_cont(.5) WITHIN GROUP(ORDER BY submit_ms)) median_slow_ms,max(submit_ms) max_slow_ms FROM slow GROUP BY 1) SELECT b.bucket,coalesce(sa.successful,0) successful,coalesce(sl.slow_events,0) slow_events,round(100.0*coalesce(sl.slow_events,0)/nullif(sa.successful,0),1) slow_lower_bound_pct,sl.median_slow_ms,sl.max_slow_ms FROM buckets b LEFT JOIN sa USING(bucket) LEFT JOIN sl USING(bucket) ORDER BY b.ord;",
+        "filters": ["Son 14 gün", "platform=iOS", "app_version=1.5.7", "Yavaş eşik >2.000 ms", "Yalnız benzersiz zaman+tür eşleşmeleri"],
+        "metric_definitions": ["slow_lower_bound_pct = benzersiz eşleşmiş yavaş create olayı / benzersiz eşleşmiş başarılı transaction_created olayı × 100"],
+        "tables_used": ["public.app_events", "public.islemler"]
+      }
+    },
+    {
+      "id": "peer_amount_match_sql",
+      "label": "1.5.6 iOS tutar eşleştirmesi",
+      "query": {
+        "engine": "PostgreSQL",
+        "language": "sql",
+        "executed_at": "2026-08-01T12:00:00Z",
+        "description": "1.5.6 iOS başarılı kayıt olaylarını 5 saniyede, yavaş olayları 180 saniyede gerçek işlemlerle benzersiz eşleştirir ve tutar kovalarına toplar.",
+        "sql": "WITH created_e AS (SELECT e.id event_id,e.user_id,e.isletme_id,e.created_at,e.meta->>'type' event_type FROM public.app_events e WHERE e.created_at>=now()-interval '14 days' AND e.platform='ios' AND e.app_version='1.5.6' AND e.event_name='transaction_created'), created_c AS (SELECT e.event_id,i.id transaction_id,i.amount,count(*) OVER(PARTITION BY e.event_id) candidate_count,row_number() OVER(PARTITION BY e.event_id ORDER BY abs(extract(epoch FROM(i.created_at-e.created_at)))) rn FROM created_e e JOIN public.islemler i ON i.created_by=e.user_id AND i.isletme_id=e.isletme_id AND abs(extract(epoch FROM(i.created_at-e.created_at)))<=5 AND i.type=e.event_type), success AS (SELECT DISTINCT transaction_id,amount FROM created_c WHERE rn=1 AND candidate_count=1), slow_e AS (SELECT e.id event_id,e.user_id,e.isletme_id,e.created_at,e.meta->>'type' event_type,(e.meta->>'submit_ms')::numeric submit_ms FROM public.app_events e WHERE e.created_at>=now()-interval '14 days' AND e.platform='ios' AND e.app_version='1.5.6' AND e.event_name='save_submit_debug' AND (e.meta->>'submit_ms')~'^[0-9]+([.][0-9]+)?$'), slow_c AS (SELECT e.event_id,i.id transaction_id,i.amount,e.submit_ms,count(*) OVER(PARTITION BY e.event_id) candidate_count,row_number() OVER(PARTITION BY e.event_id ORDER BY abs(extract(epoch FROM(i.created_at-e.created_at)))) rn FROM slow_e e JOIN public.islemler i ON i.created_by=e.user_id AND i.isletme_id=e.isletme_id AND abs(extract(epoch FROM(i.created_at-e.created_at)))<=180 AND ((e.event_type='personel_odeme_tab' AND i.type='personel_odeme') OR (e.event_type='personel_gider_tab' AND i.type='personel_gider') OR (e.event_type='alis' AND i.type IN('alis','cari_alis')) OR (e.event_type='satis' AND i.type IN('satis','cari_satis')) OR (e.event_type='odeme' AND i.type IN('odeme','cari_odeme')) OR (e.event_type='tahsilat' AND i.type IN('tahsilat','cari_tahsilat')) OR (e.event_type NOT IN('personel_odeme_tab','personel_gider_tab','alis','satis','odeme','tahsilat') AND i.type=e.event_type))), slow AS (SELECT transaction_id,amount,submit_ms FROM slow_c WHERE rn=1 AND candidate_count=1), buckets AS (SELECT '<₺1 bin' bucket,0 ord UNION ALL SELECT '₺1–10 bin',1 UNION ALL SELECT '₺10–100 bin',2 UNION ALL SELECT '₺100 bin+',3), sa AS (SELECT CASE WHEN amount<1000 THEN '<₺1 bin' WHEN amount<10000 THEN '₺1–10 bin' WHEN amount<100000 THEN '₺10–100 bin' ELSE '₺100 bin+' END bucket,count(*) successful FROM success GROUP BY 1), sl AS (SELECT CASE WHEN amount<1000 THEN '<₺1 bin' WHEN amount<10000 THEN '₺1–10 bin' WHEN amount<100000 THEN '₺10–100 bin' ELSE '₺100 bin+' END bucket,count(*) slow_events,round(percentile_cont(.5) WITHIN GROUP(ORDER BY submit_ms)) median_slow_ms,max(submit_ms) max_slow_ms FROM slow GROUP BY 1) SELECT b.bucket,coalesce(sa.successful,0) successful,coalesce(sl.slow_events,0) slow_events,round(100.0*coalesce(sl.slow_events,0)/nullif(sa.successful,0),1) slow_lower_bound_pct,sl.median_slow_ms,sl.max_slow_ms FROM buckets b LEFT JOIN sa USING(bucket) LEFT JOIN sl USING(bucket) ORDER BY b.ord;",
+        "filters": ["Son 14 gün", "platform=iOS", "app_version=1.5.6", "Yalnız benzersiz eşleşmeler"],
+        "metric_definitions": ["slow_lower_bound_pct = benzersiz eşleşmiş yavaş olay / benzersiz eşleşmiş başarılı olay × 100", "median_slow_ms = yavaş olay submit_ms medyanı"],
+        "tables_used": ["public.app_events", "public.islemler"]
+      }
+    },
+    {
+      "id": "server_runtime_sql",
+      "label": "PostgreSQL V2 RPC istatistikleri",
+      "query": {
+        "engine": "PostgreSQL",
+        "language": "sql",
+        "executed_at": "2026-08-01T12:00:00Z",
+        "description": "create_islem_atomik_v2 içeren en çok çağrılmış pg_stat_statements kaydının çalışma süresini getirir.",
+        "sql": "SELECT calls,round(mean_exec_time::numeric,2) mean_exec_ms,round(max_exec_time::numeric,2) max_exec_ms,round(total_exec_time::numeric,2) total_exec_ms FROM extensions.pg_stat_statements WHERE query ILIKE '%create_islem_atomik_v2%' ORDER BY calls DESC LIMIT 1;",
+        "filters": ["pg_stat_statements birikimli pencere", "En çok çağrılmış V2 sorgu şekli"],
+        "metric_definitions": ["max_exec_ms = PostgreSQL içinde gözlenen en yüksek sorgu çalışma süresi; ağ süresini içermez"],
+        "tables_used": ["extensions.pg_stat_statements"]
+      }
+    },
+    {
+      "id": "ledger_summary_sql",
+      "label": "İşletme işlem sayısı dağılımı",
+      "query": {
+        "engine": "PostgreSQL",
+        "language": "sql",
+        "executed_at": "2026-08-01T12:00:00Z",
+        "description": "İşletme başına toplam işlem sayısını hesaplar ve güncel ölçümlü işletmenin dağılımdaki yerini bulur.",
+        "sql": "WITH biz AS (SELECT isletme_id,count(*) transaction_count FROM public.islemler GROUP BY isletme_id), focal AS (SELECT isletme_id FROM public.app_events WHERE event_name='save_submit_perf' AND created_at>=now()-interval '14 days' ORDER BY created_at DESC LIMIT 1), ranked AS (SELECT b.*,percent_rank() OVER(ORDER BY transaction_count) pct_rank FROM biz b) SELECT transaction_count,round(100*pct_rank::numeric,1) percentile,(SELECT count(*) FROM biz) businesses,(SELECT percentile_cont(.5) WITHIN GROUP(ORDER BY transaction_count) FROM biz) median_transactions,(SELECT round(percentile_cont(.9) WITHIN GROUP(ORDER BY transaction_count)) FROM biz) p90_transactions,(SELECT round(percentile_cont(.99) WITHIN GROUP(ORDER BY transaction_count)) FROM biz) p99_transactions,(SELECT max(transaction_count) FROM biz) max_transactions FROM ranked WHERE isletme_id=(SELECT isletme_id FROM focal);",
+        "filters": ["Tüm işletmeler", "Güncel işletme son save_submit_perf olayından seçildi"],
+        "metric_definitions": ["transaction_count = işletmedeki tüm public.islemler satırları"],
+        "tables_used": ["public.islemler", "public.app_events"]
+      }
+    },
+    {
+      "id": "ledger_size_cohort_sql",
+      "label": "Veri büyüklüğü kohortları",
+      "query": {
+        "engine": "PostgreSQL",
+        "language": "sql",
+        "executed_at": "2026-08-01T12:00:00Z",
+        "description": "İşletmeleri toplam işlem sayısına göre kovalar ve 1.5.6 iOS başarılı/yavaş olaylarını toplar.",
+        "sql": "WITH biz AS (SELECT isletme_id,count(*) transaction_count FROM public.islemler GROUP BY isletme_id), e AS (SELECT user_id,isletme_id,event_name FROM public.app_events WHERE created_at>=now()-interval '14 days' AND platform='ios' AND app_version='1.5.6' AND event_name IN('transaction_created','save_submit_debug')) SELECT CASE WHEN b.transaction_count<100 THEN '<100' WHEN b.transaction_count<1000 THEN '100–999' WHEN b.transaction_count<5000 THEN '1.000–4.999' ELSE '5.000+' END size_bucket,count(DISTINCT e.isletme_id) businesses,count(DISTINCT e.user_id) users,count(*) FILTER(WHERE event_name='transaction_created') creates,count(*) FILTER(WHERE event_name='save_submit_debug') slow_events,round(100.0*count(*) FILTER(WHERE event_name='save_submit_debug')/nullif(count(*) FILTER(WHERE event_name='transaction_created'),0),1) observed_slow_pct FROM e JOIN biz b USING(isletme_id) GROUP BY 1;",
+        "filters": ["Son 14 gün", "platform=iOS", "app_version=1.5.6"],
+        "metric_definitions": ["observed_slow_pct = save_submit_debug olayları / transaction_created olayları × 100; eşit kapsam garantisi olmadığı için yaklaşık göstergedir"],
+        "tables_used": ["public.islemler", "public.app_events"]
+      }
+    },
+    {
+      "id": "peer_incidence_sql",
+      "label": "Diğer kullanıcılar yavaş olay kohortu",
+      "query": {
+        "engine": "PostgreSQL",
+        "language": "sql",
+        "executed_at": "2026-08-01T12:00:00Z",
+        "description": "1.5.6 iOS'ta en az 5 başarılı kayıt olayı bulunan kullanıcıların yavaş olay yaygınlığını ölçer.",
+        "sql": "WITH e AS (SELECT user_id,event_name FROM public.app_events WHERE created_at>=now()-interval '14 days' AND platform='ios' AND app_version='1.5.6' AND event_name IN('transaction_created','save_submit_debug')), u AS (SELECT user_id,count(*) FILTER(WHERE event_name='transaction_created') creates,count(*) FILTER(WHERE event_name='save_submit_debug') slow FROM e GROUP BY user_id), eligible AS (SELECT * FROM u WHERE creates>=5) SELECT count(*) eligible_users,count(*) FILTER(WHERE slow>0) users_with_slow,round(100.0*count(*) FILTER(WHERE slow>0)/count(*),1) users_with_slow_pct,sum(creates) creates,sum(slow) slow_events,round(100.0*sum(slow)/sum(creates),1) observed_slow_event_pct FROM eligible;",
+        "filters": ["Son 14 gün", "platform=iOS", "app_version=1.5.6", "Kullanıcı başına en az 5 transaction_created olayı"],
+        "metric_definitions": ["users_with_slow_pct = en az bir save_submit_debug olayı olan uygun kullanıcılar / uygun kullanıcılar × 100", "observed_slow_event_pct = yavaş olaylar / başarılı kayıt olayları × 100"],
+        "tables_used": ["public.app_events"]
+      }
+    }
+  ]
+}

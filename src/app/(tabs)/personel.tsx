@@ -74,6 +74,10 @@ import { ShareOptionsSheet, ListPdfPreviewSheet } from '@/components/export';
 import { useTopAnchoredListSnapshot } from '@/hooks/useTopAnchoredListSnapshot';
 import { permissionAccessSignature } from '@/lib/permissionCacheGuard';
 import { getListEdgePosition, getListEdgeStyle } from '@/components/ui/listEdgeStyles';
+import {
+  createPerformanceTraceId,
+  rememberEntityNavigationPerformanceTrace,
+} from '@/lib/performanceTrace';
 
 // Satırlar birbirine yapışık; aralarında yalnız 1px gri ayraç (cariler listesi dili)
 const PersonelListSeparator = () => <View style={styles.separator} />;
@@ -674,6 +678,17 @@ export default function PersonelPage() {
 
 
   // FlatList renderItem fonksiyonu - performans için useCallback ile memoize edildi
+  const handleOpenPersonelDetail = useCallback((personelId: string) => {
+    const startedAt = Date.now();
+    rememberEntityNavigationPerformanceTrace(
+      'personel',
+      personelId,
+      createPerformanceTraceId('personel-navigation', startedAt),
+      startedAt,
+    );
+    router.push(`/personel/${personelId}`);
+  }, [router]);
+
   const renderPersonelItem = useCallback(({ item: personel, index }: { item: Personel; index: number }) => {
     const isSelected = selectedIds.has(personel.id);
     const edgeStyle = getListEdgeStyle(
@@ -827,7 +842,7 @@ export default function PersonelPage() {
                 variant="outline"
                 size="sm"
                 icon={<History size={16} color={colors.text} />}
-                onPress={() => router.push(`/personel/${personel.id}`)}
+                onPress={() => handleOpenPersonelDetail(personel.id)}
                 style={styles.actionButton}
               >
                 {t('staff:actions.viewTransactions')}
@@ -838,7 +853,7 @@ export default function PersonelPage() {
       </View>
       </AnimatedListItem>
     );
-  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, router, getBalanceLabel, getBalanceColor, leaveQuotas, canCreatePersonelTransactions, canSelectPersonel, filteredPersonel.length]);
+  }, [selectedIds, isSelectMode, expandedPersonelId, t, baseCurrency, exchangeRates, haptics, toggleSelection, handleOpenActionSheet, handleOpenPersonelDetail, getBalanceLabel, getBalanceColor, leaveQuotas, canCreatePersonelTransactions, canSelectPersonel, filteredPersonel.length]);
 
   // FlatList ListHeaderComponent - header, özet ve arama
   const ListHeader = useMemo(() => (

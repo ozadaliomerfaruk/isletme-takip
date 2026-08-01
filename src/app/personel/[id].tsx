@@ -90,6 +90,7 @@ import {
   useUrunKalemlerByIslemIds,
   type UrunKalemOzet,
 } from '@/hooks/useUrunHareketler';
+import { usePersonelDetailPerformanceTrace } from '@/hooks/usePersonelDetailPerformanceTrace';
 
 const PERSONEL_TRANSACTION_DELETE_PERMISSION_REVOKED = Object.assign(
   new Error('Personnel transaction delete permission revoked'),
@@ -288,8 +289,23 @@ export default function PersonelHareketleriPage() {
   const exchangeRates = exchangeRatesData?.rates;
   const insets = useSafeAreaInsets();
 
-  const { data: personel, isLoading: personelLoading, refetch: refetchPersonel } = usePersonelById(id!);
-  const { data: islemler, isLoading: islemlerLoading, hasNextPage, fetchNextPage, isFetchingNextPage, refetch: refetchIslemler } = useIslemlerByPersonel(id!);
+  const {
+    data: personel,
+    isLoading: personelLoading,
+    isError: personelError,
+    dataUpdatedAt: personelDataUpdatedAt,
+    refetch: refetchPersonel,
+  } = usePersonelById(id!);
+  const {
+    data: islemler,
+    isLoading: islemlerLoading,
+    isError: islemlerError,
+    dataUpdatedAt: islemlerDataUpdatedAt,
+    hasNextPage,
+    fetchNextPage,
+    isFetchingNextPage,
+    refetch: refetchIslemler,
+  } = useIslemlerByPersonel(id!);
   const islemIdList = useMemo(
     () => (islemler || []).map((transaction) => transaction.id),
     [islemler],
@@ -298,15 +314,62 @@ export default function PersonelHareketleriPage() {
     getUrunItems,
     getProductItemCount,
     isProductItemsResolved,
+    isLoading: productItemsLoading,
+    isError: productItemsError,
+    dataUpdatedAt: productItemsDataUpdatedAt,
   } = useUrunKalemlerByIslemIds(
     islemIdList,
     true,
   );
-  const { data: ileriTarihliIslemler, isLoading: ileriTarihliLoading } = useIleriTarihliIslemlerByPersonel(id!);
-  const { data: entityNotes } = useNotlarByEntity('personel', id!);
+  const {
+    data: ileriTarihliIslemler,
+    isLoading: ileriTarihliLoading,
+    isError: ileriTarihliError,
+    dataUpdatedAt: ileriTarihliDataUpdatedAt,
+  } = useIleriTarihliIslemlerByPersonel(id!);
+  const {
+    data: entityNotes,
+    isLoading: entityNotesLoading,
+    isError: entityNotesError,
+    dataUpdatedAt: entityNotesDataUpdatedAt,
+  } = useNotlarByEntity('personel', id!);
   // İzin kotası: KANONİK kaynak (tüm izin satırları, sayfalamasız) — ana sayfa ve izin
   // geçmişiyle birebir aynı; paginated `islemler`'den hesaplanmaz (scroll'a göre oynamaz).
-  const { data: leaveQuotas } = usePersonelLeaveQuotas();
+  const {
+    data: leaveQuotas,
+    isLoading: leaveQuotasLoading,
+    isError: leaveQuotasError,
+    dataUpdatedAt: leaveQuotasDataUpdatedAt,
+  } = usePersonelLeaveQuotas();
+
+  usePersonelDetailPerformanceTrace({
+    personelId: id,
+    personelReady: !personelLoading,
+    transactionsReady: !islemlerLoading,
+    productsReady:
+      !islemlerLoading
+      && !productItemsLoading
+      && (isProductItemsResolved || productItemsError),
+    scheduledReady: !ileriTarihliLoading,
+    notesReady: !entityNotesLoading,
+    leaveReady: !leaveQuotasLoading,
+    personelError,
+    transactionsError: islemlerError,
+    productsError: productItemsError,
+    scheduledError: ileriTarihliError,
+    notesError: entityNotesError,
+    leaveError: leaveQuotasError,
+    personelCacheAtMount: personelDataUpdatedAt > 0,
+    transactionsCacheAtMount: islemlerDataUpdatedAt > 0,
+    productsCacheAtMount: productItemsDataUpdatedAt > 0,
+    scheduledCacheAtMount: ileriTarihliDataUpdatedAt > 0,
+    notesCacheAtMount: entityNotesDataUpdatedAt > 0,
+    leaveCacheAtMount: leaveQuotasDataUpdatedAt > 0,
+    transactionCount: islemler?.length ?? 0,
+    productLookupCount: islemIdList.length,
+    noteCount: entityNotes?.length ?? 0,
+    scheduledCount: ileriTarihliIslemler?.length ?? 0,
+  });
   const {
     canUpdate,
     canDelete,

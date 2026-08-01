@@ -33,7 +33,11 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { usePermissions } from '@/hooks/usePermissions';
 import { useReview } from '@/contexts/ReviewContext';
 import { supabase, msSinceForeground } from '@/lib/supabase';
-import { logEvent } from '@/lib/appEvents';
+import { logPerformanceEvent } from '@/lib/appEvents';
+import {
+  createPerformanceTraceId,
+  rememberRecentEntityPerformanceTrace,
+} from '@/lib/performanceTrace';
 import { useToast } from '@/contexts/ToastContext';
 import { recordLastUsed } from '@/lib/lastUsedSelections';
 import { getCategoryType } from '../utils/categoryTypeMapper';
@@ -239,6 +243,20 @@ function needsHesapInData(type: TransactionType): boolean {
 
 const UPDATE_PROBE_TIMEOUT_MS = 5000;
 type MutationOutcomeProbe = 'landed' | 'not_landed' | 'partial' | 'unknown';
+type PerformancePhaseTimings = Record<string, number>;
+
+async function measurePerformancePhase<T>(
+  timings: PerformancePhaseTimings,
+  name: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const startedAt = Date.now();
+  try {
+    return await operation();
+  } finally {
+    timings[name] = (timings[name] ?? 0) + (Date.now() - startedAt);
+  }
+}
 
 async function probeCreatedTransaction(
   islemId: string,
@@ -900,6 +918,15 @@ export function useTransactionSubmit({
     // proxy'si). mutationFn fazları hızlıyken kullanıcı asılma yaşıyorsa fark buradadır
     // (cross-currency/personel-RPC/ürün/foto + auth-kilit beklemeleri dahil).
     const __submitT0 = Date.now();
+    const __saveTraceId = createPerformanceTraceId('save', __submitT0);
+    let __writeStartedAt: number | null = null;
+    let __writeFinishedAt: number | null = null;
+    let __recoveryProbeMs = 0;
+    let __writePath = 'preflight';
+    let __outcome = 'aborted';
+    let __errorKind: string | null = null;
+    let __linkedPersonelId: string | null = null;
+    const __writePhases: PerformancePhaseTimings = {};
     // P1b: fonksiyon kapsamında — catch/finally erişebilsin.
     let __slowTimer: ReturnType<typeof setTimeout> | null = null; // yavaş-kayıt bilgi zamanlayıcısı
     let createdClientIslemId: string | null = null; // create yolunda üretilen id (existence-check için)
@@ -1262,20 +1289,28 @@ export function useTransactionSubmit({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
+    __writeStartedAt = Date.now();
     try {
       const transactionData = buildTransactionData(parsedAmount);
+      __linkedPersonelId =
+        typeof transactionData.personel_id === 'string'
+          ? transactionData.personel_id
+          : null;
 
       // Edit mode - update existing transaction
       if (isEditMode && transactionId) {
         if (isScheduledTransaction && isScheduled) {
+          __writePath = 'scheduled_update';
           // Was scheduled, stays scheduled → update scheduled transaction
-          await updateIleriTarihliIslem.mutateAsync({
-            id: transactionId,
-            updates: {
-              ...stripScheduledUnsupportedFields(transactionData),
-              scheduled_date: formatDateForDB(safeDate),
-            },
-          });
+          await measurePerformancePhase(__writePhases, 'write_rpc_ms', () =>
+            updateIleriTarihliIslem.mutateAsync({
+              id: transactionId,
+              updates: {
+                ...stripScheduledUnsupportedFields(transactionData),
+                scheduled_date: formatDateForDB(safeDate),
+              },
+            }),
+          );
         } else if (!isScheduledTransaction && !isScheduled) {
           // Was regular, stays regular → update normal transaction
           const regularUpdates: Partial<Omit<IslemInsert, 'isletme_id'>> = {
@@ -1288,6 +1323,9 @@ export function useTransactionSubmit({
           // ailesinde değilse useUpdateIslem fail-closed reddeder; işlem ile stoğu
           // iki ayrı RPC'ye bölerek kısmi başarı üretmeyiz.
           const shouldUseAtomicProductV3 = hasAnyProductItems;
+          __writePath = shouldUseAtomicProductV3
+            ? 'regular_update_product_v3'
+            : 'regular_update';
           const hareketTipi = getUrunHareketTipi(type);
           const atomicProductItems = shouldUseAtomicProductV3
             ? hareketTipi
@@ -1302,16 +1340,21 @@ export function useTransactionSubmit({
               : []
             : undefined;
           attemptedRegularUpdate = regularUpdates;
-          await updateIslem.mutateAsync({
-            id: transactionId,
-            updates: regularUpdates,
-            productItems: atomicProductItems,
-          });
+          await measurePerformancePhase(__writePhases, 'write_rpc_ms', () =>
+            updateIslem.mutateAsync({
+              id: transactionId,
+              updates: regularUpdates,
+              productItems: atomicProductItems,
+            }),
+          );
 
           // Fotoğraf finansal kayıttan sonra copy-on-write güncellenir. Pointer sonucu
           // belirsizse yeni obje korunur; eski obje yalnız pointer kesin başarıdan sonra silinir.
-          await syncTransactionPhotoBestEffort(transactionId);
+          await measurePerformancePhase(__writePhases, 'photo_ms', () =>
+            syncTransactionPhotoBestEffort(transactionId),
+          );
         } else if (!isScheduledTransaction && isScheduled) {
+          __writePath = 'regular_to_scheduled';
           // Was regular, now scheduled → create scheduled first, then delete regular
           createdClientScheduledId =
             scheduledMutationIdRef.current ?? Crypto.randomUUID();
@@ -1326,11 +1369,18 @@ export function useTransactionSubmit({
             kind: 'regular_to_scheduled',
             input: scheduledCreateInput,
           });
-          await createIleriTarihliIslem.mutateAsync(scheduledCreateInput);
+          await measurePerformancePhase(__writePhases, 'write_rpc_ms', () =>
+            createIleriTarihliIslem.mutateAsync(scheduledCreateInput),
+          );
           hasCompletedWriteStep = true;
-          await deleteIslem.mutateAsync(transactionId);
-          await cleanupOriginalPhotoAfterDelete(transactionId);
+          await measurePerformancePhase(__writePhases, 'conversion_cleanup_rpc_ms', () =>
+            deleteIslem.mutateAsync(transactionId),
+          );
+          await measurePerformancePhase(__writePhases, 'photo_cleanup_ms', () =>
+            cleanupOriginalPhotoAfterDelete(transactionId),
+          );
         } else {
+          __writePath = 'scheduled_to_regular';
           // Was scheduled, now regular → create regular first, then delete scheduled
           createdClientIslemId =
             regularMutationIdRef.current ?? Crypto.randomUUID();
@@ -1345,14 +1395,19 @@ export function useTransactionSubmit({
             kind: 'scheduled_to_regular',
             input: regularCreateInput,
           });
-          await createIslem.mutateAsync(regularCreateInput);
+          await measurePerformancePhase(__writePhases, 'write_rpc_ms', () =>
+            createIslem.mutateAsync(regularCreateInput),
+          );
           hasCompletedWriteStep = true;
-          await deleteIleriTarihliIslem.mutateAsync(transactionId);
+          await measurePerformancePhase(__writePhases, 'conversion_cleanup_rpc_ms', () =>
+            deleteIleriTarihliIslem.mutateAsync(transactionId),
+          );
         }
       }
       // Create mode - create new transaction
       else {
         if (isScheduled) {
+          __writePath = 'scheduled_create';
           // Scheduled transactions don't support photos/exchange rate
           createdClientScheduledId =
             scheduledMutationIdRef.current ?? Crypto.randomUUID();
@@ -1366,7 +1421,9 @@ export function useTransactionSubmit({
             kind: 'scheduled_create',
             input: scheduledCreateInput,
           });
-          await createIleriTarihliIslem.mutateAsync(scheduledCreateInput);
+          await measurePerformancePhase(__writePhases, 'write_rpc_ms', () =>
+            createIleriTarihliIslem.mutateAsync(scheduledCreateInput),
+          );
         } else {
           // P1a: idempotent-retry anahtarı — client-üretimi id. Zayıf ağda RQ retry veya
           // "sunucuda başarılı ama yanıt timeout" durumunda aynı id ikinci kez gidince RPC
@@ -1388,6 +1445,7 @@ export function useTransactionSubmit({
           // istemci tarafı manuel rollback GEREKMEZ (RPC patlarsa hiçbir bacak commit olmaz).
           let newIslem: { id?: string } | null = null;
           if (urunItems.length > 0 && hareketTipi) {
+            __writePath = 'product_create_atomic';
             const items = urunItems.map((item) => ({
               urun_id: item.urunId,
               hareket_tipi: hareketTipi,
@@ -1402,7 +1460,11 @@ export function useTransactionSubmit({
               items,
             });
             try {
-              newIslem = await createIslemWithUrun.mutateAsync({ input: baseRow, items });
+              newIslem = await measurePerformancePhase(
+                __writePhases,
+                'write_rpc_ms',
+                () => createIslemWithUrun.mutateAsync({ input: baseRow, items }),
+              );
             } catch (rpcError) {
               const code = (rpcError as { code?: string })?.code;
               const msg = (rpcError as { message?: string })?.message ?? '';
@@ -1421,6 +1483,7 @@ export function useTransactionSubmit({
             (type === 'satis' || type === 'alis') &&
             transactionData.cari_id
           ) {
+            __writePath = 'installment_create_atomic';
             // FAZ 3 — taksitli satış/alış: 1 işlem + N taksit TEK atomik RPC.
             // Kullanıcının onayladığı önizleme dizisi yeniden hesaplanmadan hem mutation
             // fingerprint'ine hem RPC payload'ına AYNI referansla aktarılır.
@@ -1432,10 +1495,14 @@ export function useTransactionSubmit({
               input: taksitRow,
               installments: taksitler,
             });
-            newIslem = await createIslemTaksitli.mutateAsync({
-              input: taksitRow as typeof baseRow,
-              taksitler,
-            });
+            newIslem = await measurePerformancePhase(
+              __writePhases,
+              'write_rpc_ms',
+              () => createIslemTaksitli.mutateAsync({
+                input: taksitRow as typeof baseRow,
+                taksitler,
+              }),
+            );
           } else {
             // Base gelir/gider/transfer plus known same-tenant scoped Cari/Personel
             // creates opt into V2. Linked-cari, product, installment, scheduled
@@ -1450,20 +1517,39 @@ export function useTransactionSubmit({
               isViewer: !!isViewer,
               scopedSameTenant: enableScopedV2Create,
             });
-            newIslem = useV2Create
-              ? await createIslemV2.mutateAsync(baseRow)
-              : await createIslem.mutateAsync(baseRow);
+            __writePath = useV2Create ? 'regular_create_v2' : 'regular_create_v1';
+            newIslem = await measurePerformancePhase(
+              __writePhases,
+              'write_rpc_ms',
+              async () => useV2Create
+                ? await createIslemV2.mutateAsync(baseRow)
+                : await createIslem.mutateAsync(baseRow),
+            );
           }
 
           // İşlem kaydı kalıcıdır; foto ekleme hatası yalnız fotoğrafı etkiler.
           if (newIslem?.id) {
-            await syncTransactionPhotoBestEffort(newIslem.id);
+            const __photoStartedAt = Date.now();
+            try {
+              await syncTransactionPhotoBestEffort(newIslem.id);
+            } finally {
+              __writePhases.photo_ms = Date.now() - __photoStartedAt;
+            }
           }
         }
       }
 
+      __writeFinishedAt = Date.now();
+      __outcome = 'success';
+      rememberRecentEntityPerformanceTrace(
+        'personel',
+        __linkedPersonelId,
+        __saveTraceId,
+        __writeFinishedAt,
+      );
       completeSuccess();
     } catch (error) {
+      __writeFinishedAt = Date.now();
       if (__DEV__) {
         console.error('Transaction error:', error);
       }
@@ -1472,6 +1558,7 @@ export function useTransactionSubmit({
         __slowTimer = null;
       }
       const classifiedKind = classifyMutationError(error);
+      __errorKind = classifiedKind;
       // Dönüştürmenin ilk yazımı tamamlandıktan sonra ikinci çağrı daha sunucuya
       // gönderilmeden kesilse bile işlem seviyesinde sonuç artık "gönderilmedi"
       // değildir: yeni ve eski satır birlikte kalmış olabilir.
@@ -1479,6 +1566,7 @@ export function useTransactionSubmit({
         classifiedKind === 'network_not_sent' && hasCompletedWriteStep
           ? 'network_unknown'
           : classifiedKind;
+      __errorKind = errorKind;
       // P1b: Kayıt hata verdi ama istek sunucuda BAŞARILI olup yanıtı timeout'a düşmüş olabilir
       // ("sessiz başarı"). Client id ile gerçekten düşüp düşmediğini doğrula (ölü ağda kontrolün
       // kendisi asmasın diye kısa süre sınırı). Düştüyse → başarı akışı (kullanıcı elle tekrar
@@ -1493,6 +1581,7 @@ export function useTransactionSubmit({
           errorKind === 'network_unknown'
           || (hasCompletedWriteStep && attemptedConversion !== null)
         );
+      const __probeStartedAt = shouldProbe ? Date.now() : null;
       if (shouldProbe && isletme?.id) {
         if (errorKind === 'network_unknown') {
           showToast(t('transactions:messages.checkingSaveOutcome'), 'info');
@@ -1538,19 +1627,32 @@ export function useTransactionSubmit({
           );
         }
       }
+      if (__probeStartedAt !== null) {
+        __recoveryProbeMs = Date.now() - __probeStartedAt;
+      }
       if (outcome === 'landed') {
+        __outcome = 'recovered';
         // Kayıt gerçekte düşmüş → başarı akışını çalıştır. Mutation onSuccess tetiklenmediği
         // için invalidation'ı elle yap (yeni kayıt + stok listelerde görünsün).
         // Yeni create RPC'sinin cevabı kaybolduysa finansal kaydı tekrar göndermeden,
         // bilinen client UUID üzerinden seçili fotoğrafı best-effort tamamla.
+        const __recoveryPhotoStartedAt = Date.now();
         if (!isEditMode && createdClientIslemId) {
           await syncTransactionPhotoBestEffort(createdClientIslemId);
+          __writePhases.recovery_photo_ms =
+            Date.now() - __recoveryPhotoStartedAt;
         }
         invalidateRelatedQueries(queryClient, 'islem');
         invalidateRelatedQueries(queryClient, 'ileriTarihliIslem');
         invalidateRelatedQueries(queryClient, 'urunHareket');
+        rememberRecentEntityPerformanceTrace(
+          'personel',
+          __linkedPersonelId,
+          __saveTraceId,
+        );
         completeSuccess();
       } else if (outcome === 'partial') {
+        __outcome = 'partial';
         // Yeni satır oluşmuş, eski satır ise kalmış. Formu açık bırakıp yeniden
         // kaydettirmek üçüncü bir kayıt riski doğurur; listeyi tazeleyip kullanıcıya
         // iki kaydı açıkça kontrol ettir.
@@ -1568,6 +1670,7 @@ export function useTransactionSubmit({
         resetMutationIds();
         handleDismiss();
       } else {
+        __outcome = outcome === 'not_landed' ? 'not_landed' : 'error';
         isSavingRef.current = false;
         setIsSaving(false);
         if (Platform.OS !== 'web') {
@@ -1615,13 +1718,26 @@ export function useTransactionSubmit({
       // Yeni zincirin sahada gerçekten hızlandığını build bazında doğrulamak için yavaş
       // submit'lerde ateşle-unut kaydı bırak.
       const __submitMs = Date.now() - __submitT0;
-      if (__submitMs > 2000) {
-        logEvent('save_submit_perf', {
-          submit_ms: __submitMs,
+      if (__writeStartedAt !== null) {
+        const writeFinishedAt = __writeFinishedAt ?? Date.now();
+        logPerformanceEvent('save_submit_trace', {
+          trace_id: __saveTraceId,
+          total_ms: __submitMs,
+          preflight_ms: Math.max(0, __writeStartedAt - __submitT0),
+          write_chain_ms: Math.max(0, writeFinishedAt - __writeStartedAt),
+          recovery_probe_ms: __recoveryProbeMs,
+          settle_ms: Math.max(0, Date.now() - writeFinishedAt),
+          outcome: __outcome,
+          error_kind: __errorKind,
+          write_path: __writePath,
           type,
           mode: isEditMode ? 'edit' : 'create',
           has_products: urunItems.length > 0,
+          has_photo: !!photoUri,
+          has_installments: !!taksitPlan,
+          is_scheduled: isScheduled,
           ms_since_fg: msSinceForeground(),
+          ...__writePhases,
         });
       }
     }
@@ -1711,6 +1827,20 @@ export function useTransactionSubmit({
         return;
       }
 
+      const __exchangeSubmitT0 = Date.now();
+      const __exchangeTraceId = createPerformanceTraceId(
+        'save-exchange',
+        __exchangeSubmitT0,
+      );
+      let __exchangeWriteStartedAt: number | null = null;
+      let __exchangeWriteFinishedAt: number | null = null;
+      let __exchangeRecoveryProbeMs = 0;
+      let __exchangeWritePath = 'exchange_preflight';
+      let __exchangeOutcome = 'error';
+      let __exchangeErrorKind: string | null = null;
+      let __exchangeLinkedPersonelId: string | null = null;
+      const __exchangeWritePhases: PerformancePhaseTimings = {};
+
       setShowExchangeRateBar(false);
       isSavingRef.current = true;
       setIsSaving(true);
@@ -1755,25 +1885,39 @@ export function useTransactionSubmit({
         handleDismiss();
       };
 
+      __exchangeWriteStartedAt = Date.now();
       try {
         const transactionData = buildTransactionData(pendingExchangeData.sourceAmount, {
           sourceCurrency: pendingExchangeData.sourceCurrency,
           targetCurrency: pendingExchangeData.targetCurrency,
           exchangeRate,
         });
+        __exchangeLinkedPersonelId =
+          typeof transactionData.personel_id === 'string'
+            ? transactionData.personel_id
+            : null;
 
         // Edit mode - update existing transaction
         if (isEditMode && transactionId) {
           if (isScheduledTransaction && isScheduled) {
+            __exchangeWritePath = 'exchange_scheduled_update';
             // Was scheduled, stays scheduled → update scheduled (strip unsupported fields)
-            await updateIleriTarihliIslem.mutateAsync({
-              id: transactionId,
-              updates: {
-                ...stripScheduledUnsupportedFields(transactionData),
-                scheduled_date: formatDateForDB(safeDate),
-              },
-            });
+            await measurePerformancePhase(
+              __exchangeWritePhases,
+              'write_rpc_ms',
+              () => updateIleriTarihliIslem.mutateAsync({
+                id: transactionId,
+                updates: {
+                  ...stripScheduledUnsupportedFields(transactionData),
+                  scheduled_date: formatDateForDB(safeDate),
+                },
+              }),
+            );
           } else if (!isScheduledTransaction && !isScheduled) {
+            __exchangeWritePath =
+              persistedProductItemCount > 0 || urunItems.length > 0
+                ? 'exchange_regular_update_product_v3'
+                : 'exchange_regular_update';
             // Was regular, stays regular → update normal transaction
             const regularUpdates: Partial<Omit<IslemInsert, 'isletme_id'>> = {
               ...transactionData,
@@ -1796,23 +1940,43 @@ export function useTransactionSubmit({
                 : []
               : undefined;
             attemptedExchangeRegularUpdate = regularUpdates;
-            await updateIslem.mutateAsync({
-              id: transactionId,
-              updates: regularUpdates,
-              productItems: atomicProductItems,
-            });
-            await syncTransactionPhotoBestEffort(transactionId);
+            await measurePerformancePhase(
+              __exchangeWritePhases,
+              'write_rpc_ms',
+              () => updateIslem.mutateAsync({
+                id: transactionId,
+                updates: regularUpdates,
+                productItems: atomicProductItems,
+              }),
+            );
+            await measurePerformancePhase(__exchangeWritePhases, 'photo_ms', () =>
+              syncTransactionPhotoBestEffort(transactionId),
+            );
           } else if (!isScheduledTransaction && isScheduled) {
+            __exchangeWritePath = 'exchange_regular_to_scheduled';
             // Was regular, now scheduled → create scheduled FIRST, then delete regular.
             // (handleSave yolu ile aynı sıra.) Create patlarsa eski kayıt DURUR; delete-first
             // olsaydı create patladığında işlem tamamen kaybolurdu (sessiz veri kaybı).
-            await createIleriTarihliIslem.mutateAsync({
-              ...stripScheduledUnsupportedFields(transactionData),
-              scheduled_date: formatDateForDB(safeDate),
-            });
-            await deleteIslem.mutateAsync(transactionId);
-            await cleanupOriginalPhotoAfterDelete(transactionId);
+            await measurePerformancePhase(
+              __exchangeWritePhases,
+              'write_rpc_ms',
+              () => createIleriTarihliIslem.mutateAsync({
+                ...stripScheduledUnsupportedFields(transactionData),
+                scheduled_date: formatDateForDB(safeDate),
+              }),
+            );
+            await measurePerformancePhase(
+              __exchangeWritePhases,
+              'conversion_cleanup_rpc_ms',
+              () => deleteIslem.mutateAsync(transactionId),
+            );
+            await measurePerformancePhase(
+              __exchangeWritePhases,
+              'photo_cleanup_ms',
+              () => cleanupOriginalPhotoAfterDelete(transactionId),
+            );
           } else {
+            __exchangeWritePath = 'exchange_scheduled_to_regular';
             // Was scheduled, now regular → create regular FIRST, then delete scheduled
             const clientIslemId =
               pendingExchangeData.clientIslemId
@@ -1830,21 +1994,36 @@ export function useTransactionSubmit({
               kind: 'exchange_scheduled_to_regular',
               input: regularCreateInput,
             });
-            const created = await createIslem.mutateAsync(regularCreateInput);
+            const created = await measurePerformancePhase(
+              __exchangeWritePhases,
+              'write_rpc_ms',
+              () => createIslem.mutateAsync(regularCreateInput),
+            );
             exchangeCreatedIslemId = created?.id ?? clientIslemId;
             hasCompletedWriteStep = true;
-            await deleteIleriTarihliIslem.mutateAsync(transactionId);
-            await syncTransactionPhotoBestEffort(exchangeCreatedIslemId);
+            await measurePerformancePhase(
+              __exchangeWritePhases,
+              'conversion_cleanup_rpc_ms',
+              () => deleteIleriTarihliIslem.mutateAsync(transactionId),
+            );
+            await measurePerformancePhase(__exchangeWritePhases, 'photo_ms', () =>
+              syncTransactionPhotoBestEffort(exchangeCreatedIslemId!),
+            );
           }
         }
         // Create mode - create new transaction
         else {
           if (isScheduled) {
+            __exchangeWritePath = 'exchange_scheduled_create';
             // Scheduled transactions don't support exchange rate fields
-            await createIleriTarihliIslem.mutateAsync({
-              ...stripScheduledUnsupportedFields(transactionData),
-              scheduled_date: formatDateForDB(safeDate),
-            });
+            await measurePerformancePhase(
+              __exchangeWritePhases,
+              'write_rpc_ms',
+              () => createIleriTarihliIslem.mutateAsync({
+                ...stripScheduledUnsupportedFields(transactionData),
+                scheduled_date: formatDateForDB(safeDate),
+              }),
+            );
           } else {
             const clientIslemId =
               pendingExchangeData.clientIslemId
@@ -1866,16 +2045,34 @@ export function useTransactionSubmit({
               isViewer: !!isViewer,
               scopedSameTenant: enableScopedV2Create,
             });
-            const created = useV2Create
-              ? await createIslemV2.mutateAsync(regularCreateInput)
-              : await createIslem.mutateAsync(regularCreateInput);
+            __exchangeWritePath = useV2Create
+              ? 'exchange_regular_create_v2'
+              : 'exchange_regular_create_v1';
+            const created = await measurePerformancePhase(
+              __exchangeWritePhases,
+              'write_rpc_ms',
+              async () => useV2Create
+                ? await createIslemV2.mutateAsync(regularCreateInput)
+                : await createIslem.mutateAsync(regularCreateInput),
+            );
             exchangeCreatedIslemId = created?.id ?? clientIslemId;
-            await syncTransactionPhotoBestEffort(exchangeCreatedIslemId);
+            await measurePerformancePhase(__exchangeWritePhases, 'photo_ms', () =>
+              syncTransactionPhotoBestEffort(exchangeCreatedIslemId!),
+            );
           }
         }
 
+        __exchangeWriteFinishedAt = Date.now();
+        __exchangeOutcome = 'success';
+        rememberRecentEntityPerformanceTrace(
+          'personel',
+          __exchangeLinkedPersonelId,
+          __exchangeTraceId,
+          __exchangeWriteFinishedAt,
+        );
         completeExchangeSuccess();
       } catch (error) {
+        __exchangeWriteFinishedAt = Date.now();
         if (__DEV__) {
           console.error('Transaction error:', error);
         }
@@ -1884,6 +2081,7 @@ export function useTransactionSubmit({
           classifiedKind === 'network_not_sent' && hasCompletedWriteStep
             ? 'network_unknown'
             : classifiedKind;
+        __exchangeErrorKind = errorKind;
         let outcome: MutationOutcomeProbe = 'unknown';
         const shouldProbe =
           !!isletme?.id
@@ -1891,6 +2089,7 @@ export function useTransactionSubmit({
             errorKind === 'network_unknown'
             || (hasCompletedWriteStep && attemptedScheduledToRegular)
           );
+        const __exchangeProbeStartedAt = shouldProbe ? Date.now() : null;
         if (shouldProbe && isletme?.id) {
           if (errorKind === 'network_unknown') {
             showToast(t('transactions:messages.checkingSaveOutcome'), 'info');
@@ -1922,15 +2121,27 @@ export function useTransactionSubmit({
             );
           }
         }
+        if (__exchangeProbeStartedAt !== null) {
+          __exchangeRecoveryProbeMs = Date.now() - __exchangeProbeStartedAt;
+        }
 
         if (outcome === 'landed') {
+          __exchangeOutcome = 'recovered';
           // Kur onaylı yeni create cevabı kaybolduysa aynı client UUID'ye yalnız
           // fotoğrafı bağla; finansal mutation V1/V2 üzerinden tekrar çağrılmaz.
+          const __exchangeRecoveryPhotoStartedAt = Date.now();
           if (!isEditMode && exchangeCreatedIslemId) {
             await syncTransactionPhotoBestEffort(exchangeCreatedIslemId);
+            __exchangeWritePhases.recovery_photo_ms =
+              Date.now() - __exchangeRecoveryPhotoStartedAt;
           }
           invalidateRelatedQueries(queryClient, 'islem');
           invalidateRelatedQueries(queryClient, 'ileriTarihliIslem');
+          rememberRecentEntityPerformanceTrace(
+            'personel',
+            __exchangeLinkedPersonelId,
+            __exchangeTraceId,
+          );
           completeExchangeSuccess();
           return;
         }
@@ -1941,6 +2152,7 @@ export function useTransactionSubmit({
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
         if (outcome === 'partial') {
+          __exchangeOutcome = 'partial';
           invalidateRelatedQueries(queryClient, 'islem');
           invalidateRelatedQueries(queryClient, 'ileriTarihliIslem');
           setPendingExchangeData(null);
@@ -1952,6 +2164,7 @@ export function useTransactionSubmit({
           handleDismiss();
           return;
         }
+        __exchangeOutcome = outcome === 'not_landed' ? 'not_landed' : 'error';
         if (
           outcome === 'not_landed'
           || errorKind === 'network_not_sent'
@@ -1984,6 +2197,33 @@ export function useTransactionSubmit({
           t('common:status.error'),
           message,
         );
+      } finally {
+        const writeFinishedAt = __exchangeWriteFinishedAt ?? Date.now();
+        logPerformanceEvent('save_submit_trace', {
+          trace_id: __exchangeTraceId,
+          total_ms: Date.now() - __exchangeSubmitT0,
+          preflight_ms: Math.max(
+            0,
+            (__exchangeWriteStartedAt ?? __exchangeSubmitT0) - __exchangeSubmitT0,
+          ),
+          write_chain_ms: Math.max(
+            0,
+            writeFinishedAt - (__exchangeWriteStartedAt ?? __exchangeSubmitT0),
+          ),
+          recovery_probe_ms: __exchangeRecoveryProbeMs,
+          settle_ms: Math.max(0, Date.now() - writeFinishedAt),
+          outcome: __exchangeOutcome,
+          error_kind: __exchangeErrorKind,
+          write_path: __exchangeWritePath,
+          type,
+          mode: isEditMode ? 'edit' : 'create',
+          has_products: urunItems.length > 0,
+          has_photo: !!photoUri,
+          has_installments: false,
+          is_scheduled: isScheduled,
+          ms_since_fg: msSinceForeground(),
+          ...__exchangeWritePhases,
+        });
       }
     },
     [
@@ -2023,6 +2263,7 @@ export function useTransactionSubmit({
       urunItems,
       getUrunHareketTipi,
       description,
+      photoUri,
       type,
     ]
   );
