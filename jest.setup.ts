@@ -1,6 +1,31 @@
 // Global __DEV__ mock
 (global as unknown as Record<string, boolean>).__DEV__ = true;
 
+// Source-contract tests compare checked-in text fragments. Git may materialize
+// those files with CRLF on Windows, so normalize only string reads; Buffer reads
+// remain byte-for-byte unchanged.
+jest.mock('fs', () => {
+  const actual = jest.requireActual('fs');
+  return {
+    ...actual,
+    readFileSync: (...args: unknown[]) => {
+      const content = Reflect.apply(actual.readFileSync, actual, args);
+      return typeof content === 'string' ? content.replace(/\r\n/g, '\n') : content;
+    },
+  };
+});
+
+jest.mock('node:fs', () => {
+  const actual = jest.requireActual('node:fs');
+  return {
+    ...actual,
+    readFileSync: (...args: unknown[]) => {
+      const content = Reflect.apply(actual.readFileSync, actual, args);
+      return typeof content === 'string' ? content.replace(/\r\n/g, '\n') : content;
+    },
+  };
+});
+
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(() => Promise.resolve(null)),

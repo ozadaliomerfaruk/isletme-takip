@@ -57,6 +57,9 @@ describe('permission navigation UI wiring', () => {
     expect(layout).toContain('isAllTransactionsRoute');
     expect(layout).toContain('<ModuleRouteStack module="islemler">');
     expect(layout).toContain('<OwnerRouteStack>');
+    expect(layout).toContain("options={{ title: t('titles.allTransactions') }}");
+    expect(layout).toContain('const screens = [');
+    expect(layout).not.toMatch(/const screens = \(\s*<>/);
   });
 
   it('keeps currency and audit history owner-only', () => {

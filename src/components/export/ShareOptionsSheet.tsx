@@ -1,10 +1,11 @@
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useCallback, useEffect, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { FileText, FileSpreadsheet, Link, Globe } from 'lucide-react-native';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { Text } from '@/components/ui/Text';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing } from '@/constants/spacing';
 import { EntityType } from '@/lib/excelExport';
 
 interface ShareOptionsSheetProps {
@@ -47,31 +48,56 @@ export function ShareOptionsSheet({
   onEkstreLinkPress,
 }: ShareOptionsSheetProps) {
   const { t } = useTranslation('common');
+  const pendingActionRef = useRef<(() => void) | null>(null);
+  const fallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleEkstreLink = () => {
-    onDismiss();
-    setTimeout(() => onEkstreLinkPress?.(), 300);
-  };
+  const runPendingAction = useCallback(() => {
+    if (fallbackTimerRef.current) {
+      clearTimeout(fallbackTimerRef.current);
+      fallbackTimerRef.current = null;
+    }
+    const pendingAction = pendingActionRef.current;
+    pendingActionRef.current = null;
+    pendingAction?.();
+  }, []);
 
-  const handlePdf = () => {
+  const dismissThen = useCallback((action: () => void) => {
+    pendingActionRef.current = action;
     onDismiss();
-    setTimeout(onPdfPress, 300);
-  };
 
-  const handleExcel = () => {
-    onDismiss();
-    setTimeout(onExcelPress, 300);
-  };
+    // RN Modal.onDismiss yalnız iOS'ta var. Diğer platformlarda mevcut güvenli
+    // gecikme fallback'i davranışı korur; iOS ise native dismissal'ı bekler.
+    if (Platform.OS !== 'ios') {
+      fallbackTimerRef.current = setTimeout(runPendingAction, 300);
+    }
+  }, [onDismiss, runPendingAction]);
 
-  const handleShare = () => {
-    onDismiss();
-    setTimeout(() => onSharePress?.(), 300);
-  };
+  useEffect(() => () => {
+    if (fallbackTimerRef.current) clearTimeout(fallbackTimerRef.current);
+  }, []);
+
+  const handleEkstreLink = useCallback(
+    () => dismissThen(() => onEkstreLinkPress?.()),
+    [dismissThen, onEkstreLinkPress],
+  );
+  const handlePdf = useCallback(
+    () => dismissThen(onPdfPress),
+    [dismissThen, onPdfPress],
+  );
+  const handleExcel = useCallback(
+    () => dismissThen(onExcelPress),
+    [dismissThen, onExcelPress],
+  );
+  const handleShare = useCallback(
+    () => dismissThen(() => onSharePress?.()),
+    [dismissThen, onSharePress],
+  );
 
   return (
     <BottomSheet
       visible={visible}
       onDismiss={onDismiss}
+      onModalDismiss={runPendingAction}
       snapPoints={[
         entityType === 'cari' && onSharePress && onEkstreLinkPress
           ? 0.52

@@ -1,5 +1,5 @@
 import { Modal } from './Modal';
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -53,6 +53,12 @@ interface ActionSheetProps {
   title?: string;
   options: ActionSheetOption[];
   cancelLabel?: string;
+  /**
+   * iOS'ta option.onPress'i RN Modal native olarak tamamen dismiss edildikten
+   * sonra çalıştırır. Yeni bir modal/native paylaşım ekranı açan seçeneklerde
+   * modal-üstü-modal kilitlenmesini önlemek için kullanılır.
+   */
+  deferOptionPressUntilModalDismiss?: boolean;
 }
 
 // ============================================================================
@@ -156,6 +162,7 @@ export function ActionSheet({
   title,
   options,
   cancelLabel,
+  deferOptionPressUntilModalDismiss = false,
 }: ActionSheetProps) {
   const { t } = useTranslation('common');
   // Bu hook ActionSheet bileşeninde, döndürülen <ModalInsets> ağacının dışında
@@ -172,6 +179,7 @@ export function ActionSheet({
   const backdropProgress = useSharedValue(0);
   const sheetProgress = useSharedValue(0);
   const cancelScale = useSharedValue(1);
+  const pendingOptionPressRef = useRef<(() => void) | null>(null);
 
   // Open animation
   const animateOpen = useCallback(() => {
@@ -195,9 +203,16 @@ export function ActionSheet({
   // Handle visibility
   useEffect(() => {
     if (visible) {
+      pendingOptionPressRef.current = null;
       animateOpen();
     }
   }, [visible, animateOpen]);
+
+  const handleModalDismiss = useCallback(() => {
+    const pendingOptionPress = pendingOptionPressRef.current;
+    pendingOptionPressRef.current = null;
+    pendingOptionPress?.();
+  }, []);
 
   // Close handler
   const handleClose = useCallback(() => {
@@ -213,9 +228,16 @@ export function ActionSheet({
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+
+    if (Platform.OS === 'ios' && deferOptionPressUntilModalDismiss) {
+      pendingOptionPressRef.current = option.onPress;
+      animateClose(onClose);
+      return;
+    }
+
     animateClose(onClose);
     setTimeout(() => option.onPress(), 150);
-  }, [animateClose, onClose]);
+  }, [animateClose, deferOptionPressUntilModalDismiss, onClose]);
 
   // Pan gesture for drag-to-dismiss
   const panGesture = Gesture.Pan()
@@ -278,10 +300,20 @@ export function ActionSheet({
     };
   });
 
-  if (!visible) return null;
+  // iOS Modal, visible=false olduktan sonra native dismissal bitene kadar React
+  // ağacında kalmalı; aksi halde onDismiss aboneliği unmount sırasında silinir ve
+  // bekleyen güvenli option aksiyonu hiç çalışmaz. Diğer platformlarda eski hızlı
+  // unmount davranışı korunur.
+  if (!visible && Platform.OS !== 'ios') return null;
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onDismiss={handleModalDismiss}
+    >
       {/* ui/Modal içeriği ModalInsets ile sarar: buradaki insets GERÇEK
           (tab bar'sız) değerdir, elle sarmaya gerek yok. */}
       <GestureHandlerRootView style={styles.container}>

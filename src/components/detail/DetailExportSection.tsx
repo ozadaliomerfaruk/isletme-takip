@@ -57,7 +57,9 @@ export function DetailExportSection({
   const handleEkstreLink = useCallback(async (gecerlilikGun: PublicStatementDuration) => {
     try {
       const { url } = await ekstreLink.mutateAsync({ cariId: entityId, gecerlilikGun });
-      await Share.share({ message: `${entityName} — ${t('export.ekstreLink')}\n${url}` });
+      await Share.share({
+        message: t('export.ekstreLinkShareMessage', { name: entityName, url }),
+      });
     } catch (err) {
       Alert.alert(
         t('status.error'),
@@ -104,6 +106,7 @@ export function DetailExportSection({
         title={t('export.ekstreSure.title')}
         options={sureOptions}
         cancelLabel={t('buttons.cancel')}
+        deferOptionPressUntilModalDismiss
       />
 
       <PdfExportSheet

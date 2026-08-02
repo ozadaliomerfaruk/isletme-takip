@@ -1,45 +1,68 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Calendar,
-  Bell,
-  X,
-  ChevronDown,
-  Building2,
-  UserCheck,
-  Wallet,
-  CreditCard,
-  ArrowRight,
-  Package,
-} from 'lucide-react-native';
+  View,
+  Animated,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  Platform,
+  Keyboard,
+  KeyboardEvent,
+  Easing,
+  Alert,
+  StyleSheet,
+  ScrollView,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { X, Wallet, CreditCard, ArrowRight } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 import * as Crypto from 'expo-crypto';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-import { Text, CategoryPicker, Modal } from '@/components/ui';
-import { TransactionTypeTabs, TransactionType, getTransactionTypeColor } from '../TransactionTypeTabs';
+import { Text, Modal } from '@/components/ui';
+import { TransactionType, getTransactionTypeColor } from '../TransactionTypeTabs';
 import { colors } from '@/constants/colors';
 import { TAB_BAR_HEIGHT, HIT_SLOP } from '@/constants/spacing';
-import { Hesap, Islem, IslemType, IslemInsert, IleriTarihliIslemInsert, Urun, Currency } from '@/types/database';
-import { parseCurrency, formatCurrency, isValidAmount, roundCurrency, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
+import {
+  Hesap,
+  Islem,
+  IslemType,
+  IslemInsert,
+  IleriTarihliIslemInsert,
+  Urun,
+  Currency,
+} from '@/types/database';
+import {
+  parseCurrency,
+  formatCurrency,
+  isValidAmount,
+  roundCurrency,
+  cleanAmountInput,
+  formatAmountForInput,
+} from '@/lib/currency';
 import { resolveIslemLegs } from '@/lib/crossCurrency';
-import { formatDateForDB, formatDateTimeForDB, isToday } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem, useCreateIslemWithUrun, useUpdateIslem } from '@/hooks/useIslemler';
 import { useCreateIleriTarihliIslem } from '@/hooks/useIleriTarihliIslemler';
-import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { supabase } from '@/lib/supabase';
 import { usePickImage, useTakePhoto, useUploadIslemPhoto } from '@/hooks/useIslemPhoto';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { PhotoButton } from '../PhotoButton';
 import { PhotoViewerModal } from '../PhotoViewerModal';
 import { ExchangeRateBar } from '../ExchangeRateBar';
-import { UrunPickerModal } from '../QuickTransactionBar/components';
+import {
+  CariPickerSheet,
+  HesapPickerSheet,
+  PersonelPickerSheet,
+  UrunPickerModal,
+} from '../QuickTransactionBar/components';
+import { HeaderSection, OdemeSection, AmountInputSection } from '../QuickTransactionBar/sections';
+import { styles as qtbStyles } from '../QuickTransactionBar/styles';
 import type { UrunItem } from '../QuickTransactionBar/types';
 import { useUrunler, useCreateUrun } from '@/hooks/useUrunler';
 import {
@@ -48,16 +71,13 @@ import {
   MutationRetryPayloadChangedError,
 } from '@/lib/errors';
 import { usePermissions } from '@/hooks/usePermissions';
-import {
-  buildMutationFingerprint,
-  isSameRegularCreate,
-} from '@/lib/mutationIdentity';
+import { buildMutationFingerprint, isSameRegularCreate } from '@/lib/mutationIdentity';
 import { hasUnsupportedQuickTransactionProducts } from '@/lib/productSelectionGuard';
 import { consumePendingCategorySelection } from '@/lib/pendingCategorySelection';
 
 import { CreditCardDatePicker } from './CreditCardDatePicker';
-import { HesapPickerSheet, CariPickerSheet, PersonelPickerSheet, OdemeHedefTypePicker } from './CreditCardPickerSheets';
-import { styles } from './styles';
+import { OdemeHedefTypePicker } from './CreditCardPickerSheets';
+import { styles as creditCardStyles } from './styles';
 
 type OdemeHedefType = 'tedarikci' | 'staff';
 const PRODUCT_CREATE_PROBE_TIMEOUT_MS = 5000;
@@ -65,13 +85,10 @@ const PRODUCT_CREATE_PROBE_TIMEOUT_MS = 5000;
 async function probeCreatedCreditCardTransaction(
   islemId: string,
   isletmeId: string,
-  expected: Omit<IslemInsert, 'isletme_id'>,
+  expected: Omit<IslemInsert, 'isletme_id'>
 ): Promise<Islem | null> {
   const controller = new AbortController();
-  const timer = setTimeout(
-    () => controller.abort(),
-    PRODUCT_CREATE_PROBE_TIMEOUT_MS,
-  );
+  const timer = setTimeout(() => controller.abort(), PRODUCT_CREATE_PROBE_TIMEOUT_MS);
 
   try {
     const { data, error } = await supabase
@@ -111,33 +128,21 @@ export function CreditCardTransactionBar({
   const { t } = useTranslation(['transactions', 'common', 'clients', 'staff', 'accounts']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
-  const {
-    isOwner,
-    canAccessModule,
-    canCreate,
-    canCreateTransactionType,
-  } = usePermissions();
+  const { height: windowHeight } = useWindowDimensions();
+  const { isOwner, canAccessModule, canCreate, canCreateTransactionType } = usePermissions();
   const canCreateExpense = canCreateTransactionType('gider');
   const canCreateStatementPayment = canCreateTransactionType('transfer');
   const canCreateSupplierPayment = canCreateTransactionType('cari_odeme');
   const canCreatePersonelPayment = canCreateTransactionType('personel_odeme');
-  const canCreatePayment =
-    canCreateSupplierPayment || canCreatePersonelPayment;
-  const canUseProducts =
-    canCreateExpense
-    && canAccessModule('urunler')
-    && canCreate('urunler');
+  const canCreatePayment = canCreateSupplierPayment || canCreatePersonelPayment;
+  const canUseProducts = canCreateExpense && canAccessModule('urunler') && canCreate('urunler');
   const allowedTypes = useMemo<TransactionType[]>(() => {
     const result: TransactionType[] = [];
     if (canCreateExpense) result.push('kredi_karti_gider');
     if (canCreatePayment) result.push('kredi_karti_odeme');
     if (canCreateStatementPayment) result.push('kredi_karti_ekstre');
     return result;
-  }, [
-    canCreateExpense,
-    canCreatePayment,
-    canCreateStatementPayment,
-  ]);
+  }, [canCreateExpense, canCreatePayment, canCreateStatementPayment]);
 
   // Form state
   const [type, setType] = useState<TransactionType>('kredi_karti_gider');
@@ -159,10 +164,8 @@ export function CreditCardTransactionBar({
   const createMutationIdRef = useRef<string | null>(null);
   const createMutationFingerprintRef = useRef<string | null>(null);
   const submitInFlightRef = useRef(false);
-  const hasProductExpense =
-    type === 'kredi_karti_gider' && urunItems.length > 0;
-  const hasUnsupportedProductSelection =
-    hasUnsupportedQuickTransactionProducts(type, urunItems.length);
+  const hasProductExpense = type === 'kredi_karti_gider' && urunItems.length > 0;
+  const hasUnsupportedProductSelection = hasUnsupportedQuickTransactionProducts(type, urunItems.length);
 
   const [sourceHesapId, setSourceHesapId] = useState<string | null>(null);
   const [cariId, setCariId] = useState<string | null>(null);
@@ -175,11 +178,6 @@ export function CreditCardTransactionBar({
   const [showCariPicker, setShowCariPicker] = useState(false);
   const [showPersonelPicker, setShowPersonelPicker] = useState(false);
   const [showOdemeHedefTypePicker, setShowOdemeHedefTypePicker] = useState(false);
-
-  // Search queries
-  const [hesapSearchQuery, setHesapSearchQuery] = useState('');
-  const [cariSearchQuery, setCariSearchQuery] = useState('');
-  const [personelSearchQuery, setPersonelSearchQuery] = useState('');
 
   // Çapraz-kur: kart/hesap ile karşı tarafın para birimi farklıysa kur SORULUR.
   // (Eskiden bu bar'da tek satır kur kontrolü yoktu → tutar karşı tarafa 1:1
@@ -210,22 +208,14 @@ export function CreditCardTransactionBar({
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   // Data
-  const { data: hesaplar } = useHesaplar(
-    false,
-    false,
-    canAccessModule('hesaplar'),
-  );
+  const { data: hesaplar } = useHesaplar(false, false, canAccessModule('hesaplar'));
   const { data: tedarikciCariler } = useCariler(
     'tedarikci',
     false,
     false,
-    canCreateSupplierPayment,
+    canCreateSupplierPayment
   );
-  const { data: personelList } = usePersonelList(
-    false,
-    false,
-    canCreatePersonelPayment,
-  );
+  const { data: personelList } = usePersonelList(false, false, canCreatePersonelPayment);
   const createIslem = useCreateIslem();
   const createIslemWithUrun = useCreateIslemWithUrun();
   const updateIslem = useUpdateIslem();
@@ -281,31 +271,12 @@ export function CreditCardTransactionBar({
   const amountInputRef = useRef<TextInput>(null);
 
   const nakitHesaplar = useMemo(() => {
-    return hesaplar?.filter(h => h.type !== 'kredi_karti') || [];
+    return hesaplar?.filter((h) => h.type !== 'kredi_karti') || [];
   }, [hesaplar]);
 
-  const selectedSourceHesap = nakitHesaplar.find(h => h.id === sourceHesapId);
-  const selectedCari = tedarikciCariler?.find(c => c.id === cariId);
-  const selectedPersonel = personelList?.find(p => p.id === personelId);
-
-  const filteredHesaplar = useMemo(() => {
-    if (!hesapSearchQuery.trim()) return nakitHesaplar;
-    return nakitHesaplar.filter(h => searchMatchesTr(h.name, hesapSearchQuery));
-  }, [nakitHesaplar, hesapSearchQuery]);
-
-  const filteredCariler = useMemo(() => {
-    if (!tedarikciCariler) return [];
-    if (!cariSearchQuery.trim()) return tedarikciCariler;
-    return tedarikciCariler.filter(c => searchMatchesTr(c.name, cariSearchQuery));
-  }, [tedarikciCariler, cariSearchQuery]);
-
-  const filteredPersonel = useMemo(() => {
-    if (!personelList) return [];
-    if (!personelSearchQuery.trim()) return personelList;
-    return personelList.filter(p =>
-      searchMatchesTr(`${p.first_name} ${p.last_name}`, personelSearchQuery)
-    );
-  }, [personelList, personelSearchQuery]);
+  const selectedSourceHesap = nakitHesaplar.find((h) => h.id === sourceHesapId);
+  const selectedCari = tedarikciCariler?.find((c) => c.id === cariId);
+  const selectedPersonel = personelList?.find((p) => p.id === personelId);
 
   const creditLimit = creditCard.credit_limit || 0;
   const usedCredit = Math.abs(Number(creditCard.balance));
@@ -325,9 +296,6 @@ export function CreditCardTransactionBar({
         setCariId(null);
         setPersonelId(null);
         setOdemeHedefType('tedarikci');
-        setHesapSearchQuery('');
-        setCariSearchQuery('');
-        setPersonelSearchQuery('');
         setCategoryPickerOpen(false);
         setCategorySkipped(false);
         setSelectedCategoryType(null);
@@ -364,20 +332,12 @@ export function CreditCardTransactionBar({
       setOdemeHedefType('tedarikci');
       setPersonelId(null);
     }
-  }, [
-    canCreatePersonelPayment,
-    canCreateSupplierPayment,
-    odemeHedefType,
-    type,
-    visible,
-  ]);
+  }, [canCreatePersonelPayment, canCreateSupplierPayment, odemeHedefType, type, visible]);
 
   useEffect(() => {
     setCariId(null);
     setPersonelId(null);
-    setOdemeHedefType(
-      canCreateSupplierPayment ? 'tedarikci' : 'staff',
-    );
+    setOdemeHedefType(canCreateSupplierPayment ? 'tedarikci' : 'staff');
     // urunItems tür değişince temizlenmez; kullanıcı geri döndüğünde kalemler
     // korunur. Desteklenmeyen tipte düğme görünür kalır ve kaydetme fail-closed.
   }, [canCreateSupplierPayment, type]);
@@ -435,28 +395,31 @@ export function CreditCardTransactionBar({
     });
   }, [opacity, translateY]);
 
-  const animateClose = useCallback((callback?: () => void) => {
-    if (isAnimatingRef.current) return;
-    isAnimatingRef.current = true;
+  const animateClose = useCallback(
+    (callback?: () => void) => {
+      if (isAnimatingRef.current) return;
+      isAnimatingRef.current = true;
 
-    Keyboard.dismiss();
+      Keyboard.dismiss();
 
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }),
-      Animated.timing(translateY, {
-        toValue: 100,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      isAnimatingRef.current = false;
-      callback?.();
-    });
-  }, [opacity, translateY]);
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: 100,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        isAnimatingRef.current = false;
+        callback?.();
+      });
+    },
+    [opacity, translateY]
+  );
 
   useEffect(() => {
     if (visible) {
@@ -532,7 +495,17 @@ export function CreditCardTransactionBar({
     });
 
     return { apiType, hesapId, hedefHesapId, cariIdValue, personelIdValue, ...legs };
-  }, [type, odemeHedefType, cariId, personelId, sourceHesapId, creditCard, hesaplar, tedarikciCariler, personelList]);
+  }, [
+    type,
+    odemeHedefType,
+    cariId,
+    personelId,
+    sourceHesapId,
+    creditCard,
+    hesaplar,
+    tedarikciCariler,
+    personelList,
+  ]);
 
   /** Asıl kayıt. exchange verilirse source/target/exchange_rate üçlüsü DB'ye yazılır. */
   const persistIslem = useCallback(
@@ -543,7 +516,7 @@ export function CreditCardTransactionBar({
       if (isScheduled && hasProductExpense) {
         Alert.alert(
           t('transactions:validation.scheduledNoProductsTitle'),
-          t('transactions:validation.scheduledNoProductsMessage'),
+          t('transactions:validation.scheduledNoProductsMessage')
         );
         return;
       }
@@ -556,8 +529,7 @@ export function CreditCardTransactionBar({
 
       try {
         const { apiType, hesapId, hedefHesapId, cariIdValue, personelIdValue } = resolveLegs();
-        const clientMutationId =
-          createMutationIdRef.current ?? Crypto.randomUUID();
+        const clientMutationId = createMutationIdRef.current ?? Crypto.randomUUID();
         createMutationIdRef.current = clientMutationId;
 
         if (isScheduled) {
@@ -578,8 +550,8 @@ export function CreditCardTransactionBar({
             input: scheduledData,
           });
           if (
-            createMutationFingerprintRef.current
-            && createMutationFingerprintRef.current !== fingerprint
+            createMutationFingerprintRef.current &&
+            createMutationFingerprintRef.current !== fingerprint
           ) {
             throw new MutationRetryPayloadChangedError();
           }
@@ -621,8 +593,8 @@ export function CreditCardTransactionBar({
             items,
           });
           if (
-            createMutationFingerprintRef.current
-            && createMutationFingerprintRef.current !== fingerprint
+            createMutationFingerprintRef.current &&
+            createMutationFingerprintRef.current !== fingerprint
           ) {
             throw new MutationRetryPayloadChangedError();
           }
@@ -639,17 +611,14 @@ export function CreditCardTransactionBar({
               newIslem = await createIslem.mutateAsync(islemData);
             }
           } catch (rpcError) {
-            if (
-              classifyMutationError(rpcError) !== 'network_unknown'
-              || !isletme?.id
-            ) {
+            if (classifyMutationError(rpcError) !== 'network_unknown' || !isletme?.id) {
               throw rpcError;
             }
 
             const landed = await probeCreatedCreditCardTransaction(
               clientMutationId,
               isletme.id,
-              islemData,
+              islemData
             );
             if (!landed) throw rpcError;
             newIslem = landed;
@@ -663,7 +632,10 @@ export function CreditCardTransactionBar({
                 isletmeId: isletme.id,
                 islemId: newIslem.id,
               });
-              await updateIslem.mutateAsync({ id: newIslem.id, updates: { photo_path: photoPath } });
+              await updateIslem.mutateAsync({
+                id: newIslem.id,
+                updates: { photo_path: photoPath },
+              });
             } catch (photoError) {
               if (__DEV__) console.error('[PhotoUpload] Error:', photoError);
               Alert.alert(t('common:status.warning'), t('transactions:messages.photoUploadFailed'));
@@ -688,9 +660,9 @@ export function CreditCardTransactionBar({
         // Bu sınıflarda finansal yazının başlamadığı kesindir; kullanıcı alanı
         // düzeltip yeni bir idempotency anahtarıyla yeniden deneyebilir.
         if (
-          errorKind === 'permission'
-          || errorKind === 'validation'
-          || errorKind === 'network_not_sent'
+          errorKind === 'permission' ||
+          errorKind === 'validation' ||
+          errorKind === 'network_not_sent'
         ) {
           createMutationIdRef.current = null;
           createMutationFingerprintRef.current = null;
@@ -701,17 +673,29 @@ export function CreditCardTransactionBar({
         const messageKey = getTransactionMutationMessageKey(error, 'create');
         Alert.alert(
           t('common:status.error'),
-          messageKey
-            ? t(messageKey)
-            : t('transactions:messages.saveFailed'),
+          messageKey ? t(messageKey) : t('transactions:messages.saveFailed')
         );
       }
     },
     [
-      t, description, date, kategoriId, isScheduled, resolveLegs,
-      createIslem, createIleriTarihliIslem, onSuccess, dismissModal,
-      isOwner, photoUri, uploadPhoto, updateIslem, isletme,
-      urunItems, hasProductExpense, createIslemWithUrun,
+      t,
+      description,
+      date,
+      kategoriId,
+      isScheduled,
+      resolveLegs,
+      createIslem,
+      createIleriTarihliIslem,
+      onSuccess,
+      dismissModal,
+      isOwner,
+      photoUri,
+      uploadPhoto,
+      updateIslem,
+      isletme,
+      urunItems,
+      hasProductExpense,
+      createIslemWithUrun,
     ]
   );
 
@@ -742,123 +726,135 @@ export function CreditCardTransactionBar({
     if (submitInFlightRef.current) return;
     submitInFlightRef.current = true;
     try {
-    if (!isValidAmount(amount)) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      return;
-    }
-
-    if (hasUnsupportedProductSelection) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      Alert.alert(
-        t('transactions:validation.productsUnsupportedTypeTitle'),
-        t('transactions:validation.productsUnsupportedTypeMessage'),
-      );
-      return;
-    }
-
-    if (isScheduled && hasProductExpense) {
-      if (Platform.OS !== 'web') {
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      }
-      Alert.alert(
-        t('transactions:validation.scheduledNoProductsTitle'),
-        t('transactions:validation.scheduledNoProductsMessage'),
-      );
-      return;
-    }
-
-    if ((type === 'kredi_karti_gider' || type === 'kredi_karti_odeme') && !kategoriId && !categorySkipped && !hasProductExpense) {
-      setCategoryPickerOpen(true);
-      return;
-    }
-    if (type === 'kredi_karti_ekstre' && !sourceHesapId) {
-      setShowHesapPicker(true);
-      return;
-    }
-
-    if (type === 'kredi_karti_odeme') {
-      if (odemeHedefType === 'tedarikci' && !cariId) {
-        Alert.alert(t('common:status.error'), t('clients:transactionForm.selectSupplier'));
+      if (!isValidAmount(amount)) {
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
         return;
       }
-      if (odemeHedefType === 'staff' && !personelId) {
-        Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
-        return;
-      }
-    }
 
-    if (type === 'kredi_karti_ekstre' && !sourceHesapId) {
-      Alert.alert(t('common:status.error'), t('accounts:creditCard.selectSourceAccount'));
-      return;
-    }
-
-    const permissionApiType: IslemType =
-      type === 'kredi_karti_odeme'
-        ? odemeHedefType === 'tedarikci'
-          ? 'cari_odeme'
-          : 'personel_odeme'
-        : type === 'kredi_karti_ekstre'
-          ? 'transfer'
-          : 'gider';
-    const productModules = hasProductExpense
-      ? (['urunler'] as const)
-      : [];
-    if (
-      !allowedTypes.includes(type)
-      || !canCreateTransactionType(permissionApiType, productModules)
-      || (hasProductExpense && !canCreate('urunler'))
-    ) {
-      Alert.alert(
-        t('common:status.error'),
-        t('common:errors.permissionDenied'),
-      );
-      return;
-    }
-
-    const parsedAmount = roundCurrency(parseCurrency(amount));
-    const legs = resolveLegs();
-
-    // ÇAPRAZ-KUR: kart/hesap ile karşı taraf farklı para birimindeyse kur ZORUNLU.
-    if (legs.isCross) {
-      // İleri tarihli satırda kur SAKLANAMIYOR (ileri_tarihli_islemler tablosunda kur
-      // kolonu yok) → planlama anında kur alsak bile kaybolurdu. Sessiz 1:1 yerine
-      // kullanıcıyı açıkça engelle: bugün kaydetsin ya da aynı para biriminden hesap seçsin.
-      if (isScheduled) {
+      if (hasUnsupportedProductSelection) {
         if (Platform.OS !== 'web') {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         }
         Alert.alert(
-          t('common:status.warning'),
-          t('transactions:exchangeRate.scheduledCrossCurrencyBlocked')
+          t('transactions:validation.productsUnsupportedTypeTitle'),
+          t('transactions:validation.productsUnsupportedTypeMessage')
         );
         return;
       }
-      if (Platform.OS !== 'web') {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      }
-      setPendingExchange({
-        sourceCurrency: legs.sourceCurrency,
-        targetCurrency: legs.targetCurrency,
-        sourceAmount: parsedAmount,
-      });
-      setShowExchangeRateBar(true);
-      return;
-    }
 
-    await persistIslem(parsedAmount);
+      if (isScheduled && hasProductExpense) {
+        if (Platform.OS !== 'web') {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        }
+        Alert.alert(
+          t('transactions:validation.scheduledNoProductsTitle'),
+          t('transactions:validation.scheduledNoProductsMessage')
+        );
+        return;
+      }
+
+      if (
+        (type === 'kredi_karti_gider' || type === 'kredi_karti_odeme') &&
+        !kategoriId &&
+        !categorySkipped &&
+        !hasProductExpense
+      ) {
+        setCategoryPickerOpen(true);
+        return;
+      }
+      if (type === 'kredi_karti_ekstre' && !sourceHesapId) {
+        setShowHesapPicker(true);
+        return;
+      }
+
+      if (type === 'kredi_karti_odeme') {
+        if (odemeHedefType === 'tedarikci' && !cariId) {
+          Alert.alert(t('common:status.error'), t('clients:transactionForm.selectSupplier'));
+          return;
+        }
+        if (odemeHedefType === 'staff' && !personelId) {
+          Alert.alert(t('common:status.error'), t('staff:transactionForm.selectPersonel'));
+          return;
+        }
+      }
+
+      if (type === 'kredi_karti_ekstre' && !sourceHesapId) {
+        Alert.alert(t('common:status.error'), t('accounts:creditCard.selectSourceAccount'));
+        return;
+      }
+
+      const permissionApiType: IslemType =
+        type === 'kredi_karti_odeme'
+          ? odemeHedefType === 'tedarikci'
+            ? 'cari_odeme'
+            : 'personel_odeme'
+          : type === 'kredi_karti_ekstre'
+            ? 'transfer'
+            : 'gider';
+      const productModules = hasProductExpense ? (['urunler'] as const) : [];
+      if (
+        !allowedTypes.includes(type) ||
+        !canCreateTransactionType(permissionApiType, productModules) ||
+        (hasProductExpense && !canCreate('urunler'))
+      ) {
+        Alert.alert(t('common:status.error'), t('common:errors.permissionDenied'));
+        return;
+      }
+
+      const parsedAmount = roundCurrency(parseCurrency(amount));
+      const legs = resolveLegs();
+
+      // ÇAPRAZ-KUR: kart/hesap ile karşı taraf farklı para birimindeyse kur ZORUNLU.
+      if (legs.isCross) {
+        // İleri tarihli satırda kur SAKLANAMIYOR (ileri_tarihli_islemler tablosunda kur
+        // kolonu yok) → planlama anında kur alsak bile kaybolurdu. Sessiz 1:1 yerine
+        // kullanıcıyı açıkça engelle: bugün kaydetsin ya da aynı para biriminden hesap seçsin.
+        if (isScheduled) {
+          if (Platform.OS !== 'web') {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          }
+          Alert.alert(
+            t('common:status.warning'),
+            t('transactions:exchangeRate.scheduledCrossCurrencyBlocked')
+          );
+          return;
+        }
+        if (Platform.OS !== 'web') {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+        setPendingExchange({
+          sourceCurrency: legs.sourceCurrency,
+          targetCurrency: legs.targetCurrency,
+          sourceAmount: parsedAmount,
+        });
+        setShowExchangeRateBar(true);
+        return;
+      }
+
+      await persistIslem(parsedAmount);
     } finally {
       submitInFlightRef.current = false;
     }
   }, [
-    t, amount, type, kategoriId, categorySkipped,
-    isScheduled, sourceHesapId, cariId, personelId, odemeHedefType,
-    allowedTypes, canCreate, canCreateTransactionType, hasProductExpense,
+    t,
+    amount,
+    type,
+    kategoriId,
+    categorySkipped,
+    isScheduled,
+    sourceHesapId,
+    cariId,
+    personelId,
+    odemeHedefType,
+    allowedTypes,
+    canCreate,
+    canCreateTransactionType,
+    hasProductExpense,
     hasUnsupportedProductSelection,
-    resolveLegs, persistIslem,
+    resolveLegs,
+    persistIslem,
   ]);
 
   const handleAmountChange = useCallback((text: string) => {
@@ -875,7 +871,7 @@ export function CreditCardTransactionBar({
       }
       Alert.alert(
         t('transactions:validation.scheduledNoProductsTitle'),
-        t('transactions:validation.scheduledNoProductsMessage'),
+        t('transactions:validation.scheduledNoProductsMessage')
       );
       return;
     }
@@ -885,19 +881,16 @@ export function CreditCardTransactionBar({
   const handleHesapSelect = useCallback((id: string) => {
     setSourceHesapId(id);
     setShowHesapPicker(false);
-    setHesapSearchQuery('');
   }, []);
 
   const handleCariSelect = useCallback((id: string) => {
     setCariId(id);
     setShowCariPicker(false);
-    setCariSearchQuery('');
   }, []);
 
   const handlePersonelSelect = useCallback((id: string) => {
     setPersonelId(id);
     setShowPersonelPicker(false);
-    setPersonelSearchQuery('');
   }, []);
 
   const handleOdemeHedefTypeSelect = useCallback((newType: 'tedarikci' | 'staff') => {
@@ -909,17 +902,14 @@ export function CreditCardTransactionBar({
 
   const handleHesapPickerDismiss = useCallback(() => {
     setShowHesapPicker(false);
-    setHesapSearchQuery('');
   }, []);
 
   const handleCariPickerDismiss = useCallback(() => {
     setShowCariPicker(false);
-    setCariSearchQuery('');
   }, []);
 
   const handlePersonelPickerDismiss = useCallback(() => {
     setShowPersonelPicker(false);
-    setPersonelSearchQuery('');
   }, []);
 
   // Kategori ekleme tam ekran bir route'a gider. Parent `visible` değerini kapatmak
@@ -937,7 +927,7 @@ export function CreditCardTransactionBar({
         setSelectedCategoryType('gider');
       }
       setCategoryPickerOpen(false);
-    }, [visible]),
+    }, [visible])
   );
 
   if (!visible || allowedTypes.length === 0) return null;
@@ -954,14 +944,13 @@ export function CreditCardTransactionBar({
     if (type === 'kredi_karti_ekstre') return undefined;
     return 'gider';
   };
-  const categoryType = selectedCategoryType || getCategoryType();
+  const categoryType = selectedCategoryType || getCategoryType() || null;
 
-  const cardBottom = keyboardHeight > 0
-    ? keyboardHeight
-    : insets.bottom + TAB_BAR_HEIGHT + 10;
+  const cardBottom = keyboardHeight > 0 ? keyboardHeight : insets.bottom + TAB_BAR_HEIGHT + 10;
 
-  // Hero tutar: uzun sayılarda fontu yumuşat (RN TextInput otomatik küçültmez)
-  const amtFontSize = amount.length > 12 ? 22 : amount.length > 9 ? 26 : 30;
+  // Ana QTB gibi kart + dış kapatma düğmesi ekrana sığar. İçerik uzarsa yalnız
+  // üst bölüm kayar; kategori/not/tutar/kaydet/sekme alanı görünür kalır.
+  const cardMaxHeight = Math.max(280, windowHeight - cardBottom - insets.top - 44 - 8);
 
   // Desteklenmeyen sekmede seçili kalem varsa düğmeyi görünür tut; kullanıcı
   // kalemleri kaldırabilsin ve sessiz veri kaybı yaşanmasın.
@@ -980,12 +969,13 @@ export function CreditCardTransactionBar({
       statusBarTranslucent
     >
       <TouchableWithoutFeedback onPress={handleBackdropPress}>
-        <View style={styles.backdrop} />
+        <View style={qtbStyles.backdrop} />
       </TouchableWithoutFeedback>
 
       <Animated.View
+        pointerEvents="box-none"
         style={[
-          styles.card,
+          qtbStyles.cardWrapper,
           {
             bottom: cardBottom,
             opacity,
@@ -993,259 +983,164 @@ export function CreditCardTransactionBar({
           },
         ]}
       >
-        {isScheduled && (
-          <View style={styles.scheduledLabel}>
-            <Bell size={14} color={colors.warning} />
-            <Text style={styles.scheduledLabelText}>{t('transactions:scheduled.title')}</Text>
-          </View>
-        )}
+        <TouchableOpacity
+          style={qtbStyles.floatingClose}
+          onPress={handleDismiss}
+          hitSlop={HIT_SLOP.md}
+        >
+          <X size={20} color={colors.textMuted} />
+        </TouchableOpacity>
 
-        {isScheduled && (
-          <Text style={styles.dateLabel}>{t('transactions:future.scheduled')}:</Text>
-        )}
-
-        {/* Credit Card Info */}
-        <View style={styles.creditCardInfo}>
-          <View style={styles.creditCardHeader}>
-            <CreditCard size={20} color={colors.warning} />
-            <Text style={styles.creditCardName}>{creditCard.name}</Text>
-          </View>
-          {creditLimit > 0 ? (
-            <View style={styles.creditLimitRow}>
-              <View style={styles.creditLimitItem}>
-                <Text style={styles.creditLimitLabel}>{t('accounts:creditCard.creditLimit')}</Text>
-                <Text style={styles.creditLimitValue}>{formatCurrency(creditLimit, creditCard.currency)}</Text>
-              </View>
-              <View style={styles.creditLimitItem}>
-                <Text style={styles.creditLimitLabel}>{t('accounts:creditCard.usedCredit')}</Text>
-                <Text style={[styles.creditLimitValue, { color: colors.error }]}>{formatCurrency(usedCredit, creditCard.currency)}</Text>
-              </View>
-              <View style={styles.creditLimitItem}>
-                <Text style={styles.creditLimitLabel}>{t('accounts:creditCard.availableCredit')}</Text>
-                <Text style={[styles.creditLimitValue, { color: colors.success }]}>{formatCurrency(availableCredit, creditCard.currency)}</Text>
-              </View>
-            </View>
-          ) : (
-            <Text style={styles.noLimitText}>{t('accounts:creditCard.noLimit')}</Text>
-          )}
-        </View>
-
-        {/* Header Row */}
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={[styles.dateButton, isScheduled && styles.dateButtonScheduled]}
-            onPress={() => setShowDatePicker(true)}
+        <View style={[qtbStyles.card, { maxHeight: cardMaxHeight }]}>
+          <ScrollView
+            style={localStyles.topScroll}
+            bounces={false}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <Calendar size={18} color={isScheduled ? colors.warning : colors.textMuted} />
-            <Text style={[styles.dateText, isScheduled && styles.dateTextScheduled]}>
-              {isToday(date) ? t('common:date.today') : formatDateMedium(date)}
-            </Text>
-          </TouchableOpacity>
-
-          <View style={styles.headerCenter}>
-            <TouchableOpacity
-              style={[styles.bellButton, isScheduled && styles.iconButtonActive]}
-              onPress={handleScheduledToggle}
-            >
-              <Bell size={18} color={isScheduled ? colors.warning : colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={handleDismiss}
-            hitSlop={HIT_SLOP.md}
-          >
-            <X size={20} color={colors.textMuted} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Payment: Supplier/Personnel Selection */}
-        {type === 'kredi_karti_odeme' && (
-          <>
-            <TouchableOpacity
-              style={styles.pickerButton}
-              onPress={() => setShowOdemeHedefTypePicker(true)}
-            >
-              {odemeHedefType === 'tedarikci' ? (
-                <Building2 size={18} color={colors.orange} />
-              ) : (
-                <UserCheck size={18} color={colors.orange} />
-              )}
-              <Text style={styles.pickerButtonText}>
-                {odemeHedefType === 'tedarikci'
-                  ? t('clients:transactionTitles.supplierPayment')
-                  : t('staff:transactionTitles.payment')}
-              </Text>
-              <ChevronDown size={18} color={colors.textMuted} />
-            </TouchableOpacity>
-
-            {odemeHedefType === 'tedarikci' ? (
-              <TouchableOpacity
-                style={styles.pickerButton}
-                onPress={() => setShowCariPicker(true)}
-              >
-                <Building2 size={18} color={colors.orange} />
-                <Text style={styles.pickerButtonText}>
-                  {selectedCari ? selectedCari.name : t('clients:transactionForm.selectSupplier')}
-                </Text>
-                <ChevronDown size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.pickerButton}
-                onPress={() => setShowPersonelPicker(true)}
-              >
-                <UserCheck size={18} color={colors.orange} />
-                <Text style={styles.pickerButtonText}>
-                  {selectedPersonel ? `${selectedPersonel.first_name} ${selectedPersonel.last_name}` : t('staff:transactionForm.selectPersonel')}
-                </Text>
-                <ChevronDown size={18} color={colors.textMuted} />
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-
-        {/* Statement Payment: Source Account Selection */}
-        {type === 'kredi_karti_ekstre' && (
-          <TouchableOpacity
-            style={styles.sourceAccountRow}
-            onPress={() => setShowHesapPicker(true)}
-          >
-            <Wallet size={16} color={colors.textMuted} />
-            <Text style={styles.sourceAccountText}>
-              {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
-            </Text>
-            <ArrowRight size={16} color={colors.info} />
-            <View style={styles.targetAccountLabel}>
-              <CreditCard size={16} color={colors.warning} />
-              <Text style={styles.targetAccountText}>{creditCard.name}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* Category Picker */}
-        {categoryType && (
-          <View style={styles.categoryWrapper}>
-            <CategoryPicker
-              value={hasProductExpense ? null : kategoriId}
-              disabled={hasProductExpense}
-              disabledMessage={t('transactions:stock.categoryDisabledByProducts')}
-              onChange={(newKategoriId) => {
-                setKategoriId(newKategoriId);
-                if (newKategoriId) {
-                  setSelectedCategoryType(categoryType);
-                } else {
-                  setSelectedCategoryType(null);
-                }
-              }}
-              type={categoryType}
-              label=""
-              placeholder={t('common:select.selectCategory')}
-              onNavigateAway={() => {
-                categoryNavigationPendingRef.current = true;
-                setCategoryNavigatedAway(true);
-              }}
-              open={categoryPickerOpen}
-              onOpenChange={(open) => {
-                setCategoryPickerOpen(open);
-                if (!open && !kategoriId) {
-                  setCategorySkipped(true);
-                }
-              }}
+            <HeaderSection
+              date={date}
+              isScheduled={isScheduled}
+              formatDateMedium={formatDateMedium}
+              onDatePress={() => setShowDatePicker(true)}
+              onScheduledToggle={handleScheduledToggle}
+              onResetToNow={() => setDate(new Date())}
+              showScheduledToggle
             />
-          </View>
-        )}
 
-        {/* Not/Açıklama + foto (fiş/makbuz) — tutar satırını ferahlatmak için foto sağa alındı */}
-        <View style={localStyles.noteRow}>
-          <TextInput
-            style={[styles.descriptionInput, localStyles.noteInput]}
-            placeholder={t('common:placeholders.enterNote')}
-            placeholderTextColor={colors.textMuted}
-            value={description}
-            onChangeText={setDescription}
-            maxLength={500}
-            multiline
-            numberOfLines={2}
-            textAlignVertical="top"
-          />
+            {/* Credit Card Info */}
+            <View style={creditCardStyles.creditCardInfo}>
+              <View style={creditCardStyles.creditCardHeader}>
+                <CreditCard size={20} color={colors.warning} />
+                <Text style={creditCardStyles.creditCardName} numberOfLines={1}>
+                  {creditCard.name}
+                </Text>
+              </View>
+              {creditLimit > 0 ? (
+                <View style={creditCardStyles.creditLimitRow}>
+                  <View style={creditCardStyles.creditLimitItem}>
+                    <Text style={creditCardStyles.creditLimitLabel}>
+                      {t('accounts:creditCard.creditLimit')}
+                    </Text>
+                    <Text style={creditCardStyles.creditLimitValue}>
+                      {formatCurrency(creditLimit, creditCard.currency)}
+                    </Text>
+                  </View>
+                  <View style={creditCardStyles.creditLimitItem}>
+                    <Text style={creditCardStyles.creditLimitLabel}>
+                      {t('accounts:creditCard.usedCredit')}
+                    </Text>
+                    <Text style={[creditCardStyles.creditLimitValue, { color: colors.error }]}>
+                      {formatCurrency(usedCredit, creditCard.currency)}
+                    </Text>
+                  </View>
+                  <View style={creditCardStyles.creditLimitItem}>
+                    <Text style={creditCardStyles.creditLimitLabel}>
+                      {t('accounts:creditCard.availableCredit')}
+                    </Text>
+                    <Text style={[creditCardStyles.creditLimitValue, { color: colors.success }]}>
+                      {formatCurrency(availableCredit, creditCard.currency)}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <Text style={creditCardStyles.noLimitText}>{t('accounts:creditCard.noLimit')}</Text>
+              )}
+            </View>
 
-          <View style={localStyles.noteActions}>
-            {isOwner && (
-              <PhotoButton
-                hasPhoto={!!photoUri}
-                onPickImage={handlePickImage}
-                onTakePhoto={handleTakePhoto}
-                onRemovePhoto={handleRemovePhoto}
-                onViewPhoto={handleViewPhoto}
-                loading={pickImage.isPending || takePhoto.isPending}
-                disabled={isSaving}
-                size="small"
+            {/* Payment: Supplier/Personnel Selection */}
+            {type === 'kredi_karti_odeme' && (
+              <OdemeSection
+                selectedHesap={creditCard}
+                selectedCari={selectedCari}
+                selectedPersonel={selectedPersonel}
+                odemeHedefType={odemeHedefType}
+                onOpenOdemeTypePicker={() => setShowOdemeHedefTypePicker(true)}
+                onOpenCariPicker={() => setShowCariPicker(true)}
+                onOpenPersonelPicker={() => setShowPersonelPicker(true)}
+                sourceKind="kredi_karti"
               />
             )}
 
-            {/* Ürün butonu — yalnız kredi kartı harcamasında (ikon + adet rozeti) */}
-            {showUrunButton && (
+            {/* Statement Payment: Source Account Selection */}
+            {type === 'kredi_karti_ekstre' && (
               <TouchableOpacity
-                style={localStyles.urunButton}
-                onPress={() => setShowUrunPicker(true)}
-                disabled={isSaving}
-                accessibilityRole="button"
-                accessibilityLabel={t('transactions:stock.stockButton')}
+                style={qtbStyles.sourceAccountRow}
+                onPress={() => setShowHesapPicker(true)}
               >
-                <Package size={20} color={colors.primary} />
-                {urunItems.length > 0 && (
-                  <View style={localStyles.urunBadge}>
-                    <Text style={localStyles.urunBadgeText}>{urunItems.length}</Text>
-                  </View>
+                <Wallet size={16} color={colors.textMuted} />
+                <Text style={qtbStyles.sourceAccountText} numberOfLines={1}>
+                  {selectedSourceHesap?.name || t('accounts:titles.selectAccount')}
+                </Text>
+                {selectedSourceHesap && (
+                  <Text
+                    style={[
+                      qtbStyles.balanceTextSmall,
+                      {
+                        color:
+                          Number(selectedSourceHesap.balance) >= 0 ? colors.success : colors.error,
+                      },
+                    ]}
+                  >
+                    {formatCurrency(
+                      Number(selectedSourceHesap.balance),
+                      selectedSourceHesap.currency
+                    )}
+                  </Text>
                 )}
+                <ArrowRight size={16} color={colors.info} />
+                <View style={localStyles.targetAccountLabel}>
+                  <CreditCard size={16} color={colors.warning} />
+                  <Text style={localStyles.targetAccountText} numberOfLines={1}>
+                    {creditCard.name}
+                  </Text>
+                </View>
               </TouchableOpacity>
             )}
-          </View>
-        </View>
+          </ScrollView>
 
-        {/* Amount + Save — HERO tutar (sağa hizalı + adaptif font) */}
-        <View style={styles.amountRow}>
-          {isScheduled && (
-            <View style={styles.scheduledBellIcon}>
-              <Bell size={20} color={colors.warning} />
-            </View>
-          )}
-
-          <TextInput
-            ref={amountInputRef}
-            style={[styles.amountInput, { textAlign: 'right', fontSize: amtFontSize }]}
-            placeholder="0"
-            placeholderTextColor={colors.textMuted}
-            value={amount}
-            onChangeText={handleAmountChange}
-            keyboardType="decimal-pad"
-            maxLength={15}
+          <AmountInputSection
+            amount={amount}
+            onAmountChange={handleAmountChange}
+            amountInputRef={amountInputRef}
+            description={description}
+            onDescriptionChange={setDescription}
+            kategoriId={kategoriId}
+            onKategoriChange={(newKategoriId) => {
+              setKategoriId(newKategoriId);
+              setSelectedCategoryType(newKategoriId ? categoryType : null);
+            }}
+            categoryType={categoryType}
+            categoryPickerOpen={categoryPickerOpen}
+            onCategoryPickerOpenChange={(open) => {
+              setCategoryPickerOpen(open);
+              if (!open && !kategoriId) setCategorySkipped(true);
+            }}
+            onNavigateAway={() => {
+              categoryNavigationPendingRef.current = true;
+              setCategoryNavigatedAway(true);
+            }}
+            hasPhoto={!!photoUri}
+            onPickImage={handlePickImage}
+            onTakePhoto={handleTakePhoto}
+            onRemovePhoto={handleRemovePhoto}
+            onViewPhoto={handleViewPhoto}
+            photoLoading={pickImage.isPending || takePhoto.isPending}
+            isScheduled={isScheduled}
+            isSaving={isSaving}
+            buttonColor={buttonColor}
+            buttonLabel={buttonLabel}
+            onSave={handleSave}
+            type={type}
+            onTypeChange={setType}
+            tabMode="kredi_karti"
+            allowedTypes={allowedTypes}
+            showUrunButton={showUrunButton}
+            urunItemCount={urunItems.length}
+            onUrunButtonPress={() => setShowUrunPicker(true)}
+            showPhotoButton={isOwner}
           />
-
-          <TouchableOpacity
-            style={[
-              styles.saveButton,
-              { backgroundColor: buttonColor },
-              isSaving && styles.saveButtonDisabled,
-            ]}
-            onPress={handleSave}
-            disabled={isSaving}
-          >
-            <Text style={styles.saveButtonText}>
-              {isSaving ? '...' : buttonLabel}
-            </Text>
-          </TouchableOpacity>
         </View>
-
-        {/* Type Tabs */}
-        <TransactionTypeTabs
-          value={type}
-          onChange={setType}
-          mode="kredi_karti"
-          allowedTypes={allowedTypes}
-        />
       </Animated.View>
 
       {/* Picker Modals */}
@@ -1261,34 +1156,28 @@ export function CreditCardTransactionBar({
       <HesapPickerSheet
         visible={showHesapPicker}
         onDismiss={handleHesapPickerDismiss}
-        searchQuery={hesapSearchQuery}
-        onSearchChange={setHesapSearchQuery}
-        filteredHesaplar={filteredHesaplar}
-        selectedId={sourceHesapId}
         onSelect={handleHesapSelect}
-        t={t}
+        hesaplar={nakitHesaplar}
+        selectedId={sourceHesapId}
+        target="source"
+        showBalances={canAccessModule('hesaplar')}
       />
 
       <CariPickerSheet
         visible={showCariPicker && canCreateSupplierPayment}
         onDismiss={handleCariPickerDismiss}
-        searchQuery={cariSearchQuery}
-        onSearchChange={setCariSearchQuery}
-        filteredCariler={filteredCariler}
-        selectedId={cariId}
         onSelect={handleCariSelect}
-        t={t}
+        cariler={tedarikciCariler || []}
+        selectedId={cariId}
+        mode="supplier"
       />
 
       <PersonelPickerSheet
         visible={showPersonelPicker && canCreatePersonelPayment}
         onDismiss={handlePersonelPickerDismiss}
-        searchQuery={personelSearchQuery}
-        onSearchChange={setPersonelSearchQuery}
-        filteredPersonel={filteredPersonel}
-        selectedId={personelId}
         onSelect={handlePersonelSelect}
-        t={t}
+        personelList={personelList || []}
+        selectedId={personelId}
       />
 
       <OdemeHedefTypePicker
@@ -1354,46 +1243,22 @@ export function CreditCardTransactionBar({
 }
 
 const localStyles = StyleSheet.create({
-  noteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+  topScroll: {
+    flexGrow: 0,
+    flexShrink: 1,
   },
-  noteInput: {
+  targetAccountLabel: {
     flex: 1,
-    marginBottom: 0,
-  },
-  noteActions: {
+    minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'flex-end',
+    gap: 4,
   },
-  urunButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    minWidth: 40,
-    height: 40,
-    paddingHorizontal: 8,
-    backgroundColor: colors.primaryLight,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.primary,
-  },
-  urunBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
-  },
-  urunBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  targetAccountText: {
+    flexShrink: 1,
+    fontSize: 14,
+    color: colors.warning,
+    fontWeight: '500',
   },
 });

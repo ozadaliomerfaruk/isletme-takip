@@ -5,7 +5,7 @@ const migrationPath = path.resolve(
   process.cwd(),
   'supabase/migrations/20260730080658_permission_contract_v2_server.sql'
 );
-const sql = fs.readFileSync(migrationPath, 'utf8');
+const sql = fs.readFileSync(migrationPath, 'utf8').replace(/\r\n/g, '\n');
 
 function stripSqlBodiesAndComments(source: string): string {
   return source
@@ -108,8 +108,8 @@ describe('permission contract V2 server migration', () => {
   });
 
   it('uses schema-qualified date_part instead of qualifying EXTRACT syntax', () => {
-    expect(sql).toContain(
-      "pg_catalog.date_part(\n                  'day',\n                  pg_catalog.now() - latest.last_date"
+    expect(sql).toMatch(
+      /pg_catalog\.date_part\(\s*'day',\s*pg_catalog\.now\(\) - latest\.last_date/
     );
     expect(sql).not.toMatch(/\bpg_catalog\.extract\s*\(/i);
   });

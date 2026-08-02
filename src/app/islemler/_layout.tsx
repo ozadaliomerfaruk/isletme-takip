@@ -19,22 +19,26 @@ export default function IslemlerLayout() {
     : undefined;
   const isAllTransactionsRoute = child === undefined || child === 'index';
 
-  const screens = (
-    <>
-      <Stack.Screen
-        name="index"
-        options={{ headerTitle: t('titles.allTransactions') }}
-      />
-      <Stack.Screen
-        name="gelir"
-        options={{ headerTitle: t('titles.addIncome') }}
-      />
-      <Stack.Screen
-        name="duzenle/[id]"
-        options={{ headerTitle: t('titles.editTransaction') }}
-      />
-    </>
-  );
+  // Expo Router layout filtresi Fragment'i bir Screen olarak görüp içindekileri
+  // yok sayar. Screen'leri doğrudan dizi halinde ver ki route seçenekleri (özellikle
+  // index başlığı) dosya adının varsayılanına düşmesin.
+  const screens = [
+    <Stack.Screen
+      key="index"
+      name="index"
+      options={{ title: t('titles.allTransactions') }}
+    />,
+    <Stack.Screen
+      key="gelir"
+      name="gelir"
+      options={{ title: t('titles.addIncome') }}
+    />,
+    <Stack.Screen
+      key="duzenle/[id]"
+      name="duzenle/[id]"
+      options={{ title: t('titles.editTransaction') }}
+    />,
+  ];
 
   return isAllTransactionsRoute ? (
     <ModuleRouteStack module="islemler">

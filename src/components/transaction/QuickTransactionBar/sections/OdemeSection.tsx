@@ -39,16 +39,18 @@ interface Personel {
 
 export interface OdemeSectionProps {
   selectedHesap: Hesap | null | undefined;
-  selectedSourceHesap: Hesap | null | undefined;
+  selectedSourceHesap?: Hesap | null;
   selectedCari: Cari | null | undefined;
   selectedPersonel: Personel | null | undefined;
-  selectedKrediKarti: Hesap | null | undefined;
+  selectedKrediKarti?: Hesap | null;
   odemeHedefType: OdemeHedefType;
   onOpenOdemeTypePicker: () => void;
   onOpenCariPicker: () => void;
   onOpenPersonelPicker: () => void;
-  onOpenSourceHesapPicker: () => void;
-  onOpenKrediKartiPicker: () => void;
+  onOpenSourceHesapPicker?: () => void;
+  onOpenKrediKartiPicker?: () => void;
+  /** Kredi kartÄ± QTB'si aynÄ± standart satÄ±rÄ± kullanÄ±rken kaynak ikonunu doÄŸru gÃ¶sterir. */
+  sourceKind?: 'hesap' | 'kredi_karti';
 }
 
 export function OdemeSection({
@@ -63,6 +65,7 @@ export function OdemeSection({
   onOpenPersonelPicker,
   onOpenSourceHesapPicker: _onOpenSourceHesapPicker,
   onOpenKrediKartiPicker,
+  sourceKind = 'hesap',
 }: OdemeSectionProps) {
   const { t } = useTranslation(['transactions', 'clients', 'staff', 'accounts']);
 
@@ -72,7 +75,11 @@ export function OdemeSection({
       <View style={styles.paymentRow}>
         {/* Sol: Kaynak Hesap (sabit) */}
         <View style={styles.paymentRowLeft}>
-          <Wallet size={16} color={colors.primary} />
+          {sourceKind === 'kredi_karti' ? (
+            <CreditCard size={16} color={colors.warning} />
+          ) : (
+            <Wallet size={16} color={colors.primary} />
+          )}
           <View style={styles.paymentAccountInfo}>
             <Text style={styles.paymentAccountName} numberOfLines={1}>
               {selectedHesap?.name || t('accounts:titles.accounts')}
@@ -167,18 +174,14 @@ export function OdemeSection({
         <TouchableOpacity style={styles.pickerButton} onPress={onOpenKrediKartiPicker}>
           <CreditCard size={18} color={colors.orange} />
           <Text style={styles.pickerButtonText}>
-            {selectedKrediKarti
-              ? selectedKrediKarti.name
-              : t('accounts:titles.selectCreditCard')}
+            {selectedKrediKarti ? selectedKrediKarti.name : t('accounts:titles.selectCreditCard')}
           </Text>
           {selectedKrediKarti && (
-            <Text
-              style={[
-                styles.balanceText,
-                { color: colors.error },
-              ]}
-            >
-              {formatCurrency(Math.abs(Number(selectedKrediKarti.balance)), selectedKrediKarti.currency)}
+            <Text style={[styles.balanceText, { color: colors.error }]}>
+              {formatCurrency(
+                Math.abs(Number(selectedKrediKarti.balance)),
+                selectedKrediKarti.currency
+              )}
             </Text>
           )}
           <ChevronDown size={18} color={colors.textMuted} />

@@ -34,7 +34,14 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        freezeOnBlur: true, // PERF (P0-3): aktif olmayan sekme ekranlarını dondur
+        /**
+         * Bunu açıkça false bırak. Kök layout'ta enableFreeze(true) çağrıldığı için
+         * prop'u tamamen kaldırmak react-native-screens'in varsayılanını yeniden
+         * true yapar. Hızlı sekme değişimlerinde route state ilerlerken native içerik
+         * (özellikle Daha ekranı) donuk kalabiliyor. Kök ve modül-içi Stack ekranları
+         * kendi freezeOnBlur ayarlarını korur; yalnız eş düzey ana sekmeler canlıdır.
+         */
+        freezeOnBlur: false,
         /**
          * Native bar tamamen gizli: sekme çubuğu kök _layout'ta ayrı çizilen
          * PersistentTabBar. Buraya tabBarIcon/label/tint gibi görsel ayar EKLEME —

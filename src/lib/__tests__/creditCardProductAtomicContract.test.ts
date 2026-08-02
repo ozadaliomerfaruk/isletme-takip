@@ -103,8 +103,7 @@ describe('credit-card product expense atomic contract', () => {
     expect(source).toContain(
       'if (isOwner && photoUri && isletme?.id && newIslem?.id)',
     );
-    expect(source).toMatch(
-      /\{isOwner && \(\s*<PhotoButton/,
-    );
+    expect(source).toContain('<AmountInputSection');
+    expect(source).toContain('showPhotoButton={isOwner}');
   });
 });

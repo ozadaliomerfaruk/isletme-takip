@@ -12,6 +12,8 @@ const VELOCITY_THRESHOLD = 500;
 export interface BottomSheetProps {
   visible: boolean;
   onDismiss: () => void;
+  /** iOS native Modal tamamen kapandıktan sonra çağrılır. */
+  onModalDismiss?: () => void;
   children: React.ReactNode;
   snapPoints?: number[];
   currentSnapIndex?: number;
@@ -23,6 +25,7 @@ export interface BottomSheetProps {
 export function BottomSheet({
   visible,
   onDismiss,
+  onModalDismiss,
   children,
   snapPoints = [0.5],
   currentSnapIndex = 0,
@@ -288,12 +291,20 @@ export function BottomSheet({
     }
   }, [enableBackdropDismiss, close]);
 
-  if (!visible) return null;
+  // iOS native onDismiss olayını alabilmek için visible=false geçişinde Modal'ı
+  // hemen unmount etme. RN Modal dismissal tamamlanınca kendi içeriğini kaldırır.
+  if (!visible && Platform.OS !== 'ios') return null;
 
   const sheetHeight = getHeightForSnap(currentSnapIndex);
 
   return (
-    <Modal visible={visible} transparent animationType="none" statusBarTranslucent>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      statusBarTranslucent
+      onDismiss={onModalDismiss}
+    >
       {/* ui/Modal içeriği ModalInsets ile sarar: buradaki insets GERÇEK
           (tab bar'sız) değerdir, elle sarmaya gerek yok. */}
       {/* Backdrop */}
