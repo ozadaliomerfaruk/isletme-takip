@@ -106,8 +106,12 @@ BEGIN
      OR v_security_definer IS DISTINCT FROM true
      OR v_volatility IS DISTINCT FROM 'v'
      OR v_config IS DISTINCT FROM ARRAY['search_path=public']::text[]
-     OR v_acl IS DISTINCT FROM
-       '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+     OR v_acl NOT IN (
+       -- Denetlenen canli snapshot.
+       '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}',
+       -- Temiz migration replay: tarihsel V1 yalniz authenticated EXECUTE verir.
+       '{postgres=X/postgres,authenticated=X/postgres}'
+     )
      OR v_definition_md5 IS DISTINCT FROM
        'd2364968ef2b56a2fb079ebf1eb45b6b'
   THEN
