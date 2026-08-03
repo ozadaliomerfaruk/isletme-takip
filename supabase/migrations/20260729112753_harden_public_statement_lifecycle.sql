@@ -250,8 +250,12 @@ BEGIN
       AND function_row.provolatile = 'v'
       AND function_row.proconfig = ARRAY['search_path=public']::text[]
       AND pg_catalog.pg_get_function_result(function_row.oid) = 'jsonb'
-      AND function_row.proacl::text =
-        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+      AND function_row.proacl::text IN (
+        -- Denetlenen canli snapshot.
+        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}',
+        -- Temiz replay: 20260720210000 yalniz authenticated rolune EXECUTE verir.
+        '{postgres=X/postgres,authenticated=X/postgres}'
+      )
   ) OR NOT EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc AS function_row
@@ -261,8 +265,12 @@ BEGIN
       AND function_row.provolatile = 'v'
       AND function_row.proconfig = ARRAY['search_path=public']::text[]
       AND pg_catalog.pg_get_function_result(function_row.oid) = 'integer'
-      AND function_row.proacl::text =
-        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+      AND function_row.proacl::text IN (
+        -- Denetlenen canli snapshot.
+        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}',
+        -- Temiz replay: 20260720210000 yalniz authenticated rolune EXECUTE verir.
+        '{postgres=X/postgres,authenticated=X/postgres}'
+      )
   ) THEN
     RAISE EXCEPTION
       'P0-S10 drift: mevcut RPC owner/SECDEF/ACL/imza ayari degisti'

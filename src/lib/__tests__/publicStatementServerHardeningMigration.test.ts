@@ -95,8 +95,12 @@ describe('P0-S10 public statement server hardening', () => {
     expect(migration).toContain(
       'Bu migration hash formulu bilinmeden onu calistiriyormus gibi davranmaz.',
     );
+    expect(executableSql).toContain('function_row.proacl::text IN (');
     expect(executableSql).toContain(
-      "function_row.proacl::text =\n        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'",
+      "'{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'",
+    );
+    expect(executableSql).toContain(
+      "'{postgres=X/postgres,authenticated=X/postgres}'",
     );
   });
 
