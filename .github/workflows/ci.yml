@@ -28,5 +28,5 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
-      - name: Test
-        run: npm test -- --ci --passWithNoTests
+      - name: Test with coverage
+        run: npm test -- --ci --coverage

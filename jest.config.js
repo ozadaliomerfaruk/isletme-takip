@@ -17,4 +17,14 @@ module.exports = {
     'src/hooks/**/*.ts',
     '!src/**/*.d.ts',
   ],
+  // Baslangic esikleri mevcut olculen seviyenin bilincli olarak biraz altinda.
+  // Amac ilk adimda kapsam iddiasi buyutmek degil, sessiz gerilemeyi durdurmak.
+  coverageThreshold: {
+    global: {
+      branches: 26,
+      functions: 31,
+      lines: 30,
+      statements: 29,
+    },
+  },
 };

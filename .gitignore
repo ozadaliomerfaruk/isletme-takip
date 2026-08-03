@@ -30,6 +30,7 @@ npm-debug.*
 yarn-debug.*
 yarn-error.*
 /supabase_logs*.csv
+/coverage/
 
 # macOS
 .DS_Store
