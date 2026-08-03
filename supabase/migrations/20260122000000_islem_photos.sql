@@ -20,38 +20,68 @@ CREATE INDEX IF NOT EXISTS idx_islemler_photo ON islemler(isletme_id)
 -- - File size limit: 500KB
 -- - Allowed MIME types: image/webp, image/jpeg, image/png
 
--- Policy: Users can upload photos to their own business folder
-CREATE POLICY "Users can upload own islem photos"
-ON storage.objects FOR INSERT
-TO authenticated
-WITH CHECK (
-  bucket_id = 'islem-photos'
-  AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM isletmeler WHERE user_id = auth.uid()
-  )
-);
+-- The first three policies were also shipped in 20260103120000. Keep this
+-- broader migration replayable while still creating any policy that is absent.
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'Users can upload own islem photos'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Users can upload own islem photos"
+      ON storage.objects FOR INSERT
+      TO authenticated
+      WITH CHECK (
+        bucket_id = 'islem-photos'
+        AND (storage.foldername(name))[1] IN (
+          SELECT id::text FROM isletmeler WHERE user_id = auth.uid()
+        )
+      )
+    $policy$;
+  END IF;
 
--- Policy: Users can view photos from their own business folder
-CREATE POLICY "Users can view own islem photos"
-ON storage.objects FOR SELECT
-TO authenticated
-USING (
-  bucket_id = 'islem-photos'
-  AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM isletmeler WHERE user_id = auth.uid()
-  )
-);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'Users can view own islem photos'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Users can view own islem photos"
+      ON storage.objects FOR SELECT
+      TO authenticated
+      USING (
+        bucket_id = 'islem-photos'
+        AND (storage.foldername(name))[1] IN (
+          SELECT id::text FROM isletmeler WHERE user_id = auth.uid()
+        )
+      )
+    $policy$;
+  END IF;
 
--- Policy: Users can delete photos from their own business folder
-CREATE POLICY "Users can delete own islem photos"
-ON storage.objects FOR DELETE
-TO authenticated
-USING (
-  bucket_id = 'islem-photos'
-  AND (storage.foldername(name))[1] IN (
-    SELECT id::text FROM isletmeler WHERE user_id = auth.uid()
-  )
-);
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname = 'Users can delete own islem photos'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Users can delete own islem photos"
+      ON storage.objects FOR DELETE
+      TO authenticated
+      USING (
+        bucket_id = 'islem-photos'
+        AND (storage.foldername(name))[1] IN (
+          SELECT id::text FROM isletmeler WHERE user_id = auth.uid()
+        )
+      )
+    $policy$;
+  END IF;
+END;
+$do$;
 
 -- Policy: Users can update (replace) photos in their own business folder
 CREATE POLICY "Users can update own islem photos"
