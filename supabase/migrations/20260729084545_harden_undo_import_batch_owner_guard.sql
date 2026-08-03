@@ -82,17 +82,27 @@ BEGIN
     FROM pg_catalog.pg_proc p
    WHERE p.oid = pg_catalog.to_regprocedure('public.undo_import_batch(uuid[])');
 
-  IF v_live_hash IS DISTINCT FROM 'd276147891f458fd7cc74cc632e1b43c'
+  IF NOT (
+       (
+         v_live_hash = 'd276147891f458fd7cc74cc632e1b43c'
+         AND v_live_acl =
+           '{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+       )
+       OR (
+         -- Canonical hash/ACL produced by replaying the repository source
+         -- migrations on a clean PostgreSQL 17 Supabase database.
+         v_live_hash = '5981b5ce0f4d29ca493a6ed9fe12e45c'
+         AND v_live_acl IS NULL
+       )
+     )
      OR v_live_owner IS DISTINCT FROM 'postgres'
      OR v_live_result IS DISTINCT FROM 'json'
-     OR v_live_acl IS DISTINCT FROM
-       '{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
      OR v_live_security_definer IS DISTINCT FROM true
      OR v_live_volatility IS DISTINCT FROM 'v'
      OR v_live_config IS DISTINCT FROM ARRAY['search_path=public']::text[] THEN
     RAISE EXCEPTION
-      'undo_import_batch: beklenmeyen canlı fonksiyon hash''i (beklenen %, bulunan %)',
-      'd276147891f458fd7cc74cc632e1b43c',
+      'undo_import_batch: beklenmeyen kaynak fonksiyon hash''i (beklenen %, bulunan %)',
+      'd276147891f458fd7cc74cc632e1b43c veya 5981b5ce0f4d29ca493a6ed9fe12e45c',
       COALESCE(v_live_hash, '<fonksiyon yok>')
       USING ERRCODE = '55000';
   END IF;
