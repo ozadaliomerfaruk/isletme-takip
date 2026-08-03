@@ -178,7 +178,7 @@ BEGIN
   SELECT balance INTO v_balance FROM public.cariler
   WHERE id = 'd3000000-0000-4000-8000-000000000001';
   PERFORM pg_temp.assert_true(
-    v_result->>'existing_initial_balance' = '0'
+    (v_result->>'existing_initial_balance')::numeric = 0
       AND v_balance = 11,
     'cross-currency transaction effect must remain 1 USD above opening balance'
   );

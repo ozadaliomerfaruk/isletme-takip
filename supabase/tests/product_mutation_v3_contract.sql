@@ -52,13 +52,28 @@ BEGIN
     AND attribute_row.attnum > 0
     AND NOT attribute_row.attisdropped;
 
-  IF v_date_type IS DISTINCT FROM 'timestamp without time zone' THEN
+  -- Production's historical schema uses timestamp while a canonical clean
+  -- replay starts from the original DATE column. The V3 contract supports
+  -- both known shapes and must still fail closed for any other drift.
+  IF v_date_type IS NULL
+     OR v_date_type NOT IN ('date', 'timestamp without time zone') THEN
     RAISE EXCEPTION
-      'PRODUCT_V3_TEST_LIVE_BASELINE_MISMATCH: islemler.date=%',
+      'PRODUCT_V3_TEST_BASELINE_MISMATCH: islemler.date=%',
       v_date_type;
   END IF;
 END;
 $preflight$;
+
+-- Production's historical Data API grants are project bootstrap state rather
+-- than repository migrations. Recreate only the privileges this behavioral
+-- contract needs; the surrounding transaction rolls them back.
+GRANT SELECT
+ON TABLE public.isletmeler, public.isletme_users, public.urunler
+TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE public.urun_hareketler
+TO authenticated;
 
 CREATE FUNCTION pg_temp.assert_true(
   p_value boolean,

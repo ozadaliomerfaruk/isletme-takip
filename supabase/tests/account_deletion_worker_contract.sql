@@ -168,8 +168,19 @@ VALUES (
   'a2000000-0000-4000-8000-000000000002'
 );
 
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('islem-photos', 'islem-photos', false);
+DO $bucket_prerequisite$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM storage.buckets AS bucket
+    WHERE bucket.id = 'islem-photos'
+      AND bucket.name = 'islem-photos'
+      AND bucket.public IS FALSE
+  ) THEN
+    RAISE EXCEPTION 'ACCOUNT_DELETION_WORKER_PHOTO_BUCKET_PREREQUISITE';
+  END IF;
+END;
+$bucket_prerequisite$;
 
 INSERT INTO storage.objects (
   id,

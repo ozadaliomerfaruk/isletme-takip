@@ -960,6 +960,9 @@ describe('permission contract V2 server migration', () => {
       /internal\.(?:islem_mutasyon_izni_v2|kayit_mutasyon_izni_v1)\s*\([\s\S]*?'create'/
     );
     expect(create).not.toMatch(/v_can\s*:=\s*v_can\s+AND\s+v_can_view/);
+    expect(
+      create.match(/result_row\.date::timestamp without time zone/g)
+    ).toHaveLength(3);
 
     const rowGuard = functionBody('internal.get_islem_mutation_row_v1');
     expect(rowGuard).toContain('internal.islem_tipi_modulu(');
