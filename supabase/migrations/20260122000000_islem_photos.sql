@@ -14,11 +14,27 @@ CREATE INDEX IF NOT EXISTS idx_islemler_photo ON islemler(isletme_id)
 -- =============================================
 -- STORAGE RLS POLİCYLERİ
 -- =============================================
--- Note: Bucket 'islem-photos' must be created via Supabase Dashboard:
+-- Keep clean migration replays self-contained. Existing production buckets are
+-- deliberately left untouched so later drift guards can reject unexpected config.
 -- - Name: islem-photos
 -- - Public: false
 -- - File size limit: 500KB
--- - Allowed MIME types: image/webp, image/jpeg, image/png
+-- - Allowed MIME types: image/webp
+INSERT INTO storage.buckets (
+  id,
+  name,
+  public,
+  file_size_limit,
+  allowed_mime_types
+)
+VALUES (
+  'islem-photos',
+  'islem-photos',
+  false,
+  512000,
+  ARRAY['image/webp']::text[]
+)
+ON CONFLICT (id) DO NOTHING;
 
 -- The first three policies were also shipped in 20260103120000. Keep this
 -- broader migration replayable while still creating any policy that is absent.

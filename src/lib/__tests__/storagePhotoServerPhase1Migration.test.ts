@@ -7,6 +7,9 @@ const read = (relativePath: string) =>
 const migration = read(
   'supabase/migrations/20260729184053_harden_note_photo_storage_phase1.sql',
 );
+const bucketBootstrap = read(
+  'supabase/migrations/20260122000000_islem_photos.sql',
+);
 const postgresBehaviorFixture = read(
   'docs/security/taslak/P0-S6-STORAGE-PG15-17-RLS-DAVRANIS-TESTI.sql',
 );
@@ -19,6 +22,12 @@ const stripSqlComments = (sql: string) =>
 const executableSql = stripSqlComments(migration);
 
 describe('P0-S6B Storage server phase-1 migration contract', () => {
+  it('bootstraps the private WebP bucket for clean migration replays', () => {
+    expect(bucketBootstrap).toMatch(
+      /INSERT INTO storage\.buckets[\s\S]*?'islem-photos'[\s\S]*?false[\s\S]*?512000[\s\S]*?ARRAY\['image\/webp'\]::text\[\][\s\S]*?ON CONFLICT \(id\) DO NOTHING;/,
+    );
+  });
+
   it('is additive and never rewrites or removes user rows/columns', () => {
     expect(executableSql).not.toMatch(/\bDROP\s+(TABLE|COLUMN|POLICY|FUNCTION|INDEX)\b/i);
     expect(executableSql).not.toMatch(/\bTRUNCATE\b/i);
