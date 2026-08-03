@@ -200,7 +200,14 @@ BEGIN
        '46875263bd6598c4534e2df7d1847a5e'
      OR v_user_trigger_count IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION
-      'P0-S10 drift: tablo kolon/constraint/policy/index/ACL/trigger snapshot degisti'
+      'P0-S10 drift: tablo snapshot degisti '
+      '(columns=%, constraints=%, policies=%, indexes=%, acl=%, triggers=%)',
+      v_columns_md5,
+      v_constraints_md5,
+      v_policies_md5,
+      v_indexes_md5,
+      v_acl_md5,
+      v_user_trigger_count
       USING ERRCODE = '55000';
   END IF;
 
