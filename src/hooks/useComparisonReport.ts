@@ -18,6 +18,10 @@ import type { IslemType } from '@/types/database';
 import { logEvent } from '@/lib/appEvents';
 import { buildComparisonPdfHtml } from '@/lib/comparisonPdf';
 import { usePermissions } from '@/hooks/usePermissions';
+import {
+  exportComparisonReportToExcel,
+  type ComparisonExcelTranslations,
+} from '@/lib/reportExcelExport';
 
 export interface ComparisonRow {
   periodLabel: string;
@@ -49,7 +53,10 @@ export interface ComparisonReport {
   error: Error | null;
   refetch: () => Promise<unknown>;
   isExporting: boolean;
+  isExportingPdf: boolean;
+  isExportingExcel: boolean;
   exportPdf: () => Promise<void>;
+  exportExcel: () => Promise<void>;
 }
 
 // Tarih aralığını gün sonuna kadar dahil et (useMonthSummary ile aynı mantık).
@@ -80,7 +87,8 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
   const { currency: baseCurrency } = useSettings();
   const { data: exchangeRatesData } = useExchangeRates();
   const rates = exchangeRatesData?.rates;
-  const [isExporting, setIsExporting] = useState(false);
+  const [exportingFormat, setExportingFormat] = useState<'pdf' | 'excel' | null>(null);
+  const isExporting = exportingFormat !== null;
 
   const activePeriod = period || 'monthly';
   const activeOffset = periodOffset || 0;
@@ -191,7 +199,7 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
     // Veriler yüklenmeden export, tüm dönemleri ₺0,00 gösteren "geçerli görünümlü" PDF üretir
     if (!reportsEnabled || isLoading) return;
     try {
-      setIsExporting(true);
+      setExportingFormat('pdf');
       const rangeLabel =
         rowsData.length > 0
           ? `${rowsData[0].periodLabel} - ${rowsData[rowsData.length - 1].periodLabel}`
@@ -241,7 +249,66 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
       if (__DEV__) console.error('[useComparisonReport] PDF export error:', err);
       Alert.alert(t('common:status.error'));
     } finally {
-      setIsExporting(false);
+      setExportingFormat(null);
+    }
+  };
+
+  const exportExcel = async () => {
+    if (!reportsEnabled || isLoading || !isletme) return;
+    try {
+      setExportingFormat('excel');
+      const rangeLabel = rowsData.length > 0
+        ? `${rowsData[0].periodLabel} - ${rowsData[rowsData.length - 1].periodLabel}`
+        : '';
+      const translations: ComparisonExcelTranslations = {
+        reportTitle: t('reports:titles.comparison'),
+        period: t('reports:comparison.period'),
+        createdAt: t('common:export.excel.createdAt'),
+        business: t('common:export.excel.business'),
+        income: t('reports:summary.income'),
+        expense: t('reports:summary.expense'),
+        net: t('reports:comparison.net'),
+        total: t('reports:comparison.total'),
+        average: t('reports:comparison.average'),
+        sheetName: t('common:export.reportExcel.comparisonSheetName'),
+        fileName: t('common:export.reportExcel.comparisonFileName'),
+        shareDialogTitle: t('common:export.shareDialogTitle'),
+        sharingNotSupported: t('common:export.sharingNotSupported'),
+        noDataError: t('common:export.noDataToExport'),
+      };
+
+      await exportComparisonReportToExcel({
+        isletmeName: isletme.name || '',
+        rangeLabel,
+        currency: baseCurrency,
+        rows: displayRows.map((row) => ({
+          label: row.periodLabel,
+          income: row.income,
+          expense: row.expense,
+          net: row.net,
+        })),
+        totals: {
+          income: totals.income,
+          expense: totals.expense,
+          net: totals.net,
+        },
+        averages: {
+          income: totals.avgIncome,
+          expense: totals.avgExpense,
+          net: totals.avgNet,
+        },
+        translations,
+      });
+      logEvent('export_completed', {
+        format: 'excel',
+        export_type: 'report',
+        report_type: 'comparison',
+      });
+    } catch (err) {
+      if (__DEV__) console.error('[useComparisonReport] Excel export error:', err);
+      Alert.alert(t('common:status.error'));
+    } finally {
+      setExportingFormat(null);
     }
   };
 
@@ -255,6 +322,9 @@ export function useComparisonReport(period: PeriodType, periodOffset: number): C
     error,
     refetch: () => Promise.all(results.map((r) => r.refetch())),
     isExporting,
+    isExportingPdf: exportingFormat === 'pdf',
+    isExportingExcel: exportingFormat === 'excel',
     exportPdf,
+    exportExcel,
   };
 }

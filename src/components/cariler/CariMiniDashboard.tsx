@@ -218,7 +218,7 @@ export function CariMiniDashboard({
         );
       })()}
     </View>
-  ), [cardWidth, t, borcumuz, alacagimiz, baseCurrency, onGenelPress, onVadePress, onTaksitPress, vadeTemiz, gecAlacak, gecBorc, yaklasan, vadeCur, taksitOzet]);
+  ), [cardWidth, t, borcumuz, alacagimiz, baseCurrency, onGenelPress, onVadePress, onTaksitPress, vadeTemiz, gecAlacak, gecBorc, yaklasan, vadeCur, taksitOzet, taksitPlanlar]);
 
   // Kartlar DİNAMİK (kullanıcı isteği): hiç vadeli/taksitli kayıt yoksa o kart
   // hiç gösterilmez — Genel Durum her zaman, Vade yalnız açık vadeli birim varsa

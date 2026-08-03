@@ -1,5 +1,13 @@
-import { Modal as RNModal, type ModalProps } from 'react-native';
+import { Modal as RNModal, StyleSheet, View, type ModalProps } from 'react-native';
 import { ModalInsets } from './ModalInsets';
+
+export interface AppModalProps extends ModalProps {
+  /**
+   * Zaten acik bir native Modal icinde gosterilecek picker/sheet icin yeni bir
+   * native pencere acmaz; parent modalin icinde mutlak konumlu katman kullanir.
+   */
+  inline?: boolean;
+}
 
 /**
  * React Native'in Modal'ının yerine geçen sarmalayıcı — içeriğini otomatik
@@ -17,12 +25,34 @@ import { ModalInsets } from './ModalInsets';
  * yeterli: `from 'react-native'` → `from '@/components/ui'`. Yeni modal yazan
  * kimse ayrıca bir şey düşünmez.
  *
- * Props RN Modal ile birebir aynı; davranış farkı yok.
+ * Props RN Modal ile birebir aynı; `inline` yalnız nested-modal güvenliği içindir.
  */
-export function Modal({ children, ...props }: ModalProps) {
+export function Modal({ children, inline = false, visible = true, ...props }: AppModalProps) {
+  if (inline) {
+    if (!visible) return null;
+
+    return (
+      <View
+        style={styles.inlineRoot}
+        pointerEvents="box-none"
+        accessibilityViewIsModal
+      >
+        <ModalInsets>{children}</ModalInsets>
+      </View>
+    );
+  }
+
   return (
-    <RNModal {...props}>
+    <RNModal visible={visible} {...props}>
       <ModalInsets>{children}</ModalInsets>
     </RNModal>
   );
 }
+
+const styles = StyleSheet.create({
+  inlineRoot: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1000,
+    elevation: 1000,
+  },
+});

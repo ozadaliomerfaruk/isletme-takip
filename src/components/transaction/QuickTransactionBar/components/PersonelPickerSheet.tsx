@@ -77,6 +77,7 @@ export function PersonelPickerSheet({
 
   return (
     <Modal
+      inline
       visible
       transparent
       animationType="slide"

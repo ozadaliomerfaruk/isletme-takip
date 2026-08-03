@@ -4,16 +4,24 @@
  */
 
 import XLSX from 'xlsx-js-style';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
-import { formatDateShort, formatDateTime, parseDateFromDB } from './date';
+import { formatDateForDB, formatDateShort, formatDateTime } from './date';
 import { toNumber, getIslemCurrency } from './currency';
-import { getCurrencySymbol } from '@/constants/currencies';
 import { createConversionSum } from '@/hooks/useExchangeRates';
 import { isReturnType } from '@/constants/islemTypes';
 import { IslemWithRelations } from '@/types/database';
 import type { ProductReportItem } from '@/hooks/useProductReport';
 import type { CashFlowItem } from '@/hooks/useCashFlowByCategory';
+import {
+  excelCountCell,
+  excelDateCell,
+  excelMoneyCell,
+  excelPercentCell,
+  excelQuantityCell,
+  sanitizeExcelSheetName,
+  writeAndShareExcelWorkbook,
+} from './excelWorkbook';
+
+export { excelCountCell, excelDateCell, excelMoneyCell, excelPercentCell, excelQuantityCell };
 
 // Net/fark hücreleri negatifte İŞARETLİ yazılır — yardımcı artık lib/currency'de
 // (aynı kalıp 5 yüzeyde tekrarlanıyordu, tek kaynağa alındı).
@@ -95,52 +103,6 @@ const categoryCurrencyStyle = {
   alignment: { horizontal: 'right', vertical: 'center' },
   border: thinBorder,
 };
-
-function currencyNumberFormat(currency: string): string {
-  const symbol = getCurrencySymbol(currency).replace(/"/g, '""');
-  return `"${symbol}"#,##0.00`;
-}
-
-// Excel'de sıralama, formül ve grafik çalışabilsin: tutar/metrikler metin değil
-// gerçek sayı; para birimi ve yüzde yalnız hücre biçimidir.
-export function excelMoneyCell(
-  amount: number,
-  currency: string,
-  style: object,
-) {
-  return {
-    v: amount,
-    t: 'n' as const,
-    z: currencyNumberFormat(currency),
-    s: style,
-  };
-}
-
-export function excelPercentCell(percentage: number, style: object) {
-  return {
-    v: percentage / 100,
-    t: 'n' as const,
-    z: '0.00%',
-    s: style,
-  };
-}
-
-export function excelCountCell(value: number, style: object) {
-  return { v: value, t: 'n' as const, z: '0', s: style };
-}
-
-export function excelDateCell(value: string, style: object) {
-  const date = parseDateFromDB(value);
-  if (Number.isNaN(date.getTime())) {
-    return { v: value, t: 's' as const, s: style };
-  }
-  return {
-    v: date,
-    t: 'd' as const,
-    z: 'yyyy-mm-dd',
-    s: style,
-  };
-}
 
 function calculateConvertedNet(
   transactions: IslemWithRelations[],
@@ -456,31 +418,15 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
   ws['!rows'] = [{ hpt: 24 }];
 
   // Add to workbook
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
 
-  // Export as base64
-  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-
-  // File name
   const fileName = `${t.fileName}_${startDate}_${endDate}.xlsx`;
-  const filePath = `${FileSystem.cacheDirectory}${fileName}`;
-
-  // Write file
-  await FileSystem.writeAsStringAsync(filePath, wbout, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  // Share
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(filePath, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: t.shareDialogTitle,
-      UTI: 'com.microsoft.excel.xlsx',
-    });
-  } else {
-    throw new Error(t.sharingNotSupported);
-  }
+  await writeAndShareExcelWorkbook(
+    wb,
+    fileName,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
 }
 
 // ============================================================================
@@ -506,22 +452,7 @@ function writeHeaderSection(
 }
 
 async function writeAndShare(wb: XLSX.WorkBook, fileName: string, shareDialogTitle: string, sharingNotSupported: string) {
-  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-  const safeFileName = fileName.replace(/\s+/g, '_');
-  const filePath = `${FileSystem.cacheDirectory}${safeFileName}`;
-  await FileSystem.writeAsStringAsync(filePath, wbout, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(filePath, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: shareDialogTitle,
-      UTI: 'com.microsoft.excel.xlsx',
-    });
-  } else {
-    throw new Error(sharingNotSupported);
-  }
+  await writeAndShareExcelWorkbook(wb, fileName, shareDialogTitle, sharingNotSupported);
 }
 
 // ============================================================================
@@ -758,7 +689,7 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
   ];
   ws['!rows'] = [{ hpt: 24 }];
 
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
 
   const fileName = `${t.fileName}_${startDate}_${endDate}.xlsx`;
   await writeAndShare(wb, fileName, t.shareDialogTitle, t.sharingNotSupported);
@@ -876,7 +807,7 @@ export async function exportCashFlowToExcel(options: CashFlowExportOptions): Pro
   ];
   ws['!rows'] = [{ hpt: 24 }];
 
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
 
   const fileName = `${t.fileName}_${startDate}_${endDate}.xlsx`;
   await writeAndShare(wb, fileName, t.shareDialogTitle, t.sharingNotSupported);
@@ -1057,8 +988,243 @@ export async function exportGenelDurumToExcel(options: GenelDurumExportOptions):
   ];
   ws['!rows'] = [{ hpt: 24 }];
 
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
 
-  const fileName = `${t.fileName}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+  const fileName = `${t.fileName}_${formatDateForDB(new Date())}.xlsx`;
   await writeAndShare(wb, fileName, t.shareDialogTitle, t.sharingNotSupported);
+}
+
+// ============================================================================
+// COMPARISON REPORT EXPORT
+// ============================================================================
+
+export interface ComparisonExcelTranslations {
+  reportTitle: string;
+  period: string;
+  createdAt: string;
+  business: string;
+  income: string;
+  expense: string;
+  net: string;
+  total: string;
+  average: string;
+  sheetName: string;
+  fileName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
+  noDataError?: string;
+}
+
+export interface ComparisonExcelRow {
+  label: string;
+  income: number;
+  expense: number;
+  net: number;
+}
+
+export interface ComparisonExcelExportOptions {
+  isletmeName: string;
+  rangeLabel: string;
+  currency: string;
+  rows: ComparisonExcelRow[];
+  totals: { income: number; expense: number; net: number };
+  averages: { income: number; expense: number; net: number };
+  translations: ComparisonExcelTranslations;
+}
+
+export async function exportComparisonReportToExcel(
+  options: ComparisonExcelExportOptions,
+): Promise<void> {
+  const {
+    isletmeName,
+    rangeLabel,
+    currency,
+    rows,
+    totals,
+    averages,
+    translations: t,
+  } = options;
+
+  if (rows.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws: XLSX.WorkSheet = {};
+  ws['A1'] = { v: t.reportTitle, s: titleStyle };
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+  ws['A3'] = { v: `${t.period}:`, s: metaLabelStyle };
+  ws['B3'] = { v: rangeLabel, s: metaValueStyle };
+  ws['A4'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
+  ws['B4'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+  ws['A5'] = { v: `${t.business}:`, s: metaLabelStyle };
+  ws['B5'] = { v: isletmeName, s: businessNameStyle };
+
+  const headers = [t.period, t.income, t.expense, t.net];
+  const columns = ['A', 'B', 'C', 'D'];
+  const headerRow = 7;
+  headers.forEach((header, index) => {
+    ws[`${columns[index]}${headerRow}`] = { v: header, s: headerStyle };
+  });
+
+  let rowIdx = headerRow + 1;
+  rows.forEach((row) => {
+    ws[`A${rowIdx}`] = { v: row.label, s: cellStyle };
+    ws[`B${rowIdx}`] = excelMoneyCell(row.income, currency, currencyCellStyle);
+    ws[`C${rowIdx}`] = excelMoneyCell(row.expense, currency, currencyCellStyle);
+    ws[`D${rowIdx}`] = excelMoneyCell(row.net, currency, currencyCellStyle);
+    rowIdx++;
+  });
+
+  ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
+  ws[`B${rowIdx}`] = excelMoneyCell(totals.income, currency, totalCurrencyStyle);
+  ws[`C${rowIdx}`] = excelMoneyCell(totals.expense, currency, totalCurrencyStyle);
+  ws[`D${rowIdx}`] = excelMoneyCell(totals.net, currency, totalCurrencyStyle);
+  rowIdx++;
+
+  ws[`A${rowIdx}`] = { v: t.average, s: categoryHeaderStyle };
+  ws[`B${rowIdx}`] = excelMoneyCell(averages.income, currency, categoryCurrencyStyle);
+  ws[`C${rowIdx}`] = excelMoneyCell(averages.expense, currency, categoryCurrencyStyle);
+  ws[`D${rowIdx}`] = excelMoneyCell(averages.net, currency, categoryCurrencyStyle);
+
+  ws['!ref'] = `A1:D${rowIdx}`;
+  ws['!cols'] = [{ wch: 24 }, { wch: 18 }, { wch: 18 }, { wch: 18 }];
+  ws['!rows'] = [{ hpt: 24 }];
+  ws['!autofilter'] = { ref: `A${headerRow}:D${headerRow + rows.length}` };
+
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${t.fileName}_${formatDateForDB(new Date())}.xlsx`,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
+}
+
+// ============================================================================
+// NET WORTH TREND EXPORT
+// ============================================================================
+
+export interface NetWorthTrendExcelTranslations {
+  reportTitle: string;
+  range: string;
+  lens: string;
+  createdAt: string;
+  business: string;
+  month: string;
+  value: string;
+  change: string;
+  rate: string;
+  status: string;
+  current: string;
+  derived: string;
+  noRecord: string;
+  sheetName: string;
+  fileName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
+  noDataError?: string;
+}
+
+export interface NetWorthTrendExcelRow {
+  month: string;
+  value: number | null;
+  change: number | null;
+  rate: number | null;
+  isCurrent: boolean;
+  empty: boolean;
+  sparse: boolean;
+}
+
+export interface NetWorthTrendExcelExportOptions {
+  isletmeName: string;
+  rangeLabel: string;
+  lensLabel: string;
+  lensDescription: string;
+  currency: string;
+  rows: NetWorthTrendExcelRow[];
+  footnote: string;
+  translations: NetWorthTrendExcelTranslations;
+}
+
+export async function exportNetWorthTrendToExcel(
+  options: NetWorthTrendExcelExportOptions,
+): Promise<void> {
+  const {
+    isletmeName,
+    rangeLabel,
+    lensLabel,
+    lensDescription,
+    currency,
+    rows,
+    footnote,
+    translations: t,
+  } = options;
+  const exportableRows = rows.filter((row) => row.value != null);
+  if (exportableRows.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws: XLSX.WorkSheet = {};
+  ws['A1'] = { v: t.reportTitle, s: titleStyle };
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+    { s: { r: 6, c: 1 }, e: { r: 6, c: 4 } },
+  ];
+  ws['A3'] = { v: `${t.business}:`, s: metaLabelStyle };
+  ws['B3'] = { v: isletmeName, s: businessNameStyle };
+  ws['A4'] = { v: `${t.range}:`, s: metaLabelStyle };
+  ws['B4'] = { v: rangeLabel, s: metaValueStyle };
+  ws['A5'] = { v: `${t.lens}:`, s: metaLabelStyle };
+  ws['B5'] = { v: lensLabel, s: metaValueStyle };
+  ws['A6'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
+  ws['B6'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+  ws['B7'] = { v: lensDescription, s: { ...metaValueStyle, alignment: { horizontal: 'left', wrapText: true } } };
+
+  const headerRow = 9;
+  const headers = [t.month, t.value, t.change, t.rate, t.status];
+  const columns = ['A', 'B', 'C', 'D', 'E'];
+  headers.forEach((header, index) => {
+    ws[`${columns[index]}${headerRow}`] = { v: header, s: headerStyle };
+  });
+
+  let rowIdx = headerRow + 1;
+  exportableRows.forEach((row) => {
+    ws[`A${rowIdx}`] = excelDateCell(`${row.month}-01`, cellStyle, 'mmmm yyyy');
+    ws[`B${rowIdx}`] = currency === 'gram'
+      ? excelQuantityCell(row.value as number, currencyCellStyle)
+      : excelMoneyCell(row.value as number, currency, currencyCellStyle);
+    ws[`C${rowIdx}`] = row.change == null
+      ? { v: '', s: currencyCellStyle }
+      : currency === 'gram'
+        ? excelQuantityCell(row.change, currencyCellStyle)
+        : excelMoneyCell(row.change, currency, currencyCellStyle);
+    ws[`D${rowIdx}`] = row.rate == null
+      ? { v: '', s: currencyCellStyle }
+      : excelMoneyCell(row.rate, 'TRY', currencyCellStyle);
+    const statuses = [
+      row.isCurrent ? t.current : '',
+      row.sparse ? t.derived : '',
+      row.empty ? t.noRecord : '',
+    ].filter(Boolean);
+    ws[`E${rowIdx}`] = { v: statuses.join(' · '), s: cellStyle };
+    rowIdx++;
+  });
+
+  const footnoteRow = rowIdx + 1;
+  ws[`A${footnoteRow}`] = { v: footnote, s: { ...metaValueStyle, alignment: { horizontal: 'left', wrapText: true } } };
+  ws['!merges'].push({ s: { r: footnoteRow - 1, c: 0 }, e: { r: footnoteRow - 1, c: 4 } });
+  ws['!ref'] = `A1:E${footnoteRow}`;
+  ws['!cols'] = [{ wch: 18 }, { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 26 }];
+  ws['!rows'] = [{ hpt: 24 }];
+  ws['!autofilter'] = { ref: `A${headerRow}:E${headerRow + exportableRows.length}` };
+
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${t.fileName}_${formatDateForDB(new Date())}.xlsx`,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
 }

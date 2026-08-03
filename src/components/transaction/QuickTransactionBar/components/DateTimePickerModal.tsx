@@ -1,11 +1,15 @@
-import { useCallback, useMemo } from 'react';
-import { View, TouchableOpacity, TouchableWithoutFeedback, Platform } from 'react-native';
+import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { Keyboard, Platform, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import DateTimePickerRN from '@react-native-community/datetimepicker';
+import DateTimePickerRN, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 import { Text, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
-import { ensureValidDate } from '@/lib/date';
+import {
+  combineTransactionDateAndTime,
+  ensureValidTransactionDate,
+  getMinimumTransactionDate,
+} from '@/lib/date';
 import { styles } from '../styles';
 
 export interface DateTimePickerModalProps {
@@ -28,54 +32,118 @@ export function DateTimePickerModal({
 }: DateTimePickerModalProps) {
   const { t } = useTranslation(['transactions', 'common']);
 
-  // Guard against invalid/epoch dates (1970 bug)
-  const safeValue = useMemo(() => ensureValidDate(value), [value]);
+  const effectiveMinimumDate = useMemo(() => {
+    const transactionFloor = getMinimumTransactionDate();
+    const requestedMinimum = ensureValidTransactionDate(minimumDate, transactionFloor);
+    const result = requestedMinimum.getTime() < transactionFloor.getTime()
+      ? transactionFloor
+      : new Date(requestedMinimum);
+
+    // Date modunda yalnız gün sınırı önemlidir. Saat bileşeni aynı günün yanlışlıkla
+    // seçilemez sayılmasına yol açmasın.
+    result.setHours(0, 0, 0, 0);
+    return result;
+  }, [minimumDate]);
+
+  const safeValue = useMemo(() => {
+    const candidate = ensureValidTransactionDate(value);
+    return candidate.getTime() < effectiveMinimumDate.getTime()
+      ? new Date(effectiveMinimumDate)
+      : candidate;
+  }, [effectiveMinimumDate, value]);
+
+  // Tarih ve saat picker'ları aynı controlled Date'i paylaşınca birbirlerinin
+  // native value güncellemesini geri yazabiliyordu. İki parçayı bağımsız tutup
+  // kullanıcı bitirdiğinde tek bir Date'e birleştiriyoruz.
+  const [draftDate, setDraftDate] = useState(safeValue);
+  const [draftTime, setDraftTime] = useState(safeValue);
+  const [androidMode, setAndroidMode] = useState<'date' | 'time'>('date');
+
+  useLayoutEffect(() => {
+    if (!visible) return;
+
+    setDraftDate(safeValue);
+    setDraftTime(safeValue);
+    setAndroidMode('date');
+    Keyboard.dismiss();
+  }, [safeValue, visible]);
+
+  const commitAndDismiss = useCallback(
+    (datePart: Date = draftDate, timePart: Date = draftTime) => {
+      onChange(combineTransactionDateAndTime(datePart, timePart, safeValue));
+      onDismiss();
+    },
+    [draftDate, draftTime, onChange, onDismiss, safeValue]
+  );
 
   const handleDateChange = useCallback(
-    (event: { type: string }, selectedDate?: Date) => {
+    (event: DateTimePickerEvent, selectedDate?: Date) => {
       if (Platform.OS === 'android') {
-        if (event.type === 'set' && selectedDate) {
-          const newDate = new Date(safeValue);
-          newDate.setFullYear(selectedDate.getFullYear());
-          newDate.setMonth(selectedDate.getMonth());
-          newDate.setDate(selectedDate.getDate());
-          onChange(newDate);
+        if (event.type !== 'set' || !selectedDate) {
+          onDismiss();
+          return;
         }
-      } else if (selectedDate) {
-        const newDate = new Date(safeValue);
-        newDate.setFullYear(selectedDate.getFullYear());
-        newDate.setMonth(selectedDate.getMonth());
-        newDate.setDate(selectedDate.getDate());
-        onChange(newDate);
+
+        const nextDate = ensureValidTransactionDate(selectedDate, draftDate);
+        setDraftDate(
+          nextDate.getTime() < effectiveMinimumDate.getTime()
+            ? new Date(effectiveMinimumDate)
+            : nextDate
+        );
+        setAndroidMode('time');
+        return;
       }
+
+      if (!selectedDate) return;
+      const nextDate = ensureValidTransactionDate(selectedDate, draftDate);
+      setDraftDate(
+        nextDate.getTime() < effectiveMinimumDate.getTime()
+          ? new Date(effectiveMinimumDate)
+          : nextDate
+      );
     },
-    [safeValue, onChange]
+    [draftDate, effectiveMinimumDate, onDismiss]
   );
 
   const handleTimeChange = useCallback(
-    (event: { type: string }, selectedDate?: Date) => {
+    (event: DateTimePickerEvent, selectedDate?: Date) => {
       if (Platform.OS === 'android') {
         if (event.type === 'set' && selectedDate) {
-          const newDate = new Date(safeValue);
-          newDate.setHours(selectedDate.getHours());
-          newDate.setMinutes(selectedDate.getMinutes());
-          onChange(newDate);
+          commitAndDismiss(draftDate, selectedDate);
+        } else {
+          // Tarih seçildi, kullanıcı saat adımını iptal etti: seçilen günü mevcut
+          // saatle koru; ilk adımı sessizce kaybetme.
+          commitAndDismiss(draftDate, draftTime);
         }
-      } else if (selectedDate) {
-        const newDate = new Date(safeValue);
-        newDate.setHours(selectedDate.getHours());
-        newDate.setMinutes(selectedDate.getMinutes());
-        onChange(newDate);
+        return;
+      }
+
+      if (selectedDate && Number.isFinite(selectedDate.getTime())) {
+        setDraftTime(selectedDate);
       }
     },
-    [safeValue, onChange]
+    [commitAndDismiss, draftDate, draftTime]
   );
 
   if (!visible) return null;
 
+  if (Platform.OS === 'android') {
+    return (
+      <DateTimePickerRN
+        key={androidMode}
+        value={androidMode === 'date' ? draftDate : draftTime}
+        mode={androidMode}
+        display="default"
+        is24Hour
+        minimumDate={androidMode === 'date' ? effectiveMinimumDate : undefined}
+        onChange={androidMode === 'date' ? handleDateChange : handleTimeChange}
+      />
+    );
+  }
+
   return (
-    <Modal visible transparent animationType="fade">
-      <TouchableWithoutFeedback onPress={onDismiss}>
+    <Modal inline visible transparent animationType="fade">
+      <TouchableWithoutFeedback onPress={() => commitAndDismiss()}>
         <View style={styles.pickerBackdrop}>
           <TouchableWithoutFeedback onPress={() => {}}>
             <View style={styles.pickerContainer}>
@@ -85,12 +153,12 @@ export function DateTimePickerModal({
               <View style={styles.pickerSection}>
                 <Text style={styles.pickerSectionTitle}>{t('common:date.date')}</Text>
                 <DateTimePickerRN
-                  value={safeValue}
+                  value={draftDate}
                   mode="date"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  display="spinner"
                   onChange={handleDateChange}
                   locale={locale}
-                  minimumDate={minimumDate}
+                  minimumDate={effectiveMinimumDate}
                   textColor={colors.text}
                   themeVariant="light"
                   style={styles.datePickerStyle}
@@ -101,9 +169,9 @@ export function DateTimePickerModal({
               <View style={styles.pickerSection}>
                 <Text style={styles.pickerSectionTitle}>{t('common:date.time')}</Text>
                 <DateTimePickerRN
-                  value={safeValue}
+                  value={draftTime}
                   mode="time"
-                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  display="spinner"
                   is24Hour={true}
                   onChange={handleTimeChange}
                   locale={locale}
@@ -113,7 +181,7 @@ export function DateTimePickerModal({
                 />
               </View>
 
-              <TouchableOpacity style={styles.pickerDoneButton} onPress={onDismiss}>
+              <TouchableOpacity style={styles.pickerDoneButton} onPress={() => commitAndDismiss()}>
                 <Text style={styles.pickerDoneText}>{t('common:buttons.done')}</Text>
               </TouchableOpacity>
             </View>

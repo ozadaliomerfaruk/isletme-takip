@@ -23,6 +23,7 @@ import {
 } from '@/lib/appleAccountDeletion';
 import { Isletme } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
+import { isPermanentAuthSessionError } from '@/lib/authSessionRecovery';
 import type { Permissions, UserRole } from '@/types/multiUser';
 import i18n from '@/i18n';
 
@@ -75,6 +76,7 @@ export function useAuth() {
   // AppState için ref - arka plan/ön plan takibi
   const appState = useRef(AppState.currentState);
   const lastRefreshTime = useRef<number>(Date.now());
+  const sessionRef = useRef<Session | null>(null);
   // Aynı anda foreground + manuel izin yenilemesi gelirse eski ağ yanıtı yeni
   // (özellikle daha dar) izni geri genişletmesin.
   const permissionRefreshEpoch = useRef(0);
@@ -119,10 +121,11 @@ export function useAuth() {
           console.error('Session yenileme hatası:', error);
         }
         // Refresh token da geçersizse kullanıcıyı çıkış yaptır
-        if (toErrorMessage(error)?.includes('refresh_token') || toErrorMessage(error)?.includes('Invalid')) {
+        if (isPermanentAuthSessionError(error)) {
           if (__DEV__) {
             console.log('Refresh token geçersiz, çıkış yapılıyor...');
           }
+          sessionRef.current = null;
           setState({
             session: null,
             user: null,
@@ -313,9 +316,24 @@ export function useAuth() {
   // Auth state değişikliklerini dinle
   useEffect(() => {
     let isMounted = true;
+    let authRetryId: ReturnType<typeof setTimeout> | null = null;
+    let authRetryAttempt = 0;
+    // INITIAL_SESSION(null), getSession sonucu kesinleşmeden login route'una
+    // düşürülmez. Başlangıç denemesi de recovery penceresinin parçasıdır.
+    let authRecoveryPending = true;
+
+    const scheduleAuthRetry = () => {
+      if (!isMounted || authRetryId) return;
+      const delay = Math.min(1000 * (2 ** authRetryAttempt), 30000);
+      authRetryAttempt += 1;
+      authRetryId = setTimeout(() => {
+        authRetryId = null;
+        void initializeAuth();
+      }, delay);
+    };
 
     // Mevcut session'ı al
-    const initializeAuth = async () => {
+    async function initializeAuth() {
       try {
         // ── [GEÇİCİ TEŞHİS — auth-init asılması, 13 Tem] Teşhis bitince bu blok ÇIKACAK ──
         // Üç ayrı probu ayırt eder: (a) health-probe = telefon→Supabase HAM erişim (ham fetch,
@@ -343,6 +361,20 @@ export function useAuth() {
           if (__DEV__) {
             console.error('Session getirme hatası:', error);
           }
+          if (!isPermanentAuthSessionError(error)) {
+            authRecoveryPending = true;
+            setState((prev) => ({
+              ...prev,
+              loading: true,
+              initialized: false,
+              isletmeLoading: true,
+            }));
+            scheduleAuthRetry();
+            return;
+          }
+
+          sessionRef.current = null;
+          authRecoveryPending = false;
           setState({
             session: null,
             user: null,
@@ -362,6 +394,9 @@ export function useAuth() {
 
         if (session?.user) {
           // Önce session/user'ı hemen set et ki routing çalışsın
+          sessionRef.current = session;
+          authRetryAttempt = 0;
+          authRecoveryPending = false;
           setState((prev) => ({
             ...prev,
             session,
@@ -411,6 +446,9 @@ export function useAuth() {
           }
         } else {
           if (!isMounted) return;
+          sessionRef.current = null;
+          authRetryAttempt = 0;
+          authRecoveryPending = false;
           setState({
             session: null,
             user: null,
@@ -430,7 +468,9 @@ export function useAuth() {
         if (__DEV__) {
           console.error('Auth başlatma hatası:', error);
         }
-        if (isMounted) {
+        if (isMounted && isPermanentAuthSessionError(error)) {
+          sessionRef.current = null;
+          authRecoveryPending = false;
           setState({
             session: null,
             user: null,
@@ -445,6 +485,18 @@ export function useAuth() {
             currentUserRole: null,
             accountDeletionScheduledAt: null,
           });
+          return;
+        }
+
+        if (isMounted) {
+          authRecoveryPending = true;
+          setState((prev) => ({
+            ...prev,
+            loading: true,
+            initialized: false,
+            isletmeLoading: true,
+          }));
+          scheduleAuthRetry();
         }
       }
     };
@@ -460,14 +512,8 @@ export function useAuth() {
           if (__DEV__) {
             console.warn('Auth başlatma zaman aşımı');
           }
-          // Session'ı sıfırlamak yerine, sadece loading'i kapat
-          // Mevcut session varsa koruyalım
-          setState((prev) => ({
-            ...prev,
-            loading: false,
-            initialized: true,
-            isletmeLoading: false,
-          }));
+          // Belirsiz ağ/lock gecikmesi kullaniciyi cikis yapmis saydirmaz.
+          // Auth olayi veya kontrollu retry state'i kurtarir.
         }
       }, 30000);
 
@@ -481,7 +527,7 @@ export function useAuth() {
       }
     };
 
-    initWithTimeout();
+    void initWithTimeout();
 
     // Auth değişikliklerini dinle
     const {
@@ -505,11 +551,15 @@ export function useAuth() {
       // değişiklikleri (metadata/e-posta) ayrı bir event'tir (USER_UPDATED → aşağıdaki dal user'ı günceller).
       if (event === 'TOKEN_REFRESHED') {
         lastRefreshTime.current = Date.now();
-        return;
+        // Soguk acilista getSession gecici hata verdiyse auth-js tokeni daha
+        // sonra yenileyebilir. State bosken bu event oturumu geri kurmalidir.
+        if (!session?.user || sessionRef.current) return;
       }
 
       // SIGNED_OUT eventinde state'i temizle
       if (event === 'SIGNED_OUT') {
+        sessionRef.current = null;
+        authRecoveryPending = false;
         setState({
           session: null,
           user: null,
@@ -530,6 +580,13 @@ export function useAuth() {
       // SIGNED_IN, INITIAL_SESSION, USER_UPDATED eventlerinde
       // Önce session/user'ı hemen güncelle ki routing çalışsın
       if (session?.user) {
+        sessionRef.current = session;
+        authRetryAttempt = 0;
+        authRecoveryPending = false;
+        if (authRetryId) {
+          clearTimeout(authRetryId);
+          authRetryId = null;
+        }
         setState((prev) => ({
           ...prev,
           session,
@@ -590,6 +647,8 @@ export function useAuth() {
       } else {
         // Session yok
         if (!isMounted) return;
+        if (event === 'INITIAL_SESSION' && authRecoveryPending) return;
+        sessionRef.current = null;
         setState((prev) => ({
           ...prev,
           session: null,
@@ -605,6 +664,9 @@ export function useAuth() {
       isMounted = false;
       if (timeoutId) {
         clearTimeout(timeoutId);
+      }
+      if (authRetryId) {
+        clearTimeout(authRetryId);
       }
       subscription.unsubscribe();
     };

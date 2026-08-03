@@ -4,6 +4,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { IrsaliyeRecord, IrsaliyeRecordInsert, IrsaliyeRecordUpdate } from '@/types/database';
 import { invalidateRelatedQueries, queryKeys } from '@/lib/queryKeys';
 import i18n from '@/i18n';
+import { formatDateForDB } from '@/lib/date';
 
 /**
  * Tüm irsaliye kayıtlarını getir (opsiyonel status filtresi)
@@ -57,8 +58,8 @@ export function usePendingIrsaliyeByCari(cariId: string | null) {
         .eq('isletme_id', isletme.id)
         .eq('cari_id', cariId)
         .eq('status', 'pending')
-        .gte('tarih', from.toISOString().split('T')[0])
-        .lte('tarih', to.toISOString().split('T')[0])
+        .gte('tarih', formatDateForDB(from))
+        .lte('tarih', formatDateForDB(to))
         .order('tarih', { ascending: false });
 
       if (error) throw error;

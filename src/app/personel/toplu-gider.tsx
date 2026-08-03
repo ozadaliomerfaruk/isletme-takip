@@ -14,7 +14,7 @@ import { spacing, borderRadius, fontSize, shadows } from '@/constants/spacing';
 import { usePersonelList } from '@/hooks/usePersonel';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
+import { formatDateTimeForDB, getMinimumTransactionDate, isToday, ensureValidTransactionDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber, formatAmountForInput } from '@/lib/currency';
 import { getInitials } from '@/lib/utils';
 import { toErrorMessage } from '@/lib/errors';
@@ -46,7 +46,7 @@ export default function TopluGiderPage() {
   };
 
   const [date, setDate] = useState(getDefaultDate());
-  const safeDate = useMemo(() => ensureValidDate(date), [date]);
+  const safeDate = useMemo(() => ensureValidTransactionDate(date), [date]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
@@ -485,6 +485,7 @@ export default function TopluGiderPage() {
                         value={safeDate}
                         mode="date"
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        minimumDate={getMinimumTransactionDate()}
                         onChange={(event, selectedDate) => {
                           if (Platform.OS === 'android') {
                             if (event.type === 'set' && selectedDate) {

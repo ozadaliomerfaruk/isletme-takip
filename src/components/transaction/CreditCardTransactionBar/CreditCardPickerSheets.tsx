@@ -35,7 +35,7 @@ export function OdemeHedefTypePicker({
   if (!visible) return null;
 
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onDismiss}>
+    <Modal inline visible transparent animationType="slide" onRequestClose={onDismiss}>
       <TouchableWithoutFeedback onPress={onDismiss}>
         <View style={styles.bottomSheetOverlay}>
           <TouchableWithoutFeedback onPress={() => {}}>

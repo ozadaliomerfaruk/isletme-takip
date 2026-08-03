@@ -318,6 +318,7 @@ export function UrunPickerModal({
 
   return (
     <Modal
+      inline
       visible
       transparent
       animationType="slide"

@@ -619,3 +619,60 @@ export function ensureValidDate(date: Date | null | undefined): Date {
 
   return date;
 }
+
+/**
+ * İşlem giriş ekranlarında seçilebilecek en eski tarih.
+ *
+ * Genel tarih yardımcıları 1926 gibi rapor başlangıçlarını bilinçli olarak
+ * destekler. İşlem picker'larında ise 1970, gerçek bir kullanıcı seçimi değil;
+ * Unix epoch / native time-picker sentinel'idir. Bu nedenle iki domain ayrı
+ * tutulur ve genel `ensureValidDate` davranışı daraltılmaz.
+ */
+export function getMinimumTransactionDate(): Date {
+  return new Date(2000, 0, 1, 0, 0, 0, 0);
+}
+
+/**
+ * İşlem oluşturma/düzenleme state'ine girecek tarihi doğrular.
+ * 2000 öncesi, geçersiz ve aşırı ileri değerleri güvenli fallback'e çeker.
+ */
+export function ensureValidTransactionDate(
+  date: Date | null | undefined,
+  fallback: Date = new Date()
+): Date {
+  const minimum = getMinimumTransactionDate();
+  const isValidTransactionDate = (candidate: Date | null | undefined): candidate is Date =>
+    candidate instanceof Date
+    && Number.isFinite(candidate.getTime())
+    && candidate.getTime() >= minimum.getTime()
+    && candidate.getFullYear() <= 2100;
+
+  if (isValidTransactionDate(date)) {
+    return date;
+  }
+
+  if (isValidTransactionDate(fallback)) {
+    return new Date(fallback);
+  }
+
+  return new Date();
+}
+
+/**
+ * Ayrı date/time picker'lardan gelen parçaları tek işlem tarihine birleştirir.
+ * iOS time picker'ın tarih parçası 1970 olabilir; burada yalnız saat/dakika
+ * alınır, gerçek gün daima doğrulanmış `datePart` üzerinden korunur.
+ */
+export function combineTransactionDateAndTime(
+  datePart: Date | null | undefined,
+  timePart: Date | null | undefined,
+  fallback: Date = new Date()
+): Date {
+  const result = new Date(ensureValidTransactionDate(datePart, fallback));
+
+  if (timePart instanceof Date && Number.isFinite(timePart.getTime())) {
+    result.setHours(timePart.getHours(), timePart.getMinutes(), 0, 0);
+  }
+
+  return ensureValidTransactionDate(result, fallback);
+}

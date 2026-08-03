@@ -33,6 +33,7 @@ import DateTimePickerRN from '@react-native-community/datetimepicker';
 import { Text, CategoryPicker, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { formatCurrency } from '@/lib/currency';
+import { ensureValidTransactionDate, getMinimumTransactionDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import type { PendingIslem, IslemType } from '@/types/database';
 
@@ -327,14 +328,15 @@ export function PendingTransactionForm({
                     value={form.safeDate}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={getMinimumTransactionDate()}
                     onChange={(event, selectedDate) => {
                       if (Platform.OS === 'android') {
                         form.setShowDatePicker(false);
                         if (event.type === 'set' && selectedDate) {
-                          form.setDate(selectedDate);
+                          form.setDate(ensureValidTransactionDate(selectedDate));
                         }
                       } else if (selectedDate) {
-                        form.setDate(selectedDate);
+                        form.setDate(ensureValidTransactionDate(selectedDate));
                       }
                     }}
                     locale={locale}

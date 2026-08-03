@@ -157,7 +157,9 @@
     "clearFilters": "Filtreleri Temizle",
     "noResultsWithFilters": "Filtrelerinizi genişletin veya farklı bir terim deneyin",
     "clearRecentSearches": "Temizle",
-    "resultCount": "{{count}} sonuç bulundu"
+    "resultCount": "{{count}} sonuç bulundu",
+    "resultCountAtLeast": "En az {{count}} sonuç bulundu",
+    "refineForMoreResults": "50'den fazla işlem bulundu. Daha fazlası için aramanızı daraltın."
   },
   "select": {
     "selectCategory": "Kategori seç",
@@ -495,7 +497,9 @@
       "clientStaff": "CARİ/PERSONEL",
       "sheetName": "Rapor",
       "incomeFileName": "Gelir_Raporu",
-      "expenseFileName": "Gider_Raporu"
+      "expenseFileName": "Gider_Raporu",
+      "comparisonSheetName": "Karsilastirma",
+      "comparisonFileName": "Karsilastirma_Raporu"
     },
     "productExcel": {
       "reportTitle": "Alış-Satış Raporu",

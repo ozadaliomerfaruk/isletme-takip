@@ -27,6 +27,9 @@ import {
   addMonths,
   addDays,
   ensureValidDate,
+  ensureValidTransactionDate,
+  combineTransactionDateAndTime,
+  getMinimumTransactionDate,
   getMonthRange,
   getYearRange,
   formatDateShort,
@@ -396,6 +399,52 @@ describe('ensureValidDate', () => {
     jest.setSystemTime(new Date(2026, 1, 11));
     const result = ensureValidDate(new Date(1800, 0, 1));
     expect(result.getFullYear()).toBe(2026);
+  });
+});
+
+describe('transaction date contract', () => {
+  afterEach(() => jest.useRealTimers());
+
+  it('rejects a 1970 date even after the time picker makes its timestamp non-zero', () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 7, 3, 20, 15));
+
+    const epochWithSelectedTime = new Date(0);
+    epochWithSelectedTime.setHours(19, 52, 0, 0);
+
+    expect(epochWithSelectedTime.getTime()).not.toBe(0);
+    const result = ensureValidTransactionDate(epochWithSelectedTime);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(7);
+    expect(result.getDate()).toBe(3);
+  });
+
+  it('keeps valid transaction dates unchanged', () => {
+    const valid = new Date(2026, 7, 3, 19, 52);
+    expect(ensureValidTransactionDate(valid)).toBe(valid);
+  });
+
+  it('uses a fresh minimum-date object so native pickers cannot mutate shared state', () => {
+    const first = getMinimumTransactionDate();
+    first.setFullYear(2026);
+
+    const second = getMinimumTransactionDate();
+    expect(second.getFullYear()).toBe(2000);
+    expect(second.getMonth()).toBe(0);
+    expect(second.getDate()).toBe(1);
+  });
+
+  it('uses only the clock portion of an epoch-anchored time picker value', () => {
+    const selectedDay = new Date(2026, 7, 3, 8, 0);
+    const nativeTimeValue = new Date(0);
+    nativeTimeValue.setHours(19, 52, 0, 0);
+
+    const result = combineTransactionDateAndTime(selectedDay, nativeTimeValue);
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(7);
+    expect(result.getDate()).toBe(3);
+    expect(result.getHours()).toBe(19);
+    expect(result.getMinutes()).toBe(52);
   });
 });
 

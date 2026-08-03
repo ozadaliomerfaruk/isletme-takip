@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { queryKeys } from '@/lib/queryKeys';
-import { getDateRange } from '@/lib/date';
+import { formatDateForDB, getDateRange } from '@/lib/date';
 import { calculateIncomeSummary, isIncomeType, isIncomeReturnType, isExpenseType, isExpenseReturnType } from '@/constants/islemTypes';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { useSettings } from './useSettings';
@@ -162,7 +162,7 @@ export function useAnalyticsTrend(
       }
 
       const hasFilter = !!(filter?.type && filter?.id);
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = formatDateForDB(new Date());
 
       let trendData: TrendDataPoint[];
       // Kuru bulunamayan kalem oldu mu — ham tutar korunuyor ama bu artık SÖYLENİYOR

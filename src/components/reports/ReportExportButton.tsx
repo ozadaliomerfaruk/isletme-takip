@@ -12,8 +12,7 @@ interface ReportExportButtonProps {
 /**
  * Rapor ekranlarinda header'daki "paylas/disa aktar" (Excel) butonu.
  * gelir-gider ve alis-satis ekranlarinda birebir ayniydi.
- * Not: karsilastirma ekrani PDF disa aktarir ve kasitli olarak farkli
- * gorunume (yesil FileSpreadsheet + daire) sahiptir; bu bileseni kullanmaz.
+ * Karşılaştırma dahil Excel üreten rapor başlıklarında aynı giriş noktası kullanılır.
  */
 export function ReportExportButton({ onPress, isExporting, accessibilityLabel }: ReportExportButtonProps) {
   return (

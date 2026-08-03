@@ -296,6 +296,7 @@ export default function LeaveHistoryPage() {
           sheetName: t('staff:leave.leaveHistory'),
           fileName: t('staff:leave.leaveHistory'),
           dialogTitle: t('staff:leave.leaveHistory'),
+          sharingNotSupported: t('common:export.sharingNotSupported'),
           typeLabels: {
             personel_izin_hakki: t('staff:transactionLabels.izinHakki'),
             personel_izin_kullanimi: t('staff:transactionLabels.izinKullanimi'),

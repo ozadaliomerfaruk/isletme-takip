@@ -22,6 +22,7 @@ export interface AmountInputSectionProps {
   // Description
   description: string;
   onDescriptionChange: (value: string) => void;
+  descriptionInputRef?: React.RefObject<TextInput | null>;
   // Category
   kategoriId: string | null;
   onKategoriChange: (id: string | null) => void;
@@ -64,6 +65,7 @@ export function AmountInputSection({
   amountInputRef,
   description,
   onDescriptionChange,
+  descriptionInputRef,
   kategoriId,
   onKategoriChange,
   categoryType,
@@ -223,6 +225,7 @@ export function AmountInputSection({
           foto/ürün buraya (Not satırının atıl sağ boşluğuna) taşındı → +0 dikey yükseklik. */}
       <View style={localStyles.noteRow}>
         <TextInput
+          ref={descriptionInputRef}
           style={[styles.descriptionInput, localStyles.noteInput]}
           placeholder={t('common:placeholders.enterNote')}
           placeholderTextColor={colors.textMuted}

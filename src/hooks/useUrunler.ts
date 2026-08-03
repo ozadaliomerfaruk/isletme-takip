@@ -163,7 +163,9 @@ export function useArchiveUrun() {
         .from('urunler')
         .update({ is_archived: true })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },
@@ -188,7 +190,9 @@ export function useUnarchiveUrun() {
         .from('urunler')
         .update({ is_archived: false })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },
@@ -213,7 +217,9 @@ export function useDeleteUrun() {
         .from('urunler')
         .update({ is_archived: true, is_active: false })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },

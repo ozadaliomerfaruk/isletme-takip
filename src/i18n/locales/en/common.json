@@ -150,7 +150,9 @@
     "clearFilters": "Clear Filters",
     "noResultsWithFilters": "Try broadening your filters or using a different term",
     "clearRecentSearches": "Clear",
-    "resultCount": "{{count}} results found"
+    "resultCount": "{{count}} results found",
+    "resultCountAtLeast": "At least {{count}} results found",
+    "refineForMoreResults": "More than 50 transactions were found. Refine your search to see more."
   },
   "select": {
     "selectOption": "Select an option",
@@ -495,7 +497,9 @@
       "clientStaff": "CLIENT/STAFF",
       "sheetName": "Report",
       "incomeFileName": "Income_Report",
-      "expenseFileName": "Expense_Report"
+      "expenseFileName": "Expense_Report",
+      "comparisonSheetName": "Comparison",
+      "comparisonFileName": "Comparison_Report"
     },
     "productExcel": {
       "reportTitle": "Purchase-Sales Report",

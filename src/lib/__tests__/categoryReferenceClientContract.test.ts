@@ -50,7 +50,7 @@ describe('dar kategori secim referansi istemci sozlesmesi', () => {
     );
     expect(hook).toContain('if (!sharedAllowed || !isletme?.id)');
     expect(queryClient).toContain(
-      "export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}-s6`",
+      "export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}-s7`",
     );
   });
 

@@ -314,49 +314,6 @@ export default function UrunlerPage() {
   }, [categoryFilter, kategoriMap]);
 
   // ÃœrÃ¼n listesi export
-  const handleExportProductList = useCallback(async () => {
-    if (!urunler || urunler.length === 0 || !isletme) return;
-    setIsExporting(true);
-    try {
-      const items: UrunListeItem[] = urunler.map((u) => ({
-        ad: u.ad,
-        kod: u.kod,
-        kategori: u.kategori_id ? kategoriMap.get(u.kategori_id) || null : null,
-        birim: t(`products:units.${u.birim}`),
-        miktar: u.miktar,
-        alis_fiyati: u.alis_fiyati,
-        satis_fiyati: u.satis_fiyati,
-        kdv_orani: u.kdv_orani,
-        currency: u.currency || 'TRY',
-      }));
-      await exportUrunListesiToExcel({
-        urunler: items,
-        translations: {
-          title: t('products:export.productList.title'),
-          fileName: t('products:export.productList.fileName'),
-          isletmeName: isletme.name || '',
-          shareDialogTitle: t('products:export.productList.shareDialogTitle'),
-          sharingNotSupported: t('products:export.sharingNotSupported'),
-          noDataError: t('products:export.productList.noData'),
-          columns: {
-            name: t('products:export.productList.columns.name'),
-            code: t('products:export.productList.columns.code'),
-            category: t('products:export.productList.columns.category'),
-            unit: t('products:export.productList.columns.unit'),
-            stock: t('products:export.productList.columns.stock'),
-            purchasePrice: t('products:export.productList.columns.purchasePrice'),
-            salePrice: t('products:export.productList.columns.salePrice'),
-            vatRate: t('products:export.productList.columns.vatRate'),
-          },
-        },
-      });
-    } catch {
-      showToast(t('products:export.error'), 'error');
-    } finally {
-      setIsExporting(false);
-    }
-  }, [urunler, isletme, kategoriMap, t, showToast]);
-
   // Arama (Ã¼rÃ¼n adÄ±, kodu ve kategori adÄ±) + kategori filtresi
   const filteredUrunler = useMemo(() => {
     const query = debouncedSearch.toLowerCase();
@@ -446,6 +403,87 @@ export default function UrunlerPage() {
       );
     });
   }, [archivedUrunler, debouncedSearch, kategoriMap]);
+
+  // Aktif veya arşiv sekmesinde ekranda hangi sonuçlar görünüyorsa Excel aynı anlık listeyi üretir.
+  const handleExportProductList = useCallback(async () => {
+    const visibleProducts = activeTab === 'active'
+      ? filteredUrunler
+      : filteredArchivedUrunler;
+    if (visibleProducts.length === 0 || !isletme) return;
+
+    setIsExporting(true);
+    try {
+      const items: UrunListeItem[] = visibleProducts.map((u) => ({
+        ad: u.ad,
+        kod: u.kod,
+        kategori: u.kategori_id ? kategoriMap.get(u.kategori_id) || null : null,
+        birim: t(`products:units.${u.birim}`),
+        miktar: u.miktar,
+        alis_fiyati: u.alis_fiyati,
+        satis_fiyati: u.satis_fiyati,
+        kdv_orani: u.kdv_orani,
+        currency: u.currency || 'TRY',
+      }));
+
+      const filterBits: string[] = [t(`products:tabs.${activeTab}`)];
+      if (activeTab === 'active') {
+        if (categoryFilter === CATEGORY_FILTER_UNCATEGORIZED) {
+          filterBits.push(t('products:filter.uncategorized'));
+        } else if (categoryFilter !== CATEGORY_FILTER_ALL) {
+          const categoryName = kategoriMap.get(categoryFilter);
+          if (categoryName) filterBits.push(categoryName);
+        }
+      }
+      if (debouncedSearch.trim()) {
+        filterBits.push(
+          `${t('common:export.listExport.search')}: ${debouncedSearch.trim()}`,
+        );
+      }
+
+      await exportUrunListesiToExcel({
+        urunler: items,
+        filterText: filterBits.join(' · '),
+        translations: {
+          title: t('products:export.productList.title'),
+          fileName: `${t('products:export.productList.fileName')}-${activeTab}-${formatDateForDB(new Date())}`,
+          isletmeName: isletme.name || '',
+          businessLabel: t('common:export.excel.business'),
+          createdAt: t('common:export.excel.createdAt'),
+          recordCount: t('common:export.listExport.recordCount'),
+          filter: t('common:export.listExport.filter'),
+          snapshotNote: t('common:export.listExport.snapshotNote'),
+          generatedByApp: t('common:export.listExport.generatedByApp'),
+          shareDialogTitle: t('products:export.productList.shareDialogTitle'),
+          sharingNotSupported: t('products:export.sharingNotSupported'),
+          noDataError: t('products:export.productList.noData'),
+          columns: {
+            name: t('products:export.productList.columns.name'),
+            code: t('products:export.productList.columns.code'),
+            category: t('products:export.productList.columns.category'),
+            unit: t('products:export.productList.columns.unit'),
+            stock: t('products:export.productList.columns.stock'),
+            purchasePrice: t('products:export.productList.columns.purchasePrice'),
+            salePrice: t('products:export.productList.columns.salePrice'),
+            vatRate: t('products:export.productList.columns.vatRate'),
+          },
+        },
+      });
+    } catch {
+      showToast(t('products:export.error'), 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [
+    activeTab,
+    filteredUrunler,
+    filteredArchivedUrunler,
+    isletme,
+    kategoriMap,
+    categoryFilter,
+    debouncedSearch,
+    t,
+    showToast,
+  ]);
 
   const archivedCount = archivedUrunler?.length ?? 0;
 
@@ -983,7 +1021,7 @@ export default function UrunlerPage() {
             </GlassIconButton>
             {/* accessibilityLabel ŞART: buton yalnız ikon taşıyor, metin çocuğu
                 olmadığı için ekran okuyucu adlandıramaz. */}
-            {(urunler && urunler.length > 0) && (
+            {(activeTab === 'active' ? filteredUrunler.length : filteredArchivedUrunler.length) > 0 && (
               <GlassIconButton
                 onPress={() => { haptics.light(); handleExportProductList(); }}
                 disabled={isExporting}

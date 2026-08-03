@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ensureValidDate, parseDateFromDB } from '@/lib/date';
+import { ensureValidTransactionDate, parseDateFromDB } from '@/lib/date';
 import { roundCurrency, toNumber, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
 import type { TransactionType, OdemeHedefType, TahsilatHedefType, QuickTransactionMode, UrunItem } from '../types';
 import type { CariType, Currency, BirimType } from '@/types/database';
@@ -273,11 +273,17 @@ export function useQuickTransactionForm({
   const [vadeTarihi, setVadeTarihi] = useState<Date | null>(null);
 
   // Safe date
-  const safeDate = useMemo(() => ensureValidDate(date), [date]);
-  const safeDateEnd = useMemo(() => dateEnd ? ensureValidDate(dateEnd) : null, [dateEnd]);
+  const safeDate = useMemo(() => ensureValidTransactionDate(date), [date]);
+  const safeDateEnd = useMemo(
+    () => dateEnd ? ensureValidTransactionDate(dateEnd, safeDate) : null,
+    [dateEnd, safeDate]
+  );
   // Vade — ham picker değeri geçersiz Date üretebilir (1970 bug sınıfı, bkz. ensureValidDate);
   // submit formatDateForDB'yi doğrudan tüketmeden ÖNCE sanitize et (safeDate deseniyle aynı).
-  const safeVadeTarihi = useMemo(() => vadeTarihi ? ensureValidDate(vadeTarihi) : null, [vadeTarihi]);
+  const safeVadeTarihi = useMemo(
+    () => vadeTarihi ? ensureValidTransactionDate(vadeTarihi, safeDate) : null,
+    [safeDate, vadeTarihi]
+  );
 
   // Entity IDs
   const [hedefHesapId, setHedefHesapId] = useState<string | null>(null);
@@ -428,7 +434,7 @@ export function useQuickTransactionForm({
         ? (transaction as { scheduled_date?: string }).scheduled_date
         : (transaction as { date?: string }).date;
       if (transactionDate) {
-        setDate(new Date(transactionDate));
+        setDate(ensureValidTransactionDate(parseDateFromDB(transactionDate)));
       }
     }
 
@@ -536,7 +542,7 @@ export function useQuickTransactionForm({
         prefillAppliedRef.current = true;
         // bkz. yukarıdaki formatAmountForInput notu (nokta → cleanAmountInput siler)
         if (defaultAmount != null) setAmount(formatAmountForInput(roundCurrency(defaultAmount)));
-        if (defaultDate) setDate(ensureValidDate(defaultDate));
+        if (defaultDate) setDate(ensureValidTransactionDate(defaultDate));
         if (defaultDescription) setDescription(defaultDescription);
       }
       // Personel mode

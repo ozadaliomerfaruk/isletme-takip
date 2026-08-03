@@ -192,6 +192,8 @@ export function QuickTransactionBar({
 
   // Refs
   const amountInputRef = useRef<TextInput>(null);
+  const descriptionInputRef = useRef<TextInput>(null);
+  const datePickerFocusTargetRef = useRef<'amount' | 'description' | null>(null);
   const transactionLoadErrorShownRef = useRef<string | null>(null);
   const installmentEditWarningShownRef = useRef<string | null>(null);
 
@@ -427,6 +429,29 @@ export function QuickTransactionBar({
     visible,
     amountInputRef,
   });
+
+  const suspendKeyboardForDatePicker = useCallback(() => {
+    datePickerFocusTargetRef.current = amountInputRef.current?.isFocused()
+      ? 'amount'
+      : descriptionInputRef.current?.isFocused()
+        ? 'description'
+        : null;
+    Keyboard.dismiss();
+  }, []);
+
+  const restoreKeyboardAfterDatePicker = useCallback(() => {
+    const target = datePickerFocusTargetRef.current;
+    datePickerFocusTargetRef.current = null;
+    if (!target) return;
+
+    requestAnimationFrame(() => {
+      if (target === 'amount') {
+        amountInputRef.current?.focus();
+      } else {
+        descriptionInputRef.current?.focus();
+      }
+    });
+  }, []);
 
   // Photo hooks
   const pickImage = usePickImage();
@@ -1703,16 +1728,23 @@ export function QuickTransactionBar({
             date={form.safeDate}
             isScheduled={form.isScheduled}
             formatDateMedium={formatDateMedium}
-            onDatePress={() => modals.setShowDatePicker(true)}
+            onDatePress={() => {
+              suspendKeyboardForDatePicker();
+              modals.setShowDatePicker(true);
+            }}
             onScheduledToggle={() => form.setIsScheduled(!form.isScheduled)}
             showScheduledToggle
             onResetToNow={() => form.setDate(new Date())}
             isLeaveUsageType={isLeaveUsageType}
             dateEnd={form.dateEnd}
-            onDateEndPress={() => modals.setShowDateEndPicker(true)}
+            onDateEndPress={() => {
+              suspendKeyboardForDatePicker();
+              modals.setShowDateEndPicker(true);
+            }}
             showVade={showVade}
             vadeTarihi={form.safeVadeTarihi}
             onVadePress={() => {
+              suspendKeyboardForDatePicker();
               setTaksitPlan(null);
               setShowVadePicker(true);
             }}
@@ -1815,6 +1847,7 @@ export function QuickTransactionBar({
             amount={form.amount}
             onAmountChange={form.handleAmountChange}
             amountInputRef={amountInputRef}
+            descriptionInputRef={descriptionInputRef}
             description={form.description}
             onDescriptionChange={form.setDescription}
             kategoriId={form.kategoriId}
@@ -1883,7 +1916,10 @@ export function QuickTransactionBar({
       {/* DateTime Picker Modal */}
       <DateTimePickerModal
         visible={modals.showDatePicker}
-        onDismiss={() => modals.setShowDatePicker(false)}
+        onDismiss={() => {
+          modals.setShowDatePicker(false);
+          restoreKeyboardAfterDatePicker();
+        }}
         value={form.safeDate}
         onChange={form.setDate}
         locale={locale}
@@ -1893,10 +1929,14 @@ export function QuickTransactionBar({
       {showVade && (
         <DateTimePickerModal
           visible={showVadePicker}
-          onDismiss={() => setShowVadePicker(false)}
+          onDismiss={() => {
+            setShowVadePicker(false);
+            restoreKeyboardAfterDatePicker();
+          }}
           value={form.safeVadeTarihi || form.safeDate}
           onChange={form.setVadeTarihi}
           locale={locale}
+          minimumDate={form.safeDate}
         />
       )}
 
@@ -2219,7 +2259,10 @@ export function QuickTransactionBar({
       {isLeaveUsageType && (
         <DateTimePickerModal
           visible={modals.showDateEndPicker}
-          onDismiss={() => modals.setShowDateEndPicker(false)}
+          onDismiss={() => {
+            modals.setShowDateEndPicker(false);
+            restoreKeyboardAfterDatePicker();
+          }}
           value={form.safeDateEnd || form.safeDate}
           onChange={(newDate) => {
             // Ensure end date is not before start date
@@ -2230,11 +2273,13 @@ export function QuickTransactionBar({
             }
           }}
           locale={locale}
+          minimumDate={form.safeDate}
         />
       )}
 
       {/* Hesap Picker Modal - Bottom Sheet */}
       <HesapPickerSheet
+        inline
         visible={modals.showHesapPicker}
         onDismiss={modals.handleHesapPickerDismiss}
         onSelect={handleHesapSelect}
@@ -2249,6 +2294,7 @@ export function QuickTransactionBar({
 
       {/* Cari Picker Modal - Bottom Sheet */}
       <CariPickerSheet
+        inline
         visible={modals.showCariPicker}
         onDismiss={modals.handleCariPickerDismiss}
         onSelect={handleCariSelect}
@@ -2367,6 +2413,7 @@ export function QuickTransactionBar({
 
       {/* Photo Viewer Modal */}
       <PhotoViewerModal
+        inline
         visible={isOwner && showPhotoViewer}
         photoPath={form.photoUri}
         onClose={() => setShowPhotoViewer(false)}

@@ -161,7 +161,9 @@ export function useUpdateUserStatus() {
         .from('isletme_users')
         .update({ status: params.status })
         .eq('user_id', params.userId)
-        .eq('isletme_id', params.isletmeId);
+        .eq('isletme_id', params.isletmeId)
+        .select('id')
+        .single();
       if (error) throw error;
     },
     onSuccess: () => {
@@ -182,7 +184,9 @@ export function useCancelInvite() {
         .from('isletme_invites')
         .update({ status: 'cancelled' })
         .eq('id', inviteId)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
       if (error) throw error;
     },
     onSuccess: () => {
@@ -223,7 +227,9 @@ export function useUpdateIsletmeUser() {
         .from('isletme_users')
         .update(updateData)
         .eq('user_id', params.userId)
-        .eq('isletme_id', params.isletmeId);
+        .eq('isletme_id', params.isletmeId)
+        .select('id')
+        .single();
       if (error) throw error;
     },
     onSuccess: () => {
@@ -259,7 +265,9 @@ export function useLeaveIsletme() {
         .from('isletme_users')
         .update({ status: 'removed' })
         .eq('user_id', user!.id)
-        .eq('isletme_id', isletmeId);
+        .eq('isletme_id', isletmeId)
+        .select('id')
+        .single();
       if (error) throw error;
     },
     onSuccess: () => {

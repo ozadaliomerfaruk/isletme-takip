@@ -403,6 +403,7 @@ export default function KategoriDetayPage() {
           sheetName: pageTitle,
           fileName: pageTitle,
           dialogTitle: pageTitle,
+          sharingNotSupported: t('common:export.sharingNotSupported'),
         },
       });
     } catch {

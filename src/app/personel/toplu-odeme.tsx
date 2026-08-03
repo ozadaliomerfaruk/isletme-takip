@@ -17,7 +17,7 @@ import {
 } from '@/hooks/useCariPaymentAccountRefs';
 import { useCreateIslem } from '@/hooks/useIslemler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { formatDateTimeForDB, isToday, ensureValidDate } from '@/lib/date';
+import { formatDateTimeForDB, getMinimumTransactionDate, isToday, ensureValidTransactionDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, toNumber, formatAmountForInput } from '@/lib/currency';
 import { isCrossCurrency } from '@/constants/currencies';
 import { getInitials } from '@/lib/utils';
@@ -117,7 +117,7 @@ export default function TopluOdemePage() {
   };
 
   const [date, setDate] = useState(getDefaultDate());
-  const safeDate = useMemo(() => ensureValidDate(date), [date]);
+  const safeDate = useMemo(() => ensureValidTransactionDate(date), [date]);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hesapId, setHesapId] = useState<string | null>(null);
   const [kategoriId, setKategoriId] = useState<string | null>(null);
@@ -592,6 +592,7 @@ export default function TopluOdemePage() {
                         value={safeDate}
                         mode="date"
                         display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                        minimumDate={getMinimumTransactionDate()}
                         onChange={(event, selectedDate) => {
                           if (Platform.OS === 'android') {
                             if (event.type === 'set' && selectedDate) {

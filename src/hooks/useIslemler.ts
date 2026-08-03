@@ -2139,7 +2139,8 @@ export function useFilteredIslemler(params: IslemFilterSearchParams) {
           p_max_amount: params.maxAmount ?? null,
           p_date_from: params.dateFrom ?? null,
           p_date_to: params.dateTo ?? null,
-          p_limit: 50,
+          // Bir fazla satır, UI'ın sonucu sessizce "tam liste" sanmaması için.
+          p_limit: 51,
         },
       );
 
@@ -2159,11 +2160,12 @@ export function useFilteredIslemler(params: IslemFilterSearchParams) {
   });
 
   const hasUnsafeQueryState = result.isError || result.isRefetchError;
+  const authorizedData = canSearchTransactions && !hasUnsafeQueryState
+    ? result.data ?? []
+    : [];
   return {
     ...result,
-    data:
-      canSearchTransactions && !hasUnsafeQueryState
-        ? result.data ?? []
-        : [],
+    data: authorizedData.slice(0, 50),
+    hasMore: authorizedData.length > 50,
   };
 }

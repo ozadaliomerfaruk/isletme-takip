@@ -9,12 +9,16 @@ import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { ensureValidDate } from '@/lib/date';
+import {
+  combineTransactionDateAndTime,
+  ensureValidTransactionDate,
+  getMinimumTransactionDate,
+} from '@/lib/date';
 
 // 1970/epoch tarih sızıntısını önlemek için makul alt sınır (iş defteri için 2000
 // öncesi işlem gerçekçi değil). Spinner'ı epoch'tan uzak tutar; üst sınır YOK ki
 // ileri tarihli kullanımlar (bazı ekranlar) kısıtlanmasın.
-const MIN_SELECTABLE_DATE = new Date(2000, 0, 1);
+const MIN_SELECTABLE_DATE = getMinimumTransactionDate();
 
 interface DateTimePickerProps {
   label?: string;
@@ -41,7 +45,7 @@ export function DateTimePicker({
   const [showTimePicker, setShowTimePicker] = useState(false);
 
   // Geçersiz tarih koruması - 1970 ve benzeri sorunları önle
-  const safeValue = useMemo(() => ensureValidDate(value), [value]);
+  const safeValue = useMemo(() => ensureValidTransactionDate(value), [value]);
   const [tempDate, setTempDate] = useState(safeValue);
 
   // value prop'u sonradan (asenkron) gelirse tempDate stale/epoch kalmasın;
@@ -72,7 +76,11 @@ export function DateTimePicker({
       }
     } else {
       if (selectedDate) {
-        setTempDate(ensureValidDate(selectedDate));
+        const newDate = new Date(tempDate);
+        newDate.setFullYear(selectedDate.getFullYear());
+        newDate.setMonth(selectedDate.getMonth());
+        newDate.setDate(selectedDate.getDate());
+        setTempDate(ensureValidTransactionDate(newDate, safeValue));
       }
     }
   };
@@ -88,13 +96,13 @@ export function DateTimePicker({
       }
     } else {
       if (selectedDate) {
-        setTempDate(ensureValidDate(selectedDate));
+        setTempDate(combineTransactionDateAndTime(tempDate, selectedDate, safeValue));
       }
     }
   };
 
   const handleIOSConfirm = (pickerType: 'date' | 'time') => {
-    onChange(ensureValidDate(tempDate));
+    onChange(ensureValidTransactionDate(tempDate, safeValue));
     if (pickerType === 'date') {
       setShowDatePicker(false);
     } else {

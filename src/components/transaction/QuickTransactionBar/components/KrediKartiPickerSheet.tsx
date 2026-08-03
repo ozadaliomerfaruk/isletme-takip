@@ -46,6 +46,7 @@ export function KrediKartiPickerSheet({
 
   return (
     <Modal
+      inline
       visible
       transparent
       animationType="slide"

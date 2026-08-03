@@ -22,6 +22,7 @@ interface Cari {
 export type CariPickerMode = 'customer' | 'supplier';
 
 export interface CariPickerSheetProps {
+  inline?: boolean;
   visible: boolean;
   onDismiss: () => void;
   onSelect: (cariId: string) => void;
@@ -39,6 +40,7 @@ export interface CariPickerSheetProps {
 }
 
 export function CariPickerSheet({
+  inline = false,
   visible,
   onDismiss,
   onSelect,
@@ -116,6 +118,7 @@ export function CariPickerSheet({
 
   return (
     <Modal
+      inline={inline}
       visible
       transparent
       animationType="slide"

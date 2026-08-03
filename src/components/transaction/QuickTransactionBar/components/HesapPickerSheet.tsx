@@ -20,6 +20,7 @@ interface Hesap {
 }
 
 export interface HesapPickerSheetProps {
+  inline?: boolean;
   visible: boolean;
   onDismiss: () => void;
   onSelect: (hesapId: string) => void;
@@ -35,6 +36,7 @@ export interface HesapPickerSheetProps {
 }
 
 export function HesapPickerSheet({
+  inline = false,
   visible,
   onDismiss,
   onSelect,
@@ -89,6 +91,7 @@ export function HesapPickerSheet({
 
   return (
     <Modal
+      inline={inline}
       visible
       transparent
       animationType="slide"

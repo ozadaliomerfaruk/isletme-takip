@@ -12,7 +12,7 @@ import { spacing, HIT_SLOP } from '@/constants/spacing';
 import { useUrunler } from '@/hooks/useUrunler';
 import { useCreateUrunHareket, useCreateBulkUrunHareketWithCari } from '@/hooks/useUrunHareketler';
 import { useDateFormat } from '@/hooks/useDateFormat';
-import { isToday, formatDateTimeForDB, ensureValidDate } from '@/lib/date';
+import { isToday, formatDateTimeForDB, ensureValidTransactionDate, getMinimumTransactionDate } from '@/lib/date';
 import { formatCurrency, parseCurrency, parseQuantity, formatQuantity, formatAmountForInput, formatPercent } from '@/lib/currency';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { getCurrencySymbol } from '@/constants/currencies';
@@ -231,7 +231,7 @@ export default function TopluGirisPage() {
           hareket_tipi: 'giris',
           items,
           cari_id: selectedCariId,
-          date: formatDateTimeForDB(date),
+          date: formatDateTimeForDB(ensureValidTransactionDate(date)),
         });
 
         notifySaved(t('products:bulk.success', { count: validRows.length }));
@@ -250,7 +250,7 @@ export default function TopluGirisPage() {
               birim_fiyat: parseCurrency(row.birimFiyat) || null,
               kdv_orani: row.kdvOrani,
               aciklama: null,
-              created_at: formatDateTimeForDB(date),
+              created_at: formatDateTimeForDB(ensureValidTransactionDate(date)),
             }).then(() => row.id)
           )
         );
@@ -537,17 +537,18 @@ export default function TopluGirisPage() {
                   <View style={styles.pickerSheet}>
                     <Text style={styles.pickerTitle}>{t('common:date.date')}</Text>
                     <DateTimePickerRN
-                      value={ensureValidDate(date)}
+                      value={ensureValidTransactionDate(date)}
                       mode="date"
                       display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      minimumDate={getMinimumTransactionDate()}
                       onChange={(event, selectedDate) => {
                         if (Platform.OS === 'android') {
                           setShowDatePicker(false);
                           if (event.type === 'set' && selectedDate) {
-                            setDate(selectedDate);
+                            setDate(ensureValidTransactionDate(selectedDate));
                           }
                         } else if (selectedDate) {
-                          setDate(selectedDate);
+                          setDate(ensureValidTransactionDate(selectedDate));
                         }
                       }}
                       locale={locale}

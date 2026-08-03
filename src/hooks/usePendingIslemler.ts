@@ -9,8 +9,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { invalidateRelatedQueries } from '@/lib/queryKeys';
-import { toNumber, safeParseExchangeRate, calculateTargetAmount } from '@/lib/currency';
+import { createImportedIslemAtomically } from '@/lib/importFinancialSafety';
 import type {
+  Islem,
   PendingIslem,
   PendingIslemInsert,
   PendingIslemUpdate,
@@ -38,143 +39,6 @@ const VALID_ISLEM_TYPES: IslemType[] = [
   'personel_tahsilat',
   'personel_satis',
 ];
-
-/**
- * Güvenli bakiye artırma/azaltma
- * initial_balance DEĞİŞTİRMEZ - sadece mevcut bakiyeyi günceller
- */
-async function safeIncrementBalance(tableName: string, rowId: string, amount: number) {
-  if (!rowId || isNaN(amount)) return;
-
-  const { error } = await supabase.rpc('increment_balance', {
-    table_name: tableName,
-    row_id: rowId,
-    amount: amount,
-  });
-
-  if (error) {
-    console.error('safeIncrementBalance hatası:', { tableName, rowId, amount, error });
-    throw error;
-  }
-}
-
-type BalanceOp = { table: 'hesaplar' | 'cariler' | 'personel'; id: string; delta: number };
-
-/**
- * İşlem tipine göre uygulanacak bakiye operasyonlarını (saf, async olmayan) üret.
- * Böylece operasyonlar tek tek uygulanıp, kısmi hata durumunda yalnızca UYGULANANLAR
- * geri alınabilir (#7). initial_balance ASLA değişmez.
- */
-function buildBalanceOps(islem: Omit<IslemInsert, 'isletme_id'>): BalanceOp[] {
-  const amount = toNumber(islem.amount);
-  if (amount === 0) return [];
-
-  const exchangeRate = safeParseExchangeRate(islem.exchange_rate);
-  const sourceCurrency = islem.source_currency || 'TRY';
-  const targetCurrency = islem.target_currency || 'TRY';
-  const ops: BalanceOp[] = [];
-
-  switch (islem.type) {
-    case 'gelir':
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: amount });
-      break;
-    case 'gider':
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
-      break;
-    case 'transfer':
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
-      if (islem.hedef_hesap_id) {
-        const targetAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-        ops.push({ table: 'hesaplar', id: islem.hedef_hesap_id, delta: targetAmount });
-      }
-      break;
-    case 'cari_alis':
-      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: -amount });
-      break;
-    case 'cari_satis':
-      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: amount });
-      break;
-    case 'cari_odeme': {
-      const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: cariAmount });
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
-      break;
-    }
-    case 'cari_tahsilat': {
-      const cariAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: -cariAmount });
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: amount });
-      break;
-    }
-    case 'cari_alis_iade':
-      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: amount });
-      break;
-    case 'cari_satis_iade':
-      if (islem.cari_id) ops.push({ table: 'cariler', id: islem.cari_id, delta: -amount });
-      break;
-    case 'personel_gider':
-      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: -amount });
-      break;
-    case 'personel_odeme': {
-      const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: personelAmount });
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: -amount });
-      break;
-    }
-    case 'personel_tahsilat': {
-      const personelAmount = calculateTargetAmount(amount, exchangeRate, sourceCurrency, targetCurrency);
-      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: -personelAmount });
-      if (islem.hesap_id) ops.push({ table: 'hesaplar', id: islem.hesap_id, delta: amount });
-      break;
-    }
-    case 'personel_satis':
-      if (islem.personel_id) ops.push({ table: 'personel', id: islem.personel_id, delta: amount });
-      break;
-  }
-  return ops;
-}
-
-/**
- * İşlem tipine göre bakiyeleri güncelle.
- * #7: Operasyonlar tek tek uygulanır; ortada bir operasyon hata verirse YALNIZCA o ana
- * kadar UYGULANANLAR ters delta ile geri alınır (kör tam-reverse over-reverse yapardı).
- * Böylece kısmi başarı kalıcı yanlış bakiye bırakmaz; fonksiyon ya tümünü uygular ya hiçbirini.
- * NOT: initial_balance ASLA güncellenmez - sadece mevcut balance değişir.
- */
-async function updateBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isletme_id'>): Promise<void> {
-  const ops = buildBalanceOps(islem);
-  const applied: BalanceOp[] = [];
-  try {
-    for (const op of ops) {
-      await safeIncrementBalance(op.table, op.id, op.delta);
-      applied.push(op);
-    }
-  } catch (err) {
-    // Uygulanan bacakları ters çevirerek geri al (yalnızca gerçekten uygulananlar)
-    for (let i = applied.length - 1; i >= 0; i--) {
-      const op = applied[i];
-      try {
-        await safeIncrementBalance(op.table, op.id, -op.delta);
-      } catch (reverseError) {
-        console.error('CRITICAL: kısmi bakiye geri alma başarısız:', op, reverseError);
-      }
-    }
-    throw err;
-  }
-}
-
-/**
- * Bakiye güncellemelerini geri al (rollback)
- * updateBalancesForPendingTransaction'ın tersi
- */
-async function reverseBalancesForPendingTransaction(islem: Omit<IslemInsert, 'isletme_id'>): Promise<void> {
-  const amount = toNumber(islem.amount);
-  if (amount === 0) return;
-
-  // Reverse by negating: call update with negated amounts
-  const negatedIslem = { ...islem, amount: -amount };
-  await updateBalancesForPendingTransaction(negatedIslem);
-}
 
 // Query key factory
 const pendingIslemlerKeys = {
@@ -322,7 +186,9 @@ export function useDismissPendingIslem() {
       const { error } = await supabase
         .from('pending_islemler')
         .update({ status: 'dismissed' })
-        .eq('id', id);
+        .eq('id', id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },
@@ -345,7 +211,9 @@ export function useDeletePendingIslem() {
       const { error } = await supabase
         .from('pending_islemler')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },
@@ -403,46 +271,27 @@ export function useSavePendingAsIslem() {
     }) => {
       if (!isletme) throw new Error('No isletme');
 
-      // Insert the real transaction
-      const { data: islem, error: islemError } = await supabase
-        .from('islemler')
-        .insert({
-          ...islemData,
-          isletme_id: isletme.id,
-        })
-        .select()
-        .single();
+      // pendingId kalıcı istemci UUID'sidir. RPC işlem + bakiye değişikliklerini tek
+      // transaction'da yapar; aynı payload ile tekrar çağrı güvenle aynı işlemi döndürür.
+      const islem = await createImportedIslemAtomically(isletme.id, {
+        ...islemData,
+        id: pendingId,
+        isletme_id: isletme.id,
+      });
 
-      if (islemError) throw islemError;
-
-      // Update balances (sadece mevcut bakiye, initial_balance DEĞİL)
-      try {
-        await updateBalancesForPendingTransaction(islemData);
-      } catch (balanceError) {
-        // Bakiye güncelleme hatası - işlemi geri al
-        console.error('Bakiye güncelleme hatası:', balanceError);
-        await supabase.from('islemler').delete().eq('id', islem.id);
-        throw balanceError;
-      }
-
-      // Delete the pending record (or mark as saved)
+      // RPC tamamlandıktan sonra pending kaydı silinir. Silme yanıtı ağda kaybolursa
+      // sonraki deneme aynı işlem UUID'sini bulur ve yalnız bu silmeyi tekrarlar.
       const { error: deleteError } = await supabase
         .from('pending_islemler')
         .delete()
-        .eq('id', pendingId);
+        .eq('id', pendingId)
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .maybeSingle();
 
-      if (deleteError) {
-        // If delete fails, rollback both balance changes and the islem record
-        try {
-          await reverseBalancesForPendingTransaction(islemData);
-        } catch (reverseError) {
-          console.error('CRITICAL: Bakiye rollback başarısız:', reverseError);
-        }
-        await supabase.from('islemler').delete().eq('id', islem.id);
-        throw deleteError;
-      }
+      if (deleteError) throw deleteError;
 
-      return islem;
+      return islem as Islem;
     },
     onSuccess: () => {
       // Invalidate all related queries

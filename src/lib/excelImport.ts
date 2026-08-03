@@ -8,6 +8,7 @@ import * as Crypto from 'expo-crypto';
 import { encode as base64Encode } from 'base64-arraybuffer';
 import { formatDateForDB, formatDateTimeForDB } from './date';
 import { parseCurrency } from './currency';
+import { excelDateCell, sanitizeExcelSheetName } from './excelWorkbook';
 
 // ============================================================================
 // TYPES
@@ -844,12 +845,10 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       let entityValid = true;
       let entityReason: SkipReason | undefined;
 
-      // Tarih veya tip eksikse hata flag'i set et (artık skip etmiyoruz)
-      let hasDateOrTypeError = false;
+      // Tarih veya tip eksikse satırı atlamadan sayaçta işaretle; aşağıdaki
+      // dateValid/dateReason alanları kullanıcıya düzeltilebilir hatayı taşır.
       if (!rawDate || !type) {
-        hasDateOrTypeError = true;
         skippedNoDateOrType++;
-        // silentlySkipped yerine hata flag'i ile devam et
       }
 
       // HESAP kontrolü: Sadece hiçbir entity yoksa zorunlu
@@ -866,7 +865,7 @@ export function parseExcelFile(fileBuffer: ArrayBuffer): ImportPreview {
       let dateValid = true;
       let dateReason: SkipReason | undefined;
 
-      // Tarih eksikse (hasDateOrTypeError durumunda rawDate boş olabilir)
+      // Tarih eksikse rawDate boş olabilir.
       if (!rawDate) {
         dateValid = false;
         dateReason = { code: 'dateMissing' };
@@ -1355,7 +1354,7 @@ export interface SkippedTransactionInfo {
 export interface SkippedExcelTranslations {
   rowNo: string; reason: string; date: string; type: string; description: string;
   category: string; account: string; staff: string; supplier: string; customer: string;
-  counterAccount: string; amount: string; sheetName: string;
+  counterAccount: string; amount: string; sheetName: string; fileName: string;
 }
 
 export function exportSkippedTransactionsToExcel(
@@ -1402,6 +1401,12 @@ export function exportSkippedTransactionsToExcel(
   // Excel dosyası oluştur
   const ws = XLSX.utils.aoa_to_sheet(sheetData);
 
+  // Tanı dosyasında da tarihler gerçek Excel tarihi olsun; bozuk ham değerler metin kalır.
+  skippedTransactions.forEach((item, index) => {
+    const address = XLSX.utils.encode_cell({ r: index + 1, c: 2 });
+    ws[address] = excelDateCell(item.transaction.date, {});
+  });
+
   // Sütun genişliklerini ayarla
   ws['!cols'] = [
     { wch: 10 }, // SATIR NO
@@ -1417,9 +1422,12 @@ export function exportSkippedTransactionsToExcel(
     { wch: 18 }, // KARŞI HESAP
     { wch: 12 }, // MİKTAR
   ];
+  ws['!autofilter'] = {
+    ref: `A1:L${skippedTransactions.length + 1}`,
+  };
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
 
   // ArrayBuffer olarak döndür
   return XLSX.write(wb, { type: 'array', bookType: 'xlsx' });

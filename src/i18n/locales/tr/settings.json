@@ -534,7 +534,8 @@
       "customer": "MÜŞTERİ",
       "counterAccount": "KARŞI HESAP",
       "amount": "MİKTAR",
-      "sheetName": "Atlanan İşlemler"
+      "sheetName": "Atlanan İşlemler",
+      "fileName": "atlanan_islemler.xlsx"
     }
   },
   "account": {

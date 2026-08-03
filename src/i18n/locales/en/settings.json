@@ -534,7 +534,8 @@
       "customer": "CUSTOMER",
       "counterAccount": "COUNTER ACCOUNT",
       "amount": "AMOUNT",
-      "sheetName": "Skipped Transactions"
+      "sheetName": "Skipped Transactions",
+      "fileName": "skipped_transactions.xlsx"
     }
   },
   "account": {

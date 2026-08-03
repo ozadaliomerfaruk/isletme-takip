@@ -14,7 +14,7 @@ import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { styles } from './styles';
 import { CariLinkSection } from './CariLinkSection';
 import { toErrorMessage } from '@/lib/errors';
-import { formatDateTimeForDB, ensureValidDate, parseDateFromDB } from '@/lib/date';
+import { formatDateTimeForDB, ensureValidTransactionDate, getMinimumTransactionDate, parseDateFromDB } from '@/lib/date';
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
 
@@ -146,7 +146,11 @@ export function QuickUrunBar({
       }
       // Edit modunda hareketin mevcut tarihini yükle (yoksa bugün); böylece "düzelt"te
       // tarih görünür ve değiştirilebilir.
-      setTarih(isEditMode && editInitialValues?.date ? parseDateFromDB(editInitialValues.date) : new Date());
+      setTarih(
+        isEditMode && editInitialValues?.date
+          ? ensureValidTransactionDate(parseDateFromDB(editInitialValues.date))
+          : new Date()
+      );
       setShowDatePicker(false);
       setCariLinkEnabled(false);
       setSelectedCariId(null);
@@ -218,10 +222,10 @@ export function QuickUrunBar({
       if (Platform.OS === 'android') {
         setShowDatePicker(false);
         if (event.type === 'set' && selectedDate) {
-          setTarih(selectedDate);
+          setTarih(ensureValidTransactionDate(selectedDate));
         }
       } else if (selectedDate) {
-        setTarih(selectedDate);
+        setTarih(ensureValidTransactionDate(selectedDate));
       }
     },
     []
@@ -245,7 +249,7 @@ export function QuickUrunBar({
         await setUrunMiktarHedef.mutateAsync({
           urun_id: urun.id,
           hedef: miktarNum,
-          created_at: formatDateTimeForDB(tarih),
+          created_at: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
           aciklama: null,
         });
         handleDismiss();
@@ -271,7 +275,7 @@ export function QuickUrunBar({
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
           hareket_tipi: urunType,
-          created_at: formatDateTimeForDB(tarih),
+          created_at: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
         });
 
         handleDismiss();
@@ -289,7 +293,7 @@ export function QuickUrunBar({
           birim_fiyat: fiyatNum,
           kdv_orani: kdvOrani,
           cari_id: selectedCariId,
-          date: formatDateTimeForDB(tarih),
+          date: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
           // Otomatik açıklamada birimin ÇEVİRİSİ kullanılsın (sabit "adet" değil)
           birim: urun.birim,
         });
@@ -307,7 +311,7 @@ export function QuickUrunBar({
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
           aciklama: null,
-          created_at: formatDateTimeForDB(tarih),
+          created_at: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
         });
 
         handleDismiss();
@@ -590,9 +594,10 @@ export function QuickUrunBar({
                 <View style={styles.datePickerContainer}>
                   <Text style={styles.datePickerTitle}>{t('common:date.date')}</Text>
                   <DateTimePickerRN
-                    value={ensureValidDate(tarih)}
+                    value={ensureValidTransactionDate(tarih)}
                     mode="date"
                     display="spinner"
+                    minimumDate={getMinimumTransactionDate()}
                     onChange={handleDateChange}
                     locale={locale}
                     textColor={colors.text}
@@ -614,9 +619,10 @@ export function QuickUrunBar({
 
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePickerRN
-          value={ensureValidDate(tarih)}
+          value={ensureValidTransactionDate(tarih)}
           mode="date"
           display="default"
+          minimumDate={getMinimumTransactionDate()}
           onChange={handleDateChange}
         />
       )}

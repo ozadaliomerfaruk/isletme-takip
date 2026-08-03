@@ -4,7 +4,7 @@ import { logEvent } from '@/lib/appEvents';
 import { ScrollView, StyleSheet, RefreshControl, ActivityIndicator } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { FileSpreadsheet } from 'lucide-react-native';
+import { FileText } from 'lucide-react-native';
 import { ReportPeriodBar } from '@/components/reports/ReportPeriodBar';
 import { KarsilastirmaTabContent } from '@/components/reports/tabs';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
@@ -15,6 +15,7 @@ import { colors } from '@/constants/colors';
 import { spacing } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { useQueryClient } from '@tanstack/react-query';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
 
 export default function KarsilastirmaRaporPage() {
   usePagePermission({ module: 'raporlar' });
@@ -39,18 +40,25 @@ export default function KarsilastirmaRaporPage() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <GlassIconButton
-              style={styles.headerBtn}
-              onPress={report.exportPdf}
-              disabled={report.isExporting || report.isLoading}
-              accessibilityLabel={t('reports:export.exportPDF')}
-            >
-              {report.isExporting ? (
-                <ActivityIndicator size="small" color={colors.primary} />
-              ) : (
-                <FileSpreadsheet size={18} color={colors.success} />
-              )}
-            </GlassIconButton>
+            <>
+              <ReportExportButton
+                onPress={report.exportExcel}
+                isExporting={report.isExportingExcel}
+                accessibilityLabel={t('reports:export.exportExcel')}
+              />
+              <GlassIconButton
+                style={styles.headerBtn}
+                onPress={report.exportPdf}
+                disabled={report.isExporting || report.isLoading}
+                accessibilityLabel={t('reports:export.exportPDF')}
+              >
+                {report.isExportingPdf ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <FileText size={18} color={colors.error} />
+                )}
+              </GlassIconButton>
+            </>
           ),
         }}
       />

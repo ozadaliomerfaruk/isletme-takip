@@ -183,7 +183,9 @@ export function useArchiveHesap() {
         .from('hesaplar')
         .update({ is_archived: true })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);  // Güvenlik
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();  // Güvenlik + etkilenen satır doğrulaması
 
       if (error) throw error;
     },
@@ -209,7 +211,9 @@ export function useUnarchiveHesap() {
         .from('hesaplar')
         .update({ is_archived: false })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);  // Güvenlik
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();  // Güvenlik + etkilenen satır doğrulaması
 
       if (error) throw error;
     },
@@ -235,7 +239,9 @@ export function useArchiveCari() {
         .from('cariler')
         .update({ is_archived: true })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);  // Güvenlik
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();  // Güvenlik + etkilenen satır doğrulaması
 
       if (error) throw error;
     },
@@ -261,7 +267,9 @@ export function useUnarchiveCari() {
         .from('cariler')
         .update({ is_archived: false })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);  // Güvenlik
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();  // Güvenlik + etkilenen satır doğrulaması
 
       if (error) throw error;
     },
@@ -287,7 +295,9 @@ export function useArchivePersonel() {
         .from('personel')
         .update({ is_archived: true })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);  // Güvenlik
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();  // Güvenlik + etkilenen satır doğrulaması
 
       if (error) throw error;
     },
@@ -313,7 +323,9 @@ export function useUnarchivePersonel() {
         .from('personel')
         .update({ is_archived: false })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);  // Güvenlik
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();  // Güvenlik + etkilenen satır doğrulaması
 
       if (error) throw error;
     },
@@ -339,7 +351,9 @@ export function useUnarchiveUrun() {
         .from('urunler')
         .update({ is_archived: false })
         .eq('id', id)
-        .eq('isletme_id', isletme.id);
+        .eq('isletme_id', isletme.id)
+        .select('id')
+        .single();
 
       if (error) throw error;
     },

@@ -94,6 +94,9 @@ export default function GelirEklePage() {
         });
 
         if (data.reminderConfig.enabled && result?.id) {
+          const reminderCurrency = hesaplar?.find(
+            (hesap) => hesap.id === data.hesapId,
+          )?.currency;
           const reminderDate = calculateReminderDate(
             scheduledDate,
             data.reminderConfig.daysBefore,
@@ -103,7 +106,7 @@ export default function GelirEklePage() {
           await scheduleTransactionReminder(
             result.id,
             t('transactions:notifications.reminderTitle'),
-            `${t('transactions:types.gelir')}: ${formatCurrency(parseCurrency(data.amount))}${data.description ? ` - ${data.description}` : ''}`,
+            `${t('transactions:types.gelir')}: ${formatCurrency(parseCurrency(data.amount), reminderCurrency)}${data.description ? ` - ${data.description}` : ''}`,
             reminderDate,
             {
               type: 'scheduled_transaction_reminder',

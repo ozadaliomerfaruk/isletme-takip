@@ -19,7 +19,8 @@ import {
   useDismissPendingIslem,
   buildIslemFromPending,
 } from '@/hooks/usePendingIslemler';
-import { supabase } from '@/lib/supabase';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { applyImportOpeningBalance } from '@/lib/importFinancialSafety';
 import type { PendingIslem, IslemType } from '@/types/database';
 import type { ExtendedIslemType } from './PendingTransactionForm.types';
 import { toErrorMessage } from '@/lib/errors';
@@ -43,6 +44,7 @@ export interface PendingFormSaveParams {
 export function usePendingFormSave() {
   const { t } = useTranslation(['transactions', 'common', 'accounts', 'clients', 'staff', 'settings']);
   const queryClient = useQueryClient();
+  const { isletme } = useAuthContext();
   const savePendingAsIslem = useSavePendingAsIslem();
   const dismissPending = useDismissPendingIslem();
 
@@ -83,62 +85,26 @@ export function usePendingFormSave() {
       }
 
       try {
+        if (!isletme) throw new Error('No isletme');
+
         const signedBalance = pendingIslem.raw_data.isExpense ? -parsedAmount : parsedAmount;
 
-        if (hesapId) {
-          const { data: hesapData } = await supabase
-            .from('hesaplar')
-            .select('balance, initial_balance')
-            .eq('id', hesapId)
-            .single();
-          const currentInitial = hesapData?.initial_balance ?? 0;
-          const txEffect = (hesapData?.balance ?? 0) - currentInitial;
-          const newBalance = signedBalance + txEffect;
-          const { error } = await supabase
-            .from('hesaplar')
-            .update({ balance: newBalance, initial_balance: signedBalance })
-            .eq('id', hesapId);
-          if (error) throw error;
-        }
+        const targets = [
+          hesapId ? { entityType: 'hesap' as const, entityId: hesapId } : null,
+          cariId ? { entityType: 'cari' as const, entityId: cariId } : null,
+          personelId ? { entityType: 'personel' as const, entityId: personelId } : null,
+        ].filter((target): target is NonNullable<typeof target> => target !== null);
 
-        if (cariId) {
-          const { data: cariTxs } = await supabase
-            .from('islemler').select('type, amount').eq('cari_id', cariId);
-          let cariTxEffect = 0;
-          cariTxs?.forEach(tx => {
-            const amt = Number(tx.amount) || 0;
-            if (tx.type === 'cari_alis') cariTxEffect -= amt;
-            else if (tx.type === 'cari_odeme') cariTxEffect += amt;
-            else if (tx.type === 'cari_satis') cariTxEffect += amt;
-            else if (tx.type === 'cari_tahsilat') cariTxEffect -= amt;
-            else if (tx.type === 'cari_alis_iade') cariTxEffect += amt;
-            else if (tx.type === 'cari_satis_iade') cariTxEffect -= amt;
+        // Sıralı çalıştırmak kilit sırasını öngörülebilir tutar. RPC mevcut işlem
+        // etkisini gerçek para birimleriyle hesaplar ve bakiyeyi atomik günceller.
+        for (const target of targets) {
+          await applyImportOpeningBalance({
+            isletmeId: isletme.id,
+            entityType: target.entityType,
+            entityId: target.entityId,
+            amount: signedBalance,
+            replaceExisting: true,
           });
-          const newBalance = signedBalance + cariTxEffect;
-          const { error } = await supabase
-            .from('cariler')
-            .update({ balance: newBalance })
-            .eq('id', cariId);
-          if (error) throw error;
-        }
-
-        if (personelId) {
-          const { data: personelTxs } = await supabase
-            .from('islemler').select('type, amount').eq('personel_id', personelId);
-          let personelTxEffect = 0;
-          personelTxs?.forEach(tx => {
-            const amt = Number(tx.amount) || 0;
-            if (tx.type === 'personel_gider') personelTxEffect -= amt;
-            else if (tx.type === 'personel_odeme') personelTxEffect += amt;
-            else if (tx.type === 'personel_tahsilat') personelTxEffect -= amt;
-            else if (tx.type === 'personel_satis') personelTxEffect += amt;
-          });
-          const newBalance = signedBalance + personelTxEffect;
-          const { error } = await supabase
-            .from('personel')
-            .update({ balance: newBalance })
-            .eq('id', personelId);
-          if (error) throw error;
         }
 
         await dismissPending.mutateAsync(pendingIslem.id);
@@ -243,7 +209,7 @@ export function usePendingFormSave() {
     } finally {
       setIsSaving(false);
     }
-  }, [savePendingAsIslem, dismissPending, queryClient, t]);
+  }, [savePendingAsIslem, dismissPending, queryClient, t, isletme]);
 
   const handleSkip = useCallback(async (
     pendingIslem: PendingIslem | null,

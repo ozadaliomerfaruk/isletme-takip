@@ -101,7 +101,7 @@ describe('product report v2 client contract', () => {
     expect(
       hook.match(/&& !hasUnsafeQueryState/g),
     ).toHaveLength(2);
-    expect(queryClient).toContain("-s6`");
+    expect(queryClient).toContain("-s7`");
   });
 
   it('validates server rows before navigation or financial aggregation', () => {
