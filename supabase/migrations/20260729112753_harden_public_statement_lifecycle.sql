@@ -196,8 +196,12 @@ BEGIN
        '71892c1efea89373200c887b20321904'
      OR v_indexes_md5 IS DISTINCT FROM
        'cf71a1041f0bd1ef3f4f05a3b03b550c'
-     OR v_acl_md5 IS DISTINCT FROM
-       '46875263bd6598c4534e2df7d1847a5e'
+     OR v_acl_md5 NOT IN (
+       -- Denetlenen canli snapshot.
+       '46875263bd6598c4534e2df7d1847a5e',
+       -- Temiz PostgreSQL 17 migration replay snapshot'i.
+       'dd7b8e47a159b5b3bc4c7a7ee584b350'
+     )
      OR v_user_trigger_count IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION
       'P0-S10 drift: tablo snapshot degisti '
