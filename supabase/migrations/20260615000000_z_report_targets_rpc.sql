@@ -14,6 +14,79 @@
 --
 -- SALT-OKUNUR: hiçbir tabloya/satıra dokunmaz. Yalnızca okuma + toplama yapar.
 -- =============================================================================
+-- The hosted migration registry records this version as z_report_targets_rpc.
+-- The repository previously also contained an invalid second file with the
+-- same version for member_label. Keep those additive statements under the
+-- canonical recorded version so clean replays match the hosted schema.
+ALTER TABLE public.isletme_invites
+  ADD COLUMN IF NOT EXISTS member_label text;
+ALTER TABLE public.isletme_users
+  ADD COLUMN IF NOT EXISTS member_label text;
+
+CREATE OR REPLACE FUNCTION public.accept_isletme_invite(p_code text)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $function$
+DECLARE
+  v_invite record;
+BEGIN
+  SELECT * INTO v_invite
+  FROM isletme_invites
+  WHERE invite_code = upper(p_code)
+    AND status = 'pending'
+    AND expires_at > now()
+  FOR UPDATE;
+
+  IF v_invite IS NULL THEN
+    RAISE EXCEPTION 'Geçersiz veya süresi dolmuş davet kodu';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM isletme_users
+    WHERE isletme_id = v_invite.isletme_id
+      AND user_id = auth.uid()
+      AND status IN ('active', 'suspended')
+  ) THEN
+    RAISE EXCEPTION 'Bu işletmeye zaten erişiminiz var';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM isletmeler
+    WHERE id = v_invite.isletme_id
+      AND user_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'Kendi işletmenize davet kabul edemezsiniz';
+  END IF;
+
+  UPDATE isletme_invites
+  SET status = 'accepted',
+      accepted_at = now(),
+      accepted_by = auth.uid()
+  WHERE id = v_invite.id;
+
+  INSERT INTO isletme_users (
+    isletme_id, user_id, invite_id,
+    role, role_label, permissions, status, member_label
+  ) VALUES (
+    v_invite.isletme_id, auth.uid(), v_invite.id,
+    v_invite.role, v_invite.role_label, v_invite.permissions, 'active',
+    v_invite.member_label
+  )
+  ON CONFLICT (isletme_id, user_id) DO UPDATE SET
+    invite_id = EXCLUDED.invite_id,
+    role = EXCLUDED.role,
+    role_label = EXCLUDED.role_label,
+    permissions = EXCLUDED.permissions,
+    status = 'active',
+    member_label = EXCLUDED.member_label,
+    updated_at = now();
+
+  RETURN v_invite.isletme_id;
+END;
+$function$;
+
 -- This column existed in hosted production before it was referenced here, but
 -- its original schema migration was missing from the repository. Restore the
 -- additive prerequisite so a clean migration replay has the same shape.
