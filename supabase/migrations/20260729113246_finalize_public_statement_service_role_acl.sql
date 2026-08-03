@@ -185,8 +185,12 @@ BEGIN
        'baed2df421f8e6296e2d991dd64a7b0d'
      OR v_indexes_md5 IS DISTINCT FROM
        'c4fba23c8d13d8d8c209f4d44bc23e09'
-     OR v_acl_md5 IS DISTINCT FROM
-       '821d2cba3aacaf8063ed1120f1af8f08' THEN
+     OR v_acl_md5 NOT IN (
+       -- Denetlenen canli phase-1 snapshot'i.
+       '821d2cba3aacaf8063ed1120f1af8f08',
+       -- Temiz PostgreSQL 17 migration replay phase-1 snapshot'i.
+       '785266260c6014ee265c71ed89f123e0'
+     ) THEN
     RAISE EXCEPTION
       'P0-S10 phase-2 drift: phase-1 tablo snapshot eslesmiyor '
       '(columns=%, constraints=%, policies=%, indexes=%, acl=%; '
