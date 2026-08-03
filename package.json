@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watchAll",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:db-contracts": "node scripts/run-supabase-contract-tests.mjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
