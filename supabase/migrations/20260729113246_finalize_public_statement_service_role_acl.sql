@@ -48,6 +48,10 @@ DECLARE
   v_policies_md5    text;
   v_indexes_md5     text;
   v_acl_md5         text;
+  v_create_md5      text;
+  v_cancel_md5      text;
+  v_validate_md5    text;
+  v_profile_helper_md5 text;
 BEGIN
   IF v_table_oid IS NULL
      OR v_create_oid IS NULL
@@ -162,6 +166,17 @@ BEGIN
   FROM pg_catalog.pg_class AS table_class
   WHERE table_class.oid = v_table_oid;
 
+  SELECT
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_create_oid)),
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_cancel_oid)),
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_validate_oid)),
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_profile_helper_oid))
+  INTO
+    v_create_md5,
+    v_cancel_md5,
+    v_validate_md5,
+    v_profile_helper_md5;
+
   IF v_columns_md5 IS DISTINCT FROM
        '9836499cea373e719c7cb8c8288c8e7f'
      OR v_constraints_md5 IS DISTINCT FROM
@@ -173,26 +188,32 @@ BEGIN
      OR v_acl_md5 IS DISTINCT FROM
        '821d2cba3aacaf8063ed1120f1af8f08' THEN
     RAISE EXCEPTION
-      'P0-S10 phase-2 drift: phase-1 tablo snapshot eslesmiyor'
+      'P0-S10 phase-2 drift: phase-1 tablo snapshot eslesmiyor '
+      '(columns=%, constraints=%, policies=%, indexes=%, acl=%; '
+      'create=%, cancel=%, validate=%, helper=%)',
+      v_columns_md5,
+      v_constraints_md5,
+      v_policies_md5,
+      v_indexes_md5,
+      v_acl_md5,
+      v_create_md5,
+      v_cancel_md5,
+      v_validate_md5,
+      v_profile_helper_md5
       USING ERRCODE = '55000';
   END IF;
 
-  IF (
-    SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_create_oid))
-  ) IS DISTINCT FROM '19fd96efcf842866e922c1eb1c27f007'
-     OR (
-       SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_cancel_oid))
-     ) IS DISTINCT FROM '00eab03f65c493d212f25e5266e2a663'
-     OR (
-       SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_validate_oid))
-     ) IS DISTINCT FROM '971f225e93bd10942e742b6174ca5775'
-     OR (
-       SELECT pg_catalog.md5(
-         pg_catalog.pg_get_functiondef(v_profile_helper_oid)
-       )
-     ) IS DISTINCT FROM 'e7d034e4a4b23abcaaadbc08b146ada3' THEN
+  IF v_create_md5 IS DISTINCT FROM '19fd96efcf842866e922c1eb1c27f007'
+     OR v_cancel_md5 IS DISTINCT FROM '00eab03f65c493d212f25e5266e2a663'
+     OR v_validate_md5 IS DISTINCT FROM '971f225e93bd10942e742b6174ca5775'
+     OR v_profile_helper_md5 IS DISTINCT FROM 'e7d034e4a4b23abcaaadbc08b146ada3' THEN
     RAISE EXCEPTION
-      'P0-S10 phase-2 drift: phase-1 fonksiyon govdeleri eslesmiyor'
+      'P0-S10 phase-2 drift: phase-1 fonksiyon govdeleri eslesmiyor '
+      '(create=%, cancel=%, validate=%, helper=%)',
+      v_create_md5,
+      v_cancel_md5,
+      v_validate_md5,
+      v_profile_helper_md5
       USING ERRCODE = '55000';
   END IF;
 
