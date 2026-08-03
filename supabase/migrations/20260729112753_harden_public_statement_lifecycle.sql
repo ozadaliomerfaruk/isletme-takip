@@ -57,6 +57,9 @@ DECLARE
   v_policies_md5          text;
   v_indexes_md5           text;
   v_acl_md5               text;
+  v_create_md5            text;
+  v_cancel_md5            text;
+  v_resolver_md5          text;
   v_user_trigger_count    bigint;
   v_active_duplicate_count bigint;
 BEGIN
@@ -188,6 +191,12 @@ BEGIN
   FROM pg_catalog.pg_trigger AS trigger_row
   WHERE trigger_row.tgrelid = v_table_oid;
 
+  SELECT
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_create_oid)),
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_cancel_oid)),
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_resolver_oid))
+  INTO v_create_md5, v_cancel_md5, v_resolver_md5;
+
   IF v_columns_md5 IS DISTINCT FROM
        '9836499cea373e719c7cb8c8288c8e7f'
      OR v_constraints_md5 IS DISTINCT FROM
@@ -215,17 +224,15 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
-  IF (
-    SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_create_oid))
-  ) IS DISTINCT FROM 'd9a2ef379260e4b5fd1d7ec795ddd7ea'
-     OR (
-       SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_cancel_oid))
-     ) IS DISTINCT FROM '1b75693d54ee84a30c98977e1c6edb66'
-     OR (
-       SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_resolver_oid))
-     ) IS DISTINCT FROM 'f8aebb82851b89301f6679f92a217e96' THEN
+  IF v_create_md5 IS DISTINCT FROM 'd9a2ef379260e4b5fd1d7ec795ddd7ea'
+     OR v_cancel_md5 IS DISTINCT FROM '1b75693d54ee84a30c98977e1c6edb66'
+     OR v_resolver_md5 IS DISTINCT FROM 'f8aebb82851b89301f6679f92a217e96' THEN
     RAISE EXCEPTION
-      'P0-S10 drift: RPC/resolver govdesi snapshot ile eslesmiyor'
+      'P0-S10 drift: RPC/resolver govdesi snapshot ile eslesmiyor '
+      '(create=%, cancel=%, resolver=%)',
+      v_create_md5,
+      v_cancel_md5,
+      v_resolver_md5
       USING ERRCODE = '55000';
   END IF;
 
