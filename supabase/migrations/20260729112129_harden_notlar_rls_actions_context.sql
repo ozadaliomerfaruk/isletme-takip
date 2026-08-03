@@ -244,8 +244,13 @@ BEGIN
   IF v_owner IS DISTINCT FROM 'postgres'
      OR v_rls IS DISTINCT FROM true
      OR v_force_rls IS DISTINCT FROM false
-     OR v_acl IS DISTINCT FROM
-       '{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}'
+     OR v_acl NOT IN (
+       -- Denetlenen canli snapshot.
+       '{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}',
+       -- Temiz PostgreSQL 17 replay: onceki migrationlar istemci rolleri icin
+       -- yalniz tablo-seviyesi DELETE/TRUNCATE/REFERENCES/TRIGGER izinlerini birakir.
+       '{postgres=arwdDxtm/postgres,anon=Dxtm/postgres,authenticated=Dxtm/postgres,service_role=Dxtm/postgres}'
+     )
      OR v_column_count IS DISTINCT FROM 15
      OR v_column_acl_count IS DISTINCT FROM 0
      OR v_columns_md5 IS DISTINCT FROM
