@@ -1172,6 +1172,9 @@ describe('permission contract V2 server migration', () => {
     expect(normalizedSql).toContain(
       'REVOKE UPDATE ON TABLE public.urunler FROM PUBLIC, anon, authenticated;'
     );
+    expect(normalizedSql).toContain(
+      'GRANT UPDATE ON TABLE public.urunler TO service_role;'
+    );
 
     const metadataGrant = sql.match(
       /GRANT UPDATE \(([\s\S]*?)\)\s+ON TABLE public\.urunler\s+TO authenticated;/
