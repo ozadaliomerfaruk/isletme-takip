@@ -224,7 +224,12 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
-  IF v_create_md5 IS DISTINCT FROM 'd9a2ef379260e4b5fd1d7ec795ddd7ea'
+  IF v_create_md5 NOT IN (
+       -- Denetlenen canli snapshot.
+       'd9a2ef379260e4b5fd1d7ec795ddd7ea',
+       -- Temiz PostgreSQL 17 migration replay snapshot'i.
+       '0296626ae94c6c3fe3894b1c0b18ff00'
+     )
      OR v_cancel_md5 IS DISTINCT FROM '1b75693d54ee84a30c98977e1c6edb66'
      OR v_resolver_md5 IS DISTINCT FROM 'f8aebb82851b89301f6679f92a217e96' THEN
     RAISE EXCEPTION
