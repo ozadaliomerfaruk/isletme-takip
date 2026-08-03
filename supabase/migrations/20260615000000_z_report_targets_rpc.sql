@@ -14,6 +14,12 @@
 --
 -- SALT-OKUNUR: hiçbir tabloya/satıra dokunmaz. Yalnızca okuma + toplama yapar.
 -- =============================================================================
+-- This column existed in hosted production before it was referenced here, but
+-- its original schema migration was missing from the repository. Restore the
+-- additive prerequisite so a clean migration replay has the same shape.
+ALTER TABLE public.isletmeler
+  ADD COLUMN IF NOT EXISTS scheduled_deletion_at timestamptz;
+
 CREATE OR REPLACE FUNCTION public.get_z_report_targets(p_date date)
 RETURNS TABLE(
   isletme_id uuid,
