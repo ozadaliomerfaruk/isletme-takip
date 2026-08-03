@@ -157,6 +157,75 @@ CREATE INDEX IF NOT EXISTS idx_islemler_edited ON islemler(isletme_id, updated_a
   WHERE updated_by IS NOT NULL AND updated_by != created_by;
 
 -- 4. AUDIT LOG TRİGGER'LARI
+-- Production'da bulunan kanonik birlesik audit yolu onceki migration
+-- gecmisinde eksikti. Temiz replay'lerde de UPDATE/DELETE kaydini tek guvenilir
+-- fonksiyonda tut; 20260626230000 asagidaki eski iki ayri yolu kaldirir.
+CREATE OR REPLACE FUNCTION public.log_islem_changes()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public', 'pg_temp'
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    INSERT INTO islem_audit_log (
+      isletme_id,
+      islem_id,
+      action,
+      old_data,
+      performed_by
+    )
+    VALUES (
+      OLD.isletme_id,
+      OLD.id,
+      'delete',
+      to_jsonb(OLD),
+      COALESCE(auth.uid(), OLD.updated_by)
+    );
+    RETURN OLD;
+  ELSIF TG_OP = 'UPDATE' THEN
+    INSERT INTO islem_audit_log (
+      isletme_id,
+      islem_id,
+      action,
+      old_data,
+      new_data,
+      performed_by
+    )
+    VALUES (
+      OLD.isletme_id,
+      OLD.id,
+      'update',
+      to_jsonb(OLD),
+      to_jsonb(NEW),
+      COALESCE(auth.uid(), NEW.updated_by)
+    );
+    RETURN NEW;
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.log_islem_changes()
+FROM PUBLIC, anon, authenticated, service_role;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_trigger AS trigger_row
+    WHERE trigger_row.tgrelid = 'public.islemler'::pg_catalog.regclass
+      AND trigger_row.tgname = 'audit_islemler_changes'
+      AND NOT trigger_row.tgisinternal
+  ) THEN
+    CREATE TRIGGER audit_islemler_changes
+      AFTER DELETE OR UPDATE ON public.islemler
+      FOR EACH ROW EXECUTE FUNCTION public.log_islem_changes();
+  END IF;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION log_islem_delete()
 RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN

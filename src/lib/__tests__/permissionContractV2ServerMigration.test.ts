@@ -6,6 +6,13 @@ const migrationPath = path.resolve(
   'supabase/migrations/20260730080658_permission_contract_v2_server.sql'
 );
 const sql = fs.readFileSync(migrationPath, 'utf8').replace(/\r\n/g, '\n');
+const auditBootstrapSql = fs.readFileSync(
+  path.resolve(
+    process.cwd(),
+    'supabase/migrations/20260224000003_multi_user_rpc_audit_log.sql'
+  ),
+  'utf8'
+).replace(/\r\n/g, '\n');
 
 function stripSqlBodiesAndComments(source: string): string {
   return source
@@ -69,6 +76,21 @@ function grantedPrincipals(functionIdentity: string): string[] {
 }
 
 describe('permission contract V2 server migration', () => {
+  it('bootstraps the unified transaction audit prerequisite on clean replays', () => {
+    expect(auditBootstrapSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.log_islem_changes()'
+    );
+    expect(auditBootstrapSql).toMatch(
+      /CREATE TRIGGER audit_islemler_changes\s+AFTER DELETE OR UPDATE ON public\.islemler\s+FOR EACH ROW EXECUTE FUNCTION public\.log_islem_changes\(\);/
+    );
+    expect(auditBootstrapSql).toContain(
+      'COALESCE(auth.uid(), OLD.updated_by)'
+    );
+    expect(auditBootstrapSql).toContain(
+      'COALESCE(auth.uid(), NEW.updated_by)'
+    );
+  });
+
   it('is one atomic, additive migration without top-level user-row DML', () => {
     expect(sql.match(/^BEGIN;$/gm)).toHaveLength(1);
     expect(sql.match(/^COMMIT;$/gm)).toHaveLength(1);
