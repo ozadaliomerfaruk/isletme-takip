@@ -26,15 +26,17 @@ describe('income source report v2 client contract', () => {
         'o0r1h1b0c1p0a0',
         '2026-07-01T00:00:00',
         '2026-07-31T23:59:59',
+        'usd',
       ),
     ).toEqual([
       'income-by-source',
-      'v2',
+      'v3-lens',
       'tenant-1',
       'user-1',
       'o0r1h1b0c1p0a0',
       '2026-07-01T00:00:00',
       '2026-07-31T23:59:59',
+      'usd',
     ]);
 
     expect(
@@ -60,13 +62,14 @@ describe('income source report v2 client contract', () => {
     ]);
   });
 
-  it('uses only V2 and treats Raporlar as access to every source', () => {
+  it('keeps nominal on V2, uses the additive historical RPC and treats Raporlar as access to every source', () => {
     expect(hook).toContain(
       "supabase.rpc('get_income_by_source_v2'",
     );
-    expect(hook).not.toMatch(
-      /supabase\.rpc\('get_income_by_source'/,
+    expect(hook).toContain(
+      "supabase.rpc('get_income_by_source_lens_v1'",
     );
+    expect(hook).toContain("lens === 'nominal'");
     expect(hook).toContain(
       'const canViewAccountsInReport = canViewReports || canViewAccounts',
     );
@@ -156,8 +159,25 @@ describe('income source report v2 client contract', () => {
     expect(reportScreen).toMatch(
       /showAccounts\s+\? kaynakRaporu\.totalAmount\s+: gelirRaporu\.totalAmount/s,
     );
-    expect(reportScreen).toMatch(
-      /showAccounts\s+\? kaynakRaporu\.conversionIncomplete\s+: catReport\.conversionIncomplete/s,
+    expect(reportScreen).toContain(
+      'const activeReport = showAccounts ? kaynakRaporu : catReport',
     );
+    expect(reportScreen).toContain('activeReport.conversionIncomplete === true');
+    expect(reportScreen).toContain('activeReport.missingRateCount ?? 0');
+  });
+
+  it('keeps source grouping and drill-down in the selected historical lens', () => {
+    expect(reportScreen).toContain('lens: selectedLens');
+    expect(reportScreen).toContain('lens={selectedLens}');
+    expect(reportScreen).toContain('formatReportLensValue(group.total, selectedLens)');
+    expect(reportScreen).not.toContain("selectedLens === 'nominal' && gelirGroupBy");
+    expect(detailScreen).toContain('useHistoricalReportLens(selectedLens, startDate, endDate)');
+    expect(detailScreen).toContain('_reportAmountCurrency: hesapCurrency');
+    expect(detailScreen).toContain('incomeExpenseLens.cpiRateCompact');
+    expect(detailScreen).toContain('incomeExpenseLens.dailyRateCompact');
+    expect(detailScreen).toContain('<IncomeExpenseLensPicker');
+    expect(reportScreen).toContain('dimensionLabel: showAccounts');
+    expect(reportScreen).toContain('kaynakRaporu.groups.flatMap');
+    expect(reportScreen).toContain('totalAmount: activeReport.totalAmount');
   });
 });

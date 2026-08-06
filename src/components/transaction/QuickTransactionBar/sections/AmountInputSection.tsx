@@ -29,6 +29,7 @@ export interface AmountInputSectionProps {
   categoryType: 'gelir' | 'gider' | null;
   categoryPickerOpen: boolean;
   onCategoryPickerOpenChange: (open: boolean) => void;
+  onCategoryPickerCloseComplete?: () => void;
   onNavigateAway: () => void;
   // A1: "son kullanılan" kategoriler (doğrulanmış + çözümlenmiş, en fazla 3) — hızlı seçim chip'leri
   recentCategories?: { id: string; name: string; color?: string | null }[];
@@ -71,6 +72,7 @@ export function AmountInputSection({
   categoryType,
   categoryPickerOpen,
   onCategoryPickerOpenChange,
+  onCategoryPickerCloseComplete,
   onNavigateAway,
   recentCategories,
   hasPhoto,
@@ -197,6 +199,7 @@ export function AmountInputSection({
             onNavigateAway={onNavigateAway}
             open={categoryPickerOpen}
             onOpenChange={onCategoryPickerOpenChange}
+            onCloseComplete={onCategoryPickerCloseComplete}
             containerStyle={localStyles.categoryPickerTight}
             triggerStyle={localStyles.categoryTriggerFlat}
           />

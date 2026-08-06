@@ -55,6 +55,7 @@ import { parseDateFromDB } from '@/lib/date';
 import { exportLeaveHistory } from '@/lib/pageExports';
 import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
 import type { Not } from '@/types/database';
+import { canMutateEntityHistory } from '@/lib/archivedEntityHistory';
 
 const LEAVE_TRANSACTION_DELETE_PERMISSION_REVOKED = Object.assign(
   new Error('Leave transaction delete permission revoked'),
@@ -94,6 +95,11 @@ export default function LeaveHistoryPage() {
     isOwner,
   } = usePermissions();
   const { data: personel, refetch: refetchPersonel } = usePersonel(id);
+  const canMutateDetailHistory = canMutateEntityHistory(personel?.is_archived);
+  const canCreateLeaveTransactions =
+    canMutateDetailHistory && canCreateTransactions;
+  const canCopyLeaveTransactions =
+    canMutateDetailHistory && isOwner && canCreateTransactions;
   // İzin-only, pagination'sız sorgu: TÜM izin hareketleri (geçmiş yıl dahil) eksiksiz gelir,
   // sadece izin satırları çekilir (düşük egress). Böylece liste tam + kalan gün ana sayfayla
   // (usePersonelLeaveQuotas, aynı toplam) birebir aynı olur.
@@ -141,23 +147,25 @@ export default function LeaveHistoryPage() {
   );
   const canUpdateTransactionRecord = useCallback(
     (transaction: PersonelTransactionRow): boolean =>
-      isActiveTenantTransaction(transaction)
+      canMutateDetailHistory
+      && isActiveTenantTransaction(transaction)
       && canAccessTransactionSources(
         [transaction.type],
         canAccessModule,
       )
       && canUpdate('islemler', transaction.created_by ?? null),
-    [canAccessModule, canUpdate, isActiveTenantTransaction],
+    [canAccessModule, canMutateDetailHistory, canUpdate, isActiveTenantTransaction],
   );
   const canDeleteTransactionRecord = useCallback(
     (transaction: PersonelTransactionRow): boolean =>
-      isActiveTenantTransaction(transaction)
+      canMutateDetailHistory
+      && isActiveTenantTransaction(transaction)
       && canAccessTransactionSources(
         [transaction.type],
         canAccessModule,
       )
       && canDelete('islemler', transaction.created_by ?? null),
-    [canAccessModule, canDelete, isActiveTenantTransaction],
+    [canAccessModule, canDelete, canMutateDetailHistory, isActiveTenantTransaction],
   );
   const canUpdateTransaction = useCallback(
     (islemId: string): boolean => {
@@ -214,10 +222,15 @@ export default function LeaveHistoryPage() {
   }, [canRenderEditTransactionBar, showEditBar]);
 
   useEffect(() => {
-    if (isOwner) return;
+    if (canCopyLeaveTransactions) return;
     setShowCopyBar(false);
     setCopySourceId(null);
-  }, [isOwner]);
+  }, [canCopyLeaveTransactions]);
+
+  useEffect(() => {
+    if (canMutateDetailHistory) return;
+    setShowNewLeaveBar(false);
+  }, [canMutateDetailHistory]);
 
   // Undo delete: beş saniyelik pencere boyunca rol veya kaynak erişimi
   // daralabileceği için commit anında en güncel kayıt yetkisini yeniden doğrula.
@@ -328,6 +341,7 @@ export default function LeaveHistoryPage() {
   }, [leaveTransactions, t, formatDateSmart, entityNotes]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
+    if (!canMutateDetailHistory) return;
     const islem = leaveTransactions.find(i => i.id === islemId);
     if (!islem) return;
     if (!canDeleteTransactionRecord(islem)) {
@@ -347,12 +361,14 @@ export default function LeaveHistoryPage() {
     requestDelete(islemId, islem, desc);
   }, [
     canDeleteTransactionRecord,
+    canMutateDetailHistory,
     leaveTransactions,
     requestDelete,
     t,
   ]);
 
   const handleEditIslem = useCallback((islemId: string) => {
+    if (!canMutateDetailHistory) return;
     const transaction = leaveTransactions.find((item) => item.id === islemId);
     if (!transaction || !canUpdateTransactionRecord(transaction)) {
       showTransactionUpdateDenied(islemId);
@@ -362,15 +378,16 @@ export default function LeaveHistoryPage() {
     setShowEditBar(true);
   }, [
     canUpdateTransactionRecord,
+    canMutateDetailHistory,
     leaveTransactions,
     showTransactionUpdateDenied,
   ]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
-    if (!isOwner) return;
+    if (!canCopyLeaveTransactions) return;
     setCopySourceId(islemId);
     setShowCopyBar(true);
-  }, [isOwner]);
+  }, [canCopyLeaveTransactions]);
 
   const handleNoteDelete = useCallback((noteId: string) => {
     const note = entityNotes?.find(n => n.id === noteId);
@@ -579,7 +596,7 @@ export default function LeaveHistoryPage() {
       const prefix = getTransactionPrefix(islem.type);
       const hasBar = showAccentBar(islem.type);
       const canDeleteTransaction = canDeleteTransactionRecord(islem);
-      const canCopyTransaction = isOwner && canCreateTransactions;
+      const canCopyTransaction = canCopyLeaveTransactions;
 
       // Build date range text for leave usage with date_end
       const dateEnd = islem.date_end;
@@ -602,6 +619,7 @@ export default function LeaveHistoryPage() {
         >
           <TouchableOpacity
             activeOpacity={0.7}
+            disabled={!canMutateDetailHistory}
             onPress={() => handleEditIslem(islem.id)}
           >
             <View
@@ -653,7 +671,7 @@ export default function LeaveHistoryPage() {
         </SwipeableRow>
       );
     },
-    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, deleteLabel, copyLabel, isOwner, canDeleteTransactionRecord, canCreateTransactions, groupedData]
+    [t, formatDateSmart, formatDateMedium, handleDeleteIslem, handleCopyIslem, handleEditIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, deleteLabel, copyLabel, canCopyLeaveTransactions, canDeleteTransactionRecord, canMutateDetailHistory, groupedData]
   );
 
   const keyExtractor = useCallback(
@@ -767,7 +785,7 @@ export default function LeaveHistoryPage() {
       )}
 
       {/* Copy QuickTransactionBar */}
-      {isOwner && (
+      {canCopyLeaveTransactions && (
       <QuickTransactionBar
         visible={showCopyBar}
         onDismiss={() => {
@@ -786,7 +804,7 @@ export default function LeaveHistoryPage() {
       )}
 
       {/* New Leave QuickTransactionBar */}
-      {canCreateTransactions && (
+      {canCreateLeaveTransactions && (
       <QuickTransactionBar
         visible={showNewLeaveBar}
         onDismiss={() => setShowNewLeaveBar(false)}
@@ -805,7 +823,7 @@ export default function LeaveHistoryPage() {
         entityId={id!}
         style={{ position: 'absolute', right: spacing.lg, bottom: spacing.lg + insets.bottom + 70 }}
       />
-      {canCreateTransactions && (
+      {canCreateLeaveTransactions && (
         <GlassFab
           style={[styles.fab, { bottom: spacing.lg + insets.bottom }]}
           onPress={() => setShowNewLeaveBar(true)}

@@ -192,7 +192,7 @@ describe('P0-S7/C3 personel projection istemci sozlesmesi', () => {
       /Quick Transaction Bar - Edit Mode[\s\S]{0,100}\{canRenderEditTransactionBar && \(/,
     );
     expect(detail).toMatch(
-      /Copy Transaction Bar[\s\S]{0,100}\{isOwner && \(/,
+      /Copy Transaction Bar[\s\S]{0,120}\{canCopyPersonelTransactions && \(/,
     );
   });
 
@@ -227,7 +227,7 @@ describe('P0-S7/C3 personel projection istemci sozlesmesi', () => {
       /Edit QuickTransactionBar[\s\S]{0,100}\{canRenderEditTransactionBar && \(/,
     );
     expect(leaveHistory).toMatch(
-      /Copy QuickTransactionBar[\s\S]{0,100}\{isOwner && \(/,
+      /Copy QuickTransactionBar[\s\S]{0,120}\{canCopyLeaveTransactions && \(/,
     );
   });
 

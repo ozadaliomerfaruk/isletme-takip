@@ -45,10 +45,13 @@ describe('gelir gider Excel export permission contract', () => {
     expect(hook).toContain('latestAccess.userId !== expectedUserId');
   });
 
-  it('reports-only yetkide export giris noktasini gosterir', () => {
+  it('reports-only yetkide nominal ve tarihsel Excel giris noktasini gosterir', () => {
     expect(hook).toContain('canExport: boolean;');
+    expect(hook).toContain('exportLensSummary:');
+    expect(hook).toContain('exportIncomeExpenseLensSummaryToExcel({');
     expect(page).toMatch(
       /headerRight: \(\) => canExport \? \([\s\S]*?<ReportExportButton[\s\S]*?\) : null/,
     );
+    expect(page).toContain('exportLensSummary({');
   });
 });

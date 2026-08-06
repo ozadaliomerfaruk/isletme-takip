@@ -18,6 +18,12 @@ export type LensUnit = 'try' | 'usd' | 'eur' | 'gram';
 
 const UNIT: Record<LensMode, LensUnit> = { nominal: 'try', reel: 'try', usd: 'usd', eur: 'eur', altin: 'gram' };
 
+function monthDistance(fromMonth: string, toMonth: string): number {
+  const [fromYear, fromNumber] = fromMonth.split('-').map(Number);
+  const [toYear, toNumber] = toMonth.split('-').map(Number);
+  return (toYear - fromYear) * 12 + toNumber - fromNumber;
+}
+
 export interface LensPoint {
   month: string;
   label: string;
@@ -79,10 +85,22 @@ export function useNetWorthLenses(monthsBack: number) {
     // Cari ay tablo satırı boşsa (EVDS henüz o ayı yayımlamadıysa) son bilinen değeri taşır.
     const effGold = new Map<string, number>();
     let lastG: number | null = null;
+    let lastGoldMonth: string | null = null;
     for (const p of points) {
       const raw = indicators?.byMonth.get(p.month)?.gram_altin_try ?? null;
-      if (raw != null) lastG = raw;
-      if (lastG != null) effGold.set(p.month, lastG);
+      if (raw != null) {
+        lastG = raw;
+        lastGoldMonth = p.month;
+      }
+      // Yalniz yayim gecikmesi kadar (bir ay) tasir. Daha uzun boslukta eski
+      // fiyati bugunun fiyati gibi gostermek yerine lens o ay icin unavailable olur.
+      if (
+        lastG != null
+        && lastGoldMonth != null
+        && monthDistance(lastGoldMonth, p.month) <= 1
+      ) {
+        effGold.set(p.month, lastG);
+      }
     }
 
     // Forward-fill USD/EUR (EVDS döviz satış). Altın gibi CARİ AY dahil TÜM aylarda tablodan alınır
@@ -91,13 +109,25 @@ export function useNetWorthLenses(monthsBack: number) {
     const effEur = new Map<string, number>();
     let lastU: number | null = null;
     let lastE: number | null = null;
+    let lastUsdMonth: string | null = null;
+    let lastEurMonth: string | null = null;
     for (const p of points) {
       const ru = indicators?.byMonth.get(p.month)?.usd_try ?? null;
       const re = indicators?.byMonth.get(p.month)?.eur_try ?? null;
-      if (ru != null) lastU = ru;
-      if (re != null) lastE = re;
-      if (lastU != null) effUsd.set(p.month, lastU);
-      if (lastE != null) effEur.set(p.month, lastE);
+      if (ru != null) {
+        lastU = ru;
+        lastUsdMonth = p.month;
+      }
+      if (re != null) {
+        lastE = re;
+        lastEurMonth = p.month;
+      }
+      if (lastU != null && lastUsdMonth && monthDistance(lastUsdMonth, p.month) <= 1) {
+        effUsd.set(p.month, lastU);
+      }
+      if (lastE != null && lastEurMonth && monthDistance(lastEurMonth, p.month) <= 1) {
+        effEur.set(p.month, lastE);
+      }
     }
 
     const value = (p: NetWorthTrendPoint, mode: LensMode): number | null => {

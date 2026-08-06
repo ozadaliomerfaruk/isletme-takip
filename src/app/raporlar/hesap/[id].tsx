@@ -19,6 +19,10 @@ import { Text, Button, Card, Screen } from '@/components/ui';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { ProductDetailModal } from '@/components/transaction/ProductDetailModal';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
+import {
+  IncomeExpenseLensPicker,
+  INCOME_EXPENSE_LENS_STICKY_SPACE,
+} from '@/components/reports/IncomeExpenseLensPicker';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, fontSize } from '@/constants/spacing';
 import { formatCurrency, signedCurrencyText } from '@/lib/currency';
@@ -39,6 +43,13 @@ import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
 import { useUrunKalemlerByIslemIds } from '@/hooks/useUrunHareketler';
 import { getTransactionProductMutationDecision } from '@/lib/transactionProductMutationGate';
 import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
+import { useHistoricalReportLens } from '@/hooks/useHistoricalReportLens';
+import {
+  formatReportLensValue,
+  isIncomeExpenseLens,
+  reportLensCurrency,
+  type IncomeExpenseLens,
+} from '@/lib/reportLens';
 
 /**
  * Kaynak ikonu: IncomeSourceCard META haritasıyla birebir. Arama anahtarı
@@ -54,6 +65,10 @@ const SOURCE_META: Record<string, { icon: LucideIcon; color: string }> = {
   cari: { icon: User, color: '#06B6D4' },
   personel: { icon: User, color: '#EC4899' },
 };
+
+function formatIndicatorNumber(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
 
 /**
  * Hesap raporu drill-down: bir kaynağın (banka/nakit hesabı, cari veya personel)
@@ -72,6 +87,7 @@ export default function HesapRaporDetayPage() {
     type?: string;
     startDate?: string;
     endDate?: string;
+    lens?: string;
   }>();
   const sourceId = params.id;
   const hesapName = params.hesapName || '—';
@@ -94,6 +110,23 @@ export default function HesapRaporDetayPage() {
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
+  const [selectedLens, setSelectedLens] = useState<IncomeExpenseLens>(() =>
+    baseCurrency === 'TRY' && isIncomeExpenseLens(params.lens)
+      ? params.lens
+      : 'nominal',
+  );
+
+  useEffect(() => {
+    if (baseCurrency !== 'TRY' && selectedLens !== 'nominal') {
+      setSelectedLens('nominal');
+    }
+  }, [baseCurrency, selectedLens]);
+
+  const {
+    convert: convertHistoricalAmount,
+    isLoading: historicalLensLoading,
+    error: historicalLensError,
+  } = useHistoricalReportLens(selectedLens, startDate, endDate);
 
   const { data: islemler, isLoading, isFetching, error, refetch } = useIncomeSourceTransactions(
     kind,
@@ -237,10 +270,40 @@ export default function HesapRaporDetayPage() {
       ),
     [islemler]
   );
+  const historicalSummary = useMemo(() => {
+    if (selectedLens === 'nominal') {
+      return { total, missingRateCount: 0 };
+    }
+
+    let historicalTotal = 0;
+    let missingRateCount = 0;
+    (islemler || []).forEach((transaction) => {
+      const converted = convertHistoricalAmount?.(
+        Number(transaction.amount || 0),
+        {
+          ...transaction,
+          // Kaynak detayinda butun satirlar secilen hesap/cari/personelin kendi
+          // para birimindedir; aggregate RPC de ayni source_currency'yi kullanir.
+          _reportAmountCurrency: hesapCurrency,
+        },
+      );
+      if (!converted?.complete || converted.value === null) {
+        missingRateCount += 1;
+        return;
+      }
+      historicalTotal += converted.value
+        * (isIncomeReturnType(transaction.type) ? -1 : 1);
+    });
+    return { total: historicalTotal, missingRateCount };
+  }, [convertHistoricalAmount, hesapCurrency, islemler, selectedLens, total]);
   // Hesap para birimi ana para biriminden farklıysa altında ana para birimi karşılığı.
   const baseTotal = useMemo(
-    () => (hesapCurrency === baseCurrency ? null : convertCurrency(total, hesapCurrency, baseCurrency, rates) ?? null),
-    [total, hesapCurrency, baseCurrency, rates]
+    () => (
+      selectedLens === 'nominal' && hesapCurrency !== baseCurrency
+        ? convertCurrency(total, hesapCurrency, baseCurrency, rates) ?? null
+        : null
+    ),
+    [baseCurrency, hesapCurrency, rates, selectedLens, total]
   );
 
   // Kaynak ikonu: hesap alt-tipi params'ta yok → ilk işlemin hesabından türet ('diger' fallback).
@@ -267,6 +330,29 @@ export default function HesapRaporDetayPage() {
       // İade (cari_satis_iade): geliri AZALTIR → kırmızı + eksi işaret.
       const isReturn = isIncomeReturnType(item.type);
       const positive = isGelir && !isReturn;
+      const historicalConversion = selectedLens === 'nominal'
+        ? null
+        : convertHistoricalAmount?.(
+            Number(item.amount || 0),
+            { ...item, _reportAmountCurrency: hesapCurrency },
+          ) ?? null;
+      const amountText = selectedLens === 'nominal'
+        ? formatCurrency(Number(item.amount), item.hesap?.currency || hesapCurrency)
+        : historicalConversion?.complete && historicalConversion.value !== null
+          ? formatReportLensValue(Math.abs(historicalConversion.value), selectedLens)
+          : t('reports:incomeExpenseLens.missingReference');
+      const historicalReferenceText = selectedLens === 'reel'
+        && historicalConversion?.transactionCpi
+        ? t('reports:incomeExpenseLens.cpiRateCompact', {
+            value: formatIndicatorNumber(historicalConversion.transactionCpi),
+          })
+        : selectedLens !== 'nominal'
+          && historicalConversion?.lensRate
+          ? t('reports:incomeExpenseLens.dailyRateCompact', {
+              currency: reportLensCurrency(selectedLens),
+              rate: formatIndicatorNumber(historicalConversion.lensRate),
+            })
+          : null;
       return (
         <TouchableOpacity style={styles.islemCard} onPress={() => handleEdit(item)} activeOpacity={0.7}>
           <View style={styles.islemHeader}>
@@ -296,21 +382,41 @@ export default function HesapRaporDetayPage() {
               </View>
             </View>
             <View style={styles.islemRight}>
-              <Text
-                variant="label"
-                color={positive ? 'success' : 'error'}
-                style={styles.islemAmount}
-                numberOfLines={1}
-              >
-                {isReturn ? '−' : ''}{formatCurrency(Number(item.amount), item.hesap?.currency || hesapCurrency)}
-              </Text>
+              <View style={styles.islemValueColumn}>
+                <Text
+                  variant="label"
+                  color={positive ? 'success' : 'error'}
+                  style={styles.islemAmount}
+                  numberOfLines={1}
+                >
+                  {isReturn ? '−' : ''}{amountText}
+                </Text>
+                {historicalReferenceText ? (
+                  <Text
+                    variant="caption"
+                    color="secondary"
+                    style={styles.historicalReference}
+                    numberOfLines={1}
+                  >
+                    {historicalReferenceText}
+                  </Text>
+                ) : null}
+              </View>
               <ChevronRight size={16} color={colors.textMuted} />
             </View>
           </View>
         </TouchableOpacity>
       );
     },
-    [handleEdit, isGelir, t, formatDateMedium, hesapCurrency]
+    [
+      convertHistoricalAmount,
+      formatDateMedium,
+      handleEdit,
+      hesapCurrency,
+      isGelir,
+      selectedLens,
+      t,
+    ]
   );
 
   // Özet Card + "İŞLEMLER" başlığı — listeyle birlikte kayar (standart FlatList deseni).
@@ -338,8 +444,15 @@ export default function HesapRaporDetayPage() {
             {/* Toplam iade netlendiği için NEGATİF olabilir (iade > satış). Renk yalnız
                 tipe bağlıyken böyle bir kaynak hem artı hem YEŞİL görünüyordu; negatifte
                 işaret de renk de tersine döner. */}
-            <Text variant="h2" color={total < 0 ? (isGelir ? 'error' : 'success') : (isGelir ? 'success' : 'error')}>
-              {signedCurrencyText(total, hesapCurrency)}
+            <Text
+              variant="h2"
+              color={historicalSummary.total < 0
+                ? (isGelir ? 'error' : 'success')
+                : (isGelir ? 'success' : 'error')}
+            >
+              {selectedLens === 'nominal'
+                ? signedCurrencyText(total, hesapCurrency)
+                : formatReportLensValue(historicalSummary.total, selectedLens)}
             </Text>
             {baseTotal !== null && (
               <Text variant="caption" color="secondary">
@@ -353,6 +466,13 @@ export default function HesapRaporDetayPage() {
             <Text variant="h2">{(islemler || []).length}</Text>
           </View>
         </View>
+        {selectedLens !== 'nominal' && historicalSummary.missingRateCount > 0 ? (
+          <Text variant="caption" color="error" style={styles.conversionWarningText}>
+            {t('reports:incomeExpenseLens.incomplete', {
+              count: historicalSummary.missingRateCount,
+            })}
+          </Text>
+        ) : null}
       </Card>
 
       <Text variant="label" color="secondary" style={styles.sectionTitle}>
@@ -365,13 +485,13 @@ export default function HesapRaporDetayPage() {
     <Screen>
       <Stack.Screen options={{ title: hesapName, headerBackVisible: true, gestureEnabled: true }} />
 
-      {isLoading ? (
+      {isLoading || historicalLensLoading ? (
         <View style={styles.stateBox}>
           <SkeletonListItem />
           <SkeletonListItem />
           <SkeletonListItem />
         </View>
-      ) : error ? (
+      ) : error || historicalLensError ? (
         <View style={styles.stateBox}>
           <Text color="error" style={styles.stateText}>{t('reports:empty.dataLoadError')}</Text>
           <Button variant="ghost" onPress={() => refetch()}>{t('common:buttons.retry')}</Button>
@@ -382,7 +502,11 @@ export default function HesapRaporDetayPage() {
           keyExtractor={(i) => i.id}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
+          contentContainerStyle={[
+            styles.listContent,
+            baseCurrency === 'TRY' && styles.listContentWithLens,
+            { paddingBottom: contentPaddingBottom },
+          ]}
           refreshControl={
             <RefreshControl refreshing={isFetching && !isLoading} onRefresh={refetch} colors={[colors.primary]} tintColor={colors.primary} />
           }
@@ -393,6 +517,12 @@ export default function HesapRaporDetayPage() {
           }
         />
       )}
+
+      <IncomeExpenseLensPicker
+        value={selectedLens}
+        onChange={setSelectedLens}
+        visible={baseCurrency === 'TRY'}
+      />
 
       {/* Düzenleme için QuickTransactionBar */}
       {canRenderEditTransactionBar && (
@@ -446,12 +576,14 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.lg },
   summaryStats: { flexDirection: 'row', justifyContent: 'space-around' },
   statItem: { alignItems: 'center', gap: spacing.xs },
+  conversionWarningText: { marginTop: spacing.sm, textAlign: 'center' },
 
   // Bölüm başlığı
   sectionTitle: { marginBottom: spacing.sm, marginLeft: spacing.xs },
 
   // Liste
   listContent: { padding: spacing.lg, paddingBottom: spacing['3xl'] },
+  listContentWithLens: { paddingTop: spacing.lg + INCOME_EXPENSE_LENS_STICKY_SPACE },
 
   // İşlem kartı (standart islemCard)
   islemCard: {
@@ -474,8 +606,10 @@ const styles = StyleSheet.create({
   },
   islemInfo: { flex: 1 },
   islemTitle: { fontWeight: '500', marginBottom: 2 },
-  islemRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
+  islemRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, maxWidth: '52%' },
+  islemValueColumn: { alignItems: 'flex-end', flexShrink: 1 },
   islemAmount: { fontWeight: '700', fontSize: fontSize.lg },
+  historicalReference: { fontSize: 11, marginTop: 2, textAlign: 'right' },
 
   stateBox: { padding: spacing.xl, alignItems: 'center', gap: spacing.sm },
   stateText: { textAlign: 'center' },

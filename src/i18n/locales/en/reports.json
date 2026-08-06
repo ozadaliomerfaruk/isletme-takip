@@ -262,6 +262,46 @@
     "category": "Category",
     "account": "Account"
   },
+  "incomeExpenseLens": {
+    "title": "VALUATION VIEW",
+    "select": "Select valuation view",
+    "close": "Close valuation view",
+    "panelTitle": "How should amounts be valued?",
+    "panelSubtitle": "Review past income and expenses using the exchange rate or inflation level from that time. This helps you see more clearly whether your revenue or expenses truly increased or decreased.",
+    "nominal": "Nominal TRY",
+    "real": "Real TRY",
+    "usd": "US Dollar (USD)",
+    "eur": "Euro (EUR)",
+    "gold": "Gold (grams)",
+    "description": {
+      "nominal": "Shows amounts exactly as they were recorded.",
+      "reel": "Adjusts amounts for inflation to today's purchasing power.",
+      "usd": "Shows amounts using the dollar rate on the transaction day.",
+      "eur": "Shows amounts using the euro rate on the transaction day.",
+      "altin": "Shows amounts using the gram-gold value on the transaction day."
+    },
+    "note": {
+      "reel": "CPI is monthly; each day uses the latest index published for its transaction month.",
+      "usd": "Uses the CBRT indicative selling rate; holidays use the previous business day.",
+      "eur": "Uses the CBRT indicative selling rate; holidays use the previous business day.",
+      "altin": "Uses the CBRT 11:00 XAU TRY/gram reference; holidays use the previous business day."
+    },
+    "incomplete": "No historical reference was available for {{count}} transactions; their amounts were excluded from the total.",
+    "exportBlockedTitle": "Export stopped",
+    "exportBlockedIncomplete": "The export was stopped because {{count}} transactions have no historical reference and the total would be incomplete. Complete the rate data or switch to Nominal view.",
+    "nominalOnlyDetails": "Account breakdown is available only in the Nominal view. The Excel summary uses the selected valuation view.",
+    "detailConsistency": "Category details, subtotals and transaction rows use the same historical view.",
+    "futureReferenceNote": "Future-dated transactions use today's or the latest available official reference.",
+    "originalAmount": "Recorded",
+    "dailyReference": "{{date}} reference",
+    "cpiReference": "{{date}} CPI",
+    "dailyRateValue": "{{date}} · {{currency}} {{rate}} TRY",
+    "cpiRateValue": "{{transactionDate}} CPI {{transactionCpi}} → {{currentDate}} {{currentCpi}}",
+    "dailyRateCompact": "{{currency}} {{rate}} TRY",
+    "cpiRateCompact": "CPI {{value}}",
+    "sourceRateValue": "{{date}} · {{currency}} {{rate}} TRY",
+    "missingReference": "Historical reference missing"
+  },
   "incomeSource": {
     "title": "INCOME SOURCES",
     "groups": {

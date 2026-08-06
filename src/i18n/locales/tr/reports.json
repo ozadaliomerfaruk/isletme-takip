@@ -262,6 +262,46 @@
     "category": "Kategori",
     "account": "Hesap"
   },
+  "incomeExpenseLens": {
+    "title": "DEĞERLEME GÖRÜNÜMÜ",
+    "select": "Değerleme görünümü seç",
+    "close": "Değerleme görünümünü kapat",
+    "panelTitle": "Tutarları nasıl görelim?",
+    "panelSubtitle": "Geçmiş gelir ve giderlerinizi o günün kuru veya enflasyonuna göre inceleyin. Böylece cironuzun ya da giderinizin gerçekte artıp azalmadığını daha net görebilirsiniz.",
+    "nominal": "Nominal TL",
+    "real": "Reel TL",
+    "usd": "Dolar (USD)",
+    "eur": "Euro (EUR)",
+    "gold": "Altın (gram)",
+    "description": {
+      "nominal": "Tutarları kayıtlı haliyle gösterir.",
+      "reel": "Tutarları enflasyona göre bugünün alım gücüne getirir.",
+      "usd": "Tutarları işlem günündeki dolar kuruna göre gösterir.",
+      "eur": "Tutarları işlem günündeki euro kuruna göre gösterir.",
+      "altin": "Tutarları işlem günündeki gram altın değerine göre gösterir."
+    },
+    "note": {
+      "reel": "TÜFE aylık yayımlanır; günler işlem ayının son yayımlanmış endeksini kullanır.",
+      "usd": "TCMB gösterge satış kuru kullanılır; tatilde önceki iş günü esas alınır.",
+      "eur": "TCMB gösterge satış kuru kullanılır; tatilde önceki iş günü esas alınır.",
+      "altin": "TCMB 11:00 XAU gram/TL referansı kullanılır; tatilde önceki iş günü esas alınır."
+    },
+    "incomplete": "{{count}} işlem için tarihsel referans bulunamadı; bu işlemlerin tutarı toplama dahil edilmedi.",
+    "exportBlockedTitle": "Dışa aktarma durduruldu",
+    "exportBlockedIncomplete": "{{count}} işlem için tarihsel referans eksik olduğu için eksik toplam dışa aktarılmadı. Kur verisini tamamladıktan sonra yeniden deneyin veya Nominal görünümü seçin.",
+    "nominalOnlyDetails": "Hesap kırılımı yalnız Nominal görünümde kullanılabilir. Excel özeti seçili değerleme görünümüyle hazırlanır.",
+    "detailConsistency": "Kategori detayları, alt toplamlar ve işlem satırları da aynı tarihsel görünümü kullanır.",
+    "futureReferenceNote": "İleri tarihli işlemler bugünün veya son mevcut resmî referansın değerini kullanır.",
+    "originalAmount": "Kayıt",
+    "dailyReference": "{{date}} referansı",
+    "cpiReference": "{{date}} TÜFE",
+    "dailyRateValue": "{{date}} · {{currency}} {{rate}} TL",
+    "cpiRateValue": "{{transactionDate}} TÜFE {{transactionCpi}} → {{currentDate}} {{currentCpi}}",
+    "dailyRateCompact": "{{currency}} {{rate}} TL",
+    "cpiRateCompact": "TÜFE {{value}}",
+    "sourceRateValue": "{{date}} · {{currency}} {{rate}} TL",
+    "missingReference": "Tarihsel referans eksik"
+  },
   "incomeSource": {
     "title": "GELİR KAYNAKLARI",
     "groups": {

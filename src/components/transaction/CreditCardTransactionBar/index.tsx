@@ -298,6 +298,11 @@ export function CreditCardTransactionBar({
     });
   }, []);
 
+  const restoreAmountKeyboardAfterCategoryPicker = useCallback(() => {
+    if (!visible || categoryNavigatedAway) return;
+    requestAnimationFrame(() => amountInputRef.current?.focus());
+  }, [categoryNavigatedAway, visible]);
+
   const nakitHesaplar = useMemo(() => {
     return hesaplar?.filter((h) => h.type !== 'kredi_karti') || [];
   }, [hesaplar]);
@@ -1145,6 +1150,7 @@ export function CreditCardTransactionBar({
               setCategoryPickerOpen(open);
               if (!open && !kategoriId) setCategorySkipped(true);
             }}
+            onCategoryPickerCloseComplete={restoreAmountKeyboardAfterCategoryPicker}
             onNavigateAway={() => {
               categoryNavigationPendingRef.current = true;
               setCategoryNavigatedAway(true);

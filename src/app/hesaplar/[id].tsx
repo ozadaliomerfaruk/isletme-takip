@@ -80,6 +80,7 @@ import {
   getAllowedScopedQuickTransactionTypes,
   getQuickTransactionScopeForApiType,
 } from '@/lib/quickTransactionCreateScope';
+import { canMutateEntityHistory } from '@/lib/archivedEntityHistory';
 
 // ============================================================================
 // MEMOIZED TRANSACTION ITEM COMPONENT
@@ -104,6 +105,7 @@ interface HesapTransactionItemProps {
   copyLabel: string;
   canDelete?: boolean;
   canCopy?: boolean;
+  readOnly?: boolean;
   creatorText?: string | null;
   urunItems?: UrunKalemOzet[];
   runningBalanceText?: string | null;
@@ -300,6 +302,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
   copyLabel,
   canDelete = true,
   canCopy = true,
+  readOnly = false,
   creatorText,
   urunItems,
   runningBalanceText,
@@ -356,7 +359,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
         listPosition={listPosition}
         overrideColor={getHesapPerspectiveColor(islem.type, isTargetAccount)}
         overridePrefix={getHesapPerspectivePrefix(islem.type, isTargetAccount)}
-        onPress={onPress}
+        onPress={readOnly ? undefined : onPress}
         onPhotoPress={handlePhotoPress}
       />
     </SwipeableRow>
@@ -369,6 +372,7 @@ const HesapTransactionItem = memo(function HesapTransactionItem({
     && prev.hesapCurrency === next.hesapCurrency
     && prev.canDelete === next.canDelete
     && prev.canCopy === next.canCopy
+    && prev.readOnly === next.readOnly
     && prev.creatorText === next.creatorText
     && prev.urunItems === next.urunItems
     && prev.runningBalanceText === next.runningBalanceText
@@ -422,6 +426,7 @@ export default function HesapHareketleriPage() {
   const hasCompleteTransactionHistory = canAccessModule('hesaplar');
   const canUpdateHesapRecord =
     !!hesap && canUpdate('hesaplar', hesap.created_by ?? null);
+  const canMutateDetailHistory = canMutateEntityHistory(hesap?.is_archived);
 
   const islemIdList = useMemo(
     () => (islemler || []).map((i) => i.id),
@@ -568,21 +573,34 @@ export default function HesapHareketleriPage() {
   const isOpeningRef = useRef(false);
 
   useEffect(() => {
-    if (canCreateAccountTransactions) return;
+    if (canCreateAccountTransactions && canMutateDetailHistory) return;
 
     setShowTransactionBar(false);
     setTransactionType('gelir');
-  }, [canCreateAccountTransactions]);
+  }, [canCreateAccountTransactions, canMutateDetailHistory]);
 
   useEffect(() => {
-    if (isOwner) return;
+    if (isOwner && canMutateDetailHistory) return;
 
     setShowCopyBar(false);
     setCopySourceId(null);
-  }, [isOwner]);
+  }, [canMutateDetailHistory, isOwner]);
 
   useEffect(() => {
-    if (!pendingTransactionOpenId || !isProductItemsResolved) return;
+    if (canMutateDetailHistory) return;
+
+    setPendingTransactionOpenId(null);
+    setProductDetailIslemId(null);
+    setShowEditBar(false);
+    setEditTransactionId(null);
+  }, [canMutateDetailHistory]);
+
+  useEffect(() => {
+    if (
+      !canMutateDetailHistory
+      || !pendingTransactionOpenId
+      || !isProductItemsResolved
+    ) return;
 
     const islemId = pendingTransactionOpenId;
     setPendingTransactionOpenId(null);
@@ -599,6 +617,7 @@ export default function HesapHareketleriPage() {
     showTransactionUpdateDenied(islemId);
   }, [
     canUpdateTransaction,
+    canMutateDetailHistory,
     getProductItemCount,
     isProductItemsResolved,
     pendingTransactionOpenId,
@@ -614,7 +633,7 @@ export default function HesapHareketleriPage() {
   } = useUndoDelete<HesapDetailIslem>({
     onCommitDelete: async (id: string, item: HesapDetailIslem) => {
       const decision = getTransactionMutationDecision(item, 'delete');
-      if (!decision.allowed) {
+      if (!canMutateDetailHistory || !decision.allowed) {
         throw HESAP_TRANSACTION_DELETE_PERMISSION_REVOKED;
       }
       const verifiedPhotoPath =
@@ -661,6 +680,10 @@ export default function HesapHareketleriPage() {
   // Handle expandIslemId from search navigation
   const [expandHandled, setExpandHandled] = useState(false);
   useEffect(() => {
+    if (!canMutateDetailHistory) {
+      if (expandIslemId && !expandHandled) setExpandHandled(true);
+      return;
+    }
     if (
       expandIslemId
       && !expandHandled
@@ -687,6 +710,7 @@ export default function HesapHareketleriPage() {
     expandHandled,
     islemler,
     canUpdateTransaction,
+    canMutateDetailHistory,
     getUrunItems,
     getProductItemCount,
     isProductItemsResolved,
@@ -706,6 +730,7 @@ export default function HesapHareketleriPage() {
 
   // Debounced transaction opener to prevent race conditions
   const openTransaction = useCallback((type: TransactionType) => {
+    if (!canMutateDetailHistory) return;
     if (isOpeningRef.current) return;
     isOpeningRef.current = true;
 
@@ -716,7 +741,7 @@ export default function HesapHareketleriPage() {
     setTimeout(() => {
       isOpeningRef.current = false;
     }, 500);
-  }, []);
+  }, [canMutateDetailHistory]);
 
   // Cross-currency işlemler için hesabın para birimi cinsinden tutarı al.
   // Dönüşüm TEK KAYNAK'tan (calculateTargetAmountForDisplay → calculateTargetAmount):
@@ -847,6 +872,10 @@ export default function HesapHareketleriPage() {
 
   // === MEMOIZED HANDLERS for FlatList items ===
   const handlePressIslem = useCallback((islemId: string) => {
+    if (!canMutateDetailHistory) {
+      setPendingTransactionOpenId(null);
+      return;
+    }
     // Ürünlü işlem → ürün detay modalı; değilse düzenleme barı (cariler ile aynı standart)
     if (!isProductItemsResolved) {
       setPendingTransactionOpenId(islemId);
@@ -867,19 +896,25 @@ export default function HesapHareketleriPage() {
     getProductItemCount,
     isProductItemsResolved,
     canUpdateTransaction,
+    canMutateDetailHistory,
     showTransactionUpdateDenied,
   ]);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
+    if (!canMutateDetailHistory) return;
     const islem = (islemler || []).find(i => i.id === islemId);
     if (islem && canDeleteTransaction(islemId)) {
       const labelKey = getHareketLabelKey(islem.type);
       const desc = islem.description || (labelKey.includes(':') ? t(labelKey) : t(`transactions:types.${islem.type}`));
       requestDelete(islemId, islem, desc);
     }
-  }, [canDeleteTransaction, islemler, requestDelete, t]);
+  }, [canDeleteTransaction, canMutateDetailHistory, islemler, requestDelete, t]);
 
   const handleEditIslem = useCallback((islemId: string) => {
+    if (!canMutateDetailHistory) {
+      setPendingTransactionOpenId(null);
+      return;
+    }
     if (!isProductItemsResolved) {
       setPendingTransactionOpenId(islemId);
       return;
@@ -896,6 +931,7 @@ export default function HesapHareketleriPage() {
     setShowEditBar(true);
   }, [
     canUpdateTransaction,
+    canMutateDetailHistory,
     getUrunItems,
     getProductItemCount,
     isProductItemsResolved,
@@ -903,10 +939,10 @@ export default function HesapHareketleriPage() {
   ]);
 
   const handleCopyIslem = useCallback((islemId: string) => {
-    if (!isOwner) return;
+    if (!canMutateDetailHistory || !isOwner) return;
     setCopySourceId(islemId);
     setShowCopyBar(true);
-  }, [isOwner]);
+  }, [canMutateDetailHistory, isOwner]);
 
   const handleViewPhoto = useCallback((path: string, islemId: string) => {
     const validatedPath = getValidatedIslemPhotoPath(
@@ -945,7 +981,7 @@ export default function HesapHareketleriPage() {
 
   // Photo delete handler
   const handleDeletePhoto = async () => {
-    if (!viewPhotoPath || !viewPhotoIslemId) return;
+    if (!canMutateDetailHistory || !viewPhotoPath || !viewPhotoIslemId) return;
 
     setIsPhotoActionLoading(true);
     try {
@@ -978,6 +1014,7 @@ export default function HesapHareketleriPage() {
 
   // Photo change handler
   const handleChangePhoto = () => {
+    if (!canMutateDetailHistory) return;
     Alert.alert(
       t('common:photo.change'),
       t('common:photo.selectSource'),
@@ -1149,8 +1186,10 @@ export default function HesapHareketleriPage() {
       );
     }
     const islem = item.data;
-    const canDeleteItem = canDeleteTransaction(islem.id);
-    const canCopyItem = isOwner && canCreateTransactions;
+    const canDeleteItem =
+      canMutateDetailHistory && canDeleteTransaction(islem.id);
+    const canCopyItem =
+      canMutateDetailHistory && isOwner && canCreateTransactions;
     const rbVal = runningBalanceMap[islem.id];
     // Kredi kartında satır-satır yürüyen bakiye GÖSTERME (kullanıcı isteği): özet kartındaki
     // kullanılan/kalan limit yeterli, satırlarda bakiye gereksiz.
@@ -1174,6 +1213,7 @@ export default function HesapHareketleriPage() {
         copyLabel={copyLabel}
         canDelete={canDeleteItem}
         canCopy={canCopyItem}
+        readOnly={!canMutateDetailHistory}
         creatorText={resolveCreatorLabel(
           isHesapIslemListRow(islem)
             ? {
@@ -1188,7 +1228,7 @@ export default function HesapHareketleriPage() {
         listPosition={getGroupedListEdgePosition(groupedData, index)}
       />
     );
-  }, [id, hesap?.currency, hesap?.type, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransaction, resolveCreatorLabel, getUrunItems, runningBalanceMap, isletme?.id, groupedData]);
+  }, [id, hesap?.currency, hesap?.type, handlePressIslem, handleDeleteIslem, handleCopyIslem, handleViewPhoto, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, t, deleteLabel, copyLabel, isOwner, canCreateTransactions, canDeleteTransaction, canMutateDetailHistory, resolveCreatorLabel, getUrunItems, runningBalanceMap, isletme?.id, groupedData]);
 
   const keyExtractor = useCallback(
     (item: TransactionListItem<HesapDetailIslem>) => item.key,
@@ -1250,6 +1290,7 @@ export default function HesapHareketleriPage() {
           <IleriTarihliIslemlerSection
             ileriTarihliIslemler={ileriTarihliIslemler}
             isLoading={ileriTarihliLoading}
+            readOnly={!canMutateDetailHistory}
           />
 
           {/* "Hareketler" başlığı kaldırıldı (kullanıcı isteği) — işlemler yukarıdan başlar */}
@@ -1259,7 +1300,7 @@ export default function HesapHareketleriPage() {
         </View>
       </View>
     );
-  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleUnarchive, unarchiveHesap.isPending, paymentDueDayInfo, canUpdateHesapRecord]);
+  }, [hesap, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, id, t, handleUnarchive, unarchiveHesap.isPending, paymentDueDayInfo, canUpdateHesapRecord, canMutateDetailHistory]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {
@@ -1384,7 +1425,7 @@ export default function HesapHareketleriPage() {
       />
 
       {/* Quick Transaction Bar - kredi kartı için özel bar */}
-      {canCreateAccountTransactions && (
+      {canMutateDetailHistory && canCreateAccountTransactions && (
         hesap.type === 'kredi_karti' ? (
           <CreditCardTransactionBar
             visible={showTransactionBar}
@@ -1404,7 +1445,7 @@ export default function HesapHareketleriPage() {
 
       {/* Quick Transaction Bar - Edit Mode */}
       <QuickTransactionBar
-        visible={showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}
+        visible={canMutateDetailHistory && showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}
         onDismiss={() => {
           setShowEditBar(false);
           setEditTransactionId(null);
@@ -1432,7 +1473,9 @@ export default function HesapHareketleriPage() {
         currency={productDetailCurrency}
         onDismiss={() => setProductDetailIslemId(null)}
         onEdit={
-          productDetailIslemId && canUpdateTransaction(productDetailIslemId)
+          canMutateDetailHistory
+          && productDetailIslemId
+          && canUpdateTransaction(productDetailIslemId)
             ? (islemId) => {
           setProductDetailIslemId(null);
           setEditTransactionId(islemId);
@@ -1443,7 +1486,7 @@ export default function HesapHareketleriPage() {
       />
 
       {/* Copy Transaction Bar */}
-      {isOwner && (
+      {canMutateDetailHistory && isOwner && (
       <QuickTransactionBar
         visible={showCopyBar}
         onDismiss={() => {
@@ -1479,12 +1522,16 @@ export default function HesapHareketleriPage() {
           setViewPhotoIslemId(null);
         }}
         onDelete={
-          viewPhotoIslemId && canUpdateTransaction(viewPhotoIslemId)
+          canMutateDetailHistory
+          && viewPhotoIslemId
+          && canUpdateTransaction(viewPhotoIslemId)
             ? handleDeletePhoto
             : undefined
         }
         onChange={
-          viewPhotoIslemId && canUpdateTransaction(viewPhotoIslemId)
+          canMutateDetailHistory
+          && viewPhotoIslemId
+          && canUpdateTransaction(viewPhotoIslemId)
             ? handleChangePhoto
             : undefined
         }

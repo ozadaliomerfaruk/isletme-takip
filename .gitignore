@@ -25,6 +25,9 @@ expo-env.d.ts
 # Metro
 .metro-health-check*
 
+# Local Codex/Supabase debug copies (may contain temporary secrets)
+/.codex-tmp-supabase-debug*/
+
 # debug
 npm-debug.*
 yarn-debug.*

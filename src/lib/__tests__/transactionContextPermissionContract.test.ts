@@ -103,15 +103,17 @@ describe('geniş işlem bağlamı UI sözleşmesi', () => {
       'const [pendingTransactionOpenId, setPendingTransactionOpenId]',
     );
     expect(account).toMatch(
-      /if \(!pendingTransactionOpenId \|\| !isProductItemsResolved\) return;/,
+      /!canMutateDetailHistory[\s\S]{0,100}\|\| !pendingTransactionOpenId[\s\S]{0,100}\|\| !isProductItemsResolved/,
     );
     expect(account).toMatch(
       /if \(!isProductItemsResolved\) \{\s*setPendingTransactionOpenId\(islemId\);\s*return;/,
     );
     expect(account).toContain(
-      'visible={showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}',
+      'visible={canMutateDetailHistory && showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}',
     );
-    expect(account).toMatch(/Copy Transaction Bar[\s\S]{0,100}\{isOwner && \(/);
+    expect(account).toMatch(
+      /Copy Transaction Bar[\s\S]{0,120}\{canMutateDetailHistory && isOwner && \(/,
+    );
     expect(client).toContain(
       "&& (!isViewer || linkStatus.permission === 'full');",
     );
@@ -126,12 +128,16 @@ describe('geniş işlem bağlamı UI sözleşmesi', () => {
     expect(staff).toMatch(
       /Quick Transaction Bar - Edit Mode[\s\S]{0,100}\{canRenderEditTransactionBar && \(/,
     );
-    expect(staff).toMatch(/Copy Transaction Bar[\s\S]{0,100}\{isOwner && \(/);
+    expect(staff).toMatch(
+      /Copy Transaction Bar[\s\S]{0,120}\{canCopyPersonelTransactions && \(/,
+    );
     expect(leaveHistory).toContain('const canUpdateTransactionRecord = useCallback(');
     expect(leaveHistory).toMatch(
       /Edit QuickTransactionBar[\s\S]{0,100}\{canRenderEditTransactionBar && \(/,
     );
-    expect(leaveHistory).toMatch(/Copy QuickTransactionBar[\s\S]{0,100}\{isOwner && \(/);
+    expect(leaveHistory).toMatch(
+      /Copy QuickTransactionBar[\s\S]{0,120}\{canCopyLeaveTransactions && \(/,
+    );
   });
 
   it('detay ve rapor satırları ürün/link bağlamı çözülmeden yanlış yetki reddi göstermez', () => {
@@ -192,16 +198,16 @@ describe('geniş işlem bağlamı UI sözleşmesi', () => {
     const staff = read('src/app/personel/[id].tsx');
 
     expect(account).toMatch(
-      /if \(canCreateAccountTransactions\) return;[\s\S]{0,160}setShowTransactionBar\(false\)/,
+      /if \(canCreateAccountTransactions && canMutateDetailHistory\) return;[\s\S]{0,160}setShowTransactionBar\(false\)/,
     );
     expect(staff).toMatch(
       /if \(canCreatePersonelTransactions\) return;[\s\S]{0,160}setQuickBarVisible\(false\)/,
     );
     expect(account).toContain(
-      'visible={showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}',
+      'visible={canMutateDetailHistory && showEditBar && !!editTransactionId && canUpdateTransaction(editTransactionId)}',
     );
     expect(account).toMatch(
-      /if \(isOwner\) return;[\s\S]{0,160}setCopySourceId\(null\)/,
+      /if \(isOwner && canMutateDetailHistory\) return;[\s\S]{0,160}setCopySourceId\(null\)/,
     );
     expect(staff).toMatch(
       /if \(isOwner\) return;[\s\S]{0,160}setCopySourceId\(null\)/,

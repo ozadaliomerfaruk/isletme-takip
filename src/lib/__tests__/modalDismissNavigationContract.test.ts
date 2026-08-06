@@ -10,6 +10,7 @@ describe('sekme freeze ve modal-dismiss sözleşmesi', () => {
   const guardedRouteStack = read('src/components/navigation/GuardedRouteStack.tsx');
   const actionSheet = read('src/components/ui/ActionSheet.tsx');
   const bottomSheet = read('src/components/ui/BottomSheet.tsx');
+  const financialDetailModal = read('src/components/dashboard/FinancialDetailModal.tsx');
   const shareOptionsSheet = read('src/components/export/ShareOptionsSheet.tsx');
   const detailExportSection = read('src/components/detail/DetailExportSection.tsx');
 
@@ -43,5 +44,11 @@ describe('sekme freeze ve modal-dismiss sözleşmesi', () => {
     expect(shareOptionsSheet).not.toMatch(
       /setTimeout\(\(\) => on(?:EkstreLink|Share)Press/,
     );
+  });
+
+  it('dashboard gelir-gider detayını CategoryPicker ile aynı native slide ailesinde açar', () => {
+    expect(bottomSheet).toContain("openAnimation?: 'custom' | 'native-slide'");
+    expect(bottomSheet).toContain("animationType={openAnimation === 'native-slide' ? 'slide' : 'none'}");
+    expect(financialDetailModal).toContain('openAnimation="native-slide"');
   });
 });

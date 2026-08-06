@@ -180,6 +180,21 @@ export const queryKeys = {
   reports: {
     monthSummary: (isletmeId: string, period: string, offset: number, startDate: string, endDate: string) =>
       ['month-summary', isletmeId, period, offset, startDate, endDate] as const,
+    comparisonLens: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      lens: string,
+      rangesFingerprint: string,
+    ) => [
+      'comparison-lens',
+      'v1',
+      isletmeId,
+      userId,
+      permissionFingerprint,
+      lens,
+      rangesFingerprint,
+    ] as const,
     allKategoriler: (
       isletmeId: string,
       userId: string,
@@ -202,10 +217,11 @@ export const queryKeys = {
       source: string,
       startDate: string,
       endDate: string,
+      lens = 'nominal',
     ) =>
       [
         'category-report',
-        'v2',
+        'v3-lens',
         isletmeId,
         userId,
         permissionFingerprint,
@@ -213,6 +229,7 @@ export const queryKeys = {
         source,
         startDate,
         endDate,
+        lens,
       ] as const,
     accountReport: (isletmeId: string, type: string, startDate: string, endDate: string) =>
       ['account-report', isletmeId, type, startDate, endDate] as const,
@@ -224,15 +241,17 @@ export const queryKeys = {
       permissionFingerprint: string,
       startDate: string,
       endDate: string,
+      lens = 'nominal',
     ) =>
       [
         'income-by-source',
-        'v2',
+        'v3-lens',
         isletmeId,
         userId,
         permissionFingerprint,
         startDate,
         endDate,
+        lens,
       ] as const,
     networthTrend: (isletmeId: string, monthsBack: number) =>
       ['networth-trend', isletmeId, monthsBack] as const,
@@ -240,6 +259,10 @@ export const queryKeys = {
       ['networth-opening', isletmeId, monthsBack] as const,
     economicIndicators: (startMonth: string, endMonth: string) =>
       ['economic-indicators', startMonth, endMonth] as const,
+    dailyEconomicIndicators: (startDay: string, endDay: string) =>
+      ['daily-economic-indicators', startDay, endDay] as const,
+    reportLensMonthlyIndicators: (startMonth: string, endMonth: string) =>
+      ['report-lens-monthly-indicators', startMonth, endMonth] as const,
     incomeSourceTransactions: (
       isletmeId: string,
       userId: string,
@@ -267,16 +290,18 @@ export const queryKeys = {
       type: string,
       startDate: string,
       endDate: string,
+      lens = 'nominal',
     ) =>
       [
         'category-report-returns',
-        'v2',
+        'v3-lens',
         isletmeId,
         userId,
         permissionFingerprint,
         type,
         startDate,
         endDate,
+        lens,
       ] as const,
     hierarchicalCategoryReport: (
       isletmeId: string,
@@ -389,6 +414,7 @@ export const queryKeys = {
       source: string,
       startDate: string,
       endDate: string,
+      lens = 'nominal',
     ) =>
       [
         'sub-category-report-rpc',
@@ -401,6 +427,7 @@ export const queryKeys = {
         source,
         startDate,
         endDate,
+        lens,
       ] as const,
     subCategoryReportReturns: (
       isletmeId: string,
@@ -410,6 +437,7 @@ export const queryKeys = {
       type: string,
       startDate: string,
       endDate: string,
+      lens = 'nominal',
     ) =>
       [
         'sub-category-report-returns',
@@ -421,6 +449,7 @@ export const queryKeys = {
         type,
         startDate,
         endDate,
+        lens,
       ] as const,
     cashFlowByCategory: (isletmeId: string, startDate: string, endDate: string) =>
       ['cash-flow-by-category', isletmeId, startDate, endDate] as const,

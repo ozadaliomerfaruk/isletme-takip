@@ -7,6 +7,10 @@ import { spacing, borderRadius } from '@/constants/spacing';
 import { formatPercent, signedCurrencyText } from '@/lib/currency';
 import { useSettings } from '@/hooks/useSettings';
 import type { IncomeSourceItem } from '@/hooks/useAccountReport';
+import {
+  formatReportLensValue,
+  type IncomeExpenseLens,
+} from '@/lib/reportLens';
 
 // Kaynak (hesap tipi / cari / personel) → ikon + renk
 const META: Record<string, { icon: LucideIcon; color: string }> = {
@@ -21,17 +25,22 @@ const META: Record<string, { icon: LucideIcon; color: string }> = {
 
 interface IncomeSourceCardProps {
   item: IncomeSourceItem;
+  lens?: IncomeExpenseLens;
   onPress?: () => void;
 }
 
-export function IncomeSourceCard({ item, onPress }: IncomeSourceCardProps) {
+export function IncomeSourceCard({ item, lens = 'nominal', onPress }: IncomeSourceCardProps) {
   const { t } = useTranslation(['reports']);
   const { currency: baseCurrency } = useSettings();
   const metaKey = item.kind === 'hesap' ? item.type : item.kind;
   const meta = META[metaKey] ?? META.diger;
   const Icon = meta.icon;
   const barColor = meta.color;
-  const showBase = item.currency !== baseCurrency;
+  const showBase = lens === 'nominal' && item.currency !== baseCurrency;
+  const displayTotal = lens === 'nominal' ? item.totalNative : item.total;
+  const displayAmount = lens === 'nominal'
+    ? signedCurrencyText(item.totalNative, item.currency)
+    : formatReportLensValue(item.total, lens);
 
   return (
     <TouchableOpacity style={styles.container} onPress={onPress} disabled={!onPress} activeOpacity={0.7}>
@@ -55,8 +64,8 @@ export function IncomeSourceCard({ item, onPress }: IncomeSourceCardProps) {
             {/* Net NEGATİF olabilir (iade > satış). formatCurrency işareti düşürdüğü
                 ve renk sabit "success" olduğu için böyle bir kaynak hem artı hem
                 YEŞİL görünüyordu — yani zarar kâr gibi okunuyordu. */}
-            <Text color={item.totalNative < 0 ? 'error' : 'success'} style={styles.amount}>
-              {signedCurrencyText(item.totalNative, item.currency)}
+            <Text color={displayTotal < 0 ? 'error' : 'success'} style={styles.amount}>
+              {displayAmount}
             </Text>
             {showBase && (
               <Text variant="caption" color="secondary" style={styles.baseAmount}>

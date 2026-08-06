@@ -453,6 +453,11 @@ export function QuickTransactionBar({
     });
   }, []);
 
+  const restoreAmountKeyboardAfterCategoryPicker = useCallback(() => {
+    if (!visible || modals.navigatedAway) return;
+    requestAnimationFrame(() => amountInputRef.current?.focus());
+  }, [modals.navigatedAway, visible]);
+
   // Photo hooks
   const pickImage = usePickImage();
   const takePhoto = useTakePhoto();
@@ -1875,6 +1880,7 @@ export function QuickTransactionBar({
                 modals.setCategorySkipped(true);
               }
             }}
+            onCategoryPickerCloseComplete={restoreAmountKeyboardAfterCategoryPicker}
             // Kategori-ekle'ye giderken QTB KAPANMAZ, gizlenir (ürün akışıyla aynı):
             // dönüşte form korunur + yeni kategori otomatik seçilir (focus effect)
             onNavigateAway={() => modals.setNavigatedAway(true)}

@@ -18,6 +18,10 @@ import {
   parseCategoryReportTransactionRows,
   reportCategoryRowsToKategoriler,
 } from '@/lib/reportPermissionProjection';
+import {
+  HistoricalIncomeExpenseLens,
+  IncomeExpenseLens,
+} from '@/lib/reportLens';
 
 const CASH_ACCOUNT_TYPES: HesapType[] = ['nakit', 'banka', 'birikim', 'diger'];
 
@@ -124,6 +128,9 @@ export interface CategoryReportResult {
   uncategorizedCount: number;
   /** Kur bulunamadığı için bazı tutarlar ham TRY kaldı → uyarı gösterilmeli. */
   conversionIncomplete?: boolean;
+  missingRateCount?: number;
+  rateCoverageStart?: string | null;
+  rateCoverageEnd?: string | null;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => Promise<unknown>;
@@ -143,9 +150,56 @@ export interface HierarchicalCategoryReportResult {
 interface UseCategoryReportOptions {
   startDate: string;
   endDate: string;
+  lens?: IncomeExpenseLens;
   source?: string; // 'cash-flow' ise nakit akışı tiplerini kullan
   percentageReferenceTotal?: number; // Yüzde hesabında payda olarak kullanılacak toplam (örn: giderlerin gelire oranı)
   includeReturns?: boolean; // true ise işlem listesine iadeler de dahil edilir (drill-down)
+}
+
+interface CategoryAggregateRow {
+  kategori_id: string | null;
+  kategori_adi: string | null;
+  kategori_renk: string | null;
+  kategori_icon: string | null;
+  parent_id: string | null;
+  islem_count: number;
+  total_amount: number;
+}
+
+interface CategoryAggregateRpcResult {
+  rows: CategoryAggregateRow[];
+  conversionIncomplete: boolean;
+  missingRateCount: number;
+  rateCoverageStart: string | null;
+  rateCoverageEnd: string | null;
+}
+
+const EMPTY_CATEGORY_AGGREGATE: CategoryAggregateRpcResult = {
+  rows: [],
+  conversionIncomplete: false,
+  missingRateCount: 0,
+  rateCoverageStart: null,
+  rateCoverageEnd: null,
+};
+
+function parseHistoricalLensPayload(data: unknown): CategoryAggregateRpcResult {
+  const payload = data && typeof data === 'object'
+    ? data as Record<string, unknown>
+    : {};
+  const rows = Array.isArray(payload.rows)
+    ? payload.rows as CategoryAggregateRow[]
+    : [];
+  return {
+    rows,
+    conversionIncomplete: payload.conversion_incomplete === true,
+    missingRateCount: Number(payload.missing_rate_count) || 0,
+    rateCoverageStart: typeof payload.rate_coverage_start === 'string'
+      ? payload.rate_coverage_start
+      : null,
+    rateCoverageEnd: typeof payload.rate_coverage_end === 'string'
+      ? payload.rate_coverage_end
+      : null,
+  };
 }
 
 /**
@@ -276,7 +330,7 @@ export function useCategoryReport(
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
-  const { startDate, endDate, source } = options;
+  const { startDate, endDate, source, lens = 'nominal' } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle (source'a göre)
@@ -353,32 +407,40 @@ export function useCategoryReport(
       source ?? '',
       startDateTime,
       endDateTime,
+      lens,
     ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme) return [];
+      if (!reportsEnabled || !isletme) return EMPTY_CATEGORY_AGGREGATE;
 
-      const { data, error } = await supabase.rpc('get_category_report_v2', {
-        p_isletme_id: isletme.id,
-        p_types: islemTypes as string[],
-        p_start_date: startDateTime,
-        p_end_date: endDateTime,
-      });
+      const { data, error } = lens === 'nominal'
+        ? await supabase.rpc('get_category_report_v2', {
+            p_isletme_id: isletme.id,
+            p_types: islemTypes as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+          })
+        : await supabase.rpc('get_category_report_lens_v1', {
+            p_isletme_id: isletme.id,
+            p_types: islemTypes as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+            p_lens: lens as HistoricalIncomeExpenseLens,
+          });
 
       if (error) {
         if (__DEV__) console.error('[useCategoryReport] RPC error:', error.message, error.code);
         throw error;
       }
-      if (__DEV__) console.log('[useCategoryReport]', type, 'RPC result:', data?.length, 'rows');
-
-      return (data || []) as Array<{
-        kategori_id: string | null;
-        kategori_adi: string | null;
-        kategori_renk: string | null;
-        kategori_icon: string | null;
-        parent_id: string | null;
-        islem_count: number;
-        total_amount: number;
-      }>;
+      const result = lens === 'nominal'
+        ? {
+            ...EMPTY_CATEGORY_AGGREGATE,
+            rows: (data || []) as CategoryAggregateRow[],
+          }
+        : parseHistoricalLensPayload(data);
+      if (__DEV__) {
+        console.log('[useCategoryReport]', type, lens, 'RPC result:', result.rows.length, 'rows');
+      }
+      return result;
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
     meta: CATEGORY_REPORT_QUERY_META,
@@ -400,22 +462,38 @@ export function useCategoryReport(
       type,
       startDateTime,
       endDateTime,
+      lens,
     ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme || returnTypes.length === 0) return [] as Array<{ kategori_id: string | null; parent_id: string | null; total_amount: number }>;
+      if (!reportsEnabled || !isletme || returnTypes.length === 0) {
+        return EMPTY_CATEGORY_AGGREGATE;
+      }
 
-      const { data, error } = await supabase.rpc('get_category_report_v2', {
-        p_isletme_id: isletme.id,
-        p_types: returnTypes as string[],
-        p_start_date: startDateTime,
-        p_end_date: endDateTime,
-      });
+      const { data, error } = lens === 'nominal'
+        ? await supabase.rpc('get_category_report_v2', {
+            p_isletme_id: isletme.id,
+            p_types: returnTypes as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+          })
+        : await supabase.rpc('get_category_report_lens_v1', {
+            p_isletme_id: isletme.id,
+            p_types: returnTypes as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+            p_lens: lens as HistoricalIncomeExpenseLens,
+          });
 
       if (error) {
         if (__DEV__) console.error('[useCategoryReport] returns RPC error:', error.message);
         throw error;
       }
-      return (data || []) as Array<{ kategori_id: string | null; parent_id: string | null; total_amount: number }>;
+      return lens === 'nominal'
+        ? {
+            ...EMPTY_CATEGORY_AGGREGATE,
+            rows: (data || []) as CategoryAggregateRow[],
+          }
+        : parseHistoricalLensPayload(data);
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate && returnTypes.length > 0,
     meta: CATEGORY_REPORT_QUERY_META,
@@ -428,11 +506,11 @@ export function useCategoryReport(
     && !returnRowsIsError
     && !returnRowsIsRefetchError;
   const islemler = useMemo(
-    () => (canShowAggregate ? rawIslemler : []),
+    () => (canShowAggregate ? rawIslemler?.rows ?? [] : []),
     [canShowAggregate, rawIslemler],
   );
   const returnRows = useMemo(
-    () => (canShowAggregate ? rawReturnRows : []),
+    () => (canShowAggregate ? rawReturnRows?.rows ?? [] : []),
     [canShowAggregate, rawReturnRows],
   );
 
@@ -442,8 +520,18 @@ export function useCategoryReport(
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
     // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
     // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
-    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const converter = lens === 'nominal'
+      ? createRpcTotalConverter(baseCurrency, rates)
+      : { conv: (value: number) => value, conversionIncomplete: false };
     const conv = converter.conv;
+    const historicalConversionIncomplete = lens !== 'nominal'
+      && (
+        rawIslemler?.conversionIncomplete === true
+        || rawReturnRows?.conversionIncomplete === true
+      );
+    const missingRateCount = lens === 'nominal'
+      ? 0
+      : (rawIslemler?.missingRateCount ?? 0) + (rawReturnRows?.missingRateCount ?? 0);
     // Persist cache güvenliği: eski sürümde bu sorgu NUMBER dönüyordu; diskteki eski
     // cache hydrate olursa returnRows number olabilir → array'e normalize et (crash fix).
     const safeReturnRows = Array.isArray(returnRows) ? returnRows : [];
@@ -459,7 +547,11 @@ export function useCategoryReport(
         returnTotal: convertedReturnTotal,
         uncategorizedAmount: 0,
         uncategorizedCount: 0,
-        conversionIncomplete: converter.conversionIncomplete,
+        conversionIncomplete:
+          converter.conversionIncomplete || historicalConversionIncomplete,
+        missingRateCount,
+        rateCoverageStart: rawIslemler?.rateCoverageStart ?? null,
+        rateCoverageEnd: rawIslemler?.rateCoverageEnd ?? null,
       };
     }
 
@@ -597,9 +689,23 @@ export function useCategoryReport(
       uncategorizedAmount,
       uncategorizedCount,
       // Kur bulunamadıysa ham TRY korunuyor → ekran uyarıyı göstersin
-      conversionIncomplete: converter.conversionIncomplete,
+      conversionIncomplete:
+        converter.conversionIncomplete || historicalConversionIncomplete,
+      missingRateCount,
+      rateCoverageStart: rawIslemler?.rateCoverageStart ?? null,
+      rateCoverageEnd: rawIslemler?.rateCoverageEnd ?? null,
     };
-  }, [islemler, allKategoriler, returnRows, options.percentageReferenceTotal, baseCurrency, rates]);
+  }, [
+    islemler,
+    allKategoriler,
+    returnRows,
+    options.percentageReferenceTotal,
+    baseCurrency,
+    rates,
+    lens,
+    rawIslemler,
+    rawReturnRows,
+  ]);
 
   // Combine errors - prefer islemler error as it's more critical
   const combinedError = reportsEnabled
@@ -1389,6 +1495,10 @@ export interface SubCategoryReportResult {
   parentCount: number;
   totalAmount: number; // Tüm işlemler (ana + alt kategoriler)
   totalCount: number;
+  conversionIncomplete?: boolean;
+  missingRateCount?: number;
+  rateCoverageStart?: string | null;
+  rateCoverageEnd?: string | null;
   isLoading: boolean;
   error: Error | null;
 }
@@ -1410,7 +1520,13 @@ export function useSubCategoryReport(
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
-  const { startDate, endDate, source, includeReturns = false } = options;
+  const {
+    startDate,
+    endDate,
+    source,
+    includeReturns = false,
+    lens = 'nominal',
+  } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   // İşlem tiplerini belirle (source'a göre)
@@ -1526,30 +1642,44 @@ export function useSubCategoryReport(
       source ?? '',
       startDateTime,
       endDateTime,
+      lens,
     ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme || allKategoriIds.length === 0) return [];
+      if (!reportsEnabled || !isletme || allKategoriIds.length === 0) {
+        return EMPTY_CATEGORY_AGGREGATE;
+      }
 
-      const { data, error } = await supabase.rpc('get_category_report_v2', {
-        p_isletme_id: isletme.id,
-        p_types: islemTypes as string[],
-        p_start_date: startDateTime,
-        p_end_date: endDateTime,
-      });
+      const { data, error } = lens === 'nominal'
+        ? await supabase.rpc('get_category_report_v2', {
+            p_isletme_id: isletme.id,
+            p_types: islemTypes as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+          })
+        : await supabase.rpc('get_category_report_lens_v1', {
+            p_isletme_id: isletme.id,
+            p_types: islemTypes as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+            p_lens: lens as HistoricalIncomeExpenseLens,
+          });
 
       if (error) throw error;
 
       // Filter to only categories in allKategoriIds
       const idSet = new Set(allKategoriIds);
-      return ((data || []) as Array<{
-        kategori_id: string | null;
-        kategori_adi: string | null;
-        kategori_renk: string | null;
-        kategori_icon: string | null;
-        parent_id: string | null;
-        islem_count: number;
-        total_amount: number;
-      }>).filter(row => row.kategori_id && idSet.has(row.kategori_id));
+      const aggregate = lens === 'nominal'
+        ? {
+            ...EMPTY_CATEGORY_AGGREGATE,
+            rows: (data || []) as CategoryAggregateRow[],
+          }
+        : parseHistoricalLensPayload(data);
+      return {
+        ...aggregate,
+        rows: aggregate.rows.filter(
+          (row) => row.kategori_id && idSet.has(row.kategori_id),
+        ),
+      };
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
     meta: CATEGORY_REPORT_QUERY_META,
@@ -1572,25 +1702,43 @@ export function useSubCategoryReport(
       type,
       startDateTime,
       endDateTime,
+      lens,
     ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme || allKategoriIds.length === 0) return [];
+      if (!reportsEnabled || !isletme || allKategoriIds.length === 0) {
+        return EMPTY_CATEGORY_AGGREGATE;
+      }
 
-      const { data, error } = await supabase.rpc('get_category_report_v2', {
-        p_isletme_id: isletme.id,
-        p_types: getReturnTypes(type) as string[],
-        p_start_date: startDateTime,
-        p_end_date: endDateTime,
-      });
+      const { data, error } = lens === 'nominal'
+        ? await supabase.rpc('get_category_report_v2', {
+            p_isletme_id: isletme.id,
+            p_types: getReturnTypes(type) as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+          })
+        : await supabase.rpc('get_category_report_lens_v1', {
+            p_isletme_id: isletme.id,
+            p_types: getReturnTypes(type) as string[],
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+            p_lens: lens as HistoricalIncomeExpenseLens,
+          });
 
       if (error) throw error;
 
       const idSet = new Set(allKategoriIds);
-      return ((data || []) as Array<{
-        kategori_id: string | null;
-        islem_count: number;
-        total_amount: number;
-      }>).filter(row => row.kategori_id && idSet.has(row.kategori_id));
+      const aggregate = lens === 'nominal'
+        ? {
+            ...EMPTY_CATEGORY_AGGREGATE,
+            rows: (data || []) as CategoryAggregateRow[],
+          }
+        : parseHistoricalLensPayload(data);
+      return {
+        ...aggregate,
+        rows: aggregate.rows.filter(
+          (row) => row.kategori_id && idSet.has(row.kategori_id),
+        ),
+      };
     },
     enabled: reportsEnabled && returnsEnabled && !!isletme && !!startDate && !!endDate && allKategoriIds.length > 0,
     meta: CATEGORY_REPORT_QUERY_META,
@@ -1601,9 +1749,9 @@ export function useSubCategoryReport(
     && !rpcIsError
     && !rpcIsRefetchError
     && (!returnsEnabled || (!returnsIsError && !returnsIsRefetchError));
-  const rpcData = canShowAggregate ? rawRpcData : undefined;
+  const rpcData = canShowAggregate ? rawRpcData?.rows : undefined;
   const returnsData = useMemo(
-    () => (canShowAggregate && returnsEnabled ? rawReturnsData : []),
+    () => (canShowAggregate && returnsEnabled ? rawReturnsData?.rows ?? [] : []),
     [canShowAggregate, rawReturnsData, returnsEnabled],
   );
 
@@ -1635,7 +1783,9 @@ export function useSubCategoryReport(
     // RPC tutarları TRY cinsindendir; ana para birimine çevir (TR için no-op).
     // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
     // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
-    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const converter = lens === 'nominal'
+      ? createRpcTotalConverter(baseCurrency, rates)
+      : { conv: (value: number) => value, conversionIncomplete: false };
     const conv = converter.conv;
 
     // RPC aggregate verisini grupla
@@ -1694,9 +1844,30 @@ export function useSubCategoryReport(
       parentCount,
       totalAmount,
       totalCount,
-      conversionIncomplete: converter.conversionIncomplete,
+      conversionIncomplete: converter.conversionIncomplete
+        || (lens !== 'nominal' && (
+          rawRpcData?.conversionIncomplete === true
+          || rawReturnsData?.conversionIncomplete === true
+        )),
+      missingRateCount: lens === 'nominal'
+        ? 0
+        : (rawRpcData?.missingRateCount ?? 0)
+          + (returnsEnabled ? rawReturnsData?.missingRateCount ?? 0 : 0),
+      rateCoverageStart: rawRpcData?.rateCoverageStart ?? null,
+      rateCoverageEnd: rawRpcData?.rateCoverageEnd ?? null,
     };
-  }, [kategoriler, rpcData, returnsData, parentKategoriId, baseCurrency, rates]);
+  }, [
+    baseCurrency,
+    kategoriler,
+    lens,
+    parentKategoriId,
+    rates,
+    rawReturnsData,
+    rawRpcData,
+    returnsData,
+    returnsEnabled,
+    rpcData,
+  ]);
 
   // Combine errors - prefer rpc error as it's more critical
   const combinedError = reportsEnabled

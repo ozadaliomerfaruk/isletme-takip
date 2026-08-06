@@ -430,6 +430,139 @@ export async function exportReportToExcel(options: ReportExportOptions): Promise
 }
 
 // ============================================================================
+// INCOME / EXPENSE HISTORICAL LENS SUMMARY EXPORT
+// ============================================================================
+
+export interface IncomeExpenseLensSummaryExcelRow {
+  category: string;
+  transactionCount: number;
+  amount: number;
+}
+
+export interface IncomeExpenseLensSummaryExcelTranslations {
+  reportTitle: string;
+  period: string;
+  createdAt: string;
+  business: string;
+  lens: string;
+  category: string;
+  transactionCount: string;
+  amount: string;
+  total: string;
+  sheetName: string;
+  fileName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
+  noDataError?: string;
+}
+
+export interface IncomeExpenseLensSummaryExcelOptions {
+  isletmeName: string;
+  startDate: string;
+  endDate: string;
+  periodLabel: string;
+  lensLabel: string;
+  lensDescription: string;
+  currency: string;
+  rows: IncomeExpenseLensSummaryExcelRow[];
+  totalAmount: number;
+  translations: IncomeExpenseLensSummaryExcelTranslations;
+}
+
+/**
+ * Tarihsel mercekte ana raporun ekranda gösterdiği aggregate satırları doğrudan
+ * Excel'e taşır. Böylece dosya, ham işlemleri ikinci bir motorda yeniden
+ * hesaplamaz; ürün dağıtımı, iade netlemesi ve tarihsel kurlar ekrandaki RPC
+ * sonucuyla birebir aynı kalır.
+ */
+export async function exportIncomeExpenseLensSummaryToExcel(
+  options: IncomeExpenseLensSummaryExcelOptions,
+): Promise<void> {
+  const {
+    isletmeName,
+    startDate,
+    endDate,
+    periodLabel,
+    lensLabel,
+    lensDescription,
+    currency,
+    rows,
+    totalAmount,
+    translations: t,
+  } = options;
+
+  if (rows.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
+
+  const amountCell = (value: number, style: object) => currency === 'XAU'
+    ? excelQuantityCell(value, style)
+    : excelMoneyCell(value, currency, style);
+
+  const wb = XLSX.utils.book_new();
+  const ws: XLSX.WorkSheet = {};
+  ws['A1'] = { v: t.reportTitle, s: titleStyle };
+  ws['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+    { s: { r: 7, c: 1 }, e: { r: 7, c: 2 } },
+  ];
+  ws['A3'] = { v: `${t.business}:`, s: metaLabelStyle };
+  ws['B3'] = { v: isletmeName, s: businessNameStyle };
+  ws['A4'] = { v: `${t.period}:`, s: metaLabelStyle };
+  ws['B4'] = { v: periodLabel, s: metaValueStyle };
+  ws['A5'] = { v: '', s: metaLabelStyle };
+  ws['B5'] = {
+    v: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`,
+    s: metaValueStyle,
+  };
+  ws['A6'] = { v: `${t.lens}:`, s: metaLabelStyle };
+  ws['B6'] = { v: lensLabel, s: metaValueStyle };
+  ws['A7'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
+  ws['B7'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+  ws['A8'] = { v: '', s: metaLabelStyle };
+  ws['B8'] = {
+    v: lensDescription,
+    s: { ...metaValueStyle, alignment: { horizontal: 'left', wrapText: true } },
+  };
+
+  const headerRow = 10;
+  ws[`A${headerRow}`] = { v: t.category, s: headerStyle };
+  ws[`B${headerRow}`] = { v: t.transactionCount, s: headerStyle };
+  ws[`C${headerRow}`] = { v: t.amount, s: headerStyle };
+
+  let rowIdx = headerRow + 1;
+  rows.forEach((row) => {
+    ws[`A${rowIdx}`] = { v: row.category, s: cellStyle };
+    ws[`B${rowIdx}`] = excelCountCell(
+      row.transactionCount,
+      { ...cellStyle, alignment: { horizontal: 'center', vertical: 'center' } },
+    );
+    ws[`C${rowIdx}`] = amountCell(row.amount, currencyCellStyle);
+    rowIdx += 1;
+  });
+
+  ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
+  // Aggregate kategori satırlarında ürünlü tek işlem birden fazla kategoriye
+  // dağılabilir; benzersiz işlem sayısı elimizde olmadığı için toplamı uydurma.
+  ws[`B${rowIdx}`] = { v: '', s: totalCurrencyStyle };
+  ws[`C${rowIdx}`] = amountCell(totalAmount, totalCurrencyStyle);
+
+  ws['!ref'] = `A1:C${rowIdx}`;
+  ws['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 22 }];
+  ws['!rows'] = [{ hpt: 24 }];
+  ws['!rows'][7] = { hpt: 36 };
+  ws['!autofilter'] = { ref: `A${headerRow}:C${headerRow + rows.length}` };
+
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${t.fileName}_${currency}_${startDate}_${endDate}.xlsx`,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
+}
+
+// ============================================================================
 // SHARED HELPERS
 // ============================================================================
 

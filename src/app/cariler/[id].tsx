@@ -83,6 +83,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useTransactionCreatorLabelResolver } from '@/hooks/useTransactionCreatorLabels';
 import { canAccessTransactionSources } from '@/lib/transactionSourceModules';
+import { canMutateEntityHistory } from '@/lib/archivedEntityHistory';
 import {
   getTransactionProductMutationDecision,
   type TransactionProductMutationDecision,
@@ -112,6 +113,7 @@ interface CariTransactionItemProps {
   canDelete?: boolean;
   canCopy?: boolean;
   canAction?: boolean;
+  readOnly?: boolean;
   creatorText?: string | null;
   otherPartyName?: string | null;
   urunItems?: UrunKalemOzet[];
@@ -205,6 +207,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
   canDelete = true,
   canCopy = true,
   canAction = true,
+  readOnly = false,
   creatorText,
   otherPartyName,
   urunItems,
@@ -275,8 +278,8 @@ const CariTransactionItem = memo(function CariTransactionItem({
         subAmount={getCariSubAmount(islem)}
         overrideColor={getEntityPerspectiveColor(effectiveType)}
         overridePrefix={getEntityPerspectivePrefix(effectiveType)}
-        onPress={onPress}
-        onLongPress={onLongPress}
+        onPress={readOnly ? undefined : onPress}
+        onLongPress={readOnly ? undefined : onLongPress}
         onPhotoPress={onPhotoPress}
       />
     </SwipeableRow>
@@ -287,6 +290,7 @@ const CariTransactionItem = memo(function CariTransactionItem({
     && prev.canDelete === next.canDelete
     && prev.canCopy === next.canCopy
     && prev.canAction === next.canAction
+    && prev.readOnly === next.readOnly
     && prev.creatorText === next.creatorText
     && prev.urunItems === next.urunItems
     && prev.displayType === next.displayType
@@ -405,13 +409,15 @@ export default function CariHareketleriPage() {
   const canMutateCariTransactions =
     linkWriteStatusReady
     && (!isViewer || linkStatus.permission === 'full');
+  const canMutateDetailHistory = canMutateEntityHistory(cari?.is_archived);
   const getTransactionMutationDecision = useCallback((
     transaction: CariIslemListRow,
     action: 'update' | 'delete',
   ): TransactionProductMutationDecision => {
     const createdBy = transaction.created_by ?? null;
     if (
-      !canMutateCariTransactions
+      !canMutateDetailHistory
+      || !canMutateCariTransactions
       || transaction.isletme_id !== isletme?.id
     ) {
       return {
@@ -441,6 +447,7 @@ export default function CariHareketleriPage() {
   },
     [
       canAccessModule,
+      canMutateDetailHistory,
       canMutateCariTransactions,
       canDelete,
       canUpdate,
@@ -465,7 +472,8 @@ export default function CariHareketleriPage() {
   // Bağlantılı cari (başka işletmenin kaydı) akışının mevcut owner davranışını
   // koru; aktif paylaşılan işletmenin kendi carilerinde merkezi yazma kapısını kullan.
   const canCreateCariTransactions =
-    canMutateCariTransactions
+    canMutateDetailHistory
+    && canMutateCariTransactions
     && (
       isViewer
         ? isOwner
@@ -577,7 +585,8 @@ export default function CariHareketleriPage() {
     ? (islemler || []).find((i) => i.id === productDetailIslemId)
     : undefined;
   const canEditProductDetailTransaction =
-    !!productDetailTransaction
+    canMutateDetailHistory
+    && !!productDetailTransaction
     && canUpdateTransactionRecord(productDetailTransaction);
   // Ürün detay modalının para birimi: satırın TransactionRow'a verdiği AYNI değer
   // (getCrossCurrencyDisplay). Prop geçilmezse modal ANA para birimi sembolünü basıyor
@@ -618,9 +627,14 @@ export default function CariHareketleriPage() {
     if (!canUpdateCariRecord) {
       setEditBalanceModalVisible(false);
     }
+    if (!canMutateDetailHistory) {
+      setPendingTransactionOpenId(null);
+      setProductDetailIslemId(null);
+    }
   }, [
     canCreateCariTransactions,
     canCopyTransactions,
+    canMutateDetailHistory,
     canRenderEditTransactionBar,
     canOpenCariWriteMenu,
     canUpdateCariRecord,
@@ -628,6 +642,7 @@ export default function CariHareketleriPage() {
   ]);
 
   const tryOpenTransaction = useCallback((islemId: string): boolean => {
+    if (!canMutateDetailHistory) return true;
     const transaction = (islemler || []).find((item) => item.id === islemId);
     if (!transaction) {
       showTransactionUpdateDenied(islemId);
@@ -661,6 +676,7 @@ export default function CariHareketleriPage() {
     return true;
   }, [
     canUpdateTransactionRecord,
+    canMutateDetailHistory,
     getProductItemCount,
     isProductItemsResolved,
     islemler,
@@ -840,13 +856,14 @@ export default function CariHareketleriPage() {
   }, []);
 
   const handleDeleteIslem = useCallback((islemId: string) => {
+    if (!canMutateDetailHistory) return;
     const islem = (islemler || []).find(i => i.id === islemId);
     if (islem && canDeleteTransactionRecord(islem)) {
       const labelKey = getCariHareketLabelKey(islem.type);
       const desc = islem.description || (labelKey.includes(':') ? t(labelKey) : t(`transactions:types.${islem.type}`));
       requestDelete(islemId, islem, desc);
     }
-  }, [canDeleteTransactionRecord, islemler, requestDelete, t]);
+  }, [canDeleteTransactionRecord, canMutateDetailHistory, islemler, requestDelete, t]);
 
   const handleLongPressIslem = useCallback((islemId: string) => {
     requestTransactionOpen(islemId);
@@ -855,14 +872,15 @@ export default function CariHareketleriPage() {
   const handleCopyIslem = useCallback((islemId: string) => {
     const transaction = (islemler || []).find((item) => item.id === islemId);
     if (
-      !canCopyTransactions
+      !canMutateDetailHistory
+      || !canCopyTransactions
       || !transaction
       || transaction.isletme_id !== isletme?.id
     ) return;
 
     setCopySourceId(islemId);
     setShowCopyBar(true);
-  }, [canCopyTransactions, islemler, isletme?.id]);
+  }, [canCopyTransactions, canMutateDetailHistory, islemler, isletme?.id]);
 
   const handleDeleteCari = () => {
     setShowMenu(false);
@@ -1360,6 +1378,7 @@ export default function CariHareketleriPage() {
         canDelete={canDeleteItem}
         canCopy={canCopyItem}
         canAction={canActionItem}
+        readOnly={!canMutateDetailHistory}
         creatorText={resolveCreatorLabel(islem)}
         otherPartyName={itemOtherPartyName}
         urunItems={urunItems}
@@ -1374,7 +1393,7 @@ export default function CariHareketleriPage() {
         listPosition={getGroupedListEdgePosition(groupedData, index)}
       />
     );
-  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, setEditingNoteId, t, deleteLabel, copyLabel, cari?.currency, canAccessModule, canCopyTransactions, canDelete, canDeleteTransactionRecord, canCreateCariTransactions, canMutateCariTransactions, resolveCreatorLabel, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, islemKalanMap, isViewer, taksitliSet, taksitBirimleri, runningBalanceMap, groupedData]);
+  }, [handlePressIslem, handleLongPressIslem, handlePressPhoto, handleDeleteIslem, handleCopyIslem, handleNoteDelete, handleToggleNoteCompletion, handleMarkAsTask, setEditingNoteId, t, deleteLabel, copyLabel, cari?.currency, canAccessModule, canCopyTransactions, canDelete, canDeleteTransactionRecord, canCreateCariTransactions, canMutateCariTransactions, canMutateDetailHistory, resolveCreatorLabel, isletme?.id, typeMismatch, otherPartyIsletmeName, getUrunItems, cariPaidCrude, overdueTodayStr, tahsisOzeti, islemKalanMap, isViewer, taksitliSet, taksitBirimleri, runningBalanceMap, groupedData]);
 
   const keyExtractor = useCallback(
     (item: TransactionListItem<CariIslemListRow>) => item.key,
@@ -1620,7 +1639,7 @@ export default function CariHareketleriPage() {
           <IleriTarihliIslemlerSection
             ileriTarihliIslemler={ileriTarihliIslemler}
             isLoading={ileriTarihliLoading}
-            readOnly={!canMutateCariTransactions}
+            readOnly={!canMutateDetailHistory || !canMutateCariTransactions}
           />
 
           {/* "Hareketler" başlığı kaldırıldı (kullanıcı isteği) — işlemler
@@ -1631,7 +1650,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, hideCariAggregateData, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, canCreateCariTransactions, canMutateCariTransactions, canUpdateCariRecord, canLoadCariAggregateHelpers, isletme?.name, taksitliGecikmisFark, gecikenTaksitPlanlari, vadePage, router]);
+  }, [cari, effectiveType, shouldInvertBalance, hideCariAggregateData, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, canCreateCariTransactions, canMutateCariTransactions, canMutateDetailHistory, canUpdateCariRecord, canLoadCariAggregateHelpers, isletme?.name, taksitliGecikmisFark, gecikenTaksitPlanlari, vadePage, router]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {

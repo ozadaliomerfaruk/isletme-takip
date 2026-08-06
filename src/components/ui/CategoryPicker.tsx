@@ -1,6 +1,6 @@
 import { Modal } from './Modal';
 import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import {
@@ -97,6 +97,8 @@ interface CategoryPickerProps {
   disabled?: boolean;
   disabledMessage?: string;
   onNavigateAway?: () => void;
+  /** Normal kapanis animasyonu bittiginde cagrilir; kategori-ekle navigasyonunda cagrilmaz. */
+  onCloseComplete?: () => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   containerStyle?: StyleProp<ViewStyle>;
@@ -116,6 +118,7 @@ export function CategoryPicker({
   disabled = false,
   disabledMessage,
   onNavigateAway,
+  onCloseComplete,
   open: externalOpen,
   onOpenChange,
   containerStyle,
@@ -127,26 +130,10 @@ export function CategoryPicker({
   const [internalOpen, setInternalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const pendingAddNavigationRef = useRef(false);
+  const addNavigationFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
   const windowHeight = Dimensions.get('window').height;
-
-  // Keyboard visibility tracking
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSubscription = Keyboard.addListener(showEvent, () => {
-      setIsKeyboardVisible(true);
-    });
-    const hideSubscription = Keyboard.addListener(hideEvent, () => {
-      setIsKeyboardVisible(false);
-    });
-
-    return () => {
-      showSubscription.remove();
-      hideSubscription.remove();
-    };
-  }, []);
 
   // Controlled/uncontrolled pattern
   const isControlled = externalOpen !== undefined;
@@ -159,6 +146,53 @@ export function CategoryPicker({
       setInternalOpen(open);
     }
   }, [isControlled, onOpenChange]);
+
+  // Picker acikken arama klavyesine dis dokunus once yalniz klavyeyi kapatir.
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSubscription = Keyboard.addListener(showEvent, () => {
+      setIsKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener(hideEvent, () => {
+      setIsKeyboardVisible(false);
+    });
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  const completeAddCategoryNavigation = useCallback(() => {
+    if (!pendingAddNavigationRef.current) return;
+
+    pendingAddNavigationRef.current = false;
+    if (addNavigationFallbackRef.current) {
+      clearTimeout(addNavigationFallbackRef.current);
+      addNavigationFallbackRef.current = null;
+    }
+
+    // Once kategori katmani tamamen kalktiktan sonra parent form modalini gizle.
+    // Formu kapatma: QTB/kredi karti/gunluk kasa donuste taslagi koruyacak.
+    onNavigateAway?.();
+    router.push(`/kategoriler/ekle?type=${type}`);
+  }, [onNavigateAway, router, type]);
+
+  const handleNativeModalDismiss = useCallback(() => {
+    if (pendingAddNavigationRef.current) {
+      completeAddCategoryNavigation();
+      return;
+    }
+    onCloseComplete?.();
+  }, [completeAddCategoryNavigation, onCloseComplete]);
+
+  useEffect(() => () => {
+    if (addNavigationFallbackRef.current) {
+      clearTimeout(addNavigationFallbackRef.current);
+    }
+    pendingAddNavigationRef.current = false;
+  }, []);
 
   // Use translations for defaults.
   // NOT: label === '' (boş string) BİLİNÇLİ olarak "etiket gösterme" demektir → ?? ile
@@ -199,10 +233,26 @@ export function CategoryPicker({
   };
 
   const handleAddCategory = () => {
+    if (pendingAddNavigationRef.current) return;
+
+    pendingAddNavigationRef.current = true;
+    Keyboard.dismiss();
     setModalVisible(false);
     setSearchQuery('');
-    onNavigateAway?.();
-    router.push(`/kategoriler/ekle?type=${type}`);
+
+    // React Native onDismiss iOS'ta guvenilir. Android/web icin emniyet supabi;
+    // iOS'ta da beklenmedik bir native dismiss kesintisinde akis kilitli kalmasin.
+    addNavigationFallbackRef.current = setTimeout(
+      completeAddCategoryNavigation,
+      Platform.OS === 'ios' ? 700 : 350,
+    );
+  };
+
+  const handleOpenModal = () => {
+    if (disabled) return;
+    // Dokunusa aninda cevap ver; klavye ve panel gecisleri paralel ilerler.
+    Keyboard.dismiss();
+    setModalVisible(true);
   };
 
   const getCategoryIcon = (category: KategoriSecimSecenegi, size: number = 20) => {
@@ -246,7 +296,7 @@ export function CategoryPicker({
         ) : null}
         <TouchableOpacity
           style={[styles.trigger, triggerStyle, error && styles.triggerError, disabled && styles.triggerDisabled]}
-          onPress={() => !disabled && setModalVisible(true)}
+          onPress={handleOpenModal}
           activeOpacity={disabled ? 1 : 0.7}
           disabled={disabled}
         >
@@ -283,11 +333,20 @@ export function CategoryPicker({
         animationType="slide"
         transparent={true}
         onRequestClose={handleCloseModal}
+        onDismiss={handleNativeModalDismiss}
       >
         <TouchableWithoutFeedback onPress={handleCloseModal}>
           <View style={styles.modalOverlay}>
             <TouchableWithoutFeedback onPress={() => {}}>
-              <View style={[styles.modalContent, { height: windowHeight * 0.7, paddingBottom: insets.bottom }]}>
+              <View
+                style={[
+                  styles.modalContent,
+                  {
+                    height: windowHeight * 0.7,
+                    paddingBottom: insets.bottom,
+                  },
+                ]}
+              >
                 <View style={styles.modalHeader}>
               <Text variant="h3">{t('common:select.selectLabel', { label: displayLabel })}</Text>
               {/* Ana sayfa sticky header'larındaki AddEntityButton ile aynı görünüm.
@@ -421,12 +480,12 @@ export function CategoryPicker({
                   </Text>
                 </View>
               )}
-            </ScrollView>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+                </ScrollView>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </>
   );
 }

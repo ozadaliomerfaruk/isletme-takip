@@ -6,7 +6,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { exportReportToExcel, ReportType, ReportExcelTranslations } from '@/lib/reportExcelExport';
+import {
+  exportIncomeExpenseLensSummaryToExcel,
+  exportReportToExcel,
+  type IncomeExpenseLensSummaryExcelRow,
+  type IncomeExpenseLensSummaryExcelTranslations,
+  type ReportExcelTranslations,
+  type ReportType,
+} from '@/lib/reportExcelExport';
 import { logEvent } from '@/lib/appEvents';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
@@ -27,6 +34,22 @@ interface UseReportExcelExportReturn {
   isExporting: boolean;
   canExport: boolean;
   exportReport: (startDate: string, endDate: string, periodLabel: string) => Promise<void>;
+  exportLensSummary: (options: ReportLensSummaryExportOptions) => Promise<void>;
+}
+
+export interface ReportLensSummaryExportOptions {
+  startDate: string;
+  endDate: string;
+  periodLabel: string;
+  lens: 'reel' | 'usd' | 'eur' | 'altin';
+  lensLabel: string;
+  lensDescription: string;
+  dimensionLabel?: string;
+  currency: string;
+  rows: IncomeExpenseLensSummaryExcelRow[];
+  totalAmount: number;
+  conversionIncomplete: boolean;
+  missingRateCount: number;
 }
 
 const SHARED_EXPORT_PAGE_SIZE = 100;
@@ -304,9 +327,96 @@ export function useReportExcelExport(reportType: ReportType): UseReportExcelExpo
     ]
   );
 
+  const exportLensSummary = useCallback(
+    async (options: ReportLensSummaryExportOptions) => {
+      if (!canExport) {
+        Alert.alert(t('common:status.error'), t('common:errors.permissionDenied'));
+        return;
+      }
+      if (!isletme) {
+        Alert.alert(t('common:status.error'), t('common:empty.noData'));
+        return;
+      }
+      if (options.conversionIncomplete) {
+        Alert.alert(
+          t('reports:incomeExpenseLens.exportBlockedTitle'),
+          t('reports:incomeExpenseLens.exportBlockedIncomplete', {
+            count: options.missingRateCount,
+          }),
+        );
+        return;
+      }
+
+      const expectedIsletmeId = isletme.id;
+      const expectedUserId = user?.id ?? null;
+      const latestAccess = latestExportAccessRef.current;
+      if (
+        !latestAccess.canExport
+        || latestAccess.isletmeId !== expectedIsletmeId
+        || latestAccess.userId !== expectedUserId
+      ) {
+        Alert.alert(t('common:status.error'), t('common:errors.permissionDenied'));
+        return;
+      }
+
+      const translations: IncomeExpenseLensSummaryExcelTranslations = {
+        reportTitle: `${reportType === 'gelir'
+          ? t('reports:titles.incomeAnalysis')
+          : t('reports:titles.expenseAnalysis')} - ${options.lensLabel}`,
+        period: t('common:export.excel.period'),
+        createdAt: t('common:export.excel.createdAt'),
+        business: t('common:export.excel.business'),
+        lens: t('reports:incomeExpenseLens.title'),
+        category: options.dimensionLabel ?? t('common:export.excel.category'),
+        transactionCount: t('common:export.reportExcel.transactionCount'),
+        amount: `${t('common:export.reportExcel.amount')} (${options.lensLabel})`,
+        total: t('common:export.reportExcel.total'),
+        sheetName: t('common:export.reportExcel.sheetName'),
+        fileName: reportType === 'gelir'
+          ? t('common:export.reportExcel.incomeFileName')
+          : t('common:export.reportExcel.expenseFileName'),
+        shareDialogTitle: t('common:export.shareDialogTitle'),
+        sharingNotSupported: t('common:export.sharingNotSupported'),
+        noDataError: t('common:export.noDataToExport'),
+      };
+
+      setIsExporting(true);
+      try {
+        await exportIncomeExpenseLensSummaryToExcel({
+          isletmeName: isletme.name,
+          startDate: options.startDate,
+          endDate: options.endDate,
+          periodLabel: options.periodLabel,
+          lensLabel: options.lensLabel,
+          lensDescription: options.lensDescription,
+          currency: options.currency,
+          rows: options.rows,
+          totalAmount: options.totalAmount,
+          translations,
+        });
+        logEvent('export_completed', {
+          format: 'excel',
+          export_type: 'report',
+          report_type: reportType,
+          lens: options.lens,
+        });
+      } catch (error) {
+        console.error('Report lens summary Excel export error:', error);
+        Alert.alert(
+          t('common:status.error'),
+          toErrorMessage(error) || t('common:status.error'),
+        );
+      } finally {
+        setIsExporting(false);
+      }
+    },
+    [canExport, isletme, reportType, t, user?.id],
+  );
+
   return {
     isExporting,
     canExport,
     exportReport,
+    exportLensSummary,
   };
 }
