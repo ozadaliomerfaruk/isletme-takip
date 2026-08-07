@@ -1,8 +1,10 @@
 const {
   withAndroidManifest,
+  withAndroidStyles,
   withAppBuildGradle,
   withGradleProperties,
   withDangerousMod,
+  AndroidConfig,
 } = require('expo/config-plugins');
 const fs = require('fs');
 const path = require('path');
@@ -24,6 +26,26 @@ module.exports = function withBuildConfig(config) {
         permission.$['android:maxSdkVersion'] = '32';
       }
     }
+
+    // Android 16 ignores portrait/resizability restrictions on large screens.
+    // Keep the top-level Expo orientation for iOS, but let Android react to
+    // phone rotation, tablets, foldables and multi-window resizing.
+    const mainActivity = AndroidConfig.Manifest.getMainActivityOrThrow(config.modResults);
+    delete mainActivity.$['android:screenOrientation'];
+    delete mainActivity.$['android:resizeableActivity'];
+
+    return config;
+  });
+
+  config = withAndroidStyles(config, (config) => {
+    // Android 15+ renders edge-to-edge and ignores statusBarColor. Remove the
+    // legacy theme item after Expo's own status-bar mod has populated styles.
+    config.modResults = AndroidConfig.Styles.assignStylesValue(config.modResults, {
+      parent: AndroidConfig.Styles.getAppThemeGroup(),
+      name: 'android:statusBarColor',
+      value: '@android:color/transparent',
+      add: false,
+    });
     return config;
   });
 
@@ -39,6 +61,15 @@ module.exports = function withBuildConfig(config) {
           contents.slice(0, insertionPoint) + injection + contents.slice(insertionPoint);
       }
     }
+
+    // R8 is enabled through expo-build-properties. Use the optimized Android
+    // defaults as well so minification performs code optimization, not only
+    // shrinking/obfuscation.
+    config.modResults.contents = config.modResults.contents.replace(
+      /getDefaultProguardFile\(["']proguard-android\.txt["']\)/g,
+      'getDefaultProguardFile("proguard-android-optimize.txt")'
+    );
+
     return config;
   });
 

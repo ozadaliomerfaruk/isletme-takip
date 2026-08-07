@@ -1,4 +1,4 @@
-import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
 import { Package, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Button, Modal } from '@/components/ui';
@@ -53,7 +53,7 @@ export function ProductDetailModal({
   const isError = canSeeUrunler
     ? isFullItemsError
     : isSummaryItemsError;
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   if (!islemId) return null;
 

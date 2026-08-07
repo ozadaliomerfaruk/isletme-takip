@@ -1,5 +1,5 @@
 import { Modal } from './Modal';
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions, Keyboard, Platform, type StyleProp, type ViewStyle } from 'react-native';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -133,7 +133,7 @@ export function CategoryPicker({
   const pendingAddNavigationRef = useRef(false);
   const addNavigationFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   // Controlled/uncontrolled pattern
   const isControlled = externalOpen !== undefined;

@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback } from 'react';
-import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Calendar,
@@ -58,7 +58,7 @@ export function PendingTransactionForm({
   const { t } = useTranslation(['transactions', 'common', 'settings', 'accounts', 'clients', 'staff']);
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const form = usePendingFormState({ pendingIslem, visible, onDismiss });
   const { handleSave, handleSkip } = usePendingFormSave();

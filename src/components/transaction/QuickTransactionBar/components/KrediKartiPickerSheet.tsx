@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, CreditCard, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +33,7 @@ export function KrediKartiPickerSheet({
 }: KrediKartiPickerSheetProps) {
   const { t } = useTranslation(['accounts']);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const handleSelect = useCallback(
     (hesapId: string) => {

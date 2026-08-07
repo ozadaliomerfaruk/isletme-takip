@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { View, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, Dimensions, Keyboard, StyleSheet, ActivityIndicator, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, TextInput, ScrollView, useWindowDimensions, Keyboard, StyleSheet, ActivityIndicator, LayoutAnimation, Platform, UIManager } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Package, Plus, Trash2, Check, Pencil, ChevronUp, ChevronDown } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -77,7 +77,7 @@ export function UrunPickerModal({
   const { t } = useTranslation(['transactions', 'products', 'common']);
   const insets = useSafeAreaInsets();
   const haptics = useHaptics();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
   // Eski veride urun, yanlis-tip ama aktif bir kategoriye bagli olabilir.
   // Etiket/aramanin kaybolmamasi icin map tum aktif dar referanslardan kurulur.
   const { data: kategoriler } = useKategoriSecimReferanslari();

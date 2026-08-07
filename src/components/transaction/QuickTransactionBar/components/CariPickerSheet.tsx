@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Users, Building2, Check, Plus } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
@@ -54,7 +54,7 @@ export function CariPickerSheet({
 }: CariPickerSheetProps) {
   const { t } = useTranslation(['clients', 'common']);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const [searchQuery, setSearchQuery] = useState('');
 

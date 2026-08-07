@@ -398,7 +398,7 @@ export function PhotoViewerModal({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" />
       <GestureHandlerRootView style={styles.flex}>
         <Animated.View style={[styles.container, backdropAnimatedStyle]}>
           {/* Header with proper safe area */}

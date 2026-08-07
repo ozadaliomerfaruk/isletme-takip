@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, UserCheck, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -41,7 +41,7 @@ export function PersonelPickerSheet({
 }: PersonelPickerSheetProps) {
   const { t } = useTranslation(['staff', 'common']);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const [searchQuery, setSearchQuery] = useState('');
 

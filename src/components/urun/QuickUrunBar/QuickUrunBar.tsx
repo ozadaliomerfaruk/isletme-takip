@@ -1,6 +1,6 @@
 import { Modal, Text } from '@/components/ui';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Animated, TouchableOpacity, TouchableWithoutFeedback, TextInput, Keyboard, KeyboardEvent, Alert, ActivityIndicator, Platform, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, Animated, TouchableOpacity, TouchableWithoutFeedback, TextInput, Keyboard, KeyboardEvent, Alert, ActivityIndicator, Platform, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -58,6 +58,7 @@ export function QuickUrunBar({
   const isEditMode = mode === 'edit' && editHareketId;
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
 
   // Refs
   const amountInputRef = useRef<TextInput>(null);
@@ -341,7 +342,6 @@ export function QuickUrunBar({
     : insets.bottom + TAB_BAR_HEIGHT + 10;
 
   // Constrain card height so it never overflows above the screen
-  const screenHeight = Dimensions.get('window').height;
   const cardMaxHeight = screenHeight - cardBottom - insets.top - 20;
 
   return (

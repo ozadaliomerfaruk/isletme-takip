@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -66,7 +66,7 @@ export default function VeriIceAktarPage() {
   const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
   const { t, i18n } = useTranslation('settings');
   const queryClient = useQueryClient();
   const { formatDateMedium, formatDateShort } = useDateFormat();

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, memo } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import { View, StyleSheet, Alert, TouchableOpacity, ScrollView, Dimensions, Linking } from 'react-native';
+import { View, StyleSheet, Alert, TouchableOpacity, ScrollView, useWindowDimensions, Linking } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -323,6 +323,7 @@ export default function CariHareketleriPage() {
   const { formatDateMedium, formatDateShort } = useDateFormat();
   const { currency: baseCurrency } = useSettings();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { data: exchangeRatesData } = useExchangeRates();
   const exchangeRates = exchangeRatesData?.rates;
 
@@ -1414,7 +1415,7 @@ export default function CariHareketleriPage() {
     // Bağlantılı (paylaşılan) cari: ayrı kutu yerine özet kartının çerçevesi yeşil + üstte
     // kompakt "Bağlantılı · {paylaşan işletme}" şeridi gösterilir.
     const linkedOwnerName = (linkStatus?.is_linked && linkStatus.link?.owner_isletme?.name) || undefined;
-    const vadeCardW = Dimensions.get('window').width;
+    const vadeCardW = windowWidth;
     const hasGecikenCarousel = gecikmisBorclar.length > 0 || taksitliGecikmisFark > 0.009;
 
     return (
@@ -1650,7 +1651,7 @@ export default function CariHareketleriPage() {
         </View>
       </View>
     );
-  }, [cari, effectiveType, shouldInvertBalance, hideCariAggregateData, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, canCreateCariTransactions, canMutateCariTransactions, canMutateDetailHistory, canUpdateCariRecord, canLoadCariAggregateHelpers, isletme?.name, taksitliGecikmisFark, gecikenTaksitPlanlari, vadePage, router]);
+  }, [cari, effectiveType, shouldInvertBalance, hideCariAggregateData, ileriTarihliIslemler, ileriTarihliLoading, islemlerLoading, baseCurrency, exchangeRates, t, handleUnarchive, unarchiveCari.isPending, linkStatus, isViewerViewOnly, isViewer, cariVadeOzeti, cariOzet, hasVadeliIslem, gecikmisBorclar, canCreateCariTransactions, canMutateCariTransactions, canMutateDetailHistory, canUpdateCariRecord, canLoadCariAggregateHelpers, isletme?.name, taksitliGecikmisFark, gecikenTaksitPlanlari, vadePage, router, windowWidth]);
 
   // === FlatList ListFooterComponent ===
   const ListFooter = useMemo(() => {

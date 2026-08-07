@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, X, Wallet, Eye, EyeOff, SlidersHorizontal } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -57,7 +57,7 @@ export function DailyCashModal({
   const hiddenAccountsKey = isletme?.id
     ? `${HIDDEN_ACCOUNTS_KEY_PREFIX}_${isletme.id}`
     : null;
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   // Date state - initialized with time 23:59
   const [date, setDate] = useState(() => {
