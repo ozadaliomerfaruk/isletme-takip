@@ -21,6 +21,8 @@ DECLARE
   v_definition text;
   v_eol text;
   v_before constant text := '    IF TG_OP = ''DELETE'' THEN';
+  v_clean_replay_before constant text := '  IF TG_OP = ''DELETE'' THEN';
+  v_source_before text;
   v_after text;
   v_owner oid;
   v_acl aclitem[];
@@ -76,7 +78,13 @@ BEGIN
     ELSE E'\n'
   END;
   v_after :=
-    v_before || v_eol ||
+    CASE
+      WHEN pg_catalog.strpos(v_definition, v_before) > 0 THEN v_before
+      ELSE v_clean_replay_before
+    END;
+  v_source_before := v_after;
+  v_after :=
+    v_source_before || v_eol ||
     '      -- A parent-business cascade has no durable audit destination.' || v_eol ||
     '      IF NOT EXISTS (' || v_eol ||
     '        SELECT 1' || v_eol ||
@@ -94,9 +102,9 @@ BEGIN
     v_match_count := (
       pg_catalog.length(v_definition)
       - pg_catalog.length(
-          pg_catalog.replace(v_definition, v_before, '')
+          pg_catalog.replace(v_definition, v_source_before, '')
         )
-    ) / pg_catalog.length(v_before);
+    ) / pg_catalog.length(v_source_before);
 
     IF v_match_count <> 1 THEN
       RAISE EXCEPTION
@@ -106,7 +114,7 @@ BEGIN
 
     v_definition := pg_catalog.replace(
       v_definition,
-      v_before,
+      v_source_before,
       v_after
     );
     EXECUTE v_definition;

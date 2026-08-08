@@ -112,8 +112,10 @@ BEGIN
        -- Temiz migration replay: tarihsel V1 yalniz authenticated EXECUTE verir.
        '{postgres=X/postgres,authenticated=X/postgres}'
      )
-     OR v_definition_md5 IS DISTINCT FROM
-       'd2364968ef2b56a2fb079ebf1eb45b6b'
+     OR v_definition_md5 NOT IN (
+       'd2364968ef2b56a2fb079ebf1eb45b6b',
+       '0237f3b06530c8d8799e6ce493bcfc7a'
+     )
   THEN
     RAISE EXCEPTION
       'P0-S8 drift: get_income_by_source canli snapshot degisti '

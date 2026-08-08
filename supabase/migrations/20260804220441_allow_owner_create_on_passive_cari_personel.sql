@@ -58,6 +58,10 @@ BEGIN
   FROM pg_catalog.pg_proc AS proc
   WHERE proc.oid = v_function_oid;
 
+  -- Windows clean replay pg_get_functiondef icinde CRLF koruyabilir. Exact
+  -- kaynak guard'i platformdan bagimsiz kalsin; calistirilacak DDL LF'e normalize edilir.
+  v_definition := pg_catalog.replace(v_definition, E'\r\n', E'\n');
+
   v_cari_match_count := (
     pg_catalog.length(v_definition)
     - pg_catalog.length(pg_catalog.replace(v_definition, v_cari_before, ''))
@@ -123,6 +127,8 @@ BEGIN
   INTO v_definition
   FROM pg_catalog.pg_proc AS proc
   WHERE proc.oid = v_function_oid;
+
+  v_definition := pg_catalog.replace(v_definition, E'\r\n', E'\n');
 
   IF pg_catalog.strpos(v_definition, v_cari_before) <> 0
      OR pg_catalog.strpos(v_definition, v_cari_after) = 0

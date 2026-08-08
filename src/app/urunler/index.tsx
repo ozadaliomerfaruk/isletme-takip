@@ -327,11 +327,11 @@ export default function UrunlerPage() {
         if (urun.kategori_id !== categoryFilter) return false;
       }
 
-      // Arama filtresi — ad + kod + kategori + açıklama (ürün kartındaki not) birlikte
+      // Arama filtresi — ad + kod + marka + kategori + açıklama birlikte
       if (query) {
         const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id) : '';
         const matches = searchMatchesTr(
-          `${urun.ad} ${urun.kod ?? ''} ${kategoriAdi ?? ''} ${urun.aciklama ?? ''}`,
+          `${urun.ad} ${urun.kod ?? ''} ${urun.marka ?? ''} ${kategoriAdi ?? ''} ${urun.aciklama ?? ''}`,
           debouncedSearch
         );
         if (!matches) return false;
@@ -398,7 +398,7 @@ export default function UrunlerPage() {
     return archivedUrunler.filter((urun) => {
       const kategoriAdi = urun.kategori_id ? kategoriMap.get(urun.kategori_id) : '';
       return searchMatchesTr(
-        `${urun.ad} ${urun.kod ?? ''} ${kategoriAdi ?? ''} ${urun.aciklama ?? ''}`,
+        `${urun.ad} ${urun.kod ?? ''} ${urun.marka ?? ''} ${kategoriAdi ?? ''} ${urun.aciklama ?? ''}`,
         debouncedSearch
       );
     });

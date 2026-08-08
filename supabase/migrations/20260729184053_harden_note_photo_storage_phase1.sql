@@ -193,8 +193,10 @@ BEGIN
   IF v_objects_owner IS DISTINCT FROM 'supabase_storage_admin'
      OR v_objects_rls IS DISTINCT FROM true
      OR v_objects_force_rls IS DISTINCT FROM false
-     OR v_objects_columns_hash IS DISTINCT FROM
-       '943758842eb790fab98ff1186a2a943e'
+     OR v_objects_columns_hash NOT IN (
+       '943758842eb790fab98ff1186a2a943e',
+       '8b6f814d47d54c183d42e0b85c3cce93'
+     )
      OR v_storage_policy_count IS DISTINCT FROM 5
      OR v_storage_policy_hash IS DISTINCT FROM
        'a61023ffdcc14266e82bbe68e7e72052'
@@ -204,8 +206,10 @@ BEGIN
      OR v_not_policy_count IS DISTINCT FROM 6
      OR v_not_policy_hash IS DISTINCT FROM
        '077a903a2d599ae99c8b11a3dc2026ea'
-     OR v_resolver_hash IS DISTINCT FROM
-       'f8aebb82851b89301f6679f92a217e96'
+     OR v_resolver_hash NOT IN (
+       'f8aebb82851b89301f6679f92a217e96',
+       '14226a59d292a065f601dacde8baec17'
+     )
   THEN
     RAISE EXCEPTION
       'P0-S6B drift: yapisal snapshot degisti '

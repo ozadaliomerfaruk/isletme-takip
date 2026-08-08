@@ -74,6 +74,11 @@ export const ProductRow = memo(function ProductRow({
                 <Text variant="caption" color="secondary">
                   {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                 </Text>
+                {urun.marka && (
+                  <Text variant="caption" color="secondary" numberOfLines={1}>
+                    {urun.marka}
+                  </Text>
+                )}
                 {urun.satis_fiyati > 0 && (
                   <Text variant="caption" color="secondary">
                     {formatCurrency(urun.satis_fiyati, urun.currency)}/{getBirimLabel(urun.birim)}
@@ -190,6 +195,7 @@ export const ArchivedProductRow = memo(function ArchivedProductRow({
               <Text variant="caption" color="muted">
                 {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
                 {urun.kod && ` • ${urun.kod}`}
+                {urun.marka && ` • ${urun.marka}`}
               </Text>
             </View>
             {canManage && (

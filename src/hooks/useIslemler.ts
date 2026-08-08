@@ -114,6 +114,7 @@ export interface CariProductMutationItem {
   miktar: number;
   birim_fiyat: number;
   kdv_orani: number;
+  marka?: string | null;
   aciklama: string | null;
 }
 
@@ -789,6 +790,7 @@ export interface CreateIslemWithUrunItem {
   miktar: number;
   birim_fiyat: number;
   kdv_orani: number;
+  marka?: string | null;
   aciklama?: string | null;
 }
 

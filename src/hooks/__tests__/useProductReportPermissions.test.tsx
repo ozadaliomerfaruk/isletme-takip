@@ -153,6 +153,24 @@ describe('useProductReport V2 permission projection', () => {
     queryClient.clear();
   });
 
+  it('does not start either RPC while the report tab is deferred', async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const hook = renderHook(
+      () => useProductReport('alis', { ...options, enabled: false }),
+      { wrapper: Wrapper },
+    );
+
+    await act(async () => Promise.resolve());
+
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(hook.result.current.isReady).toBe(false);
+    expect(hook.result.current.isLoading).toBe(false);
+    expect(hook.result.current.items).toEqual([]);
+
+    hook.unmount();
+    queryClient.clear();
+  });
+
   it('uses the same report from the contextual Urunler module', async () => {
     mockModules = { urunler: true };
     const { queryClient, Wrapper } = createWrapper();

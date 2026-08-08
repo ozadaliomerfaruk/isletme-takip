@@ -36,6 +36,9 @@ describe('owner passive account create migration contract', () => {
   });
 
   it('fails closed on source drift and preserves the RPC contract', () => {
+    expect(sql).toContain(
+      "pg_catalog.replace(v_definition, E'\\r\\n', E'\\n')",
+    );
     expect(sql).toContain('IF v_match_count <> 1 THEN');
     expect(sql).toContain('proc.proowner IS DISTINCT FROM v_owner');
     expect(sql).toContain('proc.proacl IS DISTINCT FROM v_acl');

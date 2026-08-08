@@ -42,6 +42,9 @@ describe('P0-S8 income source report v2 permission projection migration', () => 
       'd2364968ef2b56a2fb079ebf1eb45b6b',
     );
     expect(executableSql).toContain(
+      '0237f3b06530c8d8799e6ce493bcfc7a',
+    );
+    expect(executableSql).toContain(
       "'{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'",
     );
     expect(executableSql).toContain(

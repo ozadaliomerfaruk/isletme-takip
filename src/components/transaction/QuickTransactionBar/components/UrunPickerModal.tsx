@@ -54,6 +54,7 @@ export interface UrunPickerModalProps {
 // Ürün ekleme formu için state
 interface AddingProduct {
   urun: Urun;
+  marka: string;
   miktar: string;
   birimFiyat: string;
   kdvOrani: number;
@@ -92,6 +93,7 @@ export function UrunPickerModal({
   const [editingUrunId, setEditingUrunId] = useState<string | null>(null);
   // Kullanıcı fiyat alanına dokunduysa son-fiyat otomatik doldurması devre dışı kalır
   const priceTouchedRef = useRef(false);
+  const brandTouchedRef = useRef(false);
   const { formatDateShort } = useDateFormat();
   // Son işlem fiyatı (yalnız YENİ eklemede; düzenlemede kullanıcının fiyatı korunur)
   const addingUrunId = addingProduct && editingUrunId === null ? addingProduct.urun.id : undefined;
@@ -101,13 +103,18 @@ export function UrunPickerModal({
   // Ürün kartındaki sabit fiyat işlemlerle güncellenmediğinden bayat kalabiliyor;
   // güncel piyasa fiyatı son işlemdir (kullanıcı isteği, 4 Tem).
   useEffect(() => {
-    if (!sonFiyat || !addingUrunId || priceTouchedRef.current) return;
-    const yeni = formatAmountForInput(sonFiyat.fiyat);
-    setAddingProduct((prev) =>
-      prev && prev.urun.id === addingUrunId && prev.birimFiyat !== yeni
-        ? { ...prev, birimFiyat: yeni }
-        : prev,
-    );
+    if (!sonFiyat || !addingUrunId) return;
+    const yeniFiyat = formatAmountForInput(sonFiyat.fiyat);
+    setAddingProduct((prev) => {
+      if (!prev || prev.urun.id !== addingUrunId) return prev;
+      const nextPrice = priceTouchedRef.current ? prev.birimFiyat : yeniFiyat;
+      const nextBrand = brandTouchedRef.current || !sonFiyat.marka
+        ? prev.marka
+        : sonFiyat.marka;
+      return nextPrice === prev.birimFiyat && nextBrand === prev.marka
+        ? prev
+        : { ...prev, birimFiyat: nextPrice, marka: nextBrand };
+    });
   }, [sonFiyat, addingUrunId]);
   // Eklenen ürünler paneli (footer'da, YUKARI açılır): varsayılan KAPALI. 300 kalemlik
   // listeye scroll etmeden, alttaki toplam satırına dokunup eklenenler açılıp görülür.
@@ -130,6 +137,7 @@ export function UrunPickerModal({
       (u) =>
         searchMatchesTr(u.ad, searchQuery) ||
         (u.kod && searchMatchesTr(u.kod, searchQuery)) ||
+        (u.marka && searchMatchesTr(u.marka, searchQuery)) ||
         (u.kategori_id && searchMatchesTr(kategoriNameMap.get(u.kategori_id) ?? '', searchQuery))
     );
   }, [urunler, searchQuery, kategoriNameMap]);
@@ -159,9 +167,11 @@ export function UrunPickerModal({
     if (urunItems.some((item) => item.urunId === urun.id)) return;
 
     priceTouchedRef.current = false; // yeni üründe son-fiyat otomatik doldurması aktif
+    brandTouchedRef.current = false;
     setEditingUrunId(null); // Yeni ekleme
     setAddingProduct({
       urun,
+      marka: urun.marka?.trim() || '',
       miktar: '',
       // formatAmountForInput: locale-doğru ondalık ayraç (tr'de virgül) üretir; ham
       // .toString() 3-ondalıklı fiyatı ("10.987") parseCurrency'de binlik ayraç sanılıp
@@ -213,9 +223,11 @@ export function UrunPickerModal({
     if (!urun) return;
 
     priceTouchedRef.current = true; // düzenlemede kullanıcının fiyatı asla ezilmez
+    brandTouchedRef.current = true;
     setEditingUrunId(item.urunId);
     setAddingProduct({
       urun,
+      marka: item.marka || '',
       miktar: formatAmountForInput(item.miktar),
       birimFiyat: formatAmountForInput(item.birimFiyat),
       kdvOrani: item.kdvOrani,
@@ -236,6 +248,7 @@ export function UrunPickerModal({
     const newItem: UrunItem = {
       urunId: addingProduct.urun.id,
       urunAd: addingProduct.urun.ad,
+      marka: addingProduct.marka.trim().replace(/\s+/g, ' ') || null,
       miktar,
       birimFiyat,
       kdvOrani: addingProduct.kdvOrani,
@@ -434,6 +447,28 @@ export function UrunPickerModal({
                       </View>
                     )}
 
+                    {/* Marka ürün kartındaki varsayılanla açılır; bu işlem için değiştirilebilir. */}
+                    <View style={styles.inputRow}>
+                      <Text style={styles.inputLabel}>
+                        {t('products:form.brand')}
+                      </Text>
+                      <View style={styles.inputWrapper}>
+                        <TextInput
+                          style={styles.textInput}
+                          value={addingProduct.marka}
+                          onChangeText={(text) => {
+                            brandTouchedRef.current = true;
+                            setAddingProduct({ ...addingProduct, marka: text });
+                          }}
+                          placeholder={t('products:form.brandPlaceholder')}
+                          placeholderTextColor={colors.textMuted}
+                          autoCapitalize="words"
+                          maxLength={120}
+                          selectTextOnFocus
+                        />
+                      </View>
+                    </View>
+
                     {/* Miktar */}
                     <View style={styles.inputRow}>
                       <Text style={styles.inputLabel}>
@@ -623,6 +658,7 @@ export function UrunPickerModal({
                               <View style={styles.urunDetailRow}>
                                 <Text style={styles.urunDetail}>
                                   {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
+                                  {urun.marka ? ` · ${urun.marka}` : ''}
                                   {urun.satis_fiyati > 0 &&
                                     ` • ${formatCurrency(urun.satis_fiyati, urun.currency)}`}
                                 </Text>
@@ -678,6 +714,7 @@ export function UrunPickerModal({
                                 <Text style={styles.addedItemDetail}>
                                   {formatQuantity(item.miktar)} {getBirimLabel(item.birim)} × {formatCurrency(item.birimFiyat, currency)}
                                   {item.kdvOrani > 0 && ` (+%${item.kdvOrani} ${t('common:tax.vat')})`}
+                                  {item.marka ? ` · ${item.marka}` : ''}
                                 </Text>
                               </View>
                               <Text style={styles.addedItemTotal}>
@@ -807,17 +844,18 @@ const styles = StyleSheet.create({
   priceHintsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-    marginBottom: spacing.sm,
+    gap: spacing.xs,
+    marginVertical: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   priceHintRow: {
     alignSelf: 'flex-start',
     paddingVertical: 3,
     paddingHorizontal: spacing.sm,
-    borderRadius: 6,
+    borderRadius: borderRadius.full,
     borderWidth: 1,
-    borderColor: colors.primary,
+    borderColor: colors.border,
+    backgroundColor: colors.primaryLight,
   },
   priceHintText: {
     fontSize: 12,
@@ -838,21 +876,22 @@ const styles = StyleSheet.create({
   },
   // Ürün Ekleme Formu
   addingSection: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     marginBottom: spacing.lg,
-    borderWidth: 2,
-    borderColor: colors.primary,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   addingHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
-    paddingBottom: spacing.sm,
+    minHeight: 50,
+    paddingHorizontal: spacing.xs,
     borderBottomWidth: 1,
-    borderBottomColor: colors.primary + '30',
+    borderBottomColor: colors.border,
   },
   addingUrunInfo: {
     flexDirection: 'row',
@@ -861,8 +900,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   addingUrunName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
     color: colors.text,
     flex: 1,
   },
@@ -873,7 +912,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.primary + '30',
+    borderTopColor: colors.border,
   },
   addingTotalLabel: {
     fontSize: 14,
@@ -894,7 +933,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingTop: spacing.sm,
     borderTopWidth: 1,
-    borderTopColor: colors.primary + '30',
+    borderTopColor: colors.border,
     gap: 4,
   },
   addingBreakdownRow: {
@@ -923,13 +962,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
     backgroundColor: colors.primary,
-    paddingVertical: spacing.md,
+    minHeight: 48,
+    paddingVertical: spacing.sm,
     borderRadius: borderRadius.md,
     marginTop: spacing.md,
   },
   addButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.white,
   },
   // Kalıcı "Yeni Ürün Ekle" butonu (arama barı altı)
@@ -1113,32 +1153,41 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    minHeight: 50,
+    paddingHorizontal: spacing.xs,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textSecondary,
-    width: 90,
+    width: 96,
   },
   inputWrapper: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: borderRadius.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.sm,
+    justifyContent: 'flex-end',
+    paddingLeft: spacing.sm,
   },
   numberInput: {
     flex: 1,
-    height: 40,
-    fontSize: 15,
+    minHeight: 46,
+    fontSize: 17,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'right',
+  },
+  textInput: {
+    flex: 1,
+    minHeight: 46,
+    fontSize: 16,
+    fontWeight: '500',
     color: colors.text,
     textAlign: 'right',
   },
   inputUnit: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.textSecondary,
     marginLeft: spacing.xs,
     minWidth: 40,
@@ -1146,14 +1195,15 @@ const styles = StyleSheet.create({
   kdvButtons: {
     flex: 1,
     flexDirection: 'row',
-    gap: spacing.xs,
+    gap: 4,
   },
   kdvButton: {
     flex: 1,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
     borderRadius: borderRadius.sm,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',

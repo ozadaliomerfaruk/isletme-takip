@@ -10,6 +10,8 @@
   "form": {
     "name": "Product Name",
     "code": "Product Code",
+    "brand": "Brand",
+    "brandPlaceholder": "Optional",
     "unit": "Unit",
     "vatRate": "VAT Rate",
     "purchasePrice": "Purchase Price",

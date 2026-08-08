@@ -70,6 +70,9 @@ BEGIN
   FROM pg_catalog.pg_proc AS proc
   WHERE proc.oid = v_function_oid;
 
+  -- Exact body patches must behave identically on Windows (CRLF) and CI (LF).
+  v_definition := pg_catalog.replace(v_definition, E'\r\n', E'\n');
+
   IF v_identity_arguments IS DISTINCT FROM 'p_user_id uuid'
      OR v_result_type IS DISTINCT FROM
        'TABLE(job_state text, business_exists boolean, auth_user_exists boolean, user_id uuid, scheduled_deletion_at timestamp with time zone, paths text[], remaining_count bigint, transferred_count bigint)'
@@ -151,6 +154,8 @@ BEGIN
   FROM pg_catalog.pg_proc AS proc
   WHERE proc.oid = v_function_oid;
 
+  v_definition := pg_catalog.replace(v_definition, E'\r\n', E'\n');
+
   IF pg_catalog.strpos(v_definition, v_after) = 0
      OR pg_catalog.strpos(v_definition, v_before) <> 0
      OR pg_catalog.strpos(v_definition, v_member_after) = 0
@@ -182,8 +187,20 @@ DECLARE
   v_result_type text;
 BEGIN
   IF v_function_oid IS NULL THEN
-    RAISE EXCEPTION
-      'MIGRATION_PRECONDITION_FAILED:check_kategori_no_cycle_missing';
+    -- Temiz repo replay'inde tarihsel parent_id kolonu ve bu trigger birlikte
+    -- yoktur. Parent kolonu varsa fonksiyonun kaybi gercek drift sayilir.
+    IF EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_attribute AS attribute_row
+      WHERE attribute_row.attrelid = pg_catalog.to_regclass('public.kategoriler')
+        AND attribute_row.attname = 'parent_id'
+        AND attribute_row.attnum > 0
+        AND NOT attribute_row.attisdropped
+    ) THEN
+      RAISE EXCEPTION
+        'MIGRATION_PRECONDITION_FAILED:check_kategori_no_cycle_missing';
+    END IF;
+    RETURN;
   END IF;
 
   SELECT
@@ -305,8 +322,20 @@ DECLARE
   v_result_type text;
 BEGIN
   IF v_function_oid IS NULL THEN
-    RAISE EXCEPTION
-      'MIGRATION_PRECONDITION_FAILED:check_kategori_type_match_missing';
+    -- Temiz repo replay'inde tarihsel parent_id kolonu ve bu trigger birlikte
+    -- yoktur. Parent kolonu varsa fonksiyonun kaybi gercek drift sayilir.
+    IF EXISTS (
+      SELECT 1
+      FROM pg_catalog.pg_attribute AS attribute_row
+      WHERE attribute_row.attrelid = pg_catalog.to_regclass('public.kategoriler')
+        AND attribute_row.attname = 'parent_id'
+        AND attribute_row.attnum > 0
+        AND NOT attribute_row.attisdropped
+    ) THEN
+      RAISE EXCEPTION
+        'MIGRATION_PRECONDITION_FAILED:check_kategori_type_match_missing';
+    END IF;
+    RETURN;
   END IF;
 
   SELECT

@@ -10,6 +10,7 @@ import { createConversionSum } from '@/hooks/useExchangeRates';
 import { isReturnType } from '@/constants/islemTypes';
 import { IslemWithRelations } from '@/types/database';
 import type { ProductReportItem } from '@/hooks/useProductReport';
+import type { ProductPriceChangeItem } from '@/hooks/useProductPriceChangeReport';
 import type { CashFlowItem } from '@/hooks/useCashFlowByCategory';
 import {
   excelCountCell,
@@ -830,6 +831,190 @@ export async function exportProductReportToExcel(options: ProductExportOptions):
 
 // ============================================================================
 // CASH FLOW (NAKİT AKIŞI) EXPORT
+// ============================================================================
+
+export interface ProductPriceChangeExcelTranslations {
+  reportTitle: string;
+  period: string;
+  createdAt: string;
+  business: string;
+  productName: string;
+  unit: string;
+  currency: string;
+  referencePrice: string;
+  previousPrice: string;
+  currentPrice: string;
+  periodChange: string;
+  periodChangePercent: string;
+  higherPriceQuantity: string;
+  lowerPriceQuantity: string;
+  extraCost: string;
+  extraCostBase: string;
+  estimatedSavings: string;
+  estimatedSavingsBase: string;
+  changeCount: string;
+  lastChangeDate: string;
+  supplier: string;
+  supplierChanged: string;
+  brand: string;
+  brandChanged: string;
+  yes: string;
+  no: string;
+  total: string;
+  sheetName: string;
+  fileName: string;
+  shareDialogTitle: string;
+  sharingNotSupported: string;
+  noDataError?: string;
+}
+
+export interface ProductPriceChangeExportOptions {
+  isletmeName: string;
+  startDate: string;
+  endDate: string;
+  periodLabel: string;
+  items: ProductPriceChangeItem[];
+  baseCurrency: string;
+  translations: ProductPriceChangeExcelTranslations;
+}
+
+export async function exportProductPriceChangeReportToExcel(
+  options: ProductPriceChangeExportOptions,
+): Promise<void> {
+  const {
+    isletmeName,
+    startDate,
+    endDate,
+    periodLabel,
+    items,
+    baseCurrency,
+    translations: t,
+  } = options;
+
+  if (items.length === 0) {
+    throw new Error(t.noDataError || 'No data to export');
+  }
+
+  const wb = XLSX.utils.book_new();
+  const ws: XLSX.WorkSheet = {};
+  const columns = [
+    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H',
+    'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P',
+    'Q', 'R', 'S', 'T',
+  ];
+  const headers = [
+    t.productName,
+    t.unit,
+    t.currency,
+    t.referencePrice,
+    t.previousPrice,
+    t.currentPrice,
+    t.periodChange,
+    t.periodChangePercent,
+    t.higherPriceQuantity,
+    t.lowerPriceQuantity,
+    t.extraCost,
+    `${t.extraCostBase} (${baseCurrency})`,
+    t.estimatedSavings,
+    `${t.estimatedSavingsBase} (${baseCurrency})`,
+    t.changeCount,
+    t.lastChangeDate,
+    t.supplier,
+    t.supplierChanged,
+    t.brand,
+    t.brandChanged,
+  ];
+
+  writeHeaderSection(ws, t.reportTitle, {
+    period: t.period,
+    periodLabel,
+    startDate,
+    endDate,
+    createdAt: t.createdAt,
+    business: t.business,
+    isletmeName,
+  }, columns.length - 1);
+
+  const headerRow = 8;
+  headers.forEach((header, index) => {
+    ws[`${columns[index]}${headerRow}`] = { v: header, s: headerStyle };
+  });
+
+  let rowIdx = headerRow + 1;
+  items.forEach((item) => {
+    ws[`A${rowIdx}`] = { v: item.urunAdi, s: cellStyle };
+    ws[`B${rowIdx}`] = { v: item.urunBirim, s: cellStyle };
+    ws[`C${rowIdx}`] = { v: item.priceCurrency, s: cellStyle };
+    ws[`D${rowIdx}`] = excelMoneyCell(item.referencePrice, item.priceCurrency, currencyCellStyle);
+    ws[`E${rowIdx}`] = excelMoneyCell(item.previousPrice, item.priceCurrency, currencyCellStyle);
+    ws[`F${rowIdx}`] = excelMoneyCell(item.currentPrice, item.priceCurrency, currencyCellStyle);
+    ws[`G${rowIdx}`] = excelMoneyCell(item.periodChangeAmount, item.priceCurrency, currencyCellStyle);
+    ws[`H${rowIdx}`] = excelPercentCell(item.periodChangePercent, cellStyle);
+    ws[`I${rowIdx}`] = excelQuantityCell(item.higherPriceQuantity, cellStyle);
+    ws[`J${rowIdx}`] = excelQuantityCell(item.lowerPriceQuantity, cellStyle);
+    ws[`K${rowIdx}`] = excelMoneyCell(item.extraCost, item.priceCurrency, currencyCellStyle);
+    ws[`L${rowIdx}`] = item.extraCostBase === null
+      ? { v: '', s: currencyCellStyle }
+      : excelMoneyCell(item.extraCostBase, baseCurrency, currencyCellStyle);
+    ws[`M${rowIdx}`] = excelMoneyCell(
+      item.estimatedSavings,
+      item.priceCurrency,
+      currencyCellStyle,
+    );
+    ws[`N${rowIdx}`] = item.estimatedSavingsBase === null
+      ? { v: '', s: currencyCellStyle }
+      : excelMoneyCell(item.estimatedSavingsBase, baseCurrency, currencyCellStyle);
+    ws[`O${rowIdx}`] = excelCountCell(item.changeCount, cellStyle);
+    ws[`P${rowIdx}`] = excelDateCell(item.lastChangeDate, cellStyle);
+    ws[`Q${rowIdx}`] = { v: item.latestSupplierName || '-', s: cellStyle };
+    ws[`R${rowIdx}`] = { v: item.supplierChanged ? t.yes : t.no, s: cellStyle };
+    ws[`S${rowIdx}`] = { v: item.latestBrandName || '-', s: cellStyle };
+    ws[`T${rowIdx}`] = { v: item.brandChanged ? t.yes : t.no, s: cellStyle };
+    rowIdx += 1;
+  });
+
+  const totalExtraCostBase = items.reduce(
+    (sum, item) => sum + (item.extraCostBase ?? 0),
+    0,
+  );
+  const totalSavingsBase = items.reduce(
+    (sum, item) => sum + (item.estimatedSavingsBase ?? 0),
+    0,
+  );
+  columns.forEach((column) => {
+    ws[`${column}${rowIdx}`] = { v: '', s: totalRowStyle };
+  });
+  ws[`A${rowIdx}`] = { v: t.total, s: totalRowStyle };
+  // İşlem para birimleri karışabileceği için yalnız güvenle ana para birimine
+  // çevrilen etki tutarları toplanır; ham para birimli K/M sütunları toplanmaz.
+  ws[`L${rowIdx}`] = excelMoneyCell(totalExtraCostBase, baseCurrency, totalCurrencyStyle);
+  ws[`N${rowIdx}`] = excelMoneyCell(totalSavingsBase, baseCurrency, totalCurrencyStyle);
+
+  ws['!ref'] = `A1:T${rowIdx}`;
+  ws['!cols'] = [
+    { wch: 26 }, { wch: 12 }, { wch: 12 },
+    { wch: 16 }, { wch: 16 }, { wch: 16 },
+    { wch: 16 }, { wch: 14 }, { wch: 18 },
+    { wch: 16 }, { wch: 18 }, { wch: 16 },
+    { wch: 22 }, { wch: 16 }, { wch: 22 },
+    { wch: 14 }, { wch: 16 }, { wch: 24 },
+    { wch: 20 }, { wch: 18 },
+  ];
+  ws['!rows'] = [{ hpt: 24 }];
+  ws['!rows'][headerRow - 1] = { hpt: 36 };
+  ws['!autofilter'] = { ref: `A${headerRow}:T${headerRow + items.length}` };
+
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${t.fileName}_${startDate}_${endDate}.xlsx`,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
+}
+
+// ============================================================================
+// PRODUCT PRICE CHANGE EXPORT
 // ============================================================================
 
 export interface CashFlowExcelTranslations {

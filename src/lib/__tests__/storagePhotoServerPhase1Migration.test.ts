@@ -41,8 +41,10 @@ describe('P0-S6B Storage server phase-1 migration contract', () => {
   it('locks the reviewed live Storage, bucket and P0-S9 snapshots', () => {
     expect(migration).toContain('a61023ffdcc14266e82bbe68e7e72052');
     expect(migration).toContain('943758842eb790fab98ff1186a2a943e');
+    expect(migration).toContain('8b6f814d47d54c183d42e0b85c3cce93');
     expect(migration).toContain('077a903a2d599ae99c8b11a3dc2026ea');
     expect(migration).toContain('f8aebb82851b89301f6679f92a217e96');
+    expect(migration).toContain('14226a59d292a065f601dacde8baec17');
     expect(migration).toContain("v_bucket_limit IS DISTINCT FROM 512000");
     expect(migration).toContain(
       "v_bucket_mimes IS DISTINCT FROM ARRAY['image/webp']::text[]",

@@ -617,6 +617,7 @@ export function CreditCardTransactionBar({
                 miktar: item.miktar,
                 birim_fiyat: item.birimFiyat,
                 kdv_orani: item.kdvOrani,
+                marka: item.marka,
                 aciklama: description.trim() || null,
               }))
             : [];

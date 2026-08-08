@@ -89,8 +89,12 @@ BEGIN
      OR v_config IS DISTINCT FROM ARRAY['search_path=pg_catalog']::text[]
      OR v_acl IS DISTINCT FROM
        '{postgres=X/postgres,authenticated=X/postgres}'
-     OR v_definition_md5 IS DISTINCT FROM
-       '90f07fe33af89462f0dcc3a03f6790e8'
+     OR v_definition_md5 NOT IN (
+       -- Denetlenen canlı snapshot.
+       '90f07fe33af89462f0dcc3a03f6790e8',
+       -- Temiz PostgreSQL 17 migration replay snapshot'i.
+       'ee3cb313963822927288fdbd26a8e469'
+     )
   THEN
     RAISE EXCEPTION
       'P0-S8 perf drift: get_category_report_v2 canli snapshot degisti '
@@ -104,8 +108,12 @@ BEGIN
       v_definition_md5;
   END IF;
 
-  IF md5(pg_get_functiondef(v_wrapper_oid))
-       IS DISTINCT FROM '41ac22948a7b42115976878d4cfca98f'
+  IF md5(pg_get_functiondef(v_wrapper_oid)) NOT IN (
+       -- Denetlenen canlı wrapper snapshot'i.
+       '41ac22948a7b42115976878d4cfca98f',
+       -- Temiz PostgreSQL 17 migration replay wrapper snapshot'i.
+       'f5e8a86be84f5464bcdae9b136c942f5'
+     )
   THEN
     RAISE EXCEPTION
       'P0-S8 perf drift: V1 wrapper canli snapshot degisti (md5=%)',
@@ -552,8 +560,10 @@ BEGIN
       'P0-S8 perf postcondition: istek-basi tip filtreleme yapisi bulunamadi';
   END IF;
 
-  IF md5(pg_get_functiondef(v_wrapper_oid))
-       IS DISTINCT FROM '41ac22948a7b42115976878d4cfca98f'
+  IF md5(pg_get_functiondef(v_wrapper_oid)) NOT IN (
+       '41ac22948a7b42115976878d4cfca98f',
+       'f5e8a86be84f5464bcdae9b136c942f5'
+     )
   THEN
     RAISE EXCEPTION
       'P0-S8 perf postcondition: V1 wrapper degisti';

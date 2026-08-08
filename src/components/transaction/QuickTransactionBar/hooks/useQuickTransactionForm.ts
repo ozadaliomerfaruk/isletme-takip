@@ -476,6 +476,7 @@ export function useQuickTransactionForm({
       const loadedUrunItems: UrunItem[] = urunHareketler.map(hareket => ({
         urunId: hareket.urun_id,
         urunAd: hareket.urunler?.ad || '',
+        marka: hareket.marka ?? hareket.urunler?.marka ?? null,
         miktar: Math.abs(hareket.miktar),
         birimFiyat: hareket.birim_fiyat || 0,
         kdvOrani: hareket.kdv_orani || 0,

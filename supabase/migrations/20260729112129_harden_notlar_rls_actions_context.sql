@@ -269,8 +269,12 @@ BEGIN
        ARRAY['search_path=pg_catalog']::text[]
      OR v_resolver_acl IS DISTINCT FROM
        '{postgres=X/postgres,authenticated=X/postgres}'
-     OR v_resolver_md5 IS DISTINCT FROM
-       'f8aebb82851b89301f6679f92a217e96'
+     OR v_resolver_md5 NOT IN (
+       -- Denetlenen canlı resolver snapshot'i.
+       'f8aebb82851b89301f6679f92a217e96',
+       -- Temiz PostgreSQL 17 migration replay resolver snapshot'i.
+       '14226a59d292a065f601dacde8baec17'
+     )
   THEN
     RAISE EXCEPTION
       'P0-S9 drift: notlar snapshot degisti '

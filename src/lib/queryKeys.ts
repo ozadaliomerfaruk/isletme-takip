@@ -489,6 +489,22 @@ export const queryKeys = {
         startDate,
         endDate,
       ] as const,
+    productPriceChanges: (
+      isletmeId: string,
+      userId: string,
+      permissionFingerprint: string,
+      startDate: string,
+      endDate: string,
+    ) =>
+      [
+        'product-price-change-report',
+        'v2',
+        isletmeId,
+        userId,
+        permissionFingerprint,
+        startDate,
+        endDate,
+      ] as const,
   },
 
   // Dashboard
@@ -759,6 +775,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urun-hareketler',
       'product-report',
       'product-report-returns',
+      'product-price-change-report',
       // Faz 2 tahsis defteri: her işlem mutasyonu tahsisleri değiştirebilir (oto-FIFO /
       // boşalt+dağıt server-side). Cari detay mounted iken QTB'den kayıt girildiği için
       // immediate (rapor key'leriyle aynı gerekçe — cache-invalidation-rapor-gotcha).
@@ -808,6 +825,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'income-source-transactions',
       'product-report',
       'product-report-returns',
+      'product-price-change-report',
       // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
       'archive',
     ],
@@ -827,6 +845,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'islemler',
       'product-report',
       'product-report-returns',
+      'product-price-change-report',
       // Arşivden kalıcı silme sonrası arşiv sayaç rozeti tazelensin (ürün bloğuyla simetrik).
       'archive',
     ],
@@ -902,6 +921,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'cash-flow-by-category',
       'product-report',
       'product-report-returns',
+      'product-price-change-report',
     ],
     deferred: [],
   },
@@ -961,6 +981,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'cash-flow-by-category',
       'product-report',
       'product-report-returns',
+      'product-price-change-report',
     ],
     deferred: [],
   },
@@ -973,6 +994,7 @@ const invalidationMap: Record<string, InvalidationConfig> = {
       'urun',
       'product-report',
       'product-report-returns',
+      'product-price-change-report',
     ],
     deferred: [],
   },

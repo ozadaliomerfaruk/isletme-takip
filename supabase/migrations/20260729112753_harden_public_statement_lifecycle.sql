@@ -228,10 +228,18 @@ BEGIN
        -- Denetlenen canli snapshot.
        'd9a2ef379260e4b5fd1d7ec795ddd7ea',
        -- Temiz PostgreSQL 17 migration replay snapshot'i.
-       '0296626ae94c6c3fe3894b1c0b18ff00'
+       '0296626ae94c6c3fe3894b1c0b18ff00',
+       -- Güncel temiz PostgreSQL 17 replay snapshot'i.
+       '18d792c2e4f5a65fa23aceb808320cc0'
      )
-     OR v_cancel_md5 IS DISTINCT FROM '1b75693d54ee84a30c98977e1c6edb66'
-     OR v_resolver_md5 IS DISTINCT FROM 'f8aebb82851b89301f6679f92a217e96' THEN
+     OR v_cancel_md5 NOT IN (
+       '1b75693d54ee84a30c98977e1c6edb66',
+       '8fe983de336880545a5d758e5b7bab14'
+     )
+     OR v_resolver_md5 NOT IN (
+       'f8aebb82851b89301f6679f92a217e96',
+       '14226a59d292a065f601dacde8baec17'
+     ) THEN
     RAISE EXCEPTION
       'P0-S10 drift: RPC/resolver govdesi snapshot ile eslesmiyor '
       '(create=%, cancel=%, resolver=%)',

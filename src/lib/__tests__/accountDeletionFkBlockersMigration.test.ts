@@ -15,6 +15,9 @@ const executableSql = sql
 
 describe('scheduled account deletion FK blocker migration contract', () => {
   it('does not alter FK, table, trigger, RLS, or public API contracts', () => {
+    expect(sql).toContain(
+      "pg_catalog.replace(v_definition, E'\\r\\n', E'\\n')",
+    );
     expect(executableSql).not.toMatch(/\bALTER\s+TABLE\b/i);
     expect(executableSql).not.toMatch(/\bDROP\b/i);
     expect(executableSql).not.toMatch(/\bTRUNCATE\b/i);
@@ -94,6 +97,8 @@ describe('scheduled account deletion FK blocker migration contract', () => {
     );
     expect(sql).toContain('NEW.type IS NOT DISTINCT FROM OLD.type');
     expect(sql).toContain('FROM public.kategoriler');
+    expect(sql).toContain("attribute_row.attname = 'parent_id'");
+    expect(sql.match(/\sRETURN;\s/g)).toHaveLength(2);
   });
 
   it('documents that old clients and active users are unchanged', () => {

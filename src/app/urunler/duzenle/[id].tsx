@@ -26,6 +26,7 @@ export default function UrunDuzenlePage() {
     () => (urun ? {
       ad: urun.ad,
       kod: urun.kod || '',
+      marka: urun.marka || '',
       birim: urun.birim,
       kdvOrani: urun.kdv_orani || 0,
       alisFiyati: urun.alis_fiyati > 0 ? urun.alis_fiyati.toString() : '',
@@ -44,6 +45,7 @@ export default function UrunDuzenlePage() {
         id,
         ad: values.ad.trim(),
         kod: values.kod.trim() || null,
+        marka: values.marka.trim() || null,
         birim: values.birim,
         kdv_orani: values.kdvOrani,
         alis_fiyati: values.alisFiyati ? parseCurrency(values.alisFiyati) : 0,

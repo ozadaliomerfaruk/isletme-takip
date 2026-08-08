@@ -28,6 +28,7 @@ const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 export interface UrunFormValues {
   ad: string;
   kod: string;
+  marka: string;
   birim: BirimType;
   kdvOrani: KdvOrani;
   alisFiyati: string;
@@ -40,6 +41,7 @@ export interface UrunFormValues {
 const DEFAULT_VALUES: UrunFormValues = {
   ad: '',
   kod: '',
+  marka: '',
   birim: 'adet',
   kdvOrani: 0,
   alisFiyati: '',
@@ -66,6 +68,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
 
   const [ad, setAd] = useState(DEFAULT_VALUES.ad);
   const [kod, setKod] = useState(DEFAULT_VALUES.kod);
+  const [marka, setMarka] = useState(DEFAULT_VALUES.marka);
   const [birim, setBirim] = useState<BirimType>(DEFAULT_VALUES.birim);
   const [kdvOrani, setKdvOrani] = useState<KdvOrani>(DEFAULT_VALUES.kdvOrani);
   const [alisFiyati, setAlisFiyati] = useState(DEFAULT_VALUES.alisFiyati);
@@ -86,6 +89,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
     populatedRef.current = true;
     setAd(initialValues.ad ?? DEFAULT_VALUES.ad);
     setKod(initialValues.kod ?? DEFAULT_VALUES.kod);
+    setMarka(initialValues.marka ?? DEFAULT_VALUES.marka);
     setBirim(initialValues.birim ?? DEFAULT_VALUES.birim);
     setKdvOrani(initialValues.kdvOrani ?? DEFAULT_VALUES.kdvOrani);
     setAlisFiyati(initialValues.alisFiyati ?? DEFAULT_VALUES.alisFiyati);
@@ -104,7 +108,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
       return;
     }
     setErrors({});
-    onSubmit({ ad, kod, birim, kdvOrani, alisFiyati, satisFiyati, baslangicMiktar, kategoriId, aciklama });
+    onSubmit({ ad, kod, marka, birim, kdvOrani, alisFiyati, satisFiyati, baslangicMiktar, kategoriId, aciklama });
   };
 
   return (
@@ -141,6 +145,18 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
               placeholder={t('products:form.code')}
               value={kod}
               onChangeText={setKod}
+            />
+          </View>
+
+          {/* Marka — ürün kartının varsayılanıdır; işlem sırasında değiştirilebilir. */}
+          <View style={styles.section}>
+            <Input
+              label={t('products:form.brand')}
+              placeholder={t('products:form.brandPlaceholder')}
+              value={marka}
+              onChangeText={setMarka}
+              maxLength={120}
+              autoCapitalize="words"
             />
           </View>
 

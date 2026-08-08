@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { IslemWithRelations, UrunHareket } from '@/types/database';
+import type { ProductPriceChangeItem } from '@/hooks/useProductPriceChangeReport';
 
 jest.mock('../excelWorkbook', () => ({
   ...jest.requireActual('../excelWorkbook'),
@@ -19,6 +20,8 @@ import {
 import {
   exportComparisonReportToExcel,
   exportNetWorthTrendToExcel,
+  exportProductPriceChangeReportToExcel,
+  type ProductPriceChangeExcelTranslations,
 } from '../reportExcelExport';
 
 const mockWriteAndShareExcelWorkbook = writeAndShareExcelWorkbook as jest.MockedFunction<
@@ -120,6 +123,40 @@ const productListTranslations: UrunListeExcelTranslations = {
   shareDialogTitle: 'Excel Olarak Paylaş',
   sharingNotSupported: 'Desteklenmiyor',
   noDataError: 'Veri yok',
+};
+
+const productPriceChangeTranslations: ProductPriceChangeExcelTranslations = {
+  reportTitle: 'Urun Fiyat Degisimleri',
+  period: 'Donem',
+  createdAt: 'Olusturulma',
+  business: 'Isletme',
+  productName: 'Urun',
+  unit: 'Birim',
+  currency: 'Para Birimi',
+  referencePrice: 'Referans',
+  previousPrice: 'Onceki',
+  currentPrice: 'Guncel',
+  periodChange: 'Fark',
+  periodChangePercent: 'Oran',
+  higherPriceQuantity: 'Zamli Miktar',
+  lowerPriceQuantity: 'Indirimli Miktar',
+  extraCost: 'Ek Maliyet',
+  extraCostBase: 'Ana Para Ek Maliyet',
+  estimatedSavings: 'Indirim Kazanci',
+  estimatedSavingsBase: 'Ana Para Kazanc',
+  changeCount: 'Gecis',
+  lastChangeDate: 'Son Degisim',
+  supplier: 'Tedarikci',
+  supplierChanged: 'Tedarikci Degisti',
+  brand: 'Marka',
+  brandChanged: 'Marka Degisti',
+  yes: 'Evet',
+  no: 'Hayir',
+  total: 'Toplam',
+  sheetName: 'Fiyat/Degisimleri',
+  fileName: 'Fiyat_Degisimleri',
+  shareDialogTitle: 'Paylas',
+  sharingNotSupported: 'Desteklenmiyor',
 };
 
 beforeEach(() => {
@@ -256,6 +293,73 @@ describe('oluşturulan Excel dosyalarının hücre sözleşmesi', () => {
     expect(ws.C8).toMatchObject({ t: 'n', v: 400 });
     expect(ws.D8).toMatchObject({ t: 'n', v: 600 });
     expect(ws.B9).toMatchObject({ t: 'n', v: 1000 });
+  });
+
+  it('urun fiyat degisimi raporunda para, yuzde, miktar ve tarihi hesaplanabilir yazar', async () => {
+    const item: ProductPriceChangeItem = {
+      urunId: '30000000-0000-4000-8000-000000000001',
+      urunAdi: 'Un',
+      urunBirim: 'kg',
+      kategoriId: null,
+      kategoriAdi: null,
+      priceCurrency: 'USD',
+      referencePrice: 100,
+      previousPrice: 120,
+      currentPrice: 130,
+      lastChangeAmount: 10,
+      lastChangePercent: 8.3333,
+      periodChangeAmount: 30,
+      periodChangePercent: 30,
+      changeCount: 2,
+      hadIncrease: true,
+      hadDecrease: false,
+      periodQuantity: 60,
+      higherPriceQuantity: 50,
+      lowerPriceQuantity: 5,
+      extraCost: 1300,
+      extraCostBase: 52000,
+      estimatedSavings: 20,
+      estimatedSavingsBase: 800,
+      firstPurchaseDate: '2026-07-01T00:00:00.000Z',
+      lastPurchaseDate: '2026-07-20T00:00:00.000Z',
+      lastChangeDate: '2026-07-20T00:00:00.000Z',
+      latestSupplierId: null,
+      latestSupplierName: 'ABC Toptan',
+      supplierChanged: true,
+      latestBrandName: 'Marka A',
+      brandChanged: true,
+      priceHistory: [],
+    };
+
+    await exportProductPriceChangeReportToExcel({
+      isletmeName: 'Demo Isletme',
+      startDate: '2026-07-01',
+      endDate: '2026-07-31',
+      periodLabel: 'Temmuz 2026',
+      items: [item],
+      baseCurrency: 'TRY',
+      translations: productPriceChangeTranslations,
+    });
+
+    const workbook = readLastWorkbook();
+    const ws = firstSheet(workbook);
+    expect(workbook.SheetNames[0]).toBe('Fiyat_Degisimleri');
+    expect(ws.D9).toMatchObject({ t: 'n', v: 100 });
+    expect(ws.F9).toMatchObject({ t: 'n', v: 130 });
+    expect(ws.G9).toMatchObject({ t: 'n', v: 30 });
+    expect(ws.H9).toMatchObject({ t: 'n', v: 0.3 });
+    expect(ws.I9).toMatchObject({ t: 'n', v: 50 });
+    expect(ws.J9).toMatchObject({ t: 'n', v: 5 });
+    expect(ws.K9).toMatchObject({ t: 'n', v: 1300 });
+    expect(ws.L9).toMatchObject({ t: 'n', v: 52000 });
+    expect(ws.M9).toMatchObject({ t: 'n', v: 20 });
+    expect(ws.N9).toMatchObject({ t: 'n', v: 800 });
+    expect(ws.P9.t).toBe('d');
+    expect(ws.S9).toMatchObject({ t: 's', v: 'Marka A' });
+    expect(ws.T9).toMatchObject({ t: 's', v: 'Evet' });
+    expect(ws.L10).toMatchObject({ t: 'n', v: 52000 });
+    expect(ws.N10).toMatchObject({ t: 'n', v: 800 });
+    expect(ws['!autofilter']).toEqual({ ref: 'A8:T9' });
   });
 
   it('net varlık trendinde ayı tarih, değer/değişim/kuru sayı olarak yazar', async () => {

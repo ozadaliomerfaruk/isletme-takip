@@ -33,6 +33,7 @@ export default function UrunEklePage() {
       const urun = await createUrun.mutateAsync({
         ad: values.ad.trim(),
         kod: values.kod.trim() || null,
+        marka: values.marka.trim() || null,
         birim: values.birim,
         kdv_orani: values.kdvOrani,
         alis_fiyati: purchasePrice,
@@ -49,6 +50,7 @@ export default function UrunEklePage() {
           hareket_tipi: 'giris',
           miktar: initialStockNum,
           birim_fiyat: purchasePrice > 0 ? purchasePrice : null,
+          marka: values.marka.trim() || null,
           aciklama: t('products:form.initialStock'),
         });
       }

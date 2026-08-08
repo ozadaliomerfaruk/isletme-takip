@@ -14,6 +14,10 @@ const executableSql = sql
   .join('\n');
 
 describe('account deletion business-cascade audit migration contract', () => {
+  it('accepts the exact production and clean-replay DELETE branch indentation', () => {
+    expect(sql).toContain("v_clean_replay_before constant text := '  IF TG_OP");
+    expect(sql).toContain('v_source_before');
+  });
   it('does not change tables, constraints, triggers, RLS, or API signatures', () => {
     expect(executableSql).not.toMatch(/\bALTER\s+TABLE\b/i);
     expect(executableSql).not.toMatch(/\bDROP\b/i);

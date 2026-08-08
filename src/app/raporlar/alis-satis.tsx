@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Platform, Alert, RefreshControl, LayoutAnimation, UIManager } from 'react-native';
 import { Stack, useRouter, Href } from 'expo-router';
-import { Package, ShoppingCart, Store } from 'lucide-react-native';
+import { CircleHelp, Package, ShoppingCart, Store, TrendingUp } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, Card, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
@@ -13,8 +13,11 @@ import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
+import { ProductPriceChangesView } from '@/components/reports/ProductPriceChangesView';
+import { ProductPriceChangesHelpSheet } from '@/components/reports/ProductPriceChangesHelpSheet';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useProductReport, ProductReportItem } from '@/hooks/useProductReport';
+import { useProductPriceChangeReport } from '@/hooks/useProductPriceChangeReport';
 import { useExchangeRates } from '@/hooks/useExchangeRates';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useSettings } from '@/hooks/useSettings';
@@ -24,17 +27,27 @@ const PURCHASE_TYPES = ['cari_alis', 'cari_alis_iade'];
 const SALE_TYPES = ['cari_satis', 'personel_satis', 'cari_satis_iade'];
 import { formatCurrency, formatQuantity, formatPercent } from '@/lib/currency';
 import { formatDateForDB } from '@/lib/date';
-import { exportProductReportToExcel, ProductExcelTranslations } from '@/lib/reportExcelExport';
+import {
+  exportProductPriceChangeReportToExcel,
+  exportProductReportToExcel,
+  ProductExcelTranslations,
+  ProductPriceChangeExcelTranslations,
+} from '@/lib/reportExcelExport';
 import { supabase } from '@/lib/supabase';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { IslemWithRelations } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { colors } from '@/constants/colors';
-import { spacing, borderRadius } from '@/constants/spacing';
+import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { usePermissions } from '@/hooks/usePermissions';
 
 type ReportDirection = 'alis' | 'satis';
+type ReportView = ReportDirection | 'fiyat';
+
+// İlk etkileşimi bloklamadan diğer standart sekmenin özetini arka planda hazırla.
+// Fiyat raporu belirgin şekilde daha ağır olduğu için yalnız kullanıcı açtığında çalışır.
+const STANDARD_REPORT_PREFETCH_DELAY_MS = 500;
 
 export default function AlisSatisRaporPage() {
   return <AlisSatisRaporContent />;
@@ -46,8 +59,9 @@ function AlisSatisRaporContent() {
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common', 'products']);
   const state = useReportRouteState();
-  const [selectedDirection, setSelectedDirection] = useState<ReportDirection>('alis');
+  const [selectedDirection, setSelectedDirection] = useState<ReportView>('alis');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const [priceHelpVisible, setPriceHelpVisible] = useState(false);
 
   const PERIOD_OPTIONS = [
     { label: upperTr(t('reports:period.yearly')), value: 'yearly' },
@@ -84,19 +98,52 @@ function AlisSatisRaporContent() {
     latestExportAccessRef.current.canExport = false;
   }, []);
 
+  const reportRangeKey = `${state.dateRange.startDate}:${state.dateRange.endDate}`;
+  const [prefetchedStandardRangeKey, setPrefetchedStandardRangeKey] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (selectedDirection === 'fiyat') return;
+
+    const timeout = setTimeout(() => {
+      setPrefetchedStandardRangeKey(reportRangeKey);
+    }, STANDARD_REPORT_PREFETCH_DELAY_MS);
+
+    return () => clearTimeout(timeout);
+  }, [reportRangeKey, selectedDirection]);
+
+  const shouldPrefetchStandardReports = (
+    selectedDirection !== 'fiyat'
+    && prefetchedStandardRangeKey === reportRangeKey
+  );
+
   const alisRaporu = useProductReport('alis', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
+    enabled: selectedDirection === 'alis' || shouldPrefetchStandardReports,
   });
 
   const satisRaporu = useProductReport('satis', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
+    enabled: selectedDirection === 'satis' || shouldPrefetchStandardReports,
   });
 
-  const activeReport = selectedDirection === 'alis' ? alisRaporu : satisRaporu;
+  const fiyatRaporu = useProductPriceChangeReport({
+    startDate: state.dateRange.startDate,
+    endDate: state.dateRange.endDate,
+    enabled: selectedDirection === 'fiyat',
+  });
 
-  const { refreshing, onRefresh } = usePullToRefresh(alisRaporu.refetch, satisRaporu.refetch);
+  const activeReport = selectedDirection === 'satis' ? satisRaporu : alisRaporu;
+
+  const activeRefetch = selectedDirection === 'fiyat'
+    ? fiyatRaporu.refetch
+    : selectedDirection === 'satis'
+      ? satisRaporu.refetch
+      : alisRaporu.refetch;
+  const { refreshing, onRefresh } = usePullToRefresh(activeRefetch);
 
   // Group items by category and sort
   const groupedItems = useMemo(() => {
@@ -182,6 +229,67 @@ function AlisSatisRaporContent() {
       };
 
       const { startDate, endDate } = state.dateRange;
+      if (selectedDirection === 'fiyat') {
+        const latestAccess = latestExportAccessRef.current;
+        if (
+          !latestAccess.canExport
+          || latestAccess.isletmeId !== expectedIsletmeId
+          || latestAccess.userId !== expectedUserId
+        ) {
+          Alert.alert(
+            t('common:status.error'),
+            t('common:errors.permissionDenied'),
+          );
+          return;
+        }
+
+        const priceTranslations: ProductPriceChangeExcelTranslations = {
+          reportTitle: t('common:export.priceChangeExcel.reportTitle'),
+          period: t('common:export.excel.period'),
+          createdAt: t('common:export.excel.createdAt'),
+          business: t('common:export.excel.business'),
+          productName: t('common:export.priceChangeExcel.productName'),
+          unit: t('common:export.priceChangeExcel.unit'),
+          currency: t('common:export.priceChangeExcel.currency'),
+          referencePrice: t('common:export.priceChangeExcel.referencePrice'),
+          previousPrice: t('common:export.priceChangeExcel.previousPrice'),
+          currentPrice: t('common:export.priceChangeExcel.currentPrice'),
+          periodChange: t('common:export.priceChangeExcel.periodChange'),
+          periodChangePercent: t('common:export.priceChangeExcel.periodChangePercent'),
+          higherPriceQuantity: t('common:export.priceChangeExcel.higherPriceQuantity'),
+          lowerPriceQuantity: t('common:export.priceChangeExcel.lowerPriceQuantity'),
+          extraCost: t('common:export.priceChangeExcel.extraCost'),
+          extraCostBase: t('common:export.priceChangeExcel.extraCostBase'),
+          estimatedSavings: t('common:export.priceChangeExcel.estimatedSavings'),
+          estimatedSavingsBase: t('common:export.priceChangeExcel.estimatedSavingsBase'),
+          changeCount: t('common:export.priceChangeExcel.changeCount'),
+          lastChangeDate: t('common:export.priceChangeExcel.lastChangeDate'),
+          supplier: t('common:export.priceChangeExcel.supplier'),
+          supplierChanged: t('common:export.priceChangeExcel.supplierChanged'),
+          brand: t('common:export.priceChangeExcel.brand'),
+          brandChanged: t('common:export.priceChangeExcel.brandChanged'),
+          yes: t('common:export.priceChangeExcel.yes'),
+          no: t('common:export.priceChangeExcel.no'),
+          total: t('common:export.priceChangeExcel.total'),
+          sheetName: t('common:export.priceChangeExcel.sheetName'),
+          fileName: t('common:export.priceChangeExcel.fileName'),
+          shareDialogTitle: t('common:export.shareDialogTitle'),
+          sharingNotSupported: t('common:export.sharingNotSupported'),
+          noDataError: t('common:export.noDataToExport'),
+        };
+
+        await exportProductPriceChangeReportToExcel({
+          isletmeName: isletme.name,
+          startDate,
+          endDate,
+          periodLabel: state.periodLabel,
+          items: fiyatRaporu.items,
+          baseCurrency,
+          translations: priceTranslations,
+        });
+        return;
+      }
+
       let purchaseTxns: IslemWithRelations[] | undefined;
       let saleTxns: IslemWithRelations[] | undefined;
 
@@ -268,6 +376,8 @@ function AlisSatisRaporContent() {
     isOwner,
     alisRaporu,
     satisRaporu,
+    fiyatRaporu.items,
+    selectedDirection,
     state.dateRange,
     state.periodLabel,
     baseCurrency,
@@ -283,15 +393,28 @@ function AlisSatisRaporContent() {
           headerBackVisible: true,
           gestureEnabled: true,
           headerRight: () => (
-            canExport
-              ? (
+            selectedDirection === 'fiyat' || canExport ? (
+              <View style={styles.headerRightContainer}>
+                {selectedDirection === 'fiyat' ? (
+                  <TouchableOpacity
+                    onPress={() => setPriceHelpVisible(true)}
+                    style={styles.headerButton}
+                    hitSlop={HIT_SLOP.md}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('reports:purchaseSales.priceChanges.help.accessibilityLabel')}
+                  >
+                    <CircleHelp size={22} color={colors.text} />
+                  </TouchableOpacity>
+                ) : null}
+                {canExport ? (
                   <ReportExportButton
                     onPress={handleExport}
                     isExporting={isExporting}
                     accessibilityLabel={t('reports:export.exportExcel')}
                   />
-                )
-              : null
+                ) : null}
+              </View>
+            ) : null
           ),
         }}
       />
@@ -309,7 +432,9 @@ function AlisSatisRaporContent() {
           }
         >
           {/* Kur bulunamadıysa toplamlar çevrilmemiş — sessiz kalmıyor */}
-          <ConversionIncompleteWarning visible={activeReport.conversionIncomplete} />
+          <ConversionIncompleteWarning
+            visible={selectedDirection !== 'fiyat' && activeReport.conversionIncomplete}
+          />
 
           {/* Period Tabs */}
           <View style={styles.periodFilter}>
@@ -369,7 +494,7 @@ function AlisSatisRaporContent() {
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(alisRaporu.netAmount)}
+                  {alisRaporu.isReady ? formatCurrency(alisRaporu.netAmount) : '—'}
                 </Text>
               </TouchableOpacity>
 
@@ -397,12 +522,61 @@ function AlisSatisRaporContent() {
                   ]}
                   numberOfLines={1}
                 >
-                  {formatCurrency(satisRaporu.netAmount)}
+                  {satisRaporu.isReady ? formatCurrency(satisRaporu.netAmount) : '—'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.summaryTab,
+                  selectedDirection === 'fiyat' && styles.summaryTabActiveFiyat,
+                ]}
+                onPress={() => setSelectedDirection('fiyat')}
+              >
+                <View style={styles.summaryTabLabelRow}>
+                  <TrendingUp
+                    size={12}
+                    color={selectedDirection === 'fiyat' ? colors.infoDark : colors.textMuted}
+                  />
+                  <Text
+                    variant="caption"
+                    style={[
+                      styles.summaryTabLabel,
+                      selectedDirection === 'fiyat' && styles.summaryTabLabelActiveFiyat,
+                    ]}
+                  >
+                    {t('reports:purchaseSales.priceChanges.tab')}
+                  </Text>
+                </View>
+                <Text
+                  variant="body"
+                  style={[
+                    styles.summaryTabAmount,
+                    selectedDirection === 'fiyat' && styles.summaryTabAmountActiveFiyat,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {fiyatRaporu.isReady
+                    ? t('reports:purchaseSales.priceChanges.changedProducts', {
+                        count: fiyatRaporu.changedCount,
+                      })
+                    : selectedDirection === 'fiyat' && fiyatRaporu.isLoading
+                      ? t('reports:purchaseSales.priceChanges.calculating')
+                      : t('reports:purchaseSales.priceChanges.tapToCalculate')}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
+          {selectedDirection === 'fiyat' ? (
+            <View style={styles.priceChangesContainer}>
+              <ProductPriceChangesView
+                report={fiyatRaporu}
+                baseCurrency={baseCurrency}
+              />
+            </View>
+          ) : (
+            <>
           {/* Return info + KDV info */}
           {(activeReport.returnTotal > 0 || activeReport.totalAmountKdvsiz > 0) && (
             <View style={styles.returnInfo}>
@@ -474,7 +648,7 @@ function AlisSatisRaporContent() {
                       <ProductReportCard
                         key={item.urunId}
                         item={item}
-                        direction={selectedDirection}
+                        direction={selectedDirection === 'satis' ? 'satis' : 'alis'}
                         t={t}
                             onPress={
                               canOpenProductDetails
@@ -491,8 +665,16 @@ function AlisSatisRaporContent() {
               })
             )}
           </View>
+            </>
+          )}
         </ScrollView>
       </Screen>
+      {priceHelpVisible ? (
+        <ProductPriceChangesHelpSheet
+          visible
+          onDismiss={() => setPriceHelpVisible(false)}
+        />
+      ) : null}
     </>
   );
 }
@@ -553,6 +735,15 @@ function ProductReportCard({
 // ---- Styles ----
 
 const styles = StyleSheet.create({
+  headerRightContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginRight: spacing.sm,
+  },
+  headerButton: {
+    padding: spacing.xs,
+  },
   periodFilter: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
@@ -585,6 +776,16 @@ const styles = StyleSheet.create({
     borderColor: colors.success,
     borderWidth: 1.5,
   },
+  summaryTabActiveFiyat: {
+    backgroundColor: colors.infoLight,
+    borderColor: colors.info,
+    borderWidth: 1.5,
+  },
+  summaryTabLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
   summaryTabLabel: {
     fontSize: 11,
     fontWeight: '600',
@@ -597,6 +798,9 @@ const styles = StyleSheet.create({
   summaryTabLabelActiveSatis: {
     color: colors.success,
   },
+  summaryTabLabelActiveFiyat: {
+    color: colors.infoDark,
+  },
   summaryTabAmount: {
     fontSize: 14,
     fontWeight: '700',
@@ -608,6 +812,14 @@ const styles = StyleSheet.create({
   },
   summaryTabAmountActiveSatis: {
     color: colors.success,
+  },
+  summaryTabAmountActiveFiyat: {
+    color: colors.infoDark,
+  },
+  priceChangesContainer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xl,
   },
   returnInfo: {
     paddingHorizontal: spacing.lg,

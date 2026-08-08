@@ -86,8 +86,12 @@ describe('P0-S10 public statement server hardening', () => {
       'cf71a1041f0bd1ef3f4f05a3b03b550c',
       '46875263bd6598c4534e2df7d1847a5e',
       'd9a2ef379260e4b5fd1d7ec795ddd7ea',
+      '0296626ae94c6c3fe3894b1c0b18ff00',
+      '18d792c2e4f5a65fa23aceb808320cc0',
       '1b75693d54ee84a30c98977e1c6edb66',
+      '8fe983de336880545a5d758e5b7bab14',
       'f8aebb82851b89301f6679f92a217e96',
+      '14226a59d292a065f601dacde8baec17',
     ]) {
       expect(migration).toContain(fingerprint);
     }
@@ -381,6 +385,10 @@ describe('P0-S10 public statement server hardening', () => {
       '00eab03f65c493d212f25e5266e2a663',
       '971f225e93bd10942e742b6174ca5775',
       'e7d034e4a4b23abcaaadbc08b146ada3',
+      'b41c180495900f97d127cfd1a43be4c6',
+      'dd7633d8d68a6a1b49a15fa041590cb8',
+      '2b400f1a4c2603898096779aa5c4fb0b',
+      '144483ac24228485803fce17a894713d',
       '821d2cba3aacaf8063ed1120f1af8f08',
     ]) {
       expect(phase2).toContain(fingerprint);

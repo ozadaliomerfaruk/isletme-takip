@@ -10,6 +10,8 @@
   "form": {
     "name": "Ürün Adı",
     "code": "Ürün Kodu",
+    "brand": "Marka",
+    "brandPlaceholder": "İsteğe bağlı",
     "unit": "Birim",
     "vatRate": "KDV Oranı",
     "purchasePrice": "Alış Fiyatı",

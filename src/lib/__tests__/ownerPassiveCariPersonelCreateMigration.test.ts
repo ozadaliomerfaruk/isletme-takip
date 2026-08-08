@@ -39,6 +39,9 @@ describe('owner passive cari/personel create migration contract', () => {
 
   it('preserves the passive-account exception and RPC contract', () => {
     expect(sql).toContain(
+      "pg_catalog.replace(v_definition, E'\\r\\n', E'\\n')",
+    );
+    expect(sql).toContain(
       "v_account_owner_gate constant text := E'      AND (h.is_active IS TRUE OR v_owner_id = v_uid)\\n      AND h.is_archived IS FALSE'",
     );
     expect(sql).toContain('IF v_cari_match_count <> 1 THEN');

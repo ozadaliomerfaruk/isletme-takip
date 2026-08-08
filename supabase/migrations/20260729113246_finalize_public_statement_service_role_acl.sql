@@ -207,10 +207,22 @@ BEGIN
       USING ERRCODE = '55000';
   END IF;
 
-  IF v_create_md5 IS DISTINCT FROM '19fd96efcf842866e922c1eb1c27f007'
-     OR v_cancel_md5 IS DISTINCT FROM '00eab03f65c493d212f25e5266e2a663'
-     OR v_validate_md5 IS DISTINCT FROM '971f225e93bd10942e742b6174ca5775'
-     OR v_profile_helper_md5 IS DISTINCT FROM 'e7d034e4a4b23abcaaadbc08b146ada3' THEN
+  IF v_create_md5 NOT IN (
+       '19fd96efcf842866e922c1eb1c27f007',
+       'b41c180495900f97d127cfd1a43be4c6'
+     )
+     OR v_cancel_md5 NOT IN (
+       '00eab03f65c493d212f25e5266e2a663',
+       'dd7633d8d68a6a1b49a15fa041590cb8'
+     )
+     OR v_validate_md5 NOT IN (
+       '971f225e93bd10942e742b6174ca5775',
+       '2b400f1a4c2603898096779aa5c4fb0b'
+     )
+     OR v_profile_helper_md5 NOT IN (
+       'e7d034e4a4b23abcaaadbc08b146ada3',
+       '144483ac24228485803fce17a894713d'
+     ) THEN
     RAISE EXCEPTION
       'P0-S10 phase-2 drift: phase-1 fonksiyon govdeleri eslesmiyor '
       '(create=%, cancel=%, validate=%, helper=%)',

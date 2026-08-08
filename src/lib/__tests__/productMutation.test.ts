@@ -10,11 +10,13 @@ describe('product mutation RPC boundary', () => {
       miktar: 1.23456,
       birim_fiyat: 989.1090000000002,
       kdv_orani: 20,
+      marka: 'Marka A',
     })).toEqual({
       urun_id: 'urun-1',
       miktar: 1.235,
       birim_fiyat: 989.109,
       kdv_orani: 20,
+      marka: 'Marka A',
     });
   });
 
