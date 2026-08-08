@@ -32,7 +32,7 @@ import {
 } from '@/lib/currency';
 import { formatDateShort } from '@/lib/date';
 
-type PriceFilter = 'all' | 'increase' | 'decrease';
+type PriceFilter = 'all' | 'increase' | 'decrease' | 'brand';
 type PriceSort = 'impact' | 'percent' | 'recent';
 type PriceView = 'products' | 'categories';
 
@@ -72,16 +72,44 @@ export function ProductPriceChangesView({
   const [filter, setFilter] = useState<PriceFilter>('all');
   const [sort, setSort] = useState<PriceSort>('recent');
   const [view, setView] = useState<PriceView>('products');
+  const [sameBrandOnly, setSameBrandOnly] = useState(false);
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [collapsedCategoryKeys, setCollapsedCategoryKeys] = useState<Set<string>>(
     new Set(),
   );
   const [visibleItemCount, setVisibleItemCount] = useState(INITIAL_VISIBLE_ITEM_COUNT);
 
+  const comparableItems = useMemo(
+    () => sameBrandOnly
+      ? report.items.filter((item) => !item.brandChanged)
+      : report.items,
+    [report.items, sameBrandOnly],
+  );
+
+  const comparableSummary = useMemo(() => ({
+    changedCount: comparableItems.length,
+    increasedCount: comparableItems.filter((item) => item.hadIncrease).length,
+    decreasedCount: comparableItems.filter((item) => item.hadDecrease).length,
+    totalExtraCost: comparableItems.reduce(
+      (sum, item) => sum + (item.extraCostBase ?? 0),
+      0,
+    ),
+    totalSavings: comparableItems.reduce(
+      (sum, item) => sum + (item.estimatedSavingsBase ?? 0),
+      0,
+    ),
+  }), [comparableItems]);
+
+  const brandChangedCount = useMemo(
+    () => report.items.filter((item) => item.brandChanged).length,
+    [report.items],
+  );
+
   const visibleItems = useMemo(() => {
-    const filtered = report.items.filter((item) => {
+    const filtered = comparableItems.filter((item) => {
       if (filter === 'increase') return item.hadIncrease;
       if (filter === 'decrease') return item.hadDecrease;
+      if (filter === 'brand') return item.brandChanged;
       return true;
     });
 
@@ -99,12 +127,12 @@ export function ProductPriceChangesView({
       };
       return impactFor(b) - impactFor(a);
     });
-  }, [filter, report.items, sort]);
+  }, [comparableItems, filter, sort]);
 
   useEffect(() => {
     setVisibleItemCount(INITIAL_VISIBLE_ITEM_COUNT);
     setExpandedKey(null);
-  }, [filter, report.items, sort, view]);
+  }, [filter, report.items, sameBrandOnly, sort, view]);
 
   const displayedItems = useMemo(
     () => visibleItems.slice(0, visibleItemCount),
@@ -157,6 +185,21 @@ export function ProductPriceChangesView({
     setFilter((current) => current === nextFilter ? 'all' : nextFilter);
   };
 
+  const handleBrandFilterPress = () => {
+    setSameBrandOnly(false);
+    setFilter((current) => current === 'brand' ? 'all' : 'brand');
+  };
+
+  const handleSameBrandPress = () => {
+    setSameBrandOnly((current) => !current);
+    if (!sameBrandOnly && filter === 'brand') setFilter('all');
+  };
+
+  const resetFilters = () => {
+    setFilter('all');
+    setSameBrandOnly(false);
+  };
+
   if (report.error) {
     return (
       <View style={styles.emptyContainer}>
@@ -203,7 +246,7 @@ export function ProductPriceChangesView({
           icon={ArrowRightLeft}
           label={t('reports:purchaseSales.priceChanges.allChanges')}
           value={t('reports:purchaseSales.priceChanges.productCount', {
-            count: report.changedCount,
+            count: comparableSummary.changedCount,
           })}
           color={colors.infoDark}
           backgroundColor={colors.infoLight}
@@ -214,10 +257,10 @@ export function ProductPriceChangesView({
           icon={TrendingUp}
           label={t('reports:purchaseSales.priceChanges.increased')}
           value={t('reports:purchaseSales.priceChanges.productCount', {
-            count: report.increasedCount,
+            count: comparableSummary.increasedCount,
           })}
           detail={t('reports:purchaseSales.priceChanges.extraPaidShort', {
-            amount: formatCurrency(report.totalExtraCost, baseCurrency),
+            amount: formatCurrency(comparableSummary.totalExtraCost, baseCurrency),
           })}
           color={colors.errorDark}
           backgroundColor={colors.errorLight}
@@ -228,10 +271,10 @@ export function ProductPriceChangesView({
           icon={TrendingDown}
           label={t('reports:purchaseSales.priceChanges.decreased')}
           value={t('reports:purchaseSales.priceChanges.productCount', {
-            count: report.decreasedCount,
+            count: comparableSummary.decreasedCount,
           })}
           detail={t('reports:purchaseSales.priceChanges.savingsShort', {
-            amount: formatCurrency(report.totalSavings, baseCurrency),
+            amount: formatCurrency(comparableSummary.totalSavings, baseCurrency),
           })}
           color={colors.successDark}
           backgroundColor={colors.successLight}
@@ -259,6 +302,26 @@ export function ProductPriceChangesView({
         />
       </View>
 
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.brandFilterScroll}
+        contentContainerStyle={styles.brandFilterControls}
+      >
+        <FilterPill
+          active={filter === 'brand'}
+          label={t('reports:purchaseSales.priceChanges.brandChangedCount', {
+            count: brandChangedCount,
+          })}
+          onPress={handleBrandFilterPress}
+        />
+        <FilterPill
+          active={sameBrandOnly}
+          label={t('reports:purchaseSales.priceChanges.sameBrandOnly')}
+          onPress={handleSameBrandPress}
+        />
+      </ScrollView>
+
       <View style={styles.sortRow}>
         <Text variant="bodySmall" style={styles.sortLabel}>
           {t('reports:purchaseSales.priceChanges.sortLabel')}
@@ -282,7 +345,9 @@ export function ProductPriceChangesView({
 
       <View style={styles.calculationStrip}>
         <Text variant="bodySmall" color="secondary" style={styles.calculationNote}>
-          {t('reports:purchaseSales.priceChanges.calculationNote')}
+          {t(sameBrandOnly
+            ? 'reports:purchaseSales.priceChanges.sameBrandCalculationNote'
+            : 'reports:purchaseSales.priceChanges.calculationNote')}
         </Text>
       </View>
 
@@ -291,7 +356,7 @@ export function ProductPriceChangesView({
           <Text variant="bodySmall" color="secondary" style={styles.centeredText}>
             {t('reports:purchaseSales.priceChanges.noFilteredResults')}
           </Text>
-          <Button variant="ghost" size="sm" onPress={() => setFilter('all')}>
+          <Button variant="ghost" size="sm" onPress={resetFilters}>
             {t('reports:purchaseSales.priceChanges.showAll')}
           </Button>
         </View>
@@ -717,6 +782,14 @@ const styles = StyleSheet.create({
   },
   viewSwitch: {
     marginBottom: spacing.sm,
+  },
+  brandFilterScroll: {
+    marginBottom: spacing.sm,
+  },
+  brandFilterControls: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingRight: spacing.xs,
   },
   sortRow: {
     flexDirection: 'row',

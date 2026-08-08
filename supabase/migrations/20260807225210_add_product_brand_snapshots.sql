@@ -56,6 +56,10 @@ BEGIN
   )
   INTO v_def;
 
+  -- Windows'ta daha eski CLI surumleri fonksiyon govdesini CRLF ile saklamis
+  -- olabilir. Esleme kaliplarini platformdan bagimsiz tut.
+  v_def := pg_catalog.replace(v_def, E'\r\n', E'\n');
+
   v_before := v_def;
   v_def := pg_catalog.replace(
     v_def,
@@ -209,6 +213,8 @@ BEGIN
     'public.get_product_price_change_report_v1(uuid,timestamp with time zone,timestamp with time zone)'::regprocedure
   )
   INTO v_def;
+
+  v_def := pg_catalog.replace(v_def, E'\r\n', E'\n');
 
   v_before := v_def;
   v_def := pg_catalog.replace(

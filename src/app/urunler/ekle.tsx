@@ -12,6 +12,7 @@ import { Currency } from '@/types/database';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency, parseQuantity } from '@/lib/currency';
+import { normalizeProductBrand } from '@/lib/productBrand';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunEklePage() {
@@ -33,7 +34,7 @@ export default function UrunEklePage() {
       const urun = await createUrun.mutateAsync({
         ad: values.ad.trim(),
         kod: values.kod.trim() || null,
-        marka: values.marka.trim() || null,
+        marka: normalizeProductBrand(values.marka),
         birim: values.birim,
         kdv_orani: values.kdvOrani,
         alis_fiyati: purchasePrice,
@@ -50,7 +51,7 @@ export default function UrunEklePage() {
           hareket_tipi: 'giris',
           miktar: initialStockNum,
           birim_fiyat: purchasePrice > 0 ? purchasePrice : null,
-          marka: values.marka.trim() || null,
+          marka: normalizeProductBrand(values.marka),
           aciklama: t('products:form.initialStock'),
         });
       }

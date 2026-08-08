@@ -21,6 +21,7 @@ import {
   CreditCard,
   Wallet,
   RotateCcw,
+  Tags,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, ExpandableCard, EmptyState, Screen } from '@/components/ui';
@@ -195,6 +196,7 @@ export default function UrunDetayPage() {
   const [editInitialValues, setEditInitialValues] = useState<{
     miktar: number;
     birimFiyat: number | null;
+    marka?: string | null;
     urunType: 'giris' | 'cikis';
     date?: string;
   } | undefined>(undefined);
@@ -270,6 +272,7 @@ export default function UrunDetayPage() {
     setEditInitialValues({
       miktar: hareket.miktar,
       birimFiyat: hareket.birim_fiyat,
+      marka: hareket.marka ?? urun?.marka ?? null,
       urunType: hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis',
       date: hareket.created_at,
     });
@@ -484,6 +487,17 @@ export default function UrunDetayPage() {
                     </Text>
                   </View>
                 ) : null}
+                {hareket.marka ? (
+                  <View style={[styles.cariBadge, styles.markaBadge]}>
+                    <Tags size={12} color={colors.warningDark} />
+                    <Text
+                      style={[styles.cariName, styles.markaName]}
+                      numberOfLines={1}
+                    >
+                      {hareket.marka}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               <Text variant="body" color="secondary" style={{ fontSize: 14 }}>
                 {yon === 'alis'
@@ -693,6 +707,7 @@ export default function UrunDetayPage() {
                 const birim = getBirimLabel(urun.birim);
                 const meta = [
                   urun.kod || null,
+                  urun.marka || null,
                   urun.satis_fiyati > 0 ? `${formatCurrency(urun.satis_fiyati, urun.currency)}/${birim}` : null,
                 ].filter(Boolean);
                 // Değerler tür rengine göre: alış tutarı=kırmızı (maliyet), satış
@@ -972,6 +987,7 @@ export default function UrunDetayPage() {
           onDismiss={() => setExportSheetVisible(false)}
           productName={urun.ad}
           productCode={urun.kod || undefined}
+          productBrand={urun.marka ?? null}
           productUnit={getBirimLabel(urun.birim)}
           productCurrency={urun.currency}
           urunId={urun.id}
@@ -1134,6 +1150,7 @@ const styles = StyleSheet.create({
   hareketTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   hareketActions: {
@@ -1156,6 +1173,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '500',
     maxWidth: 120,
+  },
+  markaBadge: {
+    backgroundColor: colors.warningLight,
+    borderColor: colors.warning + '30',
+  },
+  markaName: {
+    color: colors.warningDark,
+    maxWidth: 110,
   },
   divider: {
     height: 1,

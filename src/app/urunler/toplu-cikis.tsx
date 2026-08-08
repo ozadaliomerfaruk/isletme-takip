@@ -22,6 +22,8 @@ import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { CariLinkSection } from '@/components/urun/QuickUrunBar/CariLinkSection';
+import { BrandSuggestionChips } from '@/components/urun/BrandSuggestionChips';
+import { getProductBrandSuggestions, normalizeProductBrand } from '@/lib/productBrand';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -32,6 +34,7 @@ const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 interface StockRow {
   id: string;
   urunId: string | null;
+  marka: string;
   miktar: string;
   birimFiyat: string;
   kdvOrani: KdvOrani;
@@ -52,13 +55,14 @@ export default function TopluCikisPage() {
   const [date, setDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [rows, setRows] = useState<StockRow[]>([
-    { id: '1', urunId: null, miktar: '', birimFiyat: '', kdvOrani: 0 },
+    { id: '1', urunId: null, marka: '', miktar: '', birimFiyat: '', kdvOrani: 0 },
   ]);
   const [isSaving, setIsSaving] = useState(false);
   const isSavingRef = useRef(false);
   const [productPickerVisible, setProductPickerVisible] = useState(false);
   const [activeRowId, setActiveRowId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState('');
+  const [activeBrandRowId, setActiveBrandRowId] = useState<string | null>(null);
 
   // Cari link state
   const [cariLinkEnabled, setCariLinkEnabled] = useState(false);
@@ -71,7 +75,8 @@ export default function TopluCikisPage() {
     if (!productSearch.trim()) return urunler;
     return urunler?.filter(u =>
       searchMatchesTr(u.ad, productSearch) ||
-      (u.kod && searchMatchesTr(u.kod, productSearch))
+      (u.kod && searchMatchesTr(u.kod, productSearch)) ||
+      (u.marka && searchMatchesTr(u.marka, productSearch))
     );
   }, [urunler, productSearch]);
 
@@ -91,7 +96,7 @@ export default function TopluCikisPage() {
   const addRow = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const newId = Date.now().toString();
-    setRows([...rows, { id: newId, urunId: null, miktar: '', birimFiyat: '', kdvOrani: 0 }]);
+    setRows([...rows, { id: newId, urunId: null, marka: '', miktar: '', birimFiyat: '', kdvOrani: 0 }]);
   };
 
   const removeRow = (id: string) => {
@@ -119,6 +124,7 @@ export default function TopluCikisPage() {
         return {
           ...r,
           urunId,
+          marka: urun?.marka ?? '',
           kdvOrani: urun?.kdv_orani ?? 0,
           birimFiyat: urun?.satis_fiyati ? formatAmountForInput(urun.satis_fiyati) : r.birimFiyat,
         };
@@ -224,6 +230,7 @@ export default function TopluCikisPage() {
             miktar: parseQuantity(row.miktar),
             birim_fiyat: parseCurrency(row.birimFiyat) || 0,
             kdv_orani: row.kdvOrani,
+            marka: normalizeProductBrand(row.marka),
           };
         });
 
@@ -249,6 +256,7 @@ export default function TopluCikisPage() {
               miktar: parseQuantity(row.miktar),
               birim_fiyat: parseCurrency(row.birimFiyat) || null,
               kdv_orani: row.kdvOrani,
+              marka: normalizeProductBrand(row.marka),
               aciklama: null,
               created_at: formatDateTimeForDB(ensureValidTransactionDate(date)),
             }).then(() => row.id)
@@ -272,7 +280,7 @@ export default function TopluCikisPage() {
             const remaining = prev.filter((r) => !succeededIds.has(r.id));
             return remaining.length > 0
               ? remaining
-              : [{ id: '1', urunId: null, miktar: '', birimFiyat: '', kdvOrani: 0 }];
+              : [{ id: '1', urunId: null, marka: '', miktar: '', birimFiyat: '', kdvOrani: 0 }];
           });
         }
 
@@ -385,6 +393,7 @@ export default function TopluCikisPage() {
                             </Text>
                             <Text style={styles.productStockText}>
                               {t('products:stock.currentStock')}: {formatQuantity(urun.miktar)} {getBirimLabel(urun.birim)}
+                              {urun.marka ? ` · ${urun.marka}` : ''}
                             </Text>
                           </View>
                         </View>
@@ -436,6 +445,29 @@ export default function TopluCikisPage() {
                         </View>
                       </View>
                     </View>
+
+                    {urun && (
+                      <View style={styles.brandField}>
+                        <Text style={styles.inputLabel}>{t('products:form.brand')}</Text>
+                        <TextInput
+                          style={styles.brandInput}
+                          value={row.marka}
+                          onChangeText={(val) => updateRow(row.id, 'marka', val)}
+                          onFocus={() => setActiveBrandRowId(row.id)}
+                          onBlur={() => setActiveBrandRowId(null)}
+                          placeholder={t('products:form.brandPlaceholder')}
+                          placeholderTextColor={colors.textMuted}
+                          autoCapitalize="words"
+                          maxLength={120}
+                        />
+                        {activeBrandRowId === row.id && (
+                          <BrandSuggestionChips
+                            suggestions={getProductBrandSuggestions(urunler, row.marka, 4)}
+                            onSelect={(brand) => updateRow(row.id, 'marka', brand)}
+                          />
+                        )}
+                      </View>
+                    )}
 
                     {/* Per-row KDV chips (only when cari linked) */}
                     {cariLinkEnabled && (
@@ -615,6 +647,11 @@ export default function TopluCikisPage() {
                           {urun.kod && (
                             <View style={styles.codePill}>
                               <Text style={styles.codePillText}>{urun.kod}</Text>
+                            </View>
+                          )}
+                          {urun.marka && (
+                            <View style={styles.brandPill}>
+                              <Text style={styles.brandPillText}>{urun.marka}</Text>
                             </View>
                           )}
                           <Text style={styles.pickerItemStock}>
@@ -824,6 +861,20 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '500',
     marginLeft: 4,
+  },
+  brandField: {
+    marginTop: 10,
+  },
+  brandInput: {
+    minHeight: 42,
+    backgroundColor: colors.background,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
   },
   // KDV row (per-row)
   kdvRow: {
@@ -1051,6 +1102,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: colors.error,
+  },
+  brandPill: {
+    maxWidth: 130,
+    borderRadius: 10,
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  brandPillText: {
+    color: colors.warningDark,
+    fontSize: 10,
+    fontWeight: '600',
   },
   checkBadge: {
     width: 24,

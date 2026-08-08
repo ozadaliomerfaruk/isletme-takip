@@ -25,6 +25,8 @@ const translations: Record<string, string> = {
   'reports:purchaseSales.priceChanges.extraCost': 'Fazladan ödenen',
   'reports:purchaseSales.priceChanges.supplierChanged': 'Tedarikçi değişti',
   'reports:purchaseSales.priceChanges.brandChanged': 'Marka değişti',
+  'reports:purchaseSales.priceChanges.sameBrandOnly': 'Yalnız aynı marka kıyası',
+  'reports:purchaseSales.priceChanges.sameBrandCalculationNote': 'Markası değişenler hesap dışında',
   'reports:purchaseSales.priceChanges.showHistory': 'Geçmişi göster',
   'reports:purchaseSales.priceChanges.hideHistory': 'Geçmişi gizle',
   'reports:purchaseSales.uncategorized': 'Kategorisiz',
@@ -50,6 +52,9 @@ jest.mock('react-i18next', () => ({
       }
       if (key === 'reports:purchaseSales.priceChanges.savingsShort') {
         return `${options?.amount} kazanç`;
+      }
+      if (key === 'reports:purchaseSales.priceChanges.brandChangedCount') {
+        return `Markası değişen: ${options?.count}`;
       }
       if (key === 'reports:purchaseSales.priceChanges.categoryExtraCost') {
         return `${options?.amount} fazla`;
@@ -189,5 +194,25 @@ describe('ProductPriceChangesView', () => {
 
     expect(screen.getByText('Marka B')).toBeTruthy();
     expect(screen.getByText('Marka değişti')).toBeTruthy();
+  });
+
+  it('filters brand transitions and can exclude them from same-brand totals', () => {
+    const report = createReport();
+    report.items[0] = createItem({
+      latestBrandName: 'Marka B',
+      brandChanged: true,
+    });
+
+    render(<ProductPriceChangesView report={report} baseCurrency="TRY" />);
+
+    fireEvent.press(screen.getByText('Markası değişen: 1'));
+    expect(screen.getByText('Un')).toBeTruthy();
+    expect(screen.queryByText('Deterjan')).toBeNull();
+
+    fireEvent.press(screen.getByText('Yalnız aynı marka kıyası'));
+    expect(screen.queryByText('Un')).toBeNull();
+    expect(screen.getByText('Deterjan')).toBeTruthy();
+    expect(screen.getByText('Markası değişenler hesap dışında')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Fiyatı değişen: 1 ürün' })).toBeTruthy();
   });
 });

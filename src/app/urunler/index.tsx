@@ -416,6 +416,7 @@ export default function UrunlerPage() {
       const items: UrunListeItem[] = visibleProducts.map((u) => ({
         ad: u.ad,
         kod: u.kod,
+        marka: u.marka ?? null,
         kategori: u.kategori_id ? kategoriMap.get(u.kategori_id) || null : null,
         birim: t(`products:units.${u.birim}`),
         miktar: u.miktar,
@@ -459,6 +460,7 @@ export default function UrunlerPage() {
           columns: {
             name: t('products:export.productList.columns.name'),
             code: t('products:export.productList.columns.code'),
+            brand: t('products:export.productList.columns.brand'),
             category: t('products:export.productList.columns.category'),
             unit: t('products:export.productList.columns.unit'),
             stock: t('products:export.productList.columns.stock'),

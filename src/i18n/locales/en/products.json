@@ -199,6 +199,7 @@
     "product": "Product",
     "movementType": "Movement Type",
     "client": "Contact",
+    "brand": "Brand",
     "quantity": "Quantity",
     "unit": "Unit",
     "unitPrice": "Unit Price",
@@ -228,6 +229,7 @@
       "columns": {
         "name": "Product Name",
         "code": "Product Code",
+        "brand": "Brand",
         "category": "Category",
         "unit": "Unit",
         "stock": "Stock",

@@ -18,6 +18,7 @@ import { usePermissions } from '@/hooks/usePermissions';
 interface UseUrunExcelExportOptions {
   productName: string;
   productCode?: string;
+  productBrand?: string | null;
   productUnit: string;
   productCurrency?: Currency | string;
   urunId: string;
@@ -29,7 +30,7 @@ interface UseUrunExcelExportReturn {
 }
 
 export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunExcelExportReturn {
-  const { productName, productCode, productUnit, productCurrency, urunId } = options;
+  const { productName, productCode, productBrand, productUnit, productCurrency, urunId } = options;
   const { isletme } = useAuthContext();
   const { canExportModule, canAccessModule } = usePermissions();
   const canExportProducts = canExportModule('urunler');
@@ -131,6 +132,7 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
           date: t('common:export.excel.date'),
           movementType: t('products:export.movementType'),
           client: t('products:export.client'),
+          brand: t('products:export.brand'),
           quantity: t('products:export.quantity'),
           unit: t('products:export.unit'),
           unitPrice: t('products:export.unitPrice'),
@@ -159,6 +161,7 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
         await exportUrunHareketlerToExcel({
           productName,
           productCode,
+          productBrand,
           productUnit,
           productCurrency: productCurrency || 'TRY',
           isletmeName: isletme.name,
@@ -181,6 +184,7 @@ export function useUrunExcelExport(options: UseUrunExcelExportOptions): UseUrunE
       urunId,
       productName,
       productCode,
+      productBrand,
       productUnit,
       productCurrency,
       t,

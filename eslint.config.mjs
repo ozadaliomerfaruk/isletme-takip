@@ -7,7 +7,15 @@ import globals from 'globals';
 export default tseslint.config(
   // Global ignores (must be first, standalone object with only ignores key)
   {
-    ignores: ['node_modules/', '.expo/', 'dist/', 'build/', 'plugins/', '*.config.*'],
+    ignores: [
+      'node_modules/',
+      '.expo/',
+      'dist/',
+      'build/',
+      'plugins/',
+      'supabase/.temp/',
+      '*.config.*',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

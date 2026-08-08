@@ -310,7 +310,8 @@ export function useQuickTransactionEntities({
     if (!urunSearchQuery.trim()) return urunler;
     return urunler.filter((u) =>
       searchMatchesTr(u.ad, urunSearchQuery) ||
-      (u.kod && searchMatchesTr(u.kod, urunSearchQuery))
+      (u.kod && searchMatchesTr(u.kod, urunSearchQuery)) ||
+      (u.marka && searchMatchesTr(u.marka, urunSearchQuery))
     );
   }, [urunler, urunSearchQuery]);
 

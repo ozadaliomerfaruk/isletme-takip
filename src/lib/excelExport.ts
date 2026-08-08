@@ -753,6 +753,7 @@ export interface UrunExcelTranslations {
   date: string;
   movementType: string;
   client: string;
+  brand: string;
   quantity: string;
   unit: string;
   unitPrice: string;
@@ -778,6 +779,7 @@ export interface UrunHareketExportRow {
   date: string;
   movementType: string;
   cariName: string;
+  brandName: string;
   quantity: number;
   unitLabel: string;
   unitPrice: number | null;
@@ -791,6 +793,7 @@ export interface UrunHareketExportRow {
 export interface UrunExportOptions {
   productName: string;
   productCode?: string;
+  productBrand?: string | null;
   productUnit: string;
   productCurrency: Currency | string;
   isletmeName: string;
@@ -809,6 +812,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   const {
     productName,
     productCode,
+    productBrand,
     productUnit,
     productCurrency,
     isletmeName,
@@ -841,6 +845,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
       date: h.islemDate ?? h.created_at,
       movementType: t.movementTypes[h.hareket_tipi] || h.hareket_tipi,
       cariName: h.cari?.name || '',
+      brandName: h.marka?.trim() || '',
       quantity: h.hareket_tipi === 'cikis' ? -Math.abs(h.miktar) : h.miktar,
       unitLabel: productUnit,
       unitPrice: birimFiyat,
@@ -877,105 +882,97 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   // ============ BAŞLIK BÖLÜMÜ ============
   const productLabel = productCode ? `${productName} (${productCode})` : productName;
   ws['A1'] = { v: t.productMovements, s: titleStyle };
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }];
 
   ws['A3'] = { v: `${t.product}:`, s: metaLabelStyle };
   ws['B3'] = { v: productLabel, s: businessNameStyle };
 
-  ws['A4'] = { v: `${t.period}:`, s: metaLabelStyle };
-  ws['B4'] = { v: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`, s: metaValueStyle };
+  ws['A4'] = { v: `${t.brand}:`, s: metaLabelStyle };
+  ws['B4'] = { v: productBrand?.trim() || '-', s: metaValueStyle };
 
-  ws['A5'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
-  ws['B5'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+  ws['A5'] = { v: `${t.period}:`, s: metaLabelStyle };
+  ws['B5'] = { v: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`, s: metaValueStyle };
 
-  ws['A6'] = { v: `${t.business}:`, s: metaLabelStyle };
-  ws['B6'] = { v: isletmeName, s: businessNameStyle };
+  ws['A6'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
+  ws['B6'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+
+  ws['A7'] = { v: `${t.business}:`, s: metaLabelStyle };
+  ws['B7'] = { v: isletmeName, s: businessNameStyle };
 
   // ============ TABLO BAŞLIKLARI ============
-  const headerRow = 8;
+  const headerRow = 9;
   const headers = [
-    t.date, t.movementType, t.client, t.quantity, t.unit,
+    t.date, t.movementType, t.client, t.brand, t.quantity, t.unit,
     t.unitPrice, t.subtotal, t.vatRate, t.vatAmount, t.total, t.description,
   ];
-  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
   headers.forEach((header, i) => {
     ws[`${cols[i]}${headerRow}`] = { v: header, s: headerStyle };
   });
 
   // ============ VERİ SATIRLARI ============
-  const dataRowStart = 9;
+  const dataRowStart = 10;
   rows.forEach((r, i) => {
     const rowNum = dataRowStart + i;
     ws[`A${rowNum}`] = excelDateCell(r.date, cellStyle);
     ws[`B${rowNum}`] = { v: r.movementType, s: cellStyle };
     ws[`C${rowNum}`] = { v: r.cariName, s: cellStyle };
-    ws[`D${rowNum}`] = excelQuantityCell(r.quantity, currencyCellStyle);
-    ws[`E${rowNum}`] = { v: r.unitLabel, s: cellStyle };
-    ws[`F${rowNum}`] = excelOptionalMoneyCell(r.unitPrice, currency, currencyCellStyle);
-    ws[`G${rowNum}`] = excelOptionalMoneyCell(r.subtotal, currency, currencyCellStyle);
-    ws[`H${rowNum}`] = r.vatRate != null
+    ws[`D${rowNum}`] = { v: r.brandName, s: cellStyle };
+    ws[`E${rowNum}`] = excelQuantityCell(r.quantity, currencyCellStyle);
+    ws[`F${rowNum}`] = { v: r.unitLabel, s: cellStyle };
+    ws[`G${rowNum}`] = excelOptionalMoneyCell(r.unitPrice, currency, currencyCellStyle);
+    ws[`H${rowNum}`] = excelOptionalMoneyCell(r.subtotal, currency, currencyCellStyle);
+    ws[`I${rowNum}`] = r.vatRate != null
       ? excelPercentCell(r.vatRate, currencyCellStyle)
       : { v: '', s: currencyCellStyle };
-    ws[`I${rowNum}`] = excelOptionalMoneyCell(r.vatAmount, currency, currencyCellStyle);
-    ws[`J${rowNum}`] = excelOptionalMoneyCell(r.total, currency, currencyCellStyle);
-    ws[`K${rowNum}`] = { v: r.description, s: cellStyle };
+    ws[`J${rowNum}`] = excelOptionalMoneyCell(r.vatAmount, currency, currencyCellStyle);
+    ws[`K${rowNum}`] = excelOptionalMoneyCell(r.total, currency, currencyCellStyle);
+    ws[`L${rowNum}`] = { v: r.description, s: cellStyle };
   });
 
   // ============ DÖNEM ÖZETİ ============
   const summaryStartRow = dataRowStart + rows.length + 1;
 
   // Toplam Giriş
-  ws[`A${summaryStartRow}`] = { v: '', s: summaryRowStyle };
-  ws[`B${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+  cols.forEach((col) => { ws[`${col}${summaryStartRow}`] = { v: '', s: summaryRowStyle }; });
   ws[`C${summaryStartRow}`] = { v: t.totalIn, s: summaryRowStyle };
-  ws[`D${summaryStartRow}`] = excelQuantityCell(totalIn, summaryCurrencyStyle);
-  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${summaryStartRow}`] = { v: '', s: summaryRowStyle };
-  ws[`J${summaryStartRow}`] = excelMoneyCell(totalInAmount, currency, summaryCurrencyStyle);
-  ws[`K${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+  ws[`E${summaryStartRow}`] = excelQuantityCell(totalIn, summaryCurrencyStyle);
+  ws[`K${summaryStartRow}`] = excelMoneyCell(totalInAmount, currency, summaryCurrencyStyle);
 
   // Toplam Çıkış
   const outRow = summaryStartRow + 1;
-  ws[`A${outRow}`] = { v: '', s: summaryRowStyle };
-  ws[`B${outRow}`] = { v: '', s: summaryRowStyle };
+  cols.forEach((col) => { ws[`${col}${outRow}`] = { v: '', s: summaryRowStyle }; });
   ws[`C${outRow}`] = { v: t.totalOut, s: summaryRowStyle };
-  ws[`D${outRow}`] = excelQuantityCell(-totalOut, summaryCurrencyStyle);
-  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${outRow}`] = { v: '', s: summaryRowStyle };
-  ws[`J${outRow}`] = excelMoneyCell(totalOutAmount, currency, summaryCurrencyStyle);
-  ws[`K${outRow}`] = { v: '', s: summaryRowStyle };
+  ws[`E${outRow}`] = excelQuantityCell(-totalOut, summaryCurrencyStyle);
+  ws[`K${outRow}`] = excelMoneyCell(totalOutAmount, currency, summaryCurrencyStyle);
 
   // Düzeltme (only if there are adjustment rows)
   let nextRow = outRow + 1;
   if (hasAdjustments) {
     const adjRow = nextRow;
-    ws[`A${adjRow}`] = { v: '', s: summaryRowStyle };
-    ws[`B${adjRow}`] = { v: '', s: summaryRowStyle };
+    cols.forEach((col) => { ws[`${col}${adjRow}`] = { v: '', s: summaryRowStyle }; });
     ws[`C${adjRow}`] = { v: t.totalAdjustment, s: summaryRowStyle };
-    ws[`D${adjRow}`] = excelQuantityCell(totalAdjustment, summaryCurrencyStyle);
-    for (let i = 4; i <= 8; i++) ws[`${cols[i]}${adjRow}`] = { v: '', s: summaryRowStyle };
-    ws[`J${adjRow}`] = { v: '', s: summaryRowStyle };
-    ws[`K${adjRow}`] = { v: '', s: summaryRowStyle };
+    ws[`E${adjRow}`] = excelQuantityCell(totalAdjustment, summaryCurrencyStyle);
     nextRow = adjRow + 1;
   }
 
   // Net Değişim
   const netRow = nextRow;
-  ws[`A${netRow}`] = { v: '', s: totalRowStyle };
-  ws[`B${netRow}`] = { v: '', s: totalRowStyle };
+  cols.forEach((col) => { ws[`${col}${netRow}`] = { v: '', s: totalRowStyle }; });
   ws[`C${netRow}`] = { v: t.netChange, s: totalRowStyle };
-  ws[`D${netRow}`] = excelQuantityCell(totalIn - totalOut + totalAdjustment, totalCurrencyStyle);
-  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${netRow}`] = { v: '', s: totalRowStyle };
-  ws[`J${netRow}`] = excelMoneyCell(totalInAmount - totalOutAmount, currency, totalCurrencyStyle);
-  ws[`K${netRow}`] = { v: '', s: totalRowStyle };
+  ws[`E${netRow}`] = excelQuantityCell(totalIn - totalOut + totalAdjustment, totalCurrencyStyle);
+  ws[`K${netRow}`] = excelMoneyCell(totalInAmount - totalOutAmount, currency, totalCurrencyStyle);
 
   // Worksheet aralığını ayarla
-  ws['!ref'] = `A1:K${netRow}`;
+  ws['!ref'] = `A1:L${netRow}`;
 
   // Sütun genişlikleri
   ws['!cols'] = [
     { wch: 12 }, // Tarih
     { wch: 14 }, // Hareket Tipi
     { wch: 20 }, // Cari
+    { wch: 18 }, // Marka
     { wch: 10 }, // Miktar
     { wch: 10 }, // Birim
     { wch: 14 }, // Birim Fiyat
@@ -1008,6 +1005,7 @@ export interface UrunListeExcelTranslations {
   columns: {
     name: string;
     code: string;
+    brand: string;
     category: string;
     unit: string;
     stock: string;
@@ -1031,6 +1029,7 @@ export interface UrunListeExcelTranslations {
 export interface UrunListeItem {
   ad: string;
   kod: string | null;
+  marka: string | null;
   kategori: string | null;
   birim: string;
   miktar: number;
@@ -1056,6 +1055,7 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
   const headers = [
     t.columns.name,
     t.columns.code,
+    t.columns.brand,
     t.columns.category,
     t.columns.unit,
     t.columns.stock,
@@ -1065,8 +1065,8 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
   ];
 
   const ws: XLSX.WorkSheet = {};
-  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  const merges: XLSX.Range[] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+  const merges: XLSX.Range[] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
 
   ws['A1'] = { v: t.title, s: titleStyle };
   ws['A3'] = { v: `${t.businessLabel}:`, s: metaLabelStyle };
@@ -1084,7 +1084,7 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
   }
 
   ws[`A${rowIdx}`] = { v: t.snapshotNote, s: noteStyle };
-  merges.push({ s: { r: rowIdx - 1, c: 0 }, e: { r: rowIdx - 1, c: 7 } });
+  merges.push({ s: { r: rowIdx - 1, c: 0 }, e: { r: rowIdx - 1, c: 8 } });
   rowIdx += 2;
 
   const headerRow = rowIdx;
@@ -1096,31 +1096,33 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
   urunler.forEach((u) => {
     ws[`A${rowIdx}`] = { v: u.ad, s: cellStyle };
     ws[`B${rowIdx}`] = { v: u.kod || '', s: cellStyle };
-    ws[`C${rowIdx}`] = { v: u.kategori || '', s: cellStyle };
-    ws[`D${rowIdx}`] = { v: u.birim, s: cellStyle };
-    ws[`E${rowIdx}`] = excelQuantityCell(u.miktar, currencyCellStyle);
-    ws[`F${rowIdx}`] = excelOptionalMoneyCell(
+    ws[`C${rowIdx}`] = { v: u.marka || '', s: cellStyle };
+    ws[`D${rowIdx}`] = { v: u.kategori || '', s: cellStyle };
+    ws[`E${rowIdx}`] = { v: u.birim, s: cellStyle };
+    ws[`F${rowIdx}`] = excelQuantityCell(u.miktar, currencyCellStyle);
+    ws[`G${rowIdx}`] = excelOptionalMoneyCell(
       u.alis_fiyati > 0 ? u.alis_fiyati : null,
       u.currency,
       currencyCellStyle,
     );
-    ws[`G${rowIdx}`] = excelOptionalMoneyCell(
+    ws[`H${rowIdx}`] = excelOptionalMoneyCell(
       u.satis_fiyati > 0 ? u.satis_fiyati : null,
       u.currency,
       currencyCellStyle,
     );
-    ws[`H${rowIdx}`] = excelPercentCell(u.kdv_orani, currencyCellStyle);
+    ws[`I${rowIdx}`] = excelPercentCell(u.kdv_orani, currencyCellStyle);
     rowIdx++;
   });
   const dataEndRow = rowIdx - 1;
 
   rowIdx++;
   ws[`A${rowIdx}`] = { v: t.generatedByApp, s: noteStyle };
-  merges.push({ s: { r: rowIdx - 1, c: 0 }, e: { r: rowIdx - 1, c: 7 } });
+  merges.push({ s: { r: rowIdx - 1, c: 0 }, e: { r: rowIdx - 1, c: 8 } });
 
   ws['!cols'] = [
     { wch: 30 },
     { wch: 15 },
+    { wch: 18 },
     { wch: 20 },
     { wch: 10 },
     { wch: 12 },
@@ -1129,10 +1131,10 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
     { wch: 10 },
   ];
 
-  ws['!ref'] = `A1:H${rowIdx}`;
+  ws['!ref'] = `A1:I${rowIdx}`;
   ws['!merges'] = merges;
   ws['!rows'] = [{ hpt: 24 }];
-  ws['!autofilter'] = { ref: `A${headerRow}:H${dataEndRow}` };
+  ws['!autofilter'] = { ref: `A${headerRow}:I${dataEndRow}` };
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.title));

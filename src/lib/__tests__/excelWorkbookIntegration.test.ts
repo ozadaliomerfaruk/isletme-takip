@@ -80,6 +80,7 @@ const movementTranslations: UrunExcelTranslations = {
   date: 'Tarih',
   movementType: 'Hareket',
   client: 'Cari',
+  brand: 'Marka',
   quantity: 'Miktar',
   unit: 'Birim',
   unitPrice: 'Birim Fiyat',
@@ -105,6 +106,7 @@ const productListTranslations: UrunListeExcelTranslations = {
   columns: {
     name: 'Ad',
     code: 'Kod',
+    brand: 'Marka',
     category: 'Kategori',
     unit: 'Birim',
     stock: 'Stok',
@@ -210,12 +212,14 @@ describe('oluşturulan Excel dosyalarının hücre sözleşmesi', () => {
       miktar: 2,
       birim_fiyat: 50.25,
       kdv_orani: 20,
+      marka: 'Demo Marka',
       created_at: '2026-08-03T12:30:00+03:00',
       aciklama: 'İlk giriş',
     } as unknown as UrunHareket;
 
     await exportUrunHareketlerToExcel({
       productName: 'Çay',
+      productBrand: 'Demo Marka',
       productUnit: 'adet',
       productCurrency: 'TRY',
       isletmeName: 'Demo İşletme',
@@ -226,12 +230,14 @@ describe('oluşturulan Excel dosyalarının hücre sözleşmesi', () => {
     });
 
     const ws = firstSheet(readLastWorkbook());
-    expect(ws.A9.t).toBe('d');
-    expect(ws.D9).toMatchObject({ t: 'n', v: 2 });
-    expect(ws.F9).toMatchObject({ t: 'n', v: 50.25 });
-    expect(ws.G9).toMatchObject({ t: 'n', v: 100.5 });
-    expect(ws.H9).toMatchObject({ t: 'n', v: 0.2 });
-    expect(ws.J9).toMatchObject({ t: 'n', v: 120.6 });
+    expect(ws.B4.v).toBe('Demo Marka');
+    expect(ws.A10.t).toBe('d');
+    expect(ws.D10.v).toBe('Demo Marka');
+    expect(ws.E10).toMatchObject({ t: 'n', v: 2 });
+    expect(ws.G10).toMatchObject({ t: 'n', v: 50.25 });
+    expect(ws.H10).toMatchObject({ t: 'n', v: 100.5 });
+    expect(ws.I10).toMatchObject({ t: 'n', v: 0.2 });
+    expect(ws.K10).toMatchObject({ t: 'n', v: 120.6 });
   });
 
   it('ürün listesini filtre bilgisi ve sayısal stok/fiyat/KDV hücreleriyle üretir', async () => {
@@ -240,6 +246,7 @@ describe('oluşturulan Excel dosyalarının hücre sözleşmesi', () => {
       urunler: [{
         ad: 'Çay',
         kod: 'CAY-1',
+        marka: 'Demo Marka',
         kategori: 'İçecek',
         birim: 'adet',
         miktar: 12.5,
@@ -256,11 +263,12 @@ describe('oluşturulan Excel dosyalarının hücre sözleşmesi', () => {
     expect(workbook.SheetNames[0]).toBe('Ürün_Listesi');
     expect(ws.B5).toMatchObject({ t: 'n', v: 1 });
     expect(ws.B6.v).toBe('Aktif · Arama: çay');
-    expect(ws.E10).toMatchObject({ t: 'n', v: 12.5 });
-    expect(ws.F10).toMatchObject({ t: 'n', v: 50 });
-    expect(ws.G10).toMatchObject({ t: 'n', v: 75 });
-    expect(ws.H10).toMatchObject({ t: 'n', v: 0.1 });
-    expect(ws['!autofilter']).toEqual({ ref: 'A9:H10' });
+    expect(ws.C10.v).toBe('Demo Marka');
+    expect(ws.F10).toMatchObject({ t: 'n', v: 12.5 });
+    expect(ws.G10).toMatchObject({ t: 'n', v: 50 });
+    expect(ws.H10).toMatchObject({ t: 'n', v: 75 });
+    expect(ws.I10).toMatchObject({ t: 'n', v: 0.1 });
+    expect(ws['!autofilter']).toEqual({ ref: 'A9:I10' });
   });
 
   it('karşılaştırma raporundaki toplamları gerçek para hücreleri olarak yazar', async () => {

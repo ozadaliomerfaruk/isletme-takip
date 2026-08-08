@@ -9,6 +9,7 @@ import { useUrun, useUpdateUrun } from '@/hooks/useUrunler';
 import { toErrorMessage } from '@/lib/errors';
 import { useSaveSuccessFeedback } from '@/hooks/useSaveSuccessFeedback';
 import { parseCurrency } from '@/lib/currency';
+import { normalizeProductBrand } from '@/lib/productBrand';
 import { usePagePermission } from '@/hooks/usePagePermission';
 
 export default function UrunDuzenlePage() {
@@ -45,7 +46,7 @@ export default function UrunDuzenlePage() {
         id,
         ad: values.ad.trim(),
         kod: values.kod.trim() || null,
-        marka: values.marka.trim() || null,
+        marka: normalizeProductBrand(values.marka),
         birim: values.birim,
         kdv_orani: values.kdvOrani,
         alis_fiyati: values.alisFiyati ? parseCurrency(values.alisFiyati) : 0,

@@ -1173,6 +1173,7 @@ export function useUpdateUrunHareket() {
       id: string;
       miktar: number;
       birim_fiyat: number | null;
+      marka?: string | null;
       hareket_tipi: UrunHareketTipi;
       created_at?: string; // İş tarihi düzenlemesi; verilmezse değişmez
     }) => {
@@ -1218,6 +1219,7 @@ export function useUpdateUrunHareket() {
             hareket_tipi: input.hareket_tipi,
             miktar: input.miktar,
             birim_fiyat: input.birim_fiyat,
+            marka: input.marka,
             created_at: input.created_at,
           },
         });
@@ -1313,6 +1315,7 @@ export function useReapplyUrunHareketlerForIslem() {
         miktar: number;
         birim_fiyat: number | null;
         kdv_orani: number | null;
+        marka?: string | null;
         aciklama?: string | null;
       }>;
     }) => {
@@ -1383,6 +1386,7 @@ export interface CreateUrunHareketWithCariInput {
   miktar: number;
   birim_fiyat: number;
   kdv_orani: KdvOrani;
+  marka?: string | null;
   cari_id: string;
   aciklama?: string;
   date?: string;
@@ -1458,6 +1462,7 @@ export function useCreateUrunHareketWithCari() {
           miktar: normalizedItem.miktar,
           birim_fiyat: normalizedItem.birim_fiyat,
           kdv_orani: input.kdv_orani,
+          marka: input.marka,
           aciklama: input.aciklama ?? null,
         }],
       });
@@ -1482,6 +1487,7 @@ export interface BulkUrunItem {
   miktar: number;
   birim_fiyat: number;
   kdv_orani: KdvOrani;
+  marka?: string | null;
 }
 
 export interface CreateBulkUrunHareketWithCariInput {
@@ -1547,6 +1553,7 @@ export function useCreateBulkUrunHareketWithCari() {
           miktar: item.miktar,
           birim_fiyat: item.birim_fiyat,
           kdv_orani: item.kdv_orani,
+          marka: item.marka,
           aciklama: input.aciklama ?? null,
         })),
       });

@@ -25,6 +25,8 @@ import { styles as sharedStyles } from '../styles';
 import type { UrunItem } from '../types';
 import { KDV_ORANLARI, calculateUrunLineTotal, calculateUrunGrandTotal } from '../types';
 import type { Urun, BirimType } from '@/types/database';
+import { BrandSuggestionChips } from '@/components/urun/BrandSuggestionChips';
+import { getProductBrandSuggestions, normalizeProductBrand } from '@/lib/productBrand';
 
 // LayoutAnimation Android'de varsayılan kapalı; buton etiket/durum geçişlerini
 // yumuşatmak için bir kez etkinleştir (ev-tarzı: LeaveQuotaCard/NoteRow deseni).
@@ -142,6 +144,11 @@ export function UrunPickerModal({
     );
   }, [urunler, searchQuery, kategoriNameMap]);
 
+  const brandSuggestions = useMemo(
+    () => getProductBrandSuggestions(urunler, addingProduct?.marka ?? ''),
+    [addingProduct?.marka, urunler],
+  );
+
   // Calculate totals and notify parent
   const totals = useMemo(() => calculateUrunGrandTotal(urunItems), [urunItems]);
 
@@ -248,7 +255,7 @@ export function UrunPickerModal({
     const newItem: UrunItem = {
       urunId: addingProduct.urun.id,
       urunAd: addingProduct.urun.ad,
-      marka: addingProduct.marka.trim().replace(/\s+/g, ' ') || null,
+      marka: normalizeProductBrand(addingProduct.marka),
       miktar,
       birimFiyat,
       kdvOrani: addingProduct.kdvOrani,
@@ -468,6 +475,13 @@ export function UrunPickerModal({
                         />
                       </View>
                     </View>
+                    <BrandSuggestionChips
+                      suggestions={brandSuggestions}
+                      onSelect={(brand) => {
+                        brandTouchedRef.current = true;
+                        setAddingProduct({ ...addingProduct, marka: brand });
+                      }}
+                    />
 
                     {/* Miktar */}
                     <View style={styles.inputRow}>
