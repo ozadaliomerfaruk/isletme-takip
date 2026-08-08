@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Wallet, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +20,7 @@ interface Hesap {
 }
 
 export interface HesapPickerSheetProps {
+  inline?: boolean;
   visible: boolean;
   onDismiss: () => void;
   onSelect: (hesapId: string) => void;
@@ -35,6 +36,7 @@ export interface HesapPickerSheetProps {
 }
 
 export function HesapPickerSheet({
+  inline = false,
   visible,
   onDismiss,
   onSelect,
@@ -48,7 +50,7 @@ export function HesapPickerSheet({
 }: HesapPickerSheetProps) {
   const { t } = useTranslation(['accounts', 'transactions', 'common']);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -89,6 +91,7 @@ export function HesapPickerSheet({
 
   return (
     <Modal
+      inline={inline}
       visible
       transparent
       animationType="slide"

@@ -128,8 +128,16 @@ describe('storage round-trip (isletme_id namespace)', () => {
   });
 
   it('bozuk JSON’a karşı dayanıklı (boş şekil döner, throw etmez)', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     mockStore['@defter_last_used_isl-1'] = '{bozuk json';
+
     expect(await getLastUsedSelections('isl-1')).toEqual(EMPTY);
+    expect(consoleError).toHaveBeenCalledWith(
+      '[lastUsedSelections] okuma hatası:',
+      expect.any(SyntaxError),
+    );
+
+    consoleError.mockRestore();
   });
 
   it('birden çok kayıt recents birikimini korur', async () => {

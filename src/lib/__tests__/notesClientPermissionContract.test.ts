@@ -184,7 +184,7 @@ describe('P0-S9 notes client permission/cache contract', () => {
     expect(hook.match(/queryResult\.isRefetchError/g)).toHaveLength(2);
     expect(hook.match(/data: mustMaskCachedRows \? \[\] : queryResult\.data/g))
       .toHaveLength(2);
-    expect(queryClient).toContain("-s6`");
+    expect(queryClient).toContain("-s7`");
   });
 
   it('genel liste kapalı kaynakları OR ile geri istemez; kaynak tipini daraltıp AND RLSye bırakır', () => {

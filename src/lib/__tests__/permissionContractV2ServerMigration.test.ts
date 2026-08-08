@@ -6,6 +6,13 @@ const migrationPath = path.resolve(
   'supabase/migrations/20260730080658_permission_contract_v2_server.sql'
 );
 const sql = fs.readFileSync(migrationPath, 'utf8').replace(/\r\n/g, '\n');
+const auditBootstrapSql = fs.readFileSync(
+  path.resolve(
+    process.cwd(),
+    'supabase/migrations/20260224000003_multi_user_rpc_audit_log.sql'
+  ),
+  'utf8'
+).replace(/\r\n/g, '\n');
 
 function stripSqlBodiesAndComments(source: string): string {
   return source
@@ -69,6 +76,21 @@ function grantedPrincipals(functionIdentity: string): string[] {
 }
 
 describe('permission contract V2 server migration', () => {
+  it('bootstraps the unified transaction audit prerequisite on clean replays', () => {
+    expect(auditBootstrapSql).toContain(
+      'CREATE OR REPLACE FUNCTION public.log_islem_changes()'
+    );
+    expect(auditBootstrapSql).toMatch(
+      /CREATE TRIGGER audit_islemler_changes\s+AFTER DELETE OR UPDATE ON public\.islemler\s+FOR EACH ROW EXECUTE FUNCTION public\.log_islem_changes\(\);/
+    );
+    expect(auditBootstrapSql).toContain(
+      'COALESCE(auth.uid(), OLD.updated_by)'
+    );
+    expect(auditBootstrapSql).toContain(
+      'COALESCE(auth.uid(), NEW.updated_by)'
+    );
+  });
+
   it('is one atomic, additive migration without top-level user-row DML', () => {
     expect(sql.match(/^BEGIN;$/gm)).toHaveLength(1);
     expect(sql.match(/^COMMIT;$/gm)).toHaveLength(1);
@@ -938,6 +960,9 @@ describe('permission contract V2 server migration', () => {
       /internal\.(?:islem_mutasyon_izni_v2|kayit_mutasyon_izni_v1)\s*\([\s\S]*?'create'/
     );
     expect(create).not.toMatch(/v_can\s*:=\s*v_can\s+AND\s+v_can_view/);
+    expect(
+      create.match(/result_row\.date::timestamp without time zone/g)
+    ).toHaveLength(3);
 
     const rowGuard = functionBody('internal.get_islem_mutation_row_v1');
     expect(rowGuard).toContain('internal.islem_tipi_modulu(');
@@ -1149,6 +1174,9 @@ describe('permission contract V2 server migration', () => {
     const normalizedSql = sql.replace(/\s+/g, ' ');
     expect(normalizedSql).toContain(
       'REVOKE UPDATE ON TABLE public.urunler FROM PUBLIC, anon, authenticated;'
+    );
+    expect(normalizedSql).toContain(
+      'GRANT UPDATE ON TABLE public.urunler TO service_role;'
     );
 
     const metadataGrant = sql.match(

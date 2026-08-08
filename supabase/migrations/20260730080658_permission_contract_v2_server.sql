@@ -2066,10 +2066,16 @@ USING (
 -- SECURITY DEFINER stok RPC'leri tarafindan degistirilir. Authenticated
 -- istemciler metadata alanlarini mevcut RLS own/all kapisiyla duzenlemeye devam
 -- eder; identity, tenant, miktar ve audit kolonlari direct PATCH'e kapatilir.
--- service_role ve postgres tablo grant'larina dokunulmaz.
+-- service_role tablo grant'i temiz kurulumlarda Supabase varsayimina bagli
+-- birakilmaz; postgres sahiplik yetkisiyle birlikte server-side stok akislari
+-- acik kalir.
 REVOKE UPDATE
 ON TABLE public.urunler
 FROM PUBLIC, anon, authenticated;
+
+GRANT UPDATE
+ON TABLE public.urunler
+TO service_role;
 
 GRANT UPDATE (
   ad,
@@ -7319,7 +7325,7 @@ BEGIN
       result_row.type::text,
       result_row.amount,
       result_row.description,
-      result_row.date,
+      result_row.date::timestamp without time zone,
       result_row.hesap_id,
       result_row.hedef_hesap_id,
       result_row.kategori_id,
@@ -7772,7 +7778,7 @@ BEGIN
       result_row.type::text,
       result_row.amount,
       result_row.description,
-      result_row.date,
+      result_row.date::timestamp without time zone,
       result_row.hesap_id,
       result_row.hedef_hesap_id,
       result_row.kategori_id,
@@ -7835,7 +7841,7 @@ BEGIN
     result_row.type::text,
     result_row.amount,
     result_row.description,
-    result_row.date,
+    result_row.date::timestamp without time zone,
     result_row.hesap_id,
     result_row.hedef_hesap_id,
     result_row.kategori_id,

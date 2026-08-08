@@ -13,9 +13,9 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 dakika - veri "taze" kabul edilir
-      // gcTime: persist ile uyum için ≥ maxAge (24s) olmalı; aksi halde bellekten
-      // düşen sorgu dehydrate edilmez ve soğuk açılışta cache eksik kalırdı.
-      gcTime: 1000 * 60 * 60 * 24, // 24 saat
+      // Disk persist kapalıyken uzun gcTime binlerce işlemli hesaplarda belleği
+      // gereksiz tutar. Aktif ekranlar observer sayesinde zaten silinmez.
+      gcTime: 1000 * 60 * 30, // 30 dakika
       refetchOnWindowFocus: false, // Mobilde gereksiz, pil ve data tasarrufu
       refetchOnMount: true, // Taze ise cache'ten anında göster; yalnızca stale ise fetch (her navigasyonda tüm sorguları yeniden çekmeyi önler). Güncellik mutasyonların invalidateRelatedQueries (refetchType:'active') ile sağlanır.
       refetchOnReconnect: true, // İnternet geldiğinde yenile
@@ -38,23 +38,27 @@ export const queryClient = new QueryClient({
 
 /** Finansal mutation'lar read-cache ile birlikte AsyncStorage'a asla yazılmaz. */
 export const neverDehydrateMutation = (): false => false;
+/**
+ * Authenticated encryption olmadan tenant verisini AsyncStorage'a yazma.
+ * Bellek cache'i aynen calisir; yalniz uygulama kapaninca veri kalici olmaz.
+ */
+export const neverDehydrateQuery = (): false => false;
 
 // ============================================================================
-// DİSK PERSISTER (read-cache) — React Query cache'ini AsyncStorage'a yazar.
-// Soğuk açılışta son görülen veri ANINDA gösterilir, arkada sessizce tazelenir.
+// DİSK PERSISTER — eski kalıcı cache'i buster ile temizlemek ve logout'ta ortak
+// wipe sözleşmesini korumak için bağlı kalır. Query/mutation içeriği yazılmaz.
 // FİNANSAL GUARDRAIL'ler:
 //  • CACHE_BUSTER: uygulama sürümü değişince eski cache geçersiz (şema kayması yok)
 //  • maxAge (provider'da): çok eski cache gösterilmez
 //  • logout/kullanıcı değişimi: wipePersistedCache() ile TEMİZLENİR (veri sızmaz)
 //  • Kritik finansal karar (mutabakat / işlem yazma) öncesi HER ZAMAN taze çekilir
-// Not: AsyncStorage şifreli DEĞİLDİR; hassas veri diskte açıktır (Faz 3'te şifreleme).
+// AsyncStorage şifreli değildir; bu nedenle authenticated encryption gelene kadar
+// shouldDehydrateQuery fail-closed'dur. Soğuk açılış veriyi ağdan yeniden çeker.
 // ============================================================================
-// '-s6' = ürün alış/satış aggregate'i de V2 kullanıcı/yetki imzalı key'e ve
-// persist:false sözleşmesine taşındı. Eski sürümün şifresiz diskte bıraktığı geniş
-// not/rapor/ürün-raporu cache'leri ile S3 öncesi tam kategori satırları yeni shared
-// oturumda rehydrate edilmesin diye read-cache bir kez topluca geçersizleştirilir.
-// Kullanıcı verisi silinmez; yalnız yerel okuma cache'i internetten yeniden dolar.
-export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}-s6`;
+// '-s7' = şifresiz read-cache tamamen kapatıldı. Eski sürümlerin diskte bıraktığı
+// tenant verisi ilk açılışta topluca geçersizleştirilir. Kullanıcı verisi silinmez;
+// yalnız yerel okuma cache'i internetten yeniden dolar.
+export const CACHE_BUSTER = `v${Constants.expoConfig?.version ?? '0'}-s7`;
 
 const PERSIST_KEY = 'ISLETME_TAKIP_RQ_CACHE_V1';
 

@@ -5,13 +5,20 @@
  */
 
 import XLSX from 'xlsx-js-style';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { formatCurrency, toNumber, calculateTargetAmount, formatPercent } from './currency';
-import { getCurrencySymbol } from '@/constants/currencies';
+import { toNumber, calculateTargetAmount } from './currency';
 import { IslemWithRelations, Currency, UrunHareket } from '@/types/database';
 import { invertCariTransactionType, shouldInvertTransaction } from '@/lib/cariTransactionMapper';
+import {
+  excelCountCell,
+  excelDateCell,
+  excelMoneyCell,
+  excelOptionalMoneyCell,
+  excelPercentCell,
+  excelQuantityCell,
+  sanitizeExcelSheetName,
+  writeAndShareExcelWorkbook,
+} from './excelWorkbook';
 
 // ============================================================================
 // STYLE DEFINITIONS
@@ -101,6 +108,12 @@ const totalCurrencyStyle = {
   fill: { fgColor: { rgb: '5B9BD5' } },
   alignment: { horizontal: 'right', vertical: 'center' },
   border: thinBorder,
+};
+
+// Anlık liste / bilgilendirme notu stili.
+const noteStyle = {
+  font: { italic: true, sz: 10, color: { rgb: '888888' } },
+  alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
 };
 
 // ============================================================================
@@ -552,7 +565,7 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
     }
 
     rows.push({
-      date: formatDateShort(islem.date),
+      date: islem.date,
       type: t.transactionTypes[effectiveType] || effectiveType,
       description: islem.description || '',
       category: islem.kategori?.name || '',
@@ -579,9 +592,6 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
 
   // Excel verisi oluştur
   const currency = entityCurrency || 'TRY';
-  const formatAmount = (val: number | null) =>
-    val !== null ? formatCurrency(val, currency) : '';
-
   // Başlangıç bakiyesi için borç/alacak bakiye
   const openingDebitBalance = isDebitNormalEntity
     ? (openingBalance > 0 ? openingBalance : null)
@@ -615,41 +625,22 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   const wb = XLSX.utils.book_new();
   const ws: XLSX.WorkSheet = {};
 
-  // Satır sayacı
-  let rowIdx = 0;
-
   // ============ BAŞLIK BÖLÜMÜ ============
   // Row 0: Başlık
   ws['A1'] = { v: statementTitle, s: titleStyle };
   ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }]; // A1:I1 birleştir
-  rowIdx++;
-
-  // Row 1: Boş satır
-  rowIdx++;
-
   // Row 2: Entity adı
   ws['A3'] = { v: `${entityTypeLabel}:`, s: metaLabelStyle };
   ws['B3'] = { v: entityName, s: businessNameStyle };
-  rowIdx++;
-
   // Row 3: Dönem
   ws['A4'] = { v: `${t.period}:`, s: metaLabelStyle };
   ws['B4'] = { v: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`, s: metaValueStyle };
-  rowIdx++;
-
   // Row 4: Oluşturulma tarihi
   ws['A5'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
   ws['B5'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
-  rowIdx++;
-
   // Row 5: İşletme
   ws['A6'] = { v: `${t.business}:`, s: metaLabelStyle };
   ws['B6'] = { v: isletmeName, s: businessNameStyle };
-  rowIdx++;
-
-  // Row 6: Boş satır
-  rowIdx++;
-
   // ============ TABLO BAŞLIKLARI ============
   const headerRow = 8;
   const headers = [t.date, t.transactionType, t.description, t.category, t.accountColumn, t.cariPersonelColumn, t.debit, t.credit, t.debitBalance, t.creditBalance];
@@ -669,23 +660,23 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws[`F${openingRow}`] = { v: '', s: summaryRowStyle };
   ws[`G${openingRow}`] = { v: '', s: summaryCurrencyStyle };
   ws[`H${openingRow}`] = { v: '', s: summaryCurrencyStyle };
-  ws[`I${openingRow}`] = { v: formatAmount(openingDebitBalance), s: summaryCurrencyStyle };
-  ws[`J${openingRow}`] = { v: formatAmount(openingCreditBalance), s: summaryCurrencyStyle };
+  ws[`I${openingRow}`] = excelOptionalMoneyCell(openingDebitBalance, currency, summaryCurrencyStyle);
+  ws[`J${openingRow}`] = excelOptionalMoneyCell(openingCreditBalance, currency, summaryCurrencyStyle);
 
   // ============ İŞLEMLER ============
   const dataRowStart = 10;
   rows.forEach((r, i) => {
     const rowNum = dataRowStart + i;
-    ws[`A${rowNum}`] = { v: r.date, s: cellStyle };
+    ws[`A${rowNum}`] = excelDateCell(r.date, cellStyle);
     ws[`B${rowNum}`] = { v: r.type, s: cellStyle };
     ws[`C${rowNum}`] = { v: r.description, s: cellStyle };
     ws[`D${rowNum}`] = { v: r.category, s: cellStyle };
     ws[`E${rowNum}`] = { v: r.account, s: cellStyle };
     ws[`F${rowNum}`] = { v: r.cariName, s: cellStyle };
-    ws[`G${rowNum}`] = { v: formatAmount(r.debit), s: currencyCellStyle };
-    ws[`H${rowNum}`] = { v: formatAmount(r.credit), s: currencyCellStyle };
-    ws[`I${rowNum}`] = { v: formatAmount(r.debitBalance), s: currencyCellStyle };
-    ws[`J${rowNum}`] = { v: formatAmount(r.creditBalance), s: currencyCellStyle };
+    ws[`G${rowNum}`] = excelOptionalMoneyCell(r.debit, currency, currencyCellStyle);
+    ws[`H${rowNum}`] = excelOptionalMoneyCell(r.credit, currency, currencyCellStyle);
+    ws[`I${rowNum}`] = excelOptionalMoneyCell(r.debitBalance, currency, currencyCellStyle);
+    ws[`J${rowNum}`] = excelOptionalMoneyCell(r.creditBalance, currency, currencyCellStyle);
   });
 
   // ============ DÖNEM TOPLAMI ============
@@ -696,8 +687,8 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws[`D${totalRow}`] = { v: '', s: totalRowStyle };
   ws[`E${totalRow}`] = { v: '', s: totalRowStyle };
   ws[`F${totalRow}`] = { v: '', s: totalRowStyle };
-  ws[`G${totalRow}`] = { v: formatAmount(totalDebit), s: totalCurrencyStyle };
-  ws[`H${totalRow}`] = { v: formatAmount(totalCredit), s: totalCurrencyStyle };
+  ws[`G${totalRow}`] = excelMoneyCell(totalDebit, currency, totalCurrencyStyle);
+  ws[`H${totalRow}`] = excelMoneyCell(totalCredit, currency, totalCurrencyStyle);
   ws[`I${totalRow}`] = { v: '', s: totalCurrencyStyle };
   ws[`J${totalRow}`] = { v: '', s: totalCurrencyStyle };
 
@@ -711,8 +702,8 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ws[`F${closingRow}`] = { v: '', s: summaryRowStyle };
   ws[`G${closingRow}`] = { v: '', s: summaryCurrencyStyle };
   ws[`H${closingRow}`] = { v: '', s: summaryCurrencyStyle };
-  ws[`I${closingRow}`] = { v: formatAmount(closingDebitBalance), s: summaryCurrencyStyle };
-  ws[`J${closingRow}`] = { v: formatAmount(closingCreditBalance), s: summaryCurrencyStyle };
+  ws[`I${closingRow}`] = excelOptionalMoneyCell(closingDebitBalance, currency, summaryCurrencyStyle);
+  ws[`J${closingRow}`] = excelOptionalMoneyCell(closingCreditBalance, currency, summaryCurrencyStyle);
 
   // Worksheet aralığını ayarla
   ws['!ref'] = `A1:J${closingRow}`;
@@ -737,32 +728,16 @@ export async function exportToExcel(options: ExportOptions): Promise<void> {
   ];
 
   // Worksheet'i workbook'a ekle
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
-
-  // Base64 olarak export et
-  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
 
   // Dosya adı oluştur
-  const safeEntityName = entityName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-  const fileName = `${safeEntityName}_${t.statementFileName}_${startDate}_${endDate}.xlsx`;
-  const filePath = `${FileSystem.cacheDirectory}${fileName}`;
-
-  // Dosyayı yaz
-  await FileSystem.writeAsStringAsync(filePath, wbout, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  // Paylaş
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(filePath, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: t.shareDialogTitle,
-      UTI: 'com.microsoft.excel.xlsx',
-    });
-  } else {
-    throw new Error(t.sharingNotSupported);
-  }
+  const fileName = `${entityName}_${t.statementFileName}_${startDate}_${endDate}.xlsx`;
+  await writeAndShareExcelWorkbook(
+    wb,
+    fileName,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
 }
 
 // ============================================================================
@@ -778,6 +753,7 @@ export interface UrunExcelTranslations {
   date: string;
   movementType: string;
   client: string;
+  brand: string;
   quantity: string;
   unit: string;
   unitPrice: string;
@@ -803,6 +779,7 @@ export interface UrunHareketExportRow {
   date: string;
   movementType: string;
   cariName: string;
+  brandName: string;
   quantity: number;
   unitLabel: string;
   unitPrice: number | null;
@@ -816,6 +793,7 @@ export interface UrunHareketExportRow {
 export interface UrunExportOptions {
   productName: string;
   productCode?: string;
+  productBrand?: string | null;
   productUnit: string;
   productCurrency: Currency | string;
   isletmeName: string;
@@ -834,6 +812,7 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   const {
     productName,
     productCode,
+    productBrand,
     productUnit,
     productCurrency,
     isletmeName,
@@ -849,15 +828,6 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
 
   const currency = productCurrency || 'TRY';
 
-  // Para hücrelerini Excel'de GERÇEK SAYI (SUM/sıralama/grafik çalışsın) + para-birimi
-  // gösterim formatıyla yaz. Sembol format koduna gömülür; sayı değeri ham kalır.
-  const moneyFmt = `"${getCurrencySymbol(currency)}"#,##0.00`;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- SheetJS hücre nesnesi
-  const moneyCell = (val: number | null | undefined, style: any): any =>
-    val !== null && val !== undefined
-      ? { v: val, t: 'n', z: moneyFmt, s: style }
-      : { v: '', s: style };
-
   // İŞ TARİHİNE göre sırala (islem.date varsa onu, yoksa created_at) — ekran listesiyle aynı eksen
   const sorted = [...hareketler].sort((a, b) =>
     (a.islemDate ?? a.created_at).localeCompare(b.islemDate ?? b.created_at)
@@ -872,9 +842,10 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
     const total = subtotal != null ? subtotal + (kdvAmount ?? 0) : null;
 
     return {
-      date: formatDateShort(h.islemDate ?? h.created_at),
+      date: h.islemDate ?? h.created_at,
       movementType: t.movementTypes[h.hareket_tipi] || h.hareket_tipi,
       cariName: h.cari?.name || '',
+      brandName: h.marka?.trim() || '',
       quantity: h.hareket_tipi === 'cikis' ? -Math.abs(h.miktar) : h.miktar,
       unitLabel: productUnit,
       unitPrice: birimFiyat,
@@ -911,103 +882,97 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
   // ============ BAŞLIK BÖLÜMÜ ============
   const productLabel = productCode ? `${productName} (${productCode})` : productName;
   ws['A1'] = { v: t.productMovements, s: titleStyle };
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 11 } }];
 
   ws['A3'] = { v: `${t.product}:`, s: metaLabelStyle };
   ws['B3'] = { v: productLabel, s: businessNameStyle };
 
-  ws['A4'] = { v: `${t.period}:`, s: metaLabelStyle };
-  ws['B4'] = { v: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`, s: metaValueStyle };
+  ws['A4'] = { v: `${t.brand}:`, s: metaLabelStyle };
+  ws['B4'] = { v: productBrand?.trim() || '-', s: metaValueStyle };
 
-  ws['A5'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
-  ws['B5'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+  ws['A5'] = { v: `${t.period}:`, s: metaLabelStyle };
+  ws['B5'] = { v: `${formatDateShort(startDate)} - ${formatDateShort(endDate)}`, s: metaValueStyle };
 
-  ws['A6'] = { v: `${t.business}:`, s: metaLabelStyle };
-  ws['B6'] = { v: isletmeName, s: businessNameStyle };
+  ws['A6'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
+  ws['B6'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+
+  ws['A7'] = { v: `${t.business}:`, s: metaLabelStyle };
+  ws['B7'] = { v: isletmeName, s: businessNameStyle };
 
   // ============ TABLO BAŞLIKLARI ============
-  const headerRow = 8;
+  const headerRow = 9;
   const headers = [
-    t.date, t.movementType, t.client, t.quantity, t.unit,
+    t.date, t.movementType, t.client, t.brand, t.quantity, t.unit,
     t.unitPrice, t.subtotal, t.vatRate, t.vatAmount, t.total, t.description,
   ];
-  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'];
 
   headers.forEach((header, i) => {
     ws[`${cols[i]}${headerRow}`] = { v: header, s: headerStyle };
   });
 
   // ============ VERİ SATIRLARI ============
-  const dataRowStart = 9;
+  const dataRowStart = 10;
   rows.forEach((r, i) => {
     const rowNum = dataRowStart + i;
-    ws[`A${rowNum}`] = { v: r.date, s: cellStyle };
+    ws[`A${rowNum}`] = excelDateCell(r.date, cellStyle);
     ws[`B${rowNum}`] = { v: r.movementType, s: cellStyle };
     ws[`C${rowNum}`] = { v: r.cariName, s: cellStyle };
-    ws[`D${rowNum}`] = { v: r.quantity, s: currencyCellStyle };
-    ws[`E${rowNum}`] = { v: r.unitLabel, s: cellStyle };
-    ws[`F${rowNum}`] = moneyCell(r.unitPrice, currencyCellStyle);
-    ws[`G${rowNum}`] = moneyCell(r.subtotal, currencyCellStyle);
-    ws[`H${rowNum}`] = { v: r.vatRate != null ? formatPercent(r.vatRate) : '', s: cellStyle };
-    ws[`I${rowNum}`] = moneyCell(r.vatAmount, currencyCellStyle);
-    ws[`J${rowNum}`] = moneyCell(r.total, currencyCellStyle);
-    ws[`K${rowNum}`] = { v: r.description, s: cellStyle };
+    ws[`D${rowNum}`] = { v: r.brandName, s: cellStyle };
+    ws[`E${rowNum}`] = excelQuantityCell(r.quantity, currencyCellStyle);
+    ws[`F${rowNum}`] = { v: r.unitLabel, s: cellStyle };
+    ws[`G${rowNum}`] = excelOptionalMoneyCell(r.unitPrice, currency, currencyCellStyle);
+    ws[`H${rowNum}`] = excelOptionalMoneyCell(r.subtotal, currency, currencyCellStyle);
+    ws[`I${rowNum}`] = r.vatRate != null
+      ? excelPercentCell(r.vatRate, currencyCellStyle)
+      : { v: '', s: currencyCellStyle };
+    ws[`J${rowNum}`] = excelOptionalMoneyCell(r.vatAmount, currency, currencyCellStyle);
+    ws[`K${rowNum}`] = excelOptionalMoneyCell(r.total, currency, currencyCellStyle);
+    ws[`L${rowNum}`] = { v: r.description, s: cellStyle };
   });
 
   // ============ DÖNEM ÖZETİ ============
   const summaryStartRow = dataRowStart + rows.length + 1;
 
   // Toplam Giriş
-  ws[`A${summaryStartRow}`] = { v: '', s: summaryRowStyle };
-  ws[`B${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+  cols.forEach((col) => { ws[`${col}${summaryStartRow}`] = { v: '', s: summaryRowStyle }; });
   ws[`C${summaryStartRow}`] = { v: t.totalIn, s: summaryRowStyle };
-  ws[`D${summaryStartRow}`] = { v: totalIn, s: summaryCurrencyStyle };
-  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${summaryStartRow}`] = { v: '', s: summaryRowStyle };
-  ws[`J${summaryStartRow}`] = moneyCell(totalInAmount, summaryCurrencyStyle);
-  ws[`K${summaryStartRow}`] = { v: '', s: summaryRowStyle };
+  ws[`E${summaryStartRow}`] = excelQuantityCell(totalIn, summaryCurrencyStyle);
+  ws[`K${summaryStartRow}`] = excelMoneyCell(totalInAmount, currency, summaryCurrencyStyle);
 
   // Toplam Çıkış
   const outRow = summaryStartRow + 1;
-  ws[`A${outRow}`] = { v: '', s: summaryRowStyle };
-  ws[`B${outRow}`] = { v: '', s: summaryRowStyle };
+  cols.forEach((col) => { ws[`${col}${outRow}`] = { v: '', s: summaryRowStyle }; });
   ws[`C${outRow}`] = { v: t.totalOut, s: summaryRowStyle };
-  ws[`D${outRow}`] = { v: -totalOut, s: summaryCurrencyStyle };
-  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${outRow}`] = { v: '', s: summaryRowStyle };
-  ws[`J${outRow}`] = moneyCell(totalOutAmount, summaryCurrencyStyle);
-  ws[`K${outRow}`] = { v: '', s: summaryRowStyle };
+  ws[`E${outRow}`] = excelQuantityCell(-totalOut, summaryCurrencyStyle);
+  ws[`K${outRow}`] = excelMoneyCell(totalOutAmount, currency, summaryCurrencyStyle);
 
   // Düzeltme (only if there are adjustment rows)
   let nextRow = outRow + 1;
   if (hasAdjustments) {
     const adjRow = nextRow;
-    ws[`A${adjRow}`] = { v: '', s: summaryRowStyle };
-    ws[`B${adjRow}`] = { v: '', s: summaryRowStyle };
+    cols.forEach((col) => { ws[`${col}${adjRow}`] = { v: '', s: summaryRowStyle }; });
     ws[`C${adjRow}`] = { v: t.totalAdjustment, s: summaryRowStyle };
-    ws[`D${adjRow}`] = { v: totalAdjustment, s: summaryCurrencyStyle };
-    for (let i = 4; i <= 8; i++) ws[`${cols[i]}${adjRow}`] = { v: '', s: summaryRowStyle };
-    ws[`J${adjRow}`] = { v: '', s: summaryRowStyle };
-    ws[`K${adjRow}`] = { v: '', s: summaryRowStyle };
+    ws[`E${adjRow}`] = excelQuantityCell(totalAdjustment, summaryCurrencyStyle);
     nextRow = adjRow + 1;
   }
 
   // Net Değişim
   const netRow = nextRow;
-  ws[`A${netRow}`] = { v: '', s: totalRowStyle };
-  ws[`B${netRow}`] = { v: '', s: totalRowStyle };
+  cols.forEach((col) => { ws[`${col}${netRow}`] = { v: '', s: totalRowStyle }; });
   ws[`C${netRow}`] = { v: t.netChange, s: totalRowStyle };
-  ws[`D${netRow}`] = { v: totalIn - totalOut + totalAdjustment, s: totalCurrencyStyle };
-  for (let i = 4; i <= 8; i++) ws[`${cols[i]}${netRow}`] = { v: '', s: totalRowStyle };
-  ws[`J${netRow}`] = moneyCell(totalInAmount - totalOutAmount, totalCurrencyStyle);
-  ws[`K${netRow}`] = { v: '', s: totalRowStyle };
+  ws[`E${netRow}`] = excelQuantityCell(totalIn - totalOut + totalAdjustment, totalCurrencyStyle);
+  ws[`K${netRow}`] = excelMoneyCell(totalInAmount - totalOutAmount, currency, totalCurrencyStyle);
 
   // Worksheet aralığını ayarla
-  ws['!ref'] = `A1:K${netRow}`;
+  ws['!ref'] = `A1:L${netRow}`;
 
   // Sütun genişlikleri
   ws['!cols'] = [
     { wch: 12 }, // Tarih
     { wch: 14 }, // Hareket Tipi
     { wch: 20 }, // Cari
+    { wch: 18 }, // Marka
     { wch: 10 }, // Miktar
     { wch: 10 }, // Birim
     { wch: 14 }, // Birim Fiyat
@@ -1020,28 +985,15 @@ export async function exportUrunHareketlerToExcel(options: UrunExportOptions): P
 
   ws['!rows'] = [{ hpt: 24 }];
 
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
 
-  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-
-  const safeName = productName.replace(/[^a-zA-Z0-9ğüşıöçĞÜŞİÖÇ]/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '');
-  const fileName = `${safeName}_${t.fileName}_${startDate}_${endDate}.xlsx`;
-  const filePath = `${FileSystem.cacheDirectory}${fileName}`;
-
-  await FileSystem.writeAsStringAsync(filePath, wbout, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(filePath, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: t.shareDialogTitle,
-      UTI: 'com.microsoft.excel.xlsx',
-    });
-  } else {
-    throw new Error(t.sharingNotSupported);
-  }
+  const fileName = `${productName}_${t.fileName}_${startDate}_${endDate}.xlsx`;
+  await writeAndShareExcelWorkbook(
+    wb,
+    fileName,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
 }
 
 // ============================================================================
@@ -1053,6 +1005,7 @@ export interface UrunListeExcelTranslations {
   columns: {
     name: string;
     code: string;
+    brand: string;
     category: string;
     unit: string;
     stock: string;
@@ -1062,6 +1015,12 @@ export interface UrunListeExcelTranslations {
   };
   fileName: string;
   isletmeName: string;
+  businessLabel: string;
+  createdAt: string;
+  recordCount: string;
+  filter: string;
+  snapshotNote: string;
+  generatedByApp: string;
   shareDialogTitle: string;
   sharingNotSupported: string;
   noDataError: string;
@@ -1070,6 +1029,7 @@ export interface UrunListeExcelTranslations {
 export interface UrunListeItem {
   ad: string;
   kod: string | null;
+  marka: string | null;
   kategori: string | null;
   birim: string;
   miktar: number;
@@ -1081,11 +1041,12 @@ export interface UrunListeItem {
 
 export interface UrunListeExportOptions {
   urunler: UrunListeItem[];
+  filterText?: string;
   translations: UrunListeExcelTranslations;
 }
 
 export async function exportUrunListesiToExcel(options: UrunListeExportOptions): Promise<void> {
-  const { urunler, translations: t } = options;
+  const { urunler, filterText, translations: t } = options;
 
   if (urunler.length === 0) {
     throw new Error(t.noDataError);
@@ -1094,6 +1055,7 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
   const headers = [
     t.columns.name,
     t.columns.code,
+    t.columns.brand,
     t.columns.category,
     t.columns.unit,
     t.columns.stock,
@@ -1102,35 +1064,65 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
     t.columns.vatRate,
   ];
 
-  const dataRows = urunler.map((u) => [
-    u.ad,
-    u.kod || '',
-    u.kategori || '',
-    u.birim,
-    u.miktar,
-    u.alis_fiyati > 0 ? formatCurrency(u.alis_fiyati, u.currency) : '',
-    u.satis_fiyati > 0 ? formatCurrency(u.satis_fiyati, u.currency) : '',
-    formatPercent(u.kdv_orani),
-  ]);
+  const ws: XLSX.WorkSheet = {};
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'];
+  const merges: XLSX.Range[] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }];
 
-  const wsData = [
-    [{ v: t.title, s: titleStyle }],
-    [{ v: t.isletmeName, s: { font: { sz: 11, color: { rgb: '666666' } } } }],
-    [],
-    headers.map((h) => ({ v: h, s: headerStyle })),
-    ...dataRows.map((row) =>
-      row.map((cell) => ({
-        v: cell,
-        s: cellStyle,
-      }))
-    ),
-  ];
+  ws['A1'] = { v: t.title, s: titleStyle };
+  ws['A3'] = { v: `${t.businessLabel}:`, s: metaLabelStyle };
+  ws['B3'] = { v: t.isletmeName, s: businessNameStyle };
+  ws['A4'] = { v: `${t.createdAt}:`, s: metaLabelStyle };
+  ws['B4'] = { v: formatDateTime(new Date().toISOString()), s: metaValueStyle };
+  ws['A5'] = { v: `${t.recordCount}:`, s: metaLabelStyle };
+  ws['B5'] = excelCountCell(urunler.length, metaValueStyle);
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  let rowIdx = 6;
+  if (filterText) {
+    ws[`A${rowIdx}`] = { v: `${t.filter}:`, s: metaLabelStyle };
+    ws[`B${rowIdx}`] = { v: filterText, s: metaValueStyle };
+    rowIdx++;
+  }
+
+  ws[`A${rowIdx}`] = { v: t.snapshotNote, s: noteStyle };
+  merges.push({ s: { r: rowIdx - 1, c: 0 }, e: { r: rowIdx - 1, c: 8 } });
+  rowIdx += 2;
+
+  const headerRow = rowIdx;
+  headers.forEach((header, index) => {
+    ws[`${cols[index]}${headerRow}`] = { v: header, s: headerStyle };
+  });
+  rowIdx++;
+
+  urunler.forEach((u) => {
+    ws[`A${rowIdx}`] = { v: u.ad, s: cellStyle };
+    ws[`B${rowIdx}`] = { v: u.kod || '', s: cellStyle };
+    ws[`C${rowIdx}`] = { v: u.marka || '', s: cellStyle };
+    ws[`D${rowIdx}`] = { v: u.kategori || '', s: cellStyle };
+    ws[`E${rowIdx}`] = { v: u.birim, s: cellStyle };
+    ws[`F${rowIdx}`] = excelQuantityCell(u.miktar, currencyCellStyle);
+    ws[`G${rowIdx}`] = excelOptionalMoneyCell(
+      u.alis_fiyati > 0 ? u.alis_fiyati : null,
+      u.currency,
+      currencyCellStyle,
+    );
+    ws[`H${rowIdx}`] = excelOptionalMoneyCell(
+      u.satis_fiyati > 0 ? u.satis_fiyati : null,
+      u.currency,
+      currencyCellStyle,
+    );
+    ws[`I${rowIdx}`] = excelPercentCell(u.kdv_orani, currencyCellStyle);
+    rowIdx++;
+  });
+  const dataEndRow = rowIdx - 1;
+
+  rowIdx++;
+  ws[`A${rowIdx}`] = { v: t.generatedByApp, s: noteStyle };
+  merges.push({ s: { r: rowIdx - 1, c: 0 }, e: { r: rowIdx - 1, c: 8 } });
 
   ws['!cols'] = [
     { wch: 30 },
     { wch: 15 },
+    { wch: 18 },
     { wch: 20 },
     { wch: 10 },
     { wch: 12 },
@@ -1139,32 +1131,19 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
     { wch: 10 },
   ];
 
-  ws['!merges'] = [
-    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
-    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
-  ];
+  ws['!ref'] = `A1:I${rowIdx}`;
+  ws['!merges'] = merges;
+  ws['!rows'] = [{ hpt: 24 }];
+  ws['!autofilter'] = { ref: `A${headerRow}:I${dataEndRow}` };
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, t.title);
-
-  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-  const safeName = t.fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filePath = `${FileSystem.cacheDirectory}${safeName}.xlsx`;
-
-  await FileSystem.writeAsStringAsync(filePath, wbout, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(filePath, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: t.shareDialogTitle,
-      UTI: 'com.microsoft.excel.xlsx',
-    });
-  } else {
-    throw new Error(t.sharingNotSupported);
-  }
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.title));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${t.fileName}.xlsx`,
+    t.shareDialogTitle,
+    t.sharingNotSupported,
+  );
 }
 
 // ============================================================================
@@ -1172,12 +1151,6 @@ export async function exportUrunListesiToExcel(options: UrunListeExportOptions):
 // Zengin başlık (tarih/anlık-not/marka) + kayıt sayısı + aktif filtre +
 // para-birimi bazlı bakiye özeti + autofilter + gerçek-sayı bakiye hücreleri.
 // ============================================================================
-
-// Not sat. stili (anlık/marka bilgilendirmesi — italik, soluk gri)
-const noteStyle = {
-  font: { italic: true, sz: 10, color: { rgb: '888888' } },
-  alignment: { horizontal: 'left', vertical: 'center', wrapText: true },
-};
 
 // Bir liste hücresi: düz metin YA DA para birimli sayı (Excel'de gerçek sayı)
 export type EntityListCell = string | { amount: number | null; currency: string };
@@ -1217,14 +1190,6 @@ export interface EntityListExportOptions {
   shareDialogTitle: string;
   sharingNotSupported: string;
   noDataError: string;
-}
-
-/** Para birimli gerçek-sayı hücre (SUM/sıralama/grafik çalışsın; sembol format koduna gömülür) */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- SheetJS hücre nesnesi
-function moneyNumberCell(amount: number | null, currency: string, style: any): any {
-  if (amount === null || amount === undefined) return { v: '', s: style };
-  const fmt = `"${getCurrencySymbol(currency)}"#,##0.00`;
-  return { v: amount, t: 'n', z: fmt, s: style };
 }
 
 export async function exportEntityListToExcel(options: EntityListExportOptions): Promise<void> {
@@ -1292,7 +1257,7 @@ export async function exportEntityListToExcel(options: EntityListExportOptions):
       const cell = row[c];
       const baseStyle = col.align === 'right' ? currencyCellStyle : cellStyle;
       if (cell && typeof cell === 'object') {
-        ws[cellAt(r, c)] = moneyNumberCell(cell.amount, cell.currency, baseStyle);
+        ws[cellAt(r, c)] = excelOptionalMoneyCell(cell.amount, cell.currency, baseStyle);
       } else {
         ws[cellAt(r, c)] = { v: (cell as string) ?? '', s: baseStyle };
       }
@@ -1310,7 +1275,7 @@ export async function exportEntityListToExcel(options: EntityListExportOptions):
     summary.forEach((line) => {
       ws[cellAt(r, 0)] = { v: line.label, s: summaryRowStyle };
       for (let c = 1; c < lastCol; c++) ws[cellAt(r, c)] = { v: '', s: summaryRowStyle };
-      ws[cellAt(r, lastCol)] = moneyNumberCell(line.amount, line.currency, summaryCurrencyStyle);
+      ws[cellAt(r, lastCol)] = excelMoneyCell(line.amount, line.currency, summaryCurrencyStyle);
       r++;
     });
   }
@@ -1332,24 +1297,11 @@ export async function exportEntityListToExcel(options: EntityListExportOptions):
   };
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, title);
-
-  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-  const safeName = fileName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  const filePath = `${FileSystem.cacheDirectory}${safeName}.xlsx`;
-
-  await FileSystem.writeAsStringAsync(filePath, wbout, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(filePath, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle: shareDialogTitle,
-      UTI: 'com.microsoft.excel.xlsx',
-    });
-  } else {
-    throw new Error(sharingNotSupported);
-  }
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(title));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${fileName}.xlsx`,
+    shareDialogTitle,
+    sharingNotSupported,
+  );
 }

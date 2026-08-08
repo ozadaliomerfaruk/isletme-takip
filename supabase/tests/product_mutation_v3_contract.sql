@@ -52,13 +52,28 @@ BEGIN
     AND attribute_row.attnum > 0
     AND NOT attribute_row.attisdropped;
 
-  IF v_date_type IS DISTINCT FROM 'timestamp without time zone' THEN
+  -- Production's historical schema uses timestamp while a canonical clean
+  -- replay starts from the original DATE column. The V3 contract supports
+  -- both known shapes and must still fail closed for any other drift.
+  IF v_date_type IS NULL
+     OR v_date_type NOT IN ('date', 'timestamp without time zone') THEN
     RAISE EXCEPTION
-      'PRODUCT_V3_TEST_LIVE_BASELINE_MISMATCH: islemler.date=%',
+      'PRODUCT_V3_TEST_BASELINE_MISMATCH: islemler.date=%',
       v_date_type;
   END IF;
 END;
 $preflight$;
+
+-- Production's historical Data API grants are project bootstrap state rather
+-- than repository migrations. Recreate only the privileges this behavioral
+-- contract needs; the surrounding transaction rolls them back.
+GRANT SELECT
+ON TABLE public.isletmeler, public.isletme_users, public.urunler
+TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE
+ON TABLE public.urun_hareketler
+TO authenticated;
 
 CREATE FUNCTION pg_temp.assert_true(
   p_value boolean,
@@ -448,7 +463,7 @@ SELECT
   true,
   false,
   'a1000000-0000-4000-8000-000000000001'::uuid
-FROM pg_catalog.generate_series(1, 10) AS product_number;
+FROM pg_catalog.generate_series(1, 11) AS product_number;
 
 -- 1) Exact same-UUID retry is a no-op, including reverse item order and
 -- null-vs-zero canonicalization. Mismatched retry is 23505 with zero delta.
@@ -2226,6 +2241,138 @@ END;
 $test_manual_all_permission$;
 
 RESET ROLE;
+
+-- Current-brand snapshots follow purchases chronologically. Converting a
+-- linked purchase to a sale exposes the preceding purchase brand, while an
+-- outgoing-only edit must not overwrite a manually selected current brand.
+DO $test_product_brand_sync$
+DECLARE
+  v_business constant uuid :=
+    'b1000000-0000-4000-8000-000000000001';
+  v_product constant uuid :=
+    'b5000000-0000-4000-8000-000000000011';
+  v_transaction constant uuid :=
+    'b6000000-0000-4000-8000-000000000020';
+  v_direct_out jsonb;
+  v_direct_out_id uuid;
+BEGIN
+  PERFORM pg_temp.set_actor(
+    'a1000000-0000-4000-8000-000000000001'
+  );
+
+  PERFORM public.create_urun_hareket_atomik_v2(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'urun_id', v_product,
+      'hareket_tipi', 'giris',
+      'miktar', 1,
+      'birim_fiyat', 10,
+      'marka', 'Marka A',
+      'created_at', '2026-07-01T10:00:00Z'
+    )
+  );
+
+  PERFORM public.create_islem_with_urun_atomik(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'id', v_transaction,
+      'type', 'cari_alis',
+      'amount', 12,
+      'description', 'brand sync contract',
+      'date', '2026-07-02T10:00:00',
+      'cari_id', 'b4000000-0000-4000-8000-000000000001'
+    ),
+    '[]'::jsonb,
+    pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'urun_id', v_product,
+        'hareket_tipi', 'giris',
+        'miktar', 1,
+        'birim_fiyat', 12,
+        'kdv_orani', 0,
+        'marka', 'Marka B'
+      )
+    )
+  );
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.marka = 'Marka B'
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'latest linked purchase must become the current brand'
+  );
+
+  PERFORM 1
+  FROM public.update_cari_urunlu_islem_atomik_v3(
+    v_business,
+    v_transaction,
+    pg_catalog.jsonb_build_object('type', 'cari_satis'),
+    pg_catalog.jsonb_build_array(
+      pg_catalog.jsonb_build_object(
+        'urun_id', v_product,
+        'hareket_tipi', 'cikis',
+        'miktar', 1,
+        'birim_fiyat', 12,
+        'kdv_orani', 0,
+        'marka', 'Marka B'
+      )
+    )
+  );
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.marka = 'Marka A'
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    ),
+    'purchase-to-sale conversion must expose the previous purchase brand'
+  );
+
+  UPDATE public.urunler AS product
+  SET marka = 'Elle Secilen Marka'
+  WHERE product.id = v_product;
+
+  v_direct_out := public.create_urun_hareket_atomik_v2(
+    v_business,
+    pg_catalog.jsonb_build_object(
+      'urun_id', v_product,
+      'hareket_tipi', 'cikis',
+      'miktar', 1,
+      'birim_fiyat', 15,
+      'marka', 'Satis Markasi',
+      'created_at', '2026-07-03T10:00:00Z'
+    )
+  );
+  v_direct_out_id := (v_direct_out->>'id')::uuid;
+
+  PERFORM public.update_urun_hareket_atomik_v2(
+    v_business,
+    v_direct_out_id,
+    pg_catalog.jsonb_build_object(
+      'hareket_tipi', 'cikis',
+      'miktar', 2,
+      'birim_fiyat', 16,
+      'marka', 'Guncel Satis Markasi'
+    )
+  );
+
+  PERFORM pg_temp.assert_true(
+    (
+      SELECT product.marka = 'Elle Secilen Marka'
+      FROM public.urunler AS product
+      WHERE product.id = v_product
+    )
+    AND (
+      SELECT movement.marka = 'Guncel Satis Markasi'
+      FROM public.urun_hareketler AS movement
+      WHERE movement.id = v_direct_out_id
+    ),
+    'outgoing-only edits must preserve current brand and update the snapshot'
+  );
+END;
+$test_product_brand_sync$;
 
 DO $final_assertions$
 BEGIN

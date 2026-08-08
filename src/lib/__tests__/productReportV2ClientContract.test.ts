@@ -100,8 +100,8 @@ describe('product report v2 client contract', () => {
     expect(hook).toContain('returnQuery.isRefetchError');
     expect(
       hook.match(/&& !hasUnsafeQueryState/g),
-    ).toHaveLength(2);
-    expect(queryClient).toContain("-s6`");
+    ).toHaveLength(3);
+    expect(queryClient).toContain("-s7`");
   });
 
   it('validates server rows before navigation or financial aggregation', () => {
@@ -143,7 +143,7 @@ describe('product report v2 client contract', () => {
       'if (!isletme || !canExport) return;',
     );
     expect(screen).toMatch(
-      /headerRight: \(\) => \(\s*canExport\s*\?/s,
+      /\{canExport \? \(\s*<ReportExportButton/s,
     );
     expect(screen).toContain(
       "const canExport = canExportModule('raporlar')",

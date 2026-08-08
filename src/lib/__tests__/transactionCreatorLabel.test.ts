@@ -167,7 +167,7 @@ describe('transaction creator label query contract', () => {
   it('kişisel etiketi şifresiz React Query disk cacheine yazmaz', () => {
     expect(hookSource).toContain('meta: { persist: false }');
     expect(rootLayoutSource).toContain(
-      'if (query.meta?.persist === false) return false;',
+      'shouldDehydrateQuery: neverDehydrateQuery',
     );
   });
 

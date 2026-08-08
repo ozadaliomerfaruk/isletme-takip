@@ -1,5 +1,5 @@
 import { Modal } from './Modal';
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions } from 'react-native';
 import { useState, useMemo } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Check, ChevronDown } from 'lucide-react-native';
@@ -29,7 +29,7 @@ export function CurrencyPicker({
   const { t, i18n } = useTranslation(['common', 'accounts']);
   const [modalVisible, setModalVisible] = useState(false);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const locale = i18n.language;
 

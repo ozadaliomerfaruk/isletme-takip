@@ -117,10 +117,11 @@ import {
 import { Text } from './Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
-import { formatCurrency, formatPercent, signedCurrencyText } from '@/lib/currency';
+import { formatCurrency, formatPercent } from '@/lib/currency';
 import { upperTr } from '@/lib/turkishTextUtils';
 import { CategoryReportItem, HierarchicalCategoryReportItem } from '@/hooks/useCategoryReport';
 import { useTranslation } from 'react-i18next';
+import { formatReportLensValue, IncomeExpenseLens } from '@/lib/reportLens';
 
 // Android için LayoutAnimation'ı aktifleştir
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -332,11 +333,18 @@ function getIconComponent(
 interface CategoryReportCardProps {
   item: CategoryReportItem;
   index: number;
-  onPress: () => void;
+  onPress?: () => void;
   type: 'gelir' | 'gider';
+  lens?: IncomeExpenseLens;
 }
 
-export function CategoryReportCard({ item, index, onPress, type }: CategoryReportCardProps) {
+export function CategoryReportCard({
+  item,
+  index,
+  onPress,
+  type,
+  lens = 'nominal',
+}: CategoryReportCardProps) {
   const { t } = useTranslation(['reports']);
 
   // Kategori rengi veya varsayılan renk
@@ -352,6 +360,7 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
     <TouchableOpacity
       style={styles.container}
       onPress={onPress}
+      disabled={!onPress}
       activeOpacity={0.7}
     >
       <View style={styles.header}>
@@ -377,7 +386,7 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
               color={item.total < 0 ? (type === 'gelir' ? 'error' : 'success') : (type === 'gelir' ? 'success' : 'error')}
               style={styles.amount}
             >
-              {signedCurrencyText(item.total)}
+              {formatReportLensValue(item.total, lens)}
             </Text>
             <View style={[styles.percentageBadge, { backgroundColor: barColor + '18' }]}>
               <Text style={[styles.percentageText, { color: barColor }]}>
@@ -385,7 +394,7 @@ export function CategoryReportCard({ item, index, onPress, type }: CategoryRepor
               </Text>
             </View>
           </View>
-          <ChevronRight size={20} color={colors.textMuted} />
+          {onPress ? <ChevronRight size={20} color={colors.textMuted} /> : null}
         </View>
       </View>
 

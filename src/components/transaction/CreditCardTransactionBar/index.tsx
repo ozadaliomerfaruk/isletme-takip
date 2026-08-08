@@ -43,7 +43,7 @@ import {
   formatAmountForInput,
 } from '@/lib/currency';
 import { resolveIslemLegs } from '@/lib/crossCurrency';
-import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
+import { ensureValidTransactionDate, formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
@@ -269,6 +269,39 @@ export function CreditCardTransactionBar({
   );
 
   const amountInputRef = useRef<TextInput>(null);
+  const descriptionInputRef = useRef<TextInput>(null);
+  const datePickerFocusTargetRef = useRef<'amount' | 'description' | null>(null);
+  const safeDate = useMemo(() => ensureValidTransactionDate(date), [date]);
+
+  const openDatePicker = useCallback(() => {
+    datePickerFocusTargetRef.current = amountInputRef.current?.isFocused()
+      ? 'amount'
+      : descriptionInputRef.current?.isFocused()
+        ? 'description'
+        : null;
+    Keyboard.dismiss();
+    setShowDatePicker(true);
+  }, []);
+
+  const dismissDatePicker = useCallback(() => {
+    setShowDatePicker(false);
+    const target = datePickerFocusTargetRef.current;
+    datePickerFocusTargetRef.current = null;
+    if (!target) return;
+
+    requestAnimationFrame(() => {
+      if (target === 'amount') {
+        amountInputRef.current?.focus();
+      } else {
+        descriptionInputRef.current?.focus();
+      }
+    });
+  }, []);
+
+  const restoreAmountKeyboardAfterCategoryPicker = useCallback(() => {
+    if (!visible || categoryNavigatedAway) return;
+    requestAnimationFrame(() => amountInputRef.current?.focus());
+  }, [categoryNavigatedAway, visible]);
 
   const nakitHesaplar = useMemo(() => {
     return hesaplar?.filter((h) => h.type !== 'kredi_karti') || [];
@@ -543,7 +576,7 @@ export function CreditCardTransactionBar({
             hedef_hesap_id: hedefHesapId,
             cari_id: cariIdValue,
             personel_id: personelIdValue,
-            scheduled_date: formatDateForDB(date),
+            scheduled_date: formatDateForDB(safeDate),
           };
           const fingerprint = buildMutationFingerprint({
             kind: 'scheduled',
@@ -568,7 +601,7 @@ export function CreditCardTransactionBar({
             hedef_hesap_id: hedefHesapId,
             cari_id: cariIdValue,
             personel_id: personelIdValue,
-            date: formatDateTimeForDB(date),
+            date: formatDateTimeForDB(safeDate),
             ...(exchange
               ? {
                   source_currency: exchange.sourceCurrency,
@@ -584,6 +617,7 @@ export function CreditCardTransactionBar({
                 miktar: item.miktar,
                 birim_fiyat: item.birimFiyat,
                 kdv_orani: item.kdvOrani,
+                marka: item.marka,
                 aciklama: description.trim() || null,
               }))
             : [];
@@ -680,7 +714,7 @@ export function CreditCardTransactionBar({
     [
       t,
       description,
-      date,
+      safeDate,
       kategoriId,
       isScheduled,
       resolveLegs,
@@ -999,10 +1033,10 @@ export function CreditCardTransactionBar({
             keyboardShouldPersistTaps="handled"
           >
             <HeaderSection
-              date={date}
+              date={safeDate}
               isScheduled={isScheduled}
               formatDateMedium={formatDateMedium}
-              onDatePress={() => setShowDatePicker(true)}
+              onDatePress={openDatePicker}
               onScheduledToggle={handleScheduledToggle}
               onResetToNow={() => setDate(new Date())}
               showScheduledToggle
@@ -1103,6 +1137,7 @@ export function CreditCardTransactionBar({
             amount={amount}
             onAmountChange={handleAmountChange}
             amountInputRef={amountInputRef}
+            descriptionInputRef={descriptionInputRef}
             description={description}
             onDescriptionChange={setDescription}
             kategoriId={kategoriId}
@@ -1116,6 +1151,7 @@ export function CreditCardTransactionBar({
               setCategoryPickerOpen(open);
               if (!open && !kategoriId) setCategorySkipped(true);
             }}
+            onCategoryPickerCloseComplete={restoreAmountKeyboardAfterCategoryPicker}
             onNavigateAway={() => {
               categoryNavigationPendingRef.current = true;
               setCategoryNavigatedAway(true);
@@ -1146,14 +1182,15 @@ export function CreditCardTransactionBar({
       {/* Picker Modals */}
       <CreditCardDatePicker
         visible={showDatePicker}
-        date={date}
+        date={safeDate}
         onDateChange={setDate}
-        onDismiss={() => setShowDatePicker(false)}
+        onDismiss={dismissDatePicker}
         locale={locale}
         t={t}
       />
 
       <HesapPickerSheet
+        inline
         visible={showHesapPicker}
         onDismiss={handleHesapPickerDismiss}
         onSelect={handleHesapSelect}
@@ -1164,6 +1201,7 @@ export function CreditCardTransactionBar({
       />
 
       <CariPickerSheet
+        inline
         visible={showCariPicker && canCreateSupplierPayment}
         onDismiss={handleCariPickerDismiss}
         onSelect={handleCariSelect}
@@ -1217,6 +1255,7 @@ export function CreditCardTransactionBar({
 
       {/* Foto önizleme */}
       <PhotoViewerModal
+        inline
         visible={showPhotoViewer}
         photoPath={photoUri}
         onClose={() => setShowPhotoViewer(false)}

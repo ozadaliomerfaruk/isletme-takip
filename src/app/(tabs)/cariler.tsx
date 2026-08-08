@@ -41,7 +41,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
-import { formatDateMedium } from '@/lib/date';
+import { formatDateForDB, formatDateMedium } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { compareBalanceListItems } from '@/lib/listSorting';
 import { useSettings } from '@/hooks/useSettings';
@@ -703,7 +703,7 @@ export default function CarilerPage() {
     if (debouncedSearch.trim()) filterBits.push(`${t('common:export.listExport.search')}: ${debouncedSearch.trim()}`);
     const filterText = filterBits.length ? filterBits.join(' · ') : undefined;
 
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const dateStr = formatDateForDB(new Date());
     const tabKey = filter === 'all' ? 'tumu' : filter;
     return {
       title: t('clients:export.clientList.title'),

@@ -6,7 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -38,6 +38,12 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
 import { logEvent } from '@/lib/appEvents';
+import {
+  EXCEL_MIME_TYPE,
+  EXCEL_UTI,
+  sanitizeExcelFileName,
+  sanitizeExcelSheetName,
+} from '@/lib/excelWorkbook';
 import { PendingTransactionForm } from '@/components/import';
 import type { PendingIslemRawData, PendingIslem } from '@/types/database';
 import { useDateFormat } from '@/hooks/useDateFormat';
@@ -60,7 +66,7 @@ export default function VeriIceAktarPage() {
   const contentPaddingBottom = useContentBottomPadding();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
   const { t, i18n } = useTranslation('settings');
   const queryClient = useQueryClient();
   const { formatDateMedium, formatDateShort } = useDateFormat();
@@ -146,15 +152,21 @@ export default function VeriIceAktarPage() {
       ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 10 } }];
       ws['!rows'] = [{ hpt: 45 }];
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, t('dataImport.template.sheetName'));
+      XLSX.utils.book_append_sheet(
+        wb,
+        ws,
+        sanitizeExcelSheetName(t('dataImport.template.sheetName')),
+      );
       const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-      const fileUri = FileSystem.cacheDirectory + t('dataImport.template.fileName');
+      const fileUri = FileSystem.cacheDirectory
+        + sanitizeExcelFileName(t('dataImport.template.fileName'));
       await FileSystem.writeAsStringAsync(fileUri, wbout, { encoding: 'base64' });
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(fileUri, {
-          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          mimeType: EXCEL_MIME_TYPE,
           dialogTitle: t('dataImport.template.dialogTitle'),
+          UTI: EXCEL_UTI,
         });
       } else {
         Alert.alert(t('common:status.error'), t('dataImport.errors.sharingNotSupported'));
@@ -515,6 +527,7 @@ export default function VeriIceAktarPage() {
         counterAccount: t('settings:dataImport.skippedExcel.counterAccount'),
         amount: t('settings:dataImport.skippedExcel.amount'),
         sheetName: t('settings:dataImport.skippedExcel.sheetName'),
+        fileName: t('settings:dataImport.skippedExcel.fileName'),
       });
       const uint8Array = new Uint8Array(buffer);
       let binary = '';
@@ -524,13 +537,16 @@ export default function VeriIceAktarPage() {
         binary += String.fromCharCode.apply(null, Array.from(chunk));
       }
       const base64 = btoa(binary);
-      const filePath = `${FileSystem.cacheDirectory}atlanan_islemler.xlsx`;
+      const filePath = `${FileSystem.cacheDirectory}${sanitizeExcelFileName(
+        t('settings:dataImport.skippedExcel.fileName'),
+      )}`;
       await FileSystem.writeAsStringAsync(filePath, base64, { encoding: FileSystem.EncodingType.Base64 });
       const canShare = await Sharing.isAvailableAsync();
       if (canShare) {
         await Sharing.shareAsync(filePath, {
-          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          mimeType: EXCEL_MIME_TYPE,
           dialogTitle: t('dataImport.skipped.exportDialogTitle'),
+          UTI: EXCEL_UTI,
         });
       } else {
         Alert.alert(t('common:status.error'), t('dataImport.errors.sharingNotAvailable'));

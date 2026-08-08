@@ -98,10 +98,17 @@ BEGIN
      OR v_security_definer IS DISTINCT FROM true
      OR v_volatility IS DISTINCT FROM 'v'
      OR v_config IS DISTINCT FROM ARRAY['search_path=public']::text[]
-     OR v_acl IS DISTINCT FROM
-       '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
-     OR v_definition_md5 IS DISTINCT FROM
-       '92536d5b251422599d8d7f270e4f2240'
+     OR NOT (
+       (
+         v_acl = '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+         AND v_definition_md5 = '92536d5b251422599d8d7f270e4f2240'
+       )
+       OR (
+         -- Clean PostgreSQL 17 replay of the canonical repository source.
+         v_acl IS NULL
+         AND v_definition_md5 = '2c8e3f8a6f47087f1124307162a28acb'
+       )
+     )
   THEN
     RAISE EXCEPTION
       'P0-S8 drift: get_category_report canli snapshot degisti '

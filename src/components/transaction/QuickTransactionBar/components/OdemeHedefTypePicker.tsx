@@ -72,6 +72,7 @@ export function OdemeHedefTypePicker({
 
   return (
     <Modal
+      inline
       visible
       transparent
       animationType="slide"

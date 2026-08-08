@@ -72,6 +72,7 @@ export function TahsilatHedefTypePicker({
 
   return (
     <Modal
+      inline
       visible
       transparent
       animationType="slide"

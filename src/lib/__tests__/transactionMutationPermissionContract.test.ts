@@ -143,10 +143,10 @@ describe('işlem mutation yetki ve hata sözleşmesi', () => {
     const source = read('src/app/hesaplar/[id].tsx');
 
     expect(source).toMatch(
-      /onDelete=\{\s*viewPhotoIslemId && canUpdateTransaction\(viewPhotoIslemId\)/,
+      /onDelete=\{\s*canMutateDetailHistory\s*&& viewPhotoIslemId\s*&& canUpdateTransaction\(viewPhotoIslemId\)/,
     );
     expect(source).toMatch(
-      /onChange=\{\s*viewPhotoIslemId && canUpdateTransaction\(viewPhotoIslemId\)/,
+      /onChange=\{\s*canMutateDetailHistory\s*&& viewPhotoIslemId\s*&& canUpdateTransaction\(viewPhotoIslemId\)/,
     );
   });
 
@@ -255,7 +255,7 @@ describe('işlem mutation yetki ve hata sözleşmesi', () => {
     expect(source).toContain('if (!canCreateCariTransactions)');
     expect(source).toContain('visible={showMenu && canOpenCariWriteMenu}');
     expect(source).toMatch(
-      /<IleriTarihliIslemlerSection[\s\S]{0,240}readOnly=\{!canMutateCariTransactions\}/,
+      /<IleriTarihliIslemlerSection[\s\S]{0,240}readOnly=\{!canMutateDetailHistory \|\| !canMutateCariTransactions\}/,
     );
     expect(source).toMatch(
       /Copy Transaction Bar[\s\S]{0,100}\{canCopyTransactions && \(/,

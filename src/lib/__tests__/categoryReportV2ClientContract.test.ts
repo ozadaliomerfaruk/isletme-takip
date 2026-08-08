@@ -24,12 +24,13 @@ describe('category report v2 client contract', () => {
       ),
     ).toEqual([
       'category-report',
-      'v2',
+      'v3-lens',
       ...scope,
       'gelir',
       'cash-flow',
       '2026-07-01T00:00:00',
       '2026-07-31T23:59:59',
+      'nominal',
     ]);
 
     expect(
@@ -41,11 +42,12 @@ describe('category report v2 client contract', () => {
       ),
     ).toEqual([
       'category-report-returns',
-      'v2',
+      'v3-lens',
       ...scope,
       'gelir',
       '2026-07-01T00:00:00',
       '2026-07-31T23:59:59',
+      'nominal',
     ]);
 
     expect(
@@ -100,6 +102,7 @@ describe('category report v2 client contract', () => {
       '',
       '2026-07-01T00:00:00',
       '2026-07-31T23:59:59',
+      'nominal',
     ]);
 
     expect(
@@ -118,6 +121,7 @@ describe('category report v2 client contract', () => {
       'gider',
       '2026-07-01T00:00:00',
       '2026-07-31T23:59:59',
+      'nominal',
     ]);
   });
 
@@ -255,9 +259,9 @@ describe('category report v2 client contract', () => {
     expect(hook.match(/const canShowAggregate =/g)).toHaveLength(3);
     expect(hook.match(/isRefetchError:/g)).toHaveLength(8);
     expect(hook.match(/query\.isRefetchError/g)).toHaveLength(4);
-    expect(hook).toContain('const rpcData = canShowAggregate ? rawRpcData : undefined;');
+    expect(hook).toContain('const rpcData = canShowAggregate ? rawRpcData?.rows : undefined;');
     expect(hook.match(/const islemler = useMemo\(/g)).toHaveLength(2);
-    expect(hook).toContain('() => (canShowAggregate ? rawIslemler : [])');
+    expect(hook).toContain('() => (canShowAggregate ? rawIslemler?.rows ?? [] : [])');
     expect(hook).toContain('? rawAllKategoriler');
     expect(hook).toContain('? rawKategoriler');
     expect(hook.match(/\? query\.data \?\? \[\]/g)).toHaveLength(2);

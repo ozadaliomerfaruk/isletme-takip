@@ -8,6 +8,7 @@ import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { formatCurrency, formatCurrencyWithSign } from '@/lib/currency';
+import { formatReportLensValue } from '@/lib/reportLens';
 import type { ComparisonReport } from '@/hooks/useComparisonReport';
 
 // Net: kâr (>=0) işaretsiz + yeşil; zarar (<0) işaretli + kırmızı (mutlak değer
@@ -19,7 +20,22 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
   const { t } = useTranslation(['reports', 'common']);
   const router = useRouter();
   const haptics = useHaptics();
-  const { period, year, monthLabel, displayRows, totals, isLoading, error } = report;
+  const {
+    period,
+    year,
+    monthLabel,
+    displayRows,
+    totals,
+    isLoading,
+    error,
+    lens,
+  } = report;
+  const formatValue = (value: number) => lens === 'nominal'
+    ? formatCurrency(value)
+    : formatReportLensValue(value, lens);
+  const formatNetValue = (value: number) => lens === 'nominal'
+    ? formatNet(value)
+    : formatReportLensValue(value, lens);
 
   // İlk yüklemede 12 satır ₺0,00 flash etmesin — iskelet göster (diğer tab'larla tutarlı).
   if (isLoading) {
@@ -87,7 +103,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
                 haptics.light();
                 router.push({
                   pathname: '/raporlar/gelir-gider',
-                  params: { period, periodOffset: String(row.offset) },
+                  params: { period, periodOffset: String(row.offset), lens },
                 });
               }}
             >
@@ -101,7 +117,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
                   adjustsFontSizeToFit
                   minimumFontScale={0.7}
                 >
-                  {formatCurrency(row.income)}
+                  {formatValue(row.income)}
                 </Text>
                 <Text
                   style={[styles.value, empty && styles.valueEmpty]}
@@ -109,7 +125,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
                   adjustsFontSizeToFit
                   minimumFontScale={0.7}
                 >
-                  {formatCurrency(row.expense)}
+                  {formatValue(row.expense)}
                 </Text>
                 <Text
                   style={[styles.value, styles.netValue, { color: empty ? colors.textMuted : netColor(row.net) }]}
@@ -117,7 +133,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
                   adjustsFontSizeToFit
                   minimumFontScale={0.7}
                 >
-                  {formatNet(row.net)}
+                  {formatNetValue(row.net)}
                 </Text>
               </View>
             </TouchableOpacity>
@@ -131,10 +147,10 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
           </Text>
           <View style={styles.valuesRow}>
             <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              {formatCurrency(totals.avgIncome)}
+              {formatValue(totals.avgIncome)}
             </Text>
             <Text style={styles.value} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              {formatCurrency(totals.avgExpense)}
+              {formatValue(totals.avgExpense)}
             </Text>
             <Text
               style={[styles.value, styles.netValue, { color: netColor(totals.avgNet) }]}
@@ -142,7 +158,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {formatNet(totals.avgNet)}
+              {formatNetValue(totals.avgNet)}
             </Text>
           </View>
         </View>
@@ -154,10 +170,10 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
           </Text>
           <View style={styles.valuesRow}>
             <Text style={[styles.value, styles.totalValue]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              {formatCurrency(totals.income)}
+              {formatValue(totals.income)}
             </Text>
             <Text style={[styles.value, styles.totalValue]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-              {formatCurrency(totals.expense)}
+              {formatValue(totals.expense)}
             </Text>
             <Text
               style={[styles.value, styles.totalValue, { color: netColor(totals.net) }]}
@@ -165,7 +181,7 @@ export function KarsilastirmaTabContent({ report }: { report: ComparisonReport }
               adjustsFontSizeToFit
               minimumFontScale={0.7}
             >
-              {formatNet(totals.net)}
+              {formatNetValue(totals.net)}
             </Text>
           </View>
         </View>

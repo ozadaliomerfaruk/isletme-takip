@@ -38,6 +38,8 @@ const DISMISS_THRESHOLD = 150;
 const UI_HIDE_OFFSET = 160;
 
 interface PhotoViewerModalProps {
+  /** Render inside an already-open native modal without opening another window. */
+  inline?: boolean;
   /** Whether modal is visible */
   visible: boolean;
   /** Storage path of the photo */
@@ -53,6 +55,7 @@ interface PhotoViewerModalProps {
 }
 
 export function PhotoViewerModal({
+  inline = false,
   visible,
   photoPath,
   onClose,
@@ -388,13 +391,14 @@ export function PhotoViewerModal({
 
   return (
     <Modal
+      inline={inline}
       visible={visible}
       animationType="fade"
       transparent
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle="light-content" />
       <GestureHandlerRootView style={styles.flex}>
         <Animated.View style={[styles.container, backdropAnimatedStyle]}>
           {/* Header with proper safe area */}

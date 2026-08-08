@@ -92,6 +92,7 @@ describe('P0-S9 notlar RLS permission migration', () => {
       '4af65ae3291e5ab8f9fe845a4bb8bf67',
       'b18f54ff8dabc0d3dc4e2b59b2a952be',
       'f8aebb82851b89301f6679f92a217e96',
+      '14226a59d292a065f601dacde8baec17',
     ]) {
       expect(executableSql).toContain(fingerprint);
     }

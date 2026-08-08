@@ -6,7 +6,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Check } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -47,7 +47,7 @@ export function EntityPickerModal({
 }: EntityPickerModalProps) {
   const { t } = useTranslation(['common']);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   if (!visible) return null;
 

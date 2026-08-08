@@ -7,7 +7,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
+import * as Crypto from 'expo-crypto';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys, invalidateRelatedQueries } from '@/lib/queryKeys';
@@ -35,7 +35,10 @@ import {
   EMPTY_IMPORT_RESULT,
   EMPTY_PROGRESS,
 } from './useDataImport.types';
-import { safeIncrementBalance, calculateBalanceChanges } from './useImportBalance';
+import {
+  applyImportOpeningBalance,
+  createImportedIslemAtomically,
+} from '@/lib/importFinancialSafety';
 import { useImportDuplicates } from './useImportDuplicates';
 import { useExistingEntities, useImportCategories, useImportAccounts, useImportClients, useImportPersonel } from './useImportEntities';
 
@@ -87,7 +90,6 @@ export function useDataImport() {
    */
   const importTransactions = useCallback(async (
     transactions: ParsedTransaction[],
-    accountMappings: Record<string, AccountMapping>,
     idMaps: EntityIdMap,
     skipDuplicates: boolean = false,
     duplicatesMap: Map<number, import('./useDataImport.types').DuplicateInfo> = new Map()
@@ -299,6 +301,7 @@ export function useDataImport() {
           }
 
           islemler.push({
+            id: Crypto.randomUUID(),
             isletme_id: isletme.id,
             type: islemType,
             amount: finalAmount,
@@ -321,106 +324,51 @@ export function useDataImport() {
         }
       }
 
-      // Batch insert
+      // Her satır canonical atomik motorla yazılır: işlem + tüm bakiye bacakları
+      // tek PostgreSQL transaction'ıdır. UUID istemcide bir kez üretildiği için
+      // kayıp HTTP cevabı sonrası kontrollü tekrar çift işlem/bakiye yazamaz.
       if (islemler.length > 0) {
-        const { data: insertedData, error } = await supabase
-          .from('islemler')
-          .insert(islemler)
-          .select('id');
+        const atomicItems = islemler.map((input, index) => ({
+          input,
+          sourceIndex: islemIndices[index],
+        }));
 
-        if (error) {
-          errors.push(`Batch insert hatası: ${error.message}`);
-          islemIndices.forEach((idx) => {
-            const tx = transactions[idx];
-            skippedTransactions.push({ transaction: tx, reason: renderSkipReason({ code: 'dbError', params: { message: error.message } }, 'dbError'), rowNumber: idx + 2 });
-          });
-          skipped += islemler.length;
-        } else {
-          const actualCreated = insertedData?.length ?? 0;
-          created += actualCreated;
-          if (insertedData) {
-            insertedData.forEach(row => { if (row.id) transactionIds.push(row.id); });
-          }
-
-          const notInserted = islemler.length - actualCreated;
-          if (notInserted > 0) {
-            errors.push(`${notInserted} işlem sessizce başarısız oldu (RLS/constraint?)`);
-            skipped += notInserted;
-          }
-
-          // Bakiye güncelleme (aggregate yaklaşım)
-          if (actualCreated > 0) {
-            setProgress(p => ({
-              ...p,
-              phase: 'balances',
-              message: `${translationsRef.current.balances} (${chunkIndex + 1}/${totalChunks})`,
-            }));
-
-            const aggregatedChanges = new Map<string, number>();
-            const balanceUpdateItems = islemler.slice(0, Math.min(actualCreated, islemler.length));
-            for (const islem of balanceUpdateItems) {
-              const changes = calculateBalanceChanges(islem);
-              for (const [key, delta] of changes) {
-                aggregatedChanges.set(key, (aggregatedChanges.get(key) || 0) + delta);
+        // 500 paralel native fetch açmak yerine kontrollü eşzamanlılık: toplu
+        // import performansı korunur, auth/socket ve DB connection havuzu şişmez.
+        const waves = chunkArray(atomicItems, 20);
+        for (const wave of waves) {
+          const results = await Promise.all(
+            wave.map(async ({ input, sourceIndex }) => {
+              try {
+                const row = await createImportedIslemAtomically(isletme.id, input);
+                return { ok: true as const, row, sourceIndex };
+              } catch (error) {
+                return { ok: false as const, error, sourceIndex };
               }
+            }),
+          );
+
+          for (const result of results) {
+            if (result.ok) {
+              created += 1;
+              transactionIds.push(result.row.id);
+              continue;
             }
 
-            const entries = Array.from(aggregatedChanges.entries());
-            const successfulUpdates: Array<{ key: string; amount: number }> = [];
-            let balanceUpdateFailCount = 0;
-            const balanceErrors: string[] = [];
-
-            const AGGREGATE_BATCH_SIZE = 20;
-            for (let i = 0; i < entries.length; i += AGGREGATE_BATCH_SIZE) {
-              const batch = entries.slice(i, i + AGGREGATE_BATCH_SIZE);
-              const results = await Promise.all(
-                batch.map(([key, amount]) => {
-                  const roundedAmount = Math.round(amount * 100) / 100;
-                  const [tableName, rowId] = key.split('/');
-                  return safeIncrementBalance(tableName, rowId, roundedAmount)
-                    .then(() => ({ success: true as const, key, amount: roundedAmount }))
-                    .catch((err) => ({ success: false as const, key, amount: roundedAmount, error: err instanceof Error ? err.message : String(err) }));
-                })
-              );
-
-              for (const r of results) {
-                if (r.success) {
-                  successfulUpdates.push({ key: r.key, amount: r.amount });
-                } else {
-                  balanceUpdateFailCount++;
-                  balanceErrors.push(`${r.key}: ${r.error}`);
-                }
-              }
-            }
-
-            // Rollback on balance failure
-            if (balanceUpdateFailCount > 0) {
-              for (const { key, amount } of successfulUpdates) {
-                try {
-                  const [tableName, rowId] = key.split('/');
-                  await safeIncrementBalance(tableName, rowId, -amount);
-                } catch (reverseErr) {
-                  errors.push(`Bakiye rollback başarısız (${key}): ${reverseErr instanceof Error ? reverseErr.message : String(reverseErr)}`);
-                }
-              }
-
-              const chunkTxIds = insertedData?.map(row => row.id).filter(Boolean) || [];
-              if (chunkTxIds.length > 0) {
-                const { error: deleteError } = await supabase.from('islemler').delete().in('id', chunkTxIds);
-                if (deleteError) {
-                  errors.push(`Rollback hatası - işlemler silinemedi: ${deleteError.message}`);
-                } else {
-                  created -= chunkTxIds.length;
-                  skipped += chunkTxIds.length;
-                  chunkTxIds.forEach(fId => {
-                    const idx = transactionIds.indexOf(fId);
-                    if (idx !== -1) transactionIds.splice(idx, 1);
-                  });
-                  errors.push(`${chunkTxIds.length} işlem bakiye hatası nedeniyle geri alındı`);
-                }
-              }
-              balanceErrors.forEach(e => errors.push(`Bakiye hatası: ${e}`));
-            }
+            skipped += 1;
+            const tx = transactions[result.sourceIndex];
+            const message = result.error instanceof Error
+              ? result.error.message
+              : String(result.error);
+            errors.push(`İşlem hatası: ${message}`);
+            skippedTransactions.push({
+              transaction: tx,
+              reason: renderSkipReason(
+                { code: 'dbError', params: { message } },
+                'dbError',
+              ),
+              rowNumber: tx?.rowNumber || result.sourceIndex + 2,
+            });
           }
         }
       }
@@ -576,14 +524,17 @@ export function useDataImport() {
           const existingId = existingAccounts.get(key);
           const isNewlyCreated = existingId ? accountResult.createdIds.includes(existingId) : false;
           if (existingId && !isNewlyCreated) {
-            const { data: hesapData } = await supabase.from('hesaplar').select('id, balance, initial_balance').eq('id', existingId).single();
-            if (hesapData) {
-              if (hesapData.initial_balance && hesapData.initial_balance !== 0) {
-                balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.accountBalanceAlreadySet', { balance: hesapData.initial_balance }), rowNumber });
-              } else {
-                await supabase.from('hesaplar').update({ balance: (hesapData.balance || 0) + balanceValue, initial_balance: balanceValue }).eq('id', existingId).eq('isletme_id', isletme!.id);
-                startingBalancesUpdatedCount++;
-              }
+            const openingResult = await applyImportOpeningBalance({
+              isletmeId: isletme.id,
+              entityType: 'hesap',
+              entityId: existingId,
+              amount: balanceValue,
+              replaceExisting: false,
+            });
+            if (openingResult.applied) {
+              startingBalancesUpdatedCount++;
+            } else {
+              balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.accountBalanceAlreadySet', { balance: openingResult.existing_initial_balance }), rowNumber });
             }
           }
         }
@@ -595,32 +546,17 @@ export function useDataImport() {
           const existingId = existingClients.get(key);
           const isNewlyCreated = existingId ? clientResult.createdIds.includes(existingId) : false;
           if (existingId && !isNewlyCreated) {
-            const [{ data: cariData }, { data: cariTransactions }] = await Promise.all([
-              supabase.from('cariler').select('id, balance').eq('id', existingId).single(),
-              supabase.from('islemler').select('type, amount').eq('cari_id', existingId),
-            ]);
-            if (cariData) {
-              let cariTxEffect = 0;
-              cariTransactions?.forEach(t => {
-                const amt = Number(t.amount) || 0;
-                if (t.type === 'cari_alis') cariTxEffect -= amt;
-                else if (t.type === 'cari_odeme') cariTxEffect += amt;
-                else if (t.type === 'cari_satis') cariTxEffect += amt;
-                else if (t.type === 'cari_tahsilat') cariTxEffect -= amt;
-                else if (t.type === 'cari_alis_iade') cariTxEffect += amt;
-                else if (t.type === 'cari_satis_iade') cariTxEffect -= amt;
-              });
-              const cariInitialBalance = (cariData.balance || 0) - cariTxEffect;
-              if (cariInitialBalance !== 0) {
-                balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.clientBalanceAlreadySet', { balance: cariInitialBalance }), rowNumber });
-              } else {
-                // Atomik delta uygula: bu dalda mevcut bakiye === cariTxEffect olduğundan
-                // hedef (balanceValue + cariTxEffect) için uygulanacak delta tam olarak
-                // balanceValue'dur. Mutlak SET yerine increment_balance RPC'si kullanarak
-                // eşzamanlı bir yazımın sessizce ezilmesini (race) önlüyoruz.
-                await supabase.rpc('increment_balance', { table_name: 'cariler', row_id: existingId, amount: balanceValue });
-                startingBalancesUpdatedCount++;
-              }
+            const openingResult = await applyImportOpeningBalance({
+              isletmeId: isletme.id,
+              entityType: 'cari',
+              entityId: existingId,
+              amount: balanceValue,
+              replaceExisting: false,
+            });
+            if (openingResult.applied) {
+              startingBalancesUpdatedCount++;
+            } else {
+              balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.clientBalanceAlreadySet', { balance: openingResult.existing_initial_balance }), rowNumber });
             }
           }
         }
@@ -631,29 +567,17 @@ export function useDataImport() {
           const existingId = existingPersonel.get(key);
           const isNewlyCreated = existingId ? personelResult.createdIds.includes(existingId) : false;
           if (existingId && !isNewlyCreated) {
-            const [{ data: personelData }, { data: personelTransactions }] = await Promise.all([
-              supabase.from('personel').select('id, balance').eq('id', existingId).single(),
-              supabase.from('islemler').select('type, amount').eq('personel_id', existingId),
-            ]);
-            if (personelData) {
-              let personelTxEffect = 0;
-              personelTransactions?.forEach(t => {
-                const amt = Number(t.amount) || 0;
-                if (t.type === 'personel_gider') personelTxEffect -= amt;
-                else if (t.type === 'personel_odeme') personelTxEffect += amt;
-                else if (t.type === 'personel_tahsilat') personelTxEffect -= amt;
-                else if (t.type === 'personel_satis') personelTxEffect += amt;
-              });
-              const personelInitialBalance = (personelData.balance || 0) - personelTxEffect;
-              if (personelInitialBalance !== 0) {
-                balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.staffBalanceAlreadySet', { balance: personelInitialBalance }), rowNumber });
-              } else {
-                // Atomik delta uygula (cari ile aynı mantık): bu dalda mevcut bakiye ===
-                // personelTxEffect olduğundan uygulanacak delta tam olarak balanceValue'dur.
-                // increment_balance RPC'si ile race koşulunda para kaybını önlüyoruz.
-                await supabase.rpc('increment_balance', { table_name: 'personel', row_id: existingId, amount: balanceValue });
-                startingBalancesUpdatedCount++;
-              }
+            const openingResult = await applyImportOpeningBalance({
+              isletmeId: isletme.id,
+              entityType: 'personel',
+              entityId: existingId,
+              amount: balanceValue,
+              replaceExisting: false,
+            });
+            if (openingResult.applied) {
+              startingBalancesUpdatedCount++;
+            } else {
+              balanceSkippedTransactions.push({ transaction: tx, reason: i18n.t('settings:dataImport.skipReasons.staffBalanceAlreadySet', { balance: openingResult.existing_initial_balance }), rowNumber });
             }
           }
         }
@@ -667,7 +591,7 @@ export function useDataImport() {
         personel: personelResult.map,
       };
 
-      const txResult = await importTransactions(preview.transactions, accountMappings, idMaps, options.skipDuplicates || false, duplicates);
+      const txResult = await importTransactions(preview.transactions, idMaps, options.skipDuplicates || false, duplicates);
 
       // 7. Cache invalidate & refetch
       setProgress(p => ({

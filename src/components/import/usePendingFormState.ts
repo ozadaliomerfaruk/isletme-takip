@@ -15,7 +15,7 @@ import {
   Easing,
 } from 'react-native';
 import { roundCurrency, cleanAmountInput, formatAmountForInput } from '@/lib/currency';
-import { ensureValidDate } from '@/lib/date';
+import { ensureValidTransactionDate, parseDateFromDB } from '@/lib/date';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCariler } from '@/hooks/useCariler';
 import { usePersonelList } from '@/hooks/usePersonel';
@@ -77,7 +77,7 @@ export function usePendingFormState({ pendingIslem, visible, onDismiss }: Pendin
   const amountInputRef = useRef<TextInput>(null);
 
   // Memoized safe date
-  const safeDate = useMemo(() => ensureValidDate(date), [date]);
+  const safeDate = useMemo(() => ensureValidTransactionDate(date), [date]);
 
   // Initialize form when pendingIslem changes
   useEffect(() => {
@@ -99,10 +99,7 @@ export function usePendingFormState({ pendingIslem, visible, onDismiss }: Pendin
 
       const dateStr = corrections.date ?? raw.date;
       if (dateStr) {
-        const parsed = new Date(dateStr);
-        if (!isNaN(parsed.getTime())) {
-          setDate(parsed);
-        }
+        setDate(ensureValidTransactionDate(parseDateFromDB(String(dateStr))));
       }
 
       setHesapId(corrections.hesap_id ?? null);

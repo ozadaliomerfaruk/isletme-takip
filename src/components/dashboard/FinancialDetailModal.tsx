@@ -102,7 +102,12 @@ export function FinancialDetailModal({ visible, onDismiss }: FinancialDetailModa
   }, [canAccessModule, t, onDismiss, router, period, periodOffset, startDate, endDate]);
 
   return (
-    <BottomSheet visible={visible} onDismiss={onDismiss} snapPoints={[0.72]}>
+    <BottomSheet
+      visible={visible}
+      onDismiss={onDismiss}
+      snapPoints={[0.72]}
+      openAnimation="native-slide"
+    >
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false} bounces={false}>
         {/* Date Navigation */}
         <View style={styles.dateNav}>

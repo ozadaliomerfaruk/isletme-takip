@@ -10,6 +10,8 @@
   "form": {
     "name": "Ürün Adı",
     "code": "Ürün Kodu",
+    "brand": "Marka",
+    "brandPlaceholder": "İsteğe bağlı",
     "unit": "Birim",
     "vatRate": "KDV Oranı",
     "purchasePrice": "Alış Fiyatı",
@@ -197,6 +199,7 @@
     "product": "Ürün",
     "movementType": "Hareket Tipi",
     "client": "Cari",
+    "brand": "Marka",
     "quantity": "Miktar",
     "unit": "Birim",
     "unitPrice": "Birim Fiyat",
@@ -226,6 +229,7 @@
       "columns": {
         "name": "Ürün Adı",
         "code": "Ürün Kodu",
+        "brand": "Marka",
         "category": "Kategori",
         "unit": "Birim",
         "stock": "Stok",

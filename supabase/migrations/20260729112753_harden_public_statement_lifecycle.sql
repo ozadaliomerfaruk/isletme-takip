@@ -57,6 +57,9 @@ DECLARE
   v_policies_md5          text;
   v_indexes_md5           text;
   v_acl_md5               text;
+  v_create_md5            text;
+  v_cancel_md5            text;
+  v_resolver_md5          text;
   v_user_trigger_count    bigint;
   v_active_duplicate_count bigint;
 BEGIN
@@ -188,6 +191,12 @@ BEGIN
   FROM pg_catalog.pg_trigger AS trigger_row
   WHERE trigger_row.tgrelid = v_table_oid;
 
+  SELECT
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_create_oid)),
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_cancel_oid)),
+    pg_catalog.md5(pg_catalog.pg_get_functiondef(v_resolver_oid))
+  INTO v_create_md5, v_cancel_md5, v_resolver_md5;
+
   IF v_columns_md5 IS DISTINCT FROM
        '9836499cea373e719c7cb8c8288c8e7f'
      OR v_constraints_md5 IS DISTINCT FROM
@@ -196,25 +205,47 @@ BEGIN
        '71892c1efea89373200c887b20321904'
      OR v_indexes_md5 IS DISTINCT FROM
        'cf71a1041f0bd1ef3f4f05a3b03b550c'
-     OR v_acl_md5 IS DISTINCT FROM
-       '46875263bd6598c4534e2df7d1847a5e'
+     OR v_acl_md5 NOT IN (
+       -- Denetlenen canli snapshot.
+       '46875263bd6598c4534e2df7d1847a5e',
+       -- Temiz PostgreSQL 17 migration replay snapshot'i.
+       'dd7b8e47a159b5b3bc4c7a7ee584b350'
+     )
      OR v_user_trigger_count IS DISTINCT FROM 0 THEN
     RAISE EXCEPTION
-      'P0-S10 drift: tablo kolon/constraint/policy/index/ACL/trigger snapshot degisti'
+      'P0-S10 drift: tablo snapshot degisti '
+      '(columns=%, constraints=%, policies=%, indexes=%, acl=%, triggers=%)',
+      v_columns_md5,
+      v_constraints_md5,
+      v_policies_md5,
+      v_indexes_md5,
+      v_acl_md5,
+      v_user_trigger_count
       USING ERRCODE = '55000';
   END IF;
 
-  IF (
-    SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_create_oid))
-  ) IS DISTINCT FROM 'd9a2ef379260e4b5fd1d7ec795ddd7ea'
-     OR (
-       SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_cancel_oid))
-     ) IS DISTINCT FROM '1b75693d54ee84a30c98977e1c6edb66'
-     OR (
-       SELECT pg_catalog.md5(pg_catalog.pg_get_functiondef(v_resolver_oid))
-     ) IS DISTINCT FROM 'f8aebb82851b89301f6679f92a217e96' THEN
+  IF v_create_md5 NOT IN (
+       -- Denetlenen canli snapshot.
+       'd9a2ef379260e4b5fd1d7ec795ddd7ea',
+       -- Temiz PostgreSQL 17 migration replay snapshot'i.
+       '0296626ae94c6c3fe3894b1c0b18ff00',
+       -- Güncel temiz PostgreSQL 17 replay snapshot'i.
+       '18d792c2e4f5a65fa23aceb808320cc0'
+     )
+     OR v_cancel_md5 NOT IN (
+       '1b75693d54ee84a30c98977e1c6edb66',
+       '8fe983de336880545a5d758e5b7bab14'
+     )
+     OR v_resolver_md5 NOT IN (
+       'f8aebb82851b89301f6679f92a217e96',
+       '14226a59d292a065f601dacde8baec17'
+     ) THEN
     RAISE EXCEPTION
-      'P0-S10 drift: RPC/resolver govdesi snapshot ile eslesmiyor'
+      'P0-S10 drift: RPC/resolver govdesi snapshot ile eslesmiyor '
+      '(create=%, cancel=%, resolver=%)',
+      v_create_md5,
+      v_cancel_md5,
+      v_resolver_md5
       USING ERRCODE = '55000';
   END IF;
 
@@ -227,8 +258,12 @@ BEGIN
       AND function_row.provolatile = 'v'
       AND function_row.proconfig = ARRAY['search_path=public']::text[]
       AND pg_catalog.pg_get_function_result(function_row.oid) = 'jsonb'
-      AND function_row.proacl::text =
-        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+      AND function_row.proacl::text IN (
+        -- Denetlenen canli snapshot.
+        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}',
+        -- Temiz replay: 20260720210000 yalniz authenticated rolune EXECUTE verir.
+        '{postgres=X/postgres,authenticated=X/postgres}'
+      )
   ) OR NOT EXISTS (
     SELECT 1
     FROM pg_catalog.pg_proc AS function_row
@@ -238,8 +273,12 @@ BEGIN
       AND function_row.provolatile = 'v'
       AND function_row.proconfig = ARRAY['search_path=public']::text[]
       AND pg_catalog.pg_get_function_result(function_row.oid) = 'integer'
-      AND function_row.proacl::text =
-        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+      AND function_row.proacl::text IN (
+        -- Denetlenen canli snapshot.
+        '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}',
+        -- Temiz replay: 20260720210000 yalniz authenticated rolune EXECUTE verir.
+        '{postgres=X/postgres,authenticated=X/postgres}'
+      )
   ) THEN
     RAISE EXCEPTION
       'P0-S10 drift: mevcut RPC owner/SECDEF/ACL/imza ayari degisti'

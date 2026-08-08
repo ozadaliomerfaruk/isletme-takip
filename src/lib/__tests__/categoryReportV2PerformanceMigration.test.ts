@@ -46,7 +46,13 @@ describe('P0-S8 category report v2 performance correction migration', () => {
       '90f07fe33af89462f0dcc3a03f6790e8',
     );
     expect(executableSql).toContain(
+      'ee3cb313963822927288fdbd26a8e469',
+    );
+    expect(executableSql).toContain(
       '41ac22948a7b42115976878d4cfca98f',
+    );
+    expect(executableSql).toContain(
+      'f5e8a86be84f5464bcdae9b136c942f5',
     );
     expect(executableSql).toContain(
       "'{postgres=X/postgres,authenticated=X/postgres}'",

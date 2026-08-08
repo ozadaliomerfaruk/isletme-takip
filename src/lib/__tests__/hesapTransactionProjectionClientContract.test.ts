@@ -125,7 +125,7 @@ describe('P0-S7 hesap islem projection istemci sozlesmesi', () => {
       'if (!useSharedProjection) return rows;',
     );
     expect(detail).toMatch(
-      /if \(isOwner\) return;[\s\S]*?setShowCopyBar\(false\);/,
+      /if \(isOwner && canMutateDetailHistory\) return;[\s\S]*?setShowCopyBar\(false\);/,
     );
     expect(detail).not.toContain('setShowShareOptions(false);\n    setShowCopyBar(false);');
   });
@@ -143,12 +143,14 @@ describe('P0-S7 hesap islem projection istemci sozlesmesi', () => {
     expect(detail).toContain("canDelete('islemler'");
     expect(detail).toContain("canUpdate('urunler'");
     expect(detail).toContain("canDelete('urunler'");
-    expect(detail).toContain('const canCopyItem = isOwner');
     expect(detail).toMatch(
-      /visible=\{showEditBar && !!editTransactionId && canUpdateTransaction\(editTransactionId\)\}/,
+      /const canCopyItem =[\s\S]{0,100}canMutateDetailHistory && isOwner && canCreateTransactions/,
     );
     expect(detail).toMatch(
-      /\{isOwner && \(\s*<QuickTransactionBar[\s\S]*?copySourceId=/,
+      /visible=\{canMutateDetailHistory && showEditBar && !!editTransactionId && canUpdateTransaction\(editTransactionId\)\}/,
+    );
+    expect(detail).toMatch(
+      /\{canMutateDetailHistory && isOwner && \(\s*<QuickTransactionBar[\s\S]*?copySourceId=/,
     );
   });
 

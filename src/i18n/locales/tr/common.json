@@ -157,7 +157,9 @@
     "clearFilters": "Filtreleri Temizle",
     "noResultsWithFilters": "Filtrelerinizi genişletin veya farklı bir terim deneyin",
     "clearRecentSearches": "Temizle",
-    "resultCount": "{{count}} sonuç bulundu"
+    "resultCount": "{{count}} sonuç bulundu",
+    "resultCountAtLeast": "En az {{count}} sonuç bulundu",
+    "refineForMoreResults": "50'den fazla işlem bulundu. Daha fazlası için aramanızı daraltın."
   },
   "select": {
     "selectCategory": "Kategori seç",
@@ -495,7 +497,9 @@
       "clientStaff": "CARİ/PERSONEL",
       "sheetName": "Rapor",
       "incomeFileName": "Gelir_Raporu",
-      "expenseFileName": "Gider_Raporu"
+      "expenseFileName": "Gider_Raporu",
+      "comparisonSheetName": "Karsilastirma",
+      "comparisonFileName": "Karsilastirma_Raporu"
     },
     "productExcel": {
       "reportTitle": "Alış-Satış Raporu",
@@ -510,6 +514,34 @@
       "net": "Net",
       "sheetName": "Alis_Satis",
       "fileName": "Alis_Satis_Raporu"
+    },
+    "priceChangeExcel": {
+      "reportTitle": "Ürün Fiyat Değişimleri Raporu",
+      "productName": "ÜRÜN ADI",
+      "unit": "BİRİM",
+      "currency": "PARA BİRİMİ",
+      "referencePrice": "REFERANS FİYAT",
+      "previousPrice": "ÖNCEKİ FİYAT",
+      "currentPrice": "GÜNCEL FİYAT",
+      "periodChange": "DÖNEM FARKI",
+      "periodChangePercent": "DÖNEM ORANI",
+      "higherPriceQuantity": "YÜKSEK FİYATLI MİKTAR",
+      "lowerPriceQuantity": "İNDİRİMLİ FİYATLI MİKTAR",
+      "extraCost": "EK MALİYET",
+      "extraCostBase": "EK MALİYET (ANA PARA)",
+      "estimatedSavings": "İNDİRİMDEN KAZANÇ",
+      "estimatedSavingsBase": "KAZANÇ (ANA PARA)",
+      "changeCount": "GEÇİŞ SAYISI",
+      "lastChangeDate": "SON DEĞİŞİM",
+      "supplier": "SON TEDARİKÇİ",
+      "supplierChanged": "TEDARİKÇİ DEĞİŞTİ",
+      "brand": "SON MARKA",
+      "brandChanged": "MARKA DEĞİŞTİ",
+      "yes": "Evet",
+      "no": "Hayır",
+      "total": "TOPLAM",
+      "sheetName": "Fiyat_Degisimleri",
+      "fileName": "Urun_Fiyat_Degisimleri"
     },
     "cashFlowExcel": {
       "reportTitle": "Nakit Akışı Raporu",

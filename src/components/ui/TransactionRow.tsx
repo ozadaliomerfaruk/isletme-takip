@@ -37,6 +37,8 @@ export interface TransactionRowProps {
   id: string;
   type: IslemType;
   amount: number | string;
+  /** Rapor merceği gibi özel bir birim gerektiğinde varsayılan para formatını ezer. */
+  amountText?: string;
   /** Satırda gösterilecek SAAT (ör. "14:30") — gün üstteki ayraçta olduğundan satırda
       yalnız saat verilir; verilmezse çizilmez (kategori raporu tam tarih geçebilir). */
   date?: string;
@@ -84,6 +86,7 @@ export const TransactionRow = memo(function TransactionRow({
   id,
   type,
   amount,
+  amountText,
   date,
   typeLabel,
   entityText,
@@ -120,9 +123,11 @@ export const TransactionRow = memo(function TransactionRow({
   const prefix = overridePrefix ?? getTransactionPrefix(type);
   const numAmount = typeof amount === 'string' ? toNumber(amount) : amount;
   const isLeave = isLeaveType(type);
-  const formattedAmount = isLeave
-    ? `${Math.abs(numAmount)} ${t('staff:leave.days')}`
-    : formatCurrency(Math.abs(numAmount), currency);
+  const formattedAmount = amountText ?? (
+    isLeave
+      ? `${Math.abs(numAmount)} ${t('staff:leave.days')}`
+      : formatCurrency(Math.abs(numAmount), currency)
+  );
 
   // Yerleşim kararı: ad-öne mi tür-öne mi?
   const nameFirst = entityAsPrimary && !!entityText;
@@ -281,7 +286,7 @@ export const TransactionRow = memo(function TransactionRow({
           </Text>
         </View>
         {subAmount && (
-          <Text style={styles.subAmountText}>{subAmount}</Text>
+          <Text style={styles.subAmountText} numberOfLines={1}>{subAmount}</Text>
         )}
         {runningBalanceText ? (
           <Text
@@ -297,6 +302,7 @@ export const TransactionRow = memo(function TransactionRow({
 }, (prev, next) => {
   return prev.id === next.id
     && prev.amount === next.amount
+    && prev.amountText === next.amountText
     && prev.type === next.type
     && prev.date === next.date
     && prev.entityAsPrimary === next.entityAsPrimary
@@ -310,6 +316,7 @@ export const TransactionRow = memo(function TransactionRow({
     && prev.tertiaryText === next.tertiaryText
     && prev.hesapText === next.hesapText
     && prev.subAmount === next.subAmount
+    && prev.currency === next.currency
     && prev.overrideColor === next.overrideColor
     && prev.overridePrefix === next.overridePrefix
     && prev.creatorText === next.creatorText

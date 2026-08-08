@@ -3,7 +3,7 @@ import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useState, useEffect } from 'react';
 import { logEvent } from '@/lib/appEvents';
 import { View, ScrollView, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Text, TabFilter, CategoryReportCard, IncomeSourceCard, Button, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
@@ -12,17 +12,27 @@ import { PeriodNavigator } from '@/components/reports/PeriodNavigator';
 import { CustomDateRangePicker } from '@/components/reports/CustomDateRangePicker';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
 import { ConversionIncompleteWarning } from '@/components/reports/ConversionIncompleteWarning';
+import {
+  IncomeExpenseLensPicker,
+  INCOME_EXPENSE_LENS_STICKY_SPACE,
+} from '@/components/reports/IncomeExpenseLensPicker';
 import { useReportRouteState } from '@/hooks/useReportRouteState';
 import { useReportExcelExport } from '@/hooks/useReportExcelExport';
 import { useCategoryReport } from '@/hooks/useCategoryReport';
 import { useIncomeSourceReport, IncomeSourceItem } from '@/hooks/useAccountReport';
 import { PeriodType } from '@/hooks/useIslemler';
-import { formatCurrency, signedCurrencyText } from '@/lib/currency';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
+import { useSettings } from '@/hooks/useSettings';
+import {
+  formatReportLensValue,
+  IncomeExpenseLens,
+  isIncomeExpenseLens,
+  reportLensCurrency,
+} from '@/lib/reportLens';
 type ReportType = 'gelir' | 'gider';
 
 export default function GelirGiderRaporPage() {
@@ -32,15 +42,33 @@ export default function GelirGiderRaporPage() {
   const router = useRouter();
   const { t } = useTranslation(['reports', 'common']);
   const state = useReportRouteState();
+  const { currency: baseCurrency } = useSettings();
+  const { lens: lensParam } = useLocalSearchParams<{ lens?: string }>();
   const [selectedType, setSelectedType] = useState<ReportType>('gider');
+  const [selectedLens, setSelectedLens] = useState<IncomeExpenseLens>(() =>
+    baseCurrency === 'TRY' && isIncomeExpenseLens(lensParam) ? lensParam : 'nominal',
+  );
   // Yalnız GELİR görünümünde kırılım seçimi: kategoriye göre ↔ hesaba göre.
   // Gider tarafında her zaman kategori (hesap kırılımına ihtiyaç yok).
   const [gelirGroupBy, setGelirGroupBy] = useState<'kategori' | 'hesap'>('kategori');
+
+  useEffect(() => {
+    if (baseCurrency !== 'TRY' && selectedLens !== 'nominal') {
+      setSelectedLens('nominal');
+    }
+  }, [baseCurrency, selectedLens]);
+
+  useEffect(() => {
+    if (baseCurrency === 'TRY' && isIncomeExpenseLens(lensParam)) {
+      setSelectedLens(lensParam);
+    }
+  }, [baseCurrency, lensParam]);
 
   const {
     isExporting,
     canExport,
     exportReport,
+    exportLensSummary,
   } = useReportExcelExport(selectedType === 'gelir' ? 'gelir' : 'gider');
 
   const PERIOD_OPTIONS = [
@@ -54,12 +82,14 @@ export default function GelirGiderRaporPage() {
   const gelirRaporu = useCategoryReport('gelir', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
+    lens: selectedLens,
   });
 
   const giderRaporu = useCategoryReport('gider', {
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
     percentageReferenceTotal: gelirRaporu.totalAmount,
+    lens: selectedLens,
   });
 
   // GELİR KAYNAK kırılımı: hesaplar (banka/nakit/kk) + cari (kredili satış) + personel
@@ -67,6 +97,7 @@ export default function GelirGiderRaporPage() {
   const kaynakRaporu = useIncomeSourceReport({
     startDate: state.dateRange.startDate,
     endDate: state.dateRange.endDate,
+    lens: selectedLens,
   });
   // Açık/kapalı gruplar (varsayılan hepsi açık)
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -97,6 +128,7 @@ export default function GelirGiderRaporPage() {
         type: selectedType,
         startDate: state.dateRange.startDate,
         endDate: state.dateRange.endDate,
+        lens: selectedLens,
       },
     });
   };
@@ -113,18 +145,70 @@ export default function GelirGiderRaporPage() {
         type: 'gelir',
         startDate: state.dateRange.startDate,
         endDate: state.dateRange.endDate,
+        lens: selectedLens,
       },
     });
   };
 
-  const handleExport = () => {
-    exportReport(state.dateRange.startDate, state.dateRange.endDate, state.periodLabel);
-  };
-
   // Hesap görünümü yalnız GELİR + "hesap" kırılımında. Diğer tüm durumlar kategori
   // (gider→giderRaporu; gelir+kategori→gelirRaporu).
-  const showAccounts = selectedType === 'gelir' && gelirGroupBy === 'hesap';
+  const showAccounts = selectedType === 'gelir'
+    && gelirGroupBy === 'hesap';
   const catReport = selectedType === 'gider' ? giderRaporu : gelirRaporu;
+  const activeReport = showAccounts ? kaynakRaporu : catReport;
+  const historicalConversionIncomplete = selectedLens !== 'nominal'
+    && activeReport.conversionIncomplete === true;
+  const historicalMissingRateCount = selectedLens === 'nominal'
+      ? 0
+      : (activeReport.missingRateCount ?? 0);
+  const selectedLensTranslationKey = selectedLens === 'reel'
+    ? 'real'
+    : selectedLens === 'altin'
+      ? 'gold'
+      : selectedLens;
+  const selectedLensLabel = t(
+    `reports:incomeExpenseLens.${selectedLensTranslationKey}`,
+  );
+
+  const handleExport = () => {
+    if (selectedLens === 'nominal') {
+      void exportReport(
+        state.dateRange.startDate,
+        state.dateRange.endDate,
+        state.periodLabel,
+      );
+      return;
+    }
+
+    void exportLensSummary({
+      startDate: state.dateRange.startDate,
+      endDate: state.dateRange.endDate,
+      periodLabel: state.periodLabel,
+      lens: selectedLens,
+      lensLabel: selectedLensLabel,
+      lensDescription: t(
+        `reports:incomeExpenseLens.description.${selectedLens}`,
+      ),
+      dimensionLabel: showAccounts
+        ? t('reports:groupBy.account')
+        : t('reports:groupBy.category'),
+      currency: reportLensCurrency(selectedLens) ?? 'TRY',
+      rows: showAccounts
+        ? kaynakRaporu.groups.flatMap((group) => group.items.map((item) => ({
+            category: item.name,
+            transactionCount: item.count,
+            amount: item.total,
+          })))
+        : catReport.items.map((item) => ({
+            category: item.kategori?.name ?? t('reports:titles.uncategorized'),
+            transactionCount: item.count,
+            amount: item.total,
+          })),
+      totalAmount: activeReport.totalAmount,
+      conversionIncomplete: historicalConversionIncomplete,
+      missingRateCount: historicalMissingRateCount,
+    });
+  };
   // Seçili yönün dönem İADE toplamı (net'ten düşülmüştür; şeffaflık için ayrı satırda).
   const activeReturnTotal = selectedType === 'gelir' ? gelirRaporu.returnTotal : giderRaporu.returnTotal;
 
@@ -146,7 +230,10 @@ export default function GelirGiderRaporPage() {
       />
       <Screen>
         <ScrollView
-          contentContainerStyle={{ paddingBottom: contentPaddingBottom }}
+          contentContainerStyle={{
+            paddingTop: baseCurrency === 'TRY' ? INCOME_EXPENSE_LENS_STICKY_SPACE : 0,
+            paddingBottom: contentPaddingBottom,
+          }}
           showsVerticalScrollIndicator={false}
           refreshControl={
             <RefreshControl
@@ -160,9 +247,9 @@ export default function GelirGiderRaporPage() {
           {/* Kur bulunamadıysa toplamlar eksik/çevrilmemiş — sessiz kalmıyor */}
           <ConversionIncompleteWarning
             visible={
-              showAccounts
+              selectedLens === 'nominal' && (showAccounts
                 ? kaynakRaporu.conversionIncomplete
-                : catReport.conversionIncomplete
+                : catReport.conversionIncomplete)
             }
           />
 
@@ -177,6 +264,16 @@ export default function GelirGiderRaporPage() {
               }}
             />
           </View>
+
+          {historicalConversionIncomplete ? (
+            <View style={styles.historicalWarning}>
+              <Text variant="caption" color="error">
+                {t('reports:incomeExpenseLens.incomplete', {
+                  count: historicalMissingRateCount,
+                })}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Date Navigator + Gelir/Gider Summary Tabs */}
           <View style={styles.summaryBar}>
@@ -224,10 +321,11 @@ export default function GelirGiderRaporPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {signedCurrencyText(
+                  {formatReportLensValue(
                     showAccounts
                       ? kaynakRaporu.totalAmount
-                      : gelirRaporu.totalAmount
+                      : gelirRaporu.totalAmount,
+                    selectedLens,
                   )}
                 </Text>
               </TouchableOpacity>
@@ -256,7 +354,7 @@ export default function GelirGiderRaporPage() {
                   ]}
                   numberOfLines={1}
                 >
-                  {signedCurrencyText(giderRaporu.totalAmount)}
+                  {formatReportLensValue(giderRaporu.totalAmount, selectedLens)}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -266,7 +364,7 @@ export default function GelirGiderRaporPage() {
           {activeReturnTotal > 0 && (
             <View style={styles.iadeRow}>
               <Text variant="caption" color="secondary">
-                {t('reports:purchaseSales.returns')}: −{formatCurrency(activeReturnTotal)}
+                {t('reports:purchaseSales.returns')}: −{formatReportLensValue(activeReturnTotal, selectedLens)}
               </Text>
             </View>
           )}
@@ -326,7 +424,7 @@ export default function GelirGiderRaporPage() {
                         <CollapsibleGroupHeader
                           label={t(`reports:incomeSource.groups.${group.key}`, { defaultValue: group.key })}
                           count={group.items.length}
-                          amount={formatCurrency(group.total)}
+                          amount={formatReportLensValue(group.total, selectedLens)}
                           collapsed={collapsed}
                           onToggle={() => toggleGroup(group.key)}
                         />
@@ -334,6 +432,7 @@ export default function GelirGiderRaporPage() {
                           <IncomeSourceCard
                             key={`${item.kind}-${item.id}`}
                             item={item}
+                            lens={selectedLens}
                             onPress={
                               kaynakRaporu.canOpenDetails
                                 ? () => handleSourcePress(item)
@@ -376,12 +475,18 @@ export default function GelirGiderRaporPage() {
                   item={item}
                   index={index}
                   type={selectedType}
+                  lens={selectedLens}
                   onPress={() => handleCategoryPress(item.kategori?.id || null)}
                 />
               ))
             )}
           </View>
         </ScrollView>
+        <IncomeExpenseLensPicker
+          value={selectedLens}
+          onChange={setSelectedLens}
+          visible={baseCurrency === 'TRY'}
+        />
       </Screen>
     </>
   );
@@ -391,6 +496,10 @@ const styles = StyleSheet.create({
   periodFilter: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
+  },
+  historicalWarning: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
   },
   summaryBar: {
     paddingHorizontal: spacing.lg,

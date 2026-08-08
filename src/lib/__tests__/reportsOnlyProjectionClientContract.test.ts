@@ -169,7 +169,7 @@ describe('reports-only istemci dar projeksiyon sozlesmesi', () => {
       "const canOpenProductDetails = canAccessModule('urunler')",
     );
     expect(product).toMatch(
-      /headerRight: \(\) => \(\s*canExport[\s\S]*?<ReportExportButton/,
+      /\{canExport \? \(\s*<ReportExportButton/s,
     );
 
     expect(comparison).toContain(

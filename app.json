@@ -6,7 +6,7 @@
       "en": "./src/i18n/locales/en/app.json",
       "tr": "./src/i18n/locales/tr/app.json"
     },
-    "version": "1.6.1",
+    "version": "1.7.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -221,7 +221,9 @@
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
-            "minSdkVersion": 24
+            "minSdkVersion": 24,
+            "enableMinifyInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true
           }
         }
       ],

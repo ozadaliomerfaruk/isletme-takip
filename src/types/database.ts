@@ -652,6 +652,8 @@ export interface Urun {
   isletme_id: string;
   ad: string;
   kod: string | null;
+  /** Varsayılan/güncel marka. Eski şema/cache satırlarında bulunmayabilir. */
+  marka?: string | null;
   birim: BirimType;
   miktar: number;
   alis_fiyati: number;
@@ -671,6 +673,7 @@ export interface Urun {
 export interface UrunInsert {
   ad: string;
   kod?: string | null;
+  marka?: string | null;
   birim?: BirimType;
   miktar?: number;
   alis_fiyati?: number;
@@ -684,6 +687,7 @@ export interface UrunInsert {
 export interface UrunUpdate {
   ad?: string;
   kod?: string | null;
+  marka?: string | null;
   birim?: BirimType;
   alis_fiyati?: number;
   satis_fiyati?: number;
@@ -705,6 +709,8 @@ export interface UrunHareket {
   miktar: number;
   birim_fiyat: number | null;
   kdv_orani: number | null;
+  /** Bu harekette kullanılan marka anlık görüntüsü. */
+  marka?: string | null;
   onceki_miktar: number | null;
   yeni_miktar: number | null;
   aciklama: string | null;
@@ -720,6 +726,7 @@ export interface UrunHareketInsert {
   miktar: number;
   birim_fiyat?: number | null;
   kdv_orani?: number | null;
+  marka?: string | null;
   aciklama?: string | null;
   /** İş tarihi (geçmiş/ileri tarihli hareket). Verilmezse DB now() uygular.
    *  formatDateTimeForDB ile yerel tarih+offset olarak yazılmalı (aylık özet substring + görüntü doğru olsun). */

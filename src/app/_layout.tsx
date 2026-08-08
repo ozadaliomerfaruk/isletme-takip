@@ -13,6 +13,7 @@ import {
   asyncStoragePersister,
   CACHE_BUSTER,
   neverDehydrateMutation,
+  neverDehydrateQuery,
 } from '@/lib/queryClient';
 import { AuthProvider, useAuthContext } from '@/contexts/AuthContext';
 import { ToastProvider } from '@/contexts/ToastContext';
@@ -523,7 +524,7 @@ export default function RootLayout() {
           client={queryClient}
           persistOptions={{
             persister: asyncStoragePersister,
-            // Çok eski cache'i gösterme (24s'ten eskiyse baştan çek). gcTime ile eşit.
+            // Eski sürümden kalmış cache için ek yaş sınırı; s7 buster ayrıca temizler.
             maxAge: 1000 * 60 * 60 * 24,
             // Uygulama sürümü değişince cache'i geçersiz kıl (şema kayması güvenliği)
             buster: CACHE_BUSTER,
@@ -531,16 +532,9 @@ export default function RootLayout() {
               // Yazma işlemleri hiçbir koşulda diske kuyruklanmaz; reconnect'te
               // kullanıcının haberi olmadan finansal mutation oynatılmasını engeller.
               shouldDehydrateMutation: neverDehydrateMutation,
-              // Yalnız BAŞARILI sorguları diske yaz; ayrıca Map/Set gibi JSON'a
-              // serileşMEYEN verileri DIŞLA — persist edilirse JSON.stringify onları {}
-              // yapar, rehydrate'te .get/.has fonksiyon olmadığından render crash eder.
-              shouldDehydrateQuery: (query) => {
-                if (query.state.status !== 'success') return false;
-                if (query.meta?.persist === false) return false;
-                const data = query.state.data;
-                if (data instanceof Map || data instanceof Set) return false;
-                return true;
-              },
+              // AsyncStorage şifreli değildir. Tenant verisi authenticated
+              // encryption olmadan diske yazılmaz; yalnız bellek cache'i kullanılır.
+              shouldDehydrateQuery: neverDehydrateQuery,
             },
           }}
         >

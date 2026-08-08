@@ -92,6 +92,16 @@ export const styles = StyleSheet.create({
     color: colors.text,
     textAlign: 'center',
   },
+  brandInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.text,
+  },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,6 +1,6 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
-import { View, ScrollView, StyleSheet, RefreshControl, useWindowDimensions } from 'react-native';
+import { Alert, View, ScrollView, StyleSheet, RefreshControl, useWindowDimensions } from 'react-native';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { LineChart } from 'react-native-gifted-charts';
@@ -16,6 +16,13 @@ import { usePagePermission } from '@/hooks/usePagePermission';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useRefetchOnFocus } from '@/hooks/useRefetchOnFocus';
 import { useNetWorthLenses, LensMode } from '@/hooks/useNetWorthLenses';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { ReportExportButton } from '@/components/reports/ReportExportButton';
+import {
+  exportNetWorthTrendToExcel,
+  NetWorthTrendExcelTranslations,
+} from '@/lib/reportExcelExport';
+import { toErrorMessage } from '@/lib/errors';
 
 /**
  * AYLIK NET-VARLIK (GENEL DURUM) TREND RAPORU — çoklu lens (Nominal ₺ / Reel ₺ / USD / EUR /
@@ -44,7 +51,9 @@ export default function NetVarlikTrendPage() {
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'net_worth_trend' }); }, []);
   const { t } = useTranslation(['reports', 'common']);
+  const { isletme } = useAuthContext();
   const { width: windowWidth } = useWindowDimensions();
+  const [isExporting, setIsExporting] = useState(false);
 
   // Tarih aralığı: 'all' = veri girilen ilk aydan bugüne (hook veri-öncesi boş ayları kırpar),
   // '12' = son 12 ay (çok verisi olan için yakınlaşma). Varsayılan 'all' (esnaf tüm yolculuğu görür).
@@ -62,11 +71,11 @@ export default function NetVarlikTrendPage() {
   const { refreshing, onRefresh } = usePullToRefresh(refetch);
   useRefetchOnFocus([refetch]);
 
-  const RANGE_OPTIONS = [
+  const RANGE_OPTIONS = useMemo(() => [
     { label: t('reports:netWorthTrend.allTime'), value: 'all' },
     { label: t('reports:netWorthTrend.range12'), value: '12' },
-  ];
-  const LENS_OPTIONS = repricingSupported
+  ], [t]);
+  const LENS_OPTIONS = useMemo(() => (repricingSupported
     ? [
         { label: t('reports:netWorthTrend.lensNominal', { ccy: getCurrencySymbol(baseCurrency) }), value: 'nominal' },
         { label: t('reports:netWorthTrend.lensReal'), value: 'reel' },
@@ -74,13 +83,14 @@ export default function NetVarlikTrendPage() {
         { label: 'EUR', value: 'eur' },
         { label: t('reports:netWorthTrend.lensGold'), value: 'altin' },
       ]
-    : [{ label: t('reports:netWorthTrend.lensNominal', { ccy: getCurrencySymbol(baseCurrency) }), value: 'nominal' }];
-  const shortLabel: Record<LensMode, string> = {
+    : [{ label: t('reports:netWorthTrend.lensNominal', { ccy: getCurrencySymbol(baseCurrency) }), value: 'nominal' }]
+  ), [baseCurrency, repricingSupported, t]);
+  const shortLabel = useMemo<Record<LensMode, string>>(() => ({
     nominal: t('reports:netWorthTrend.shortNominal'),
     reel: t('reports:netWorthTrend.shortReal'),
     usd: 'USD', eur: 'EUR',
     altin: t('reports:netWorthTrend.shortGold'),
-  };
+  }), [t]);
 
   const chartWidth = windowWidth - spacing.lg * 4;
   // Gösterim para birimi: nominal → ana para birimi (TRY/USD/EUR/GBP); reel → TRY; usd/eur → USD/EUR;
@@ -145,9 +155,74 @@ export default function NetVarlikTrendPage() {
     );
   };
 
+  const handleExport = useCallback(async () => {
+    if (!isletme) return;
+    setIsExporting(true);
+    try {
+      const translations: NetWorthTrendExcelTranslations = {
+        reportTitle: t('reports:netWorthTrend.title'),
+        range: t('common:export.excel.period'),
+        lens: t('reports:netWorthTrend.exportLens'),
+        createdAt: t('common:export.excel.createdAt'),
+        business: t('common:export.excel.business'),
+        month: t('reports:netWorthTrend.colMonth'),
+        value: t('reports:netWorthTrend.colNet'),
+        change: t('reports:netWorthTrend.colChange'),
+        rate: t('reports:netWorthTrend.exportRate'),
+        status: t('reports:netWorthTrend.exportStatus'),
+        current: t('reports:netWorthTrend.exportCurrent'),
+        derived: t('reports:netWorthTrend.exportDerived'),
+        noRecord: t('reports:netWorthTrend.noRecord'),
+        sheetName: t('reports:netWorthTrend.exportSheetName'),
+        fileName: t('reports:netWorthTrend.exportFileName'),
+        shareDialogTitle: t('common:export.shareDialogTitle'),
+        sharingNotSupported: t('common:export.sharingNotSupported'),
+        noDataError: t('common:export.noDataToExport'),
+      };
+      await exportNetWorthTrendToExcel({
+        isletmeName: isletme.name,
+        rangeLabel: rangeMode === 'all'
+          ? t('reports:netWorthTrend.allTime')
+          : t('reports:netWorthTrend.range12'),
+        lensLabel: LENS_OPTIONS.find((option) => option.value === mode)?.label || shortLabel[mode],
+        lensDescription: t(`reports:netWorthTrend.lensDesc.${mode}`),
+        currency: dispCcy,
+        rows: lens.points.map((point, index, points) => ({
+          month: point.month,
+          value: point.value,
+          change: point.value != null && index > 0 && points[index - 1].value != null
+            ? point.value - (points[index - 1].value as number)
+            : null,
+          rate: point.rate,
+          isCurrent: point.isCurrent,
+          empty: point.empty,
+          sparse: point.sparse,
+        })),
+        footnote: `${t('reports:netWorthTrend.footnote')} ${t('reports:netWorthTrend.footnoteFx')}`,
+        translations,
+      });
+      logEvent('report_exported', { report_type: 'net_worth_trend', format: 'excel', lens: mode });
+    } catch (error) {
+      Alert.alert(t('common:status.error'), toErrorMessage(error) || t('common:errors.genericError'));
+    } finally {
+      setIsExporting(false);
+    }
+  }, [LENS_OPTIONS, dispCcy, isletme, lens.points, mode, rangeMode, shortLabel, t]);
+
   return (
     <Screen>
-      <Stack.Screen options={{ headerTitle: t('reports:netWorthTrend.title') }} />
+      <Stack.Screen
+        options={{
+          headerTitle: t('reports:netWorthTrend.title'),
+          headerRight: () => (
+            <ReportExportButton
+              onPress={handleExport}
+              isExporting={isExporting}
+              accessibilityLabel={t('common:export.shareAsExcel')}
+            />
+          ),
+        }}
+      />
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}

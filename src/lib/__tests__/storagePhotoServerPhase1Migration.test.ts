@@ -7,6 +7,9 @@ const read = (relativePath: string) =>
 const migration = read(
   'supabase/migrations/20260729184053_harden_note_photo_storage_phase1.sql',
 );
+const bucketBootstrap = read(
+  'supabase/migrations/20260122000000_islem_photos.sql',
+);
 const postgresBehaviorFixture = read(
   'docs/security/taslak/P0-S6-STORAGE-PG15-17-RLS-DAVRANIS-TESTI.sql',
 );
@@ -19,6 +22,12 @@ const stripSqlComments = (sql: string) =>
 const executableSql = stripSqlComments(migration);
 
 describe('P0-S6B Storage server phase-1 migration contract', () => {
+  it('bootstraps the private WebP bucket for clean migration replays', () => {
+    expect(bucketBootstrap).toMatch(
+      /INSERT INTO storage\.buckets[\s\S]*?'islem-photos'[\s\S]*?false[\s\S]*?512000[\s\S]*?ARRAY\['image\/webp'\]::text\[\][\s\S]*?ON CONFLICT \(id\) DO NOTHING;/,
+    );
+  });
+
   it('is additive and never rewrites or removes user rows/columns', () => {
     expect(executableSql).not.toMatch(/\bDROP\s+(TABLE|COLUMN|POLICY|FUNCTION|INDEX)\b/i);
     expect(executableSql).not.toMatch(/\bTRUNCATE\b/i);
@@ -32,8 +41,10 @@ describe('P0-S6B Storage server phase-1 migration contract', () => {
   it('locks the reviewed live Storage, bucket and P0-S9 snapshots', () => {
     expect(migration).toContain('a61023ffdcc14266e82bbe68e7e72052');
     expect(migration).toContain('943758842eb790fab98ff1186a2a943e');
+    expect(migration).toContain('8b6f814d47d54c183d42e0b85c3cce93');
     expect(migration).toContain('077a903a2d599ae99c8b11a3dc2026ea');
     expect(migration).toContain('f8aebb82851b89301f6679f92a217e96');
+    expect(migration).toContain('14226a59d292a065f601dacde8baec17');
     expect(migration).toContain("v_bucket_limit IS DISTINCT FROM 512000");
     expect(migration).toContain(
       "v_bucket_mimes IS DISTINCT FROM ARRAY['image/webp']::text[]",

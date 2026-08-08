@@ -47,6 +47,8 @@ export interface ProductReportResult {
   totalTransactions: number;
   /** Kur bulunamadığı için bazı tutarlar ham TRY kaldı → uyarı gösterilmeli. */
   conversionIncomplete?: boolean;
+  /** Seçili tarih aralığının iki sorgusu da en az bir kez başarıyla tamamlandı. */
+  isReady: boolean;
   isLoading: boolean;
   isFetching: boolean;
   refetch: () => Promise<unknown>;
@@ -56,6 +58,8 @@ export interface ProductReportResult {
 interface UseProductReportOptions {
   startDate: string;
   endDate: string;
+  /** Ağır raporu yalnız görünür/öncelikli sekme için çalıştırmaya izin verir. */
+  enabled?: boolean;
 }
 
 interface ProductReportRpcRow {
@@ -134,8 +138,15 @@ export function useProductReport(
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
-  const { startDate, endDate } = options;
+  const { startDate, endDate, enabled = true } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
+  const queryEnabled = (
+    reportsEnabled
+    && enabled
+    && !!isletme
+    && !!startDate
+    && !!endDate
+  );
 
   const islemTypes = direction === 'alis' ? PURCHASE_TYPES : SALE_TYPES;
   const returnTypes = direction === 'alis' ? PURCHASE_RETURN_TYPES : SALE_RETURN_TYPES;
@@ -168,7 +179,7 @@ export function useProductReport(
       const rows: unknown[] = Array.isArray(data) ? data : [];
       return rows.filter(isProductReportRpcRow);
     },
-    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
+    enabled: queryEnabled,
     meta: PRODUCT_REPORT_QUERY_META,
   });
 
@@ -201,7 +212,7 @@ export function useProductReport(
       return rows.filter(isProductReportRpcRow).reduce((sum, row) =>
         sum + (Number(row.toplam_tutar) || 0), 0);
     },
-    enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
+    enabled: queryEnabled,
     meta: PRODUCT_REPORT_QUERY_META,
   });
 
@@ -293,14 +304,20 @@ export function useProductReport(
 
   return {
     ...result,
-    isLoading:
+    isReady: (
       reportsEnabled
+      && !hasUnsafeQueryState
+      && mainQuery.data !== undefined
+      && returnQuery.data !== undefined
+    ),
+    isLoading:
+      queryEnabled
       && (mainQuery.isLoading || returnQuery.isLoading),
     isFetching:
-      reportsEnabled
+      queryEnabled
       && (mainQuery.isFetching || returnQuery.isFetching),
     refetch,
-    error: reportsEnabled
+    error: queryEnabled
       ? mainQuery.error || returnQuery.error
       : null,
   };

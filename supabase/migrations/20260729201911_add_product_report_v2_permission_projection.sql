@@ -108,10 +108,19 @@ BEGIN
      OR v_security_definer IS DISTINCT FROM true
      OR v_volatility IS DISTINCT FROM 'v'
      OR v_config IS DISTINCT FROM ARRAY['search_path=public']::text[]
-     OR v_acl IS DISTINCT FROM
-       '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
-     OR v_definition_md5 IS DISTINCT FROM
-       '6139dd322f98a53bfd7e4d009acb7a65'
+     OR NOT (
+       (
+         -- Denetlenen canli snapshot.
+         v_acl =
+           '{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}'
+         AND v_definition_md5 = '6139dd322f98a53bfd7e4d009acb7a65'
+       )
+       OR (
+         -- Temiz PostgreSQL 17 migration replay snapshot'i.
+         v_acl IS NULL
+         AND v_definition_md5 = 'bc29daa1d83f6afcec2ca039b4e219b2'
+       )
+     )
   THEN
     RAISE EXCEPTION
       'P0-S8 drift: get_product_report canli snapshot degisti '

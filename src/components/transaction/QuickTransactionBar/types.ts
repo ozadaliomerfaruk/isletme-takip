@@ -12,6 +12,8 @@ export type { TransactionType, TransactionTabMode };
 export interface UrunItem {
   urunId: string;
   urunAd: string;
+  /** İşlem satırındaki marka snapshot'ı; ürünün varsayılan markasından bağımsızdır. */
+  marka: string | null;
   miktar: number;
   birimFiyat: number;
   kdvOrani: number; // 0, 1, 10, 20 vb.

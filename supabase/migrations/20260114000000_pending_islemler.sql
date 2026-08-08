@@ -32,12 +32,27 @@ CREATE TABLE IF NOT EXISTS pending_islemler (
 -- Enable Row Level Security
 ALTER TABLE pending_islemler ENABLE ROW LEVEL SECURITY;
 
--- RLS Policy: Users can only access pending transactions for their own business
-CREATE POLICY "Users can manage own pending transactions"
-  ON pending_islemler FOR ALL
-  USING (isletme_id IN (
-    SELECT id FROM isletmeler WHERE user_id = auth.uid()
-  ));
+-- RLS Policy: Users can only access pending transactions for their own business.
+-- This migration historically duplicated 20260102200000, so keep replay idempotent.
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'pending_islemler'
+      AND policyname = 'Users can manage own pending transactions'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Users can manage own pending transactions"
+        ON pending_islemler FOR ALL
+        USING (isletme_id IN (
+          SELECT id FROM isletmeler WHERE user_id = auth.uid()
+        ))
+    $policy$;
+  END IF;
+END;
+$do$;
 
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_pending_islemler_isletme ON pending_islemler(isletme_id);
@@ -54,10 +69,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER pending_islemler_updated_at
-  BEFORE UPDATE ON pending_islemler
-  FOR EACH ROW
-  EXECUTE FUNCTION update_pending_islemler_updated_at();
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_trigger
+    WHERE tgrelid = 'public.pending_islemler'::regclass
+      AND tgname = 'pending_islemler_updated_at'
+      AND NOT tgisinternal
+  ) THEN
+    EXECUTE $trigger$
+      CREATE TRIGGER pending_islemler_updated_at
+        BEFORE UPDATE ON pending_islemler
+        FOR EACH ROW
+        EXECUTE FUNCTION update_pending_islemler_updated_at()
+    $trigger$;
+  END IF;
+END;
+$do$;
 
 -- Comment for documentation
 COMMENT ON TABLE pending_islemler IS 'Stores skipped transactions from Excel import for manual correction';

@@ -97,13 +97,9 @@ const birikimRow = {
 describe('useIncomeSourceReport permission projection', () => {
   const rpcMock = supabase.rpc as jest.Mock;
   const fromMock = supabase.from as jest.Mock;
-  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
     mockIsOwner = false;
     mockCanSeeAllUsersData = false;
     mockModules = {
@@ -117,10 +113,6 @@ describe('useIncomeSourceReport permission projection', () => {
       data: [cariRow, hesapRow],
       error: null,
     });
-  });
-
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
   });
 
   it('shows every report source with the Raporlar-only role', async () => {
@@ -238,6 +230,7 @@ describe('useIncomeSourceReport permission projection', () => {
   });
 
   it('does not keep successful stale totals visible after a refetch error', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     rpcMock
       .mockResolvedValueOnce({ data: [cariRow], error: null })
       .mockResolvedValueOnce({
@@ -263,9 +256,15 @@ describe('useIncomeSourceReport permission projection', () => {
       expect(hook.result.current.totalAmount).toBe(0);
       expect(hook.result.current.error).not.toBeNull();
     });
+    expect(consoleError).toHaveBeenCalledWith(
+      '[useIncomeSourceReport] RPC error:',
+      'refetch failed',
+      'XX000',
+    );
 
     hook.unmount();
     queryClient.clear();
+    consoleError.mockRestore();
   });
 
   it('uses the narrow cursor RPC for shared drill-down and rejects invalid sources', async () => {

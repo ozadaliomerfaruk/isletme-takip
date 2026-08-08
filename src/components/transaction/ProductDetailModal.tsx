@@ -1,5 +1,5 @@
-import { View, ScrollView, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
-import { Package, X } from 'lucide-react-native';
+import { View, ScrollView, TouchableOpacity, StyleSheet, useWindowDimensions } from 'react-native';
+import { Package, Tags, X } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Text, Button, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
@@ -53,7 +53,7 @@ export function ProductDetailModal({
   const isError = canSeeUrunler
     ? isFullItemsError
     : isSummaryItemsError;
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   if (!islemId) return null;
 
@@ -112,9 +112,19 @@ export function ProductDetailModal({
                   <View key={hareket.id} style={styles.item}>
                     <View style={styles.itemHeader}>
                       <Package size={16} color={colors.primary} />
-                      <Text variant="body" style={styles.itemName} numberOfLines={2}>
-                        {hareket.urunler?.ad || '-'}
-                      </Text>
+                      <View style={styles.itemTitleBlock}>
+                        <Text variant="body" style={styles.itemName} numberOfLines={2}>
+                          {hareket.urunler?.ad || '-'}
+                        </Text>
+                        {hareket.marka ? (
+                          <View style={styles.brandBadge}>
+                            <Tags size={12} color={colors.warningDark} />
+                            <Text style={styles.brandName} numberOfLines={1}>
+                              {hareket.marka}
+                            </Text>
+                          </View>
+                        ) : null}
+                      </View>
                     </View>
                     <View style={styles.itemDetails}>
                       <Text variant="caption" color="secondary">
@@ -231,7 +241,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   itemName: {
+    fontWeight: fontWeight.medium as '500',
+  },
+  itemTitleBlock: {
     flex: 1,
+    alignItems: 'flex-start',
+    gap: 3,
+  },
+  brandBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: '100%',
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.warningLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+  },
+  brandName: {
+    flexShrink: 1,
+    color: colors.warningDark,
+    fontSize: 12,
     fontWeight: fontWeight.medium as '500',
   },
   itemDetails: {

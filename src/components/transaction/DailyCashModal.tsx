@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, ScrollView, Dimensions, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Animated, TextInput, TouchableOpacity, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing, Alert, ScrollView, useWindowDimensions, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, X, Wallet, Eye, EyeOff, SlidersHorizontal } from 'lucide-react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -11,7 +11,7 @@ import { Text, Button, CategoryPicker, Modal } from '@/components/ui';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { parseCurrency, isValidAmount, formatCurrency, roundCurrency, cleanAmountInput } from '@/lib/currency';
-import { formatDateTimeForDB, ensureValidDate } from '@/lib/date';
+import { formatDateTimeForDB, ensureValidTransactionDate, getMinimumTransactionDate } from '@/lib/date';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { useHesaplar } from '@/hooks/useHesaplar';
 import { useCreateIslem } from '@/hooks/useIslemler';
@@ -57,7 +57,7 @@ export function DailyCashModal({
   const hiddenAccountsKey = isletme?.id
     ? `${HIDDEN_ACCOUNTS_KEY_PREFIX}_${isletme.id}`
     : null;
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   // Date state - initialized with time 23:59
   const [date, setDate] = useState(() => {
@@ -380,7 +380,7 @@ export function DailyCashModal({
               hesap_id: entry.hesapId,
               kategori_id: entry.kategoriId,
               description: entry.description || null,
-              date: formatDateTimeForDB(date),
+              date: formatDateTimeForDB(ensureValidTransactionDate(date)),
             })
             .then(() => entry.hesapId)
         )
@@ -447,7 +447,7 @@ export function DailyCashModal({
     if (selectedDate) {
       const newDate = new Date(selectedDate);
       newDate.setHours(23, 59, 0, 0);
-      setDate(newDate);
+      setDate(ensureValidTransactionDate(newDate));
     }
   }, []);
 
@@ -698,9 +698,10 @@ export function DailyCashModal({
                 <View style={styles.pickerContainer}>
                   <Text style={styles.pickerTitle}>{t('transactions:dailyCash.selectDate')}</Text>
                   <DateTimePickerRN
-                    value={ensureValidDate(date)}
+                    value={ensureValidTransactionDate(date)}
                     mode="date"
                     display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    minimumDate={getMinimumTransactionDate()}
                     onChange={handleDateChange}
                     locale={locale}
                     textColor={colors.text}

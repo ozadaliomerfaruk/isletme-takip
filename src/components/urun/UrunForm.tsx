@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -17,6 +17,9 @@ import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 import { BirimType, KdvOrani } from '@/types/database';
 import { formatPercent } from '@/lib/currency';
+import { useUrunler } from '@/hooks/useUrunler';
+import { BrandSuggestionChips } from '@/components/urun/BrandSuggestionChips';
+import { getProductBrandSuggestions, normalizeProductBrand } from '@/lib/productBrand';
 
 const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 
@@ -28,6 +31,7 @@ const KDV_ORANLARI: KdvOrani[] = [0, 1, 10, 20];
 export interface UrunFormValues {
   ad: string;
   kod: string;
+  marka: string;
   birim: BirimType;
   kdvOrani: KdvOrani;
   alisFiyati: string;
@@ -40,6 +44,7 @@ export interface UrunFormValues {
 const DEFAULT_VALUES: UrunFormValues = {
   ad: '',
   kod: '',
+  marka: '',
   birim: 'adet',
   kdvOrani: 0,
   alisFiyati: '',
@@ -66,6 +71,8 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
 
   const [ad, setAd] = useState(DEFAULT_VALUES.ad);
   const [kod, setKod] = useState(DEFAULT_VALUES.kod);
+  const [marka, setMarka] = useState(DEFAULT_VALUES.marka);
+  const [brandFocused, setBrandFocused] = useState(false);
   const [birim, setBirim] = useState<BirimType>(DEFAULT_VALUES.birim);
   const [kdvOrani, setKdvOrani] = useState<KdvOrani>(DEFAULT_VALUES.kdvOrani);
   const [alisFiyati, setAlisFiyati] = useState(DEFAULT_VALUES.alisFiyati);
@@ -74,6 +81,11 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
   const [kategoriId, setKategoriId] = useState<string | null>(DEFAULT_VALUES.kategoriId);
   const [aciklama, setAciklama] = useState(DEFAULT_VALUES.aciklama);
   const [errors, setErrors] = useState<{ ad?: string }>({});
+  const { data: products = [] } = useUrunler();
+  const brandSuggestions = useMemo(
+    () => getProductBrandSuggestions(products, marka),
+    [marka, products],
+  );
 
   // Düzenleme: mevcut değerleri mount SONRASI doldur. Değerleri useState initializer'da
   // mount anında vermek yerine effect ile sonradan set etmek, Input'un floating-label'ının
@@ -86,6 +98,7 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
     populatedRef.current = true;
     setAd(initialValues.ad ?? DEFAULT_VALUES.ad);
     setKod(initialValues.kod ?? DEFAULT_VALUES.kod);
+    setMarka(initialValues.marka ?? DEFAULT_VALUES.marka);
     setBirim(initialValues.birim ?? DEFAULT_VALUES.birim);
     setKdvOrani(initialValues.kdvOrani ?? DEFAULT_VALUES.kdvOrani);
     setAlisFiyati(initialValues.alisFiyati ?? DEFAULT_VALUES.alisFiyati);
@@ -104,7 +117,18 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
       return;
     }
     setErrors({});
-    onSubmit({ ad, kod, birim, kdvOrani, alisFiyati, satisFiyati, baslangicMiktar, kategoriId, aciklama });
+    onSubmit({
+      ad,
+      kod,
+      marka: normalizeProductBrand(marka) ?? '',
+      birim,
+      kdvOrani,
+      alisFiyati,
+      satisFiyati,
+      baslangicMiktar,
+      kategoriId,
+      aciklama,
+    });
   };
 
   return (
@@ -142,6 +166,26 @@ export function UrunForm({ mode, initialValues, submitting, onSubmit, onCancel }
               value={kod}
               onChangeText={setKod}
             />
+          </View>
+
+          {/* Marka — ürün kartının varsayılanıdır; işlem sırasında değiştirilebilir. */}
+          <View style={styles.section}>
+            <Input
+              label={t('products:form.brand')}
+              placeholder={t('products:form.brandPlaceholder')}
+              value={marka}
+              onChangeText={setMarka}
+              onFocus={() => setBrandFocused(true)}
+              onBlur={() => setBrandFocused(false)}
+              maxLength={120}
+              autoCapitalize="words"
+            />
+            {brandFocused && (
+              <BrandSuggestionChips
+                suggestions={brandSuggestions}
+                onSelect={setMarka}
+              />
+            )}
           </View>
 
           {/* Birim Secimi */}

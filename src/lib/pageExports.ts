@@ -1,8 +1,14 @@
 import XLSX from 'xlsx-js-style';
-import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
 import { formatDateShort, formatDateTime } from './date';
-import { getCurrencySymbol } from '@/constants/currencies';
+import {
+  excelCountCell,
+  excelDateCell,
+  excelMoneyCell,
+  excelPercentCell,
+  excelQuantityCell,
+  sanitizeExcelSheetName,
+  writeAndShareExcelWorkbook,
+} from './excelWorkbook';
 
 const thinBorder = {
   top: { style: 'thin', color: { rgb: 'CCCCCC' } },
@@ -59,42 +65,6 @@ const totalNumberStyle = {
   border: thinBorder,
 };
 
-function moneyCell(value: number, currency: string, style: object) {
-  const symbol = getCurrencySymbol(currency).replace(/"/g, '""');
-  return {
-    v: value,
-    t: 'n' as const,
-    z: `"${symbol}"#,##0.00`,
-    s: style,
-  };
-}
-
-function percentCell(value: number, style: object) {
-  return {
-    v: value / 100,
-    t: 'n' as const,
-    z: '0.00%',
-    s: style,
-  };
-}
-
-async function writeAndShare(wb: XLSX.WorkBook, fileName: string, dialogTitle: string) {
-  const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
-  const safeName = fileName.replace(/\s+/g, '_');
-  const filePath = `${FileSystem.cacheDirectory}${safeName}`;
-  await FileSystem.writeAsStringAsync(filePath, wbout, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  const isAvailable = await Sharing.isAvailableAsync();
-  if (isAvailable) {
-    await Sharing.shareAsync(filePath, {
-      mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      dialogTitle,
-      UTI: 'com.microsoft.excel.xlsx',
-    });
-  }
-}
-
 // ============================================================================
 // LEAVE HISTORY EXPORT
 // ============================================================================
@@ -127,6 +97,7 @@ export interface LeaveHistoryExportOptions {
     sheetName: string;
     fileName: string;
     dialogTitle: string;
+    sharingNotSupported: string;
     typeLabels: Record<string, string>;
   };
 }
@@ -156,11 +127,14 @@ export async function exportLeaveHistory(opts: LeaveHistoryExportOptions) {
   ws[`D${sumRow}`] = { v: '', s: headerStyle };
   ws[`E${sumRow}`] = { v: '', s: headerStyle };
   ws[`A${sumRow + 1}`] = { v: t.entitled, s: cellStyle };
-  ws[`B${sumRow + 1}`] = { v: quota.hakEdilen, s: numberCellStyle };
+  ws[`B${sumRow + 1}`] = excelQuantityCell(quota.hakEdilen, numberCellStyle);
   ws[`A${sumRow + 2}`] = { v: t.used, s: cellStyle };
-  ws[`B${sumRow + 2}`] = { v: quota.kullanilan, s: numberCellStyle };
+  ws[`B${sumRow + 2}`] = excelQuantityCell(quota.kullanilan, numberCellStyle);
   ws[`A${sumRow + 3}`] = { v: t.remaining, s: totalRowStyle };
-  ws[`B${sumRow + 3}`] = { v: quota.hakEdilen - quota.kullanilan, s: totalNumberStyle };
+  ws[`B${sumRow + 3}`] = excelQuantityCell(
+    quota.hakEdilen - quota.kullanilan,
+    totalNumberStyle,
+  );
 
   // Headers
   const hRow = sumRow + 5;
@@ -172,21 +146,26 @@ export async function exportLeaveHistory(opts: LeaveHistoryExportOptions) {
   // Data
   transactions.forEach((tx, i) => {
     const r = hRow + i;
-    ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: formatDateShort(tx.date), s: cellStyle };
+    ws[XLSX.utils.encode_cell({ r, c: 0 })] = excelDateCell(tx.date, cellStyle);
     ws[XLSX.utils.encode_cell({ r, c: 1 })] = {
       v: tx.date_end ? `${formatDateShort(tx.date)} - ${formatDateShort(tx.date_end)}` : '',
       s: cellStyle,
     };
     ws[XLSX.utils.encode_cell({ r, c: 2 })] = { v: t.typeLabels[tx.type] || tx.type, s: cellStyle };
-    ws[XLSX.utils.encode_cell({ r, c: 3 })] = { v: tx.amount, s: numberCellStyle };
+    ws[XLSX.utils.encode_cell({ r, c: 3 })] = excelQuantityCell(tx.amount, numberCellStyle);
     ws[XLSX.utils.encode_cell({ r, c: 4 })] = { v: tx.description || '', s: cellStyle };
   });
 
   ws['!ref'] = `A1:E${hRow + transactions.length}`;
   ws['!cols'] = [{ wch: 14 }, { wch: 28 }, { wch: 20 }, { wch: 10 }, { wch: 30 }];
 
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
-  await writeAndShare(wb, `${t.fileName}_${personelName}.xlsx`, t.dialogTitle);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${t.fileName}_${personelName}.xlsx`,
+    t.dialogTitle,
+    t.sharingNotSupported,
+  );
 }
 
 export interface CategoryDetailExportOptions {
@@ -222,6 +201,7 @@ export interface CategoryDetailExportOptions {
     sheetName: string;
     fileName: string;
     dialogTitle: string;
+    sharingNotSupported: string;
   };
 }
 
@@ -289,31 +269,26 @@ export async function exportCategoryDetail(opts: CategoryDetailExportOptions) {
   rows.forEach((sc, i) => {
     const r = hRow + i;
     ws[XLSX.utils.encode_cell({ r, c: 0 })] = { v: sc.name, s: cellStyle };
-    ws[XLSX.utils.encode_cell({ r, c: 1 })] = moneyCell(sc.amount, currency, numberCellStyle);
-    ws[XLSX.utils.encode_cell({ r, c: 2 })] = percentCell(sc.percentage, numberCellStyle);
-    ws[XLSX.utils.encode_cell({ r, c: 3 })] = {
-      v: sc.transactionCount,
-      t: 'n',
-      z: '0',
-      s: numberCellStyle,
-    };
+    ws[XLSX.utils.encode_cell({ r, c: 1 })] = excelMoneyCell(sc.amount, currency, numberCellStyle);
+    ws[XLSX.utils.encode_cell({ r, c: 2 })] = excelPercentCell(sc.percentage, numberCellStyle);
+    ws[XLSX.utils.encode_cell({ r, c: 3 })] = excelCountCell(sc.transactionCount, numberCellStyle);
   });
 
   const totalRow = hRow + rows.length;
   ws[XLSX.utils.encode_cell({ r: totalRow, c: 0 })] = { v: t.total, s: totalRowStyle };
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 1 })] = moneyCell(totalAmount, currency, totalNumberStyle);
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 2 })] = percentCell(100, totalNumberStyle);
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 1 })] = excelMoneyCell(totalAmount, currency, totalNumberStyle);
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 2 })] = excelPercentCell(100, totalNumberStyle);
   const totalTx = rows.reduce((sum, row) => sum + row.transactionCount, 0);
-  ws[XLSX.utils.encode_cell({ r: totalRow, c: 3 })] = {
-    v: totalTx,
-    t: 'n',
-    z: '0',
-    s: totalNumberStyle,
-  };
+  ws[XLSX.utils.encode_cell({ r: totalRow, c: 3 })] = excelCountCell(totalTx, totalNumberStyle);
 
   ws['!ref'] = `A1:D${totalRow + 1}`;
   ws['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 12 }, { wch: 14 }];
 
-  XLSX.utils.book_append_sheet(wb, ws, t.sheetName);
-  await writeAndShare(wb, `${t.fileName}_${categoryName}.xlsx`, t.dialogTitle);
+  XLSX.utils.book_append_sheet(wb, ws, sanitizeExcelSheetName(t.sheetName));
+  await writeAndShareExcelWorkbook(
+    wb,
+    `${t.fileName}_${categoryName}_${startDate}_${endDate}.xlsx`,
+    t.dialogTitle,
+    t.sharingNotSupported,
+  );
 }

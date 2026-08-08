@@ -1,5 +1,5 @@
 import { Modal } from './Modal';
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet, Animated, PanResponder, useWindowDimensions, TouchableWithoutFeedback, Platform, Keyboard, KeyboardEvent, Easing } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '@/constants/colors';
@@ -20,6 +20,11 @@ export interface BottomSheetProps {
   onSnapChange?: (index: number) => void;
   enablePanDownToClose?: boolean;
   enableBackdropDismiss?: boolean;
+  /**
+   * `native-slide`, sheet'i CategoryPicker gibi gercek RN Modal gecisiyle acar.
+   * Varsayilan ozel animasyon diger BottomSheet kullanimlarini aynen korur.
+   */
+  openAnimation?: 'custom' | 'native-slide';
 }
 
 export function BottomSheet({
@@ -32,6 +37,7 @@ export function BottomSheet({
   onSnapChange,
   enablePanDownToClose = true,
   enableBackdropDismiss = true,
+  openAnimation = 'custom',
 }: BottomSheetProps) {
   const insets = useSafeAreaInsets();
   // Yükseklik pencereyle güncellenmeli: modül kapsamında donmuş değer, iPad
@@ -244,27 +250,56 @@ export function BottomSheet({
   // Track if we've already opened for this visible state
   const hasOpenedRef = useRef(false);
 
+  // Native modal sunumu baslamadan once sheet'i son konumuna yerlestir. Aksi halde
+  // native slide ile JS translate animasyonu ust uste binip cift hareket yaratir.
+  useLayoutEffect(() => {
+    if (!visible || openAnimation !== 'native-slide') return;
+
+    translateY.setValue(getTargetY(currentSnapIndex, 0));
+    backdropOpacity.setValue(0.5);
+  }, [
+    visible,
+    openAnimation,
+    currentSnapIndex,
+    getTargetY,
+    translateY,
+    backdropOpacity,
+  ]);
+
   // Handle visibility changes — only depend on `visible`
   useEffect(() => {
     if (visible && !hasOpenedRef.current) {
       hasOpenedRef.current = true;
-      translateY.setValue(screenHeightRef.current);
-      // Açılış ActionSheet ile BİREBİR aynı eğri (400ms ease-out cubic) —
-      // yaylı giriş "pat diye oturuyor" hissi veriyordu (kullanıcı geri bildirimi);
-      // sürükleme/klavye snap'leri yay olarak kalır (animateToSnap).
-      Animated.timing(translateY, {
-        toValue: getTargetY(currentSnapIndex, 0),
-        duration: 400,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
+      if (openAnimation === 'native-slide') {
+        translateY.setValue(getTargetY(currentSnapIndex, 0));
+        backdropOpacity.setValue(0.5);
+      } else {
+        translateY.setValue(screenHeightRef.current);
+        // Açılış ActionSheet ile BİREBİR aynı eğri (400ms ease-out cubic) —
+        // yaylı giriş "pat diye oturuyor" hissi veriyordu (kullanıcı geri bildirimi);
+        // sürükleme/klavye snap'leri yay olarak kalır (animateToSnap).
+        Animated.timing(translateY, {
+          toValue: getTargetY(currentSnapIndex, 0),
+          duration: 400,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+        animateBackdrop(0.5, 300);
+      }
       currentSnapIndexRef.current = currentSnapIndex;
       onSnapChangeRef.current?.(currentSnapIndex);
-      animateBackdrop(0.5, 300);
     } else if (!visible) {
       hasOpenedRef.current = false;
     }
-  }, [visible, getTargetY, animateBackdrop, currentSnapIndex, translateY]);
+  }, [
+    visible,
+    openAnimation,
+    getTargetY,
+    animateBackdrop,
+    currentSnapIndex,
+    translateY,
+    backdropOpacity,
+  ]);
 
   // Sheet açıkken pencere yüksekliği değişirse (iPad Split View / Mac
   // penceresi) aktif snap noktasına yeniden hizala
@@ -301,7 +336,7 @@ export function BottomSheet({
     <Modal
       visible={visible}
       transparent
-      animationType="none"
+      animationType={openAnimation === 'native-slide' ? 'slide' : 'none'}
       statusBarTranslucent
       onDismiss={onModalDismiss}
     >

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useContentBottomPadding } from '@/hooks/useContentBottomPadding';
 import { useFooterBottomPadding } from '@/hooks/useFooterBottomPadding';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Pressable, ActivityIndicator, TextInput, Dimensions, TouchableWithoutFeedback } from 'react-native';
+import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Alert, TouchableOpacity, Pressable, ActivityIndicator, TextInput, useWindowDimensions, TouchableWithoutFeedback } from 'react-native';
 import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { ChevronDown, Wallet, X, Search, Check, Users, UserCheck, Bell } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
@@ -114,7 +114,7 @@ export default function IslemDuzenlePage() {
   const cariSearchInputRef = useRef<TextInput>(null);
   const personelSearchInputRef = useRef<TextInput>(null);
 
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const [errors, setErrors] = useState<{ amount?: string; hesap?: string; date?: string }>({});
 

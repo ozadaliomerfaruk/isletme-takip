@@ -1,6 +1,6 @@
 import { Modal, Text } from '@/components/ui';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, Animated, TouchableOpacity, TouchableWithoutFeedback, TextInput, Keyboard, KeyboardEvent, Alert, ActivityIndicator, Platform, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, Animated, TouchableOpacity, TouchableWithoutFeedback, TextInput, Keyboard, KeyboardEvent, Alert, ActivityIndicator, Platform, StyleSheet, ScrollView, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
@@ -14,9 +14,12 @@ import { Urun, BirimType, KdvOrani } from '@/types/database';
 import { styles } from './styles';
 import { CariLinkSection } from './CariLinkSection';
 import { toErrorMessage } from '@/lib/errors';
-import { formatDateTimeForDB, ensureValidDate, parseDateFromDB } from '@/lib/date';
+import { formatDateTimeForDB, ensureValidTransactionDate, getMinimumTransactionDate, parseDateFromDB } from '@/lib/date';
 import { useSettings } from '@/hooks/useSettings';
 import { getCurrencySymbol } from '@/constants/currencies';
+import { useUrunler } from '@/hooks/useUrunler';
+import { BrandSuggestionChips } from '@/components/urun/BrandSuggestionChips';
+import { getProductBrandSuggestions, normalizeProductBrand } from '@/lib/productBrand';
 
 import { formatCurrency, formatQuantity, formatAmountForInput, parseQuantity, parseCurrency, formatPercent } from '@/lib/currency';
 
@@ -35,6 +38,7 @@ interface QuickUrunBarProps {
   editInitialValues?: {
     miktar: number;
     birimFiyat: number | null;
+    marka?: string | null;
     urunType: UrunType;
     date?: string; // Hareketin mevcut iş tarihi (created_at) — edit formuna yüklenir
   };
@@ -58,6 +62,7 @@ export function QuickUrunBar({
   const isEditMode = mode === 'edit' && editHareketId;
   const { formatDateMedium, locale } = useDateFormat();
   const insets = useSafeAreaInsets();
+  const { height: screenHeight } = useWindowDimensions();
 
   // Refs
   const amountInputRef = useRef<TextInput>(null);
@@ -70,6 +75,7 @@ export function QuickUrunBar({
   const [urunType, setUrunType] = useState<UrunType>(defaultType);
   const [miktar, setMiktar] = useState('');
   const [birimFiyat, setBirimFiyat] = useState('');
+  const [marka, setMarka] = useState('');
   const [tarih, setTarih] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
@@ -77,6 +83,11 @@ export function QuickUrunBar({
   const [cariLinkEnabled, setCariLinkEnabled] = useState(false);
   const [selectedCariId, setSelectedCariId] = useState<string | null>(null);
   const [kdvOrani, setKdvOrani] = useState<KdvOrani>((urun?.kdv_orani ?? 0) as KdvOrani);
+  const { data: products = [] } = useUrunler(false, visible);
+  const brandSuggestions = useMemo(
+    () => getProductBrandSuggestions(products, marka),
+    [marka, products],
+  );
 
   // Calculated totals for cari link display
   const cariTotals = useMemo(() => {
@@ -138,15 +149,21 @@ export function QuickUrunBar({
         setUrunType(editInitialValues.urunType);
         setMiktar(formatAmountForInput(editInitialValues.miktar));
         setBirimFiyat(editInitialValues.birimFiyat != null ? formatAmountForInput(editInitialValues.birimFiyat) : '');
+        setMarka(editInitialValues.marka ?? urun?.marka ?? '');
       } else {
         setUrunType(defaultType);
         setMiktar('');
         // Auto-fill price based on urun type
         setBirimFiyat(getPriceForType(defaultType));
+        setMarka(urun?.marka ?? '');
       }
       // Edit modunda hareketin mevcut tarihini yükle (yoksa bugün); böylece "düzelt"te
       // tarih görünür ve değiştirilebilir.
-      setTarih(isEditMode && editInitialValues?.date ? parseDateFromDB(editInitialValues.date) : new Date());
+      setTarih(
+        isEditMode && editInitialValues?.date
+          ? ensureValidTransactionDate(parseDateFromDB(editInitialValues.date))
+          : new Date()
+      );
       setShowDatePicker(false);
       setCariLinkEnabled(false);
       setSelectedCariId(null);
@@ -175,7 +192,17 @@ export function QuickUrunBar({
     // visible=false: kapanış animasyonu handleDismiss içinde oynatılır (burada no-op).
     // Modal visible={visible} olduğundan, çıkış animasyonu BİTMEDEN parent visible=false
     // yapmaz (handleDismiss .start callback'inde onDismiss çağırır) → animasyon görünür.
-  }, [visible, defaultType, opacity, translateY]);
+  }, [
+    defaultType,
+    editInitialValues,
+    getPriceForType,
+    isEditMode,
+    opacity,
+    translateY,
+    urun?.kdv_orani,
+    urun?.marka,
+    visible,
+  ]);
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -218,10 +245,10 @@ export function QuickUrunBar({
       if (Platform.OS === 'android') {
         setShowDatePicker(false);
         if (event.type === 'set' && selectedDate) {
-          setTarih(selectedDate);
+          setTarih(ensureValidTransactionDate(selectedDate));
         }
       } else if (selectedDate) {
-        setTarih(selectedDate);
+        setTarih(ensureValidTransactionDate(selectedDate));
       }
     },
     []
@@ -245,7 +272,7 @@ export function QuickUrunBar({
         await setUrunMiktarHedef.mutateAsync({
           urun_id: urun.id,
           hedef: miktarNum,
-          created_at: formatDateTimeForDB(tarih),
+          created_at: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
           aciklama: null,
         });
         handleDismiss();
@@ -270,8 +297,9 @@ export function QuickUrunBar({
           id: editHareketId,
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
+          marka: normalizeProductBrand(marka),
           hareket_tipi: urunType,
-          created_at: formatDateTimeForDB(tarih),
+          created_at: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
         });
 
         handleDismiss();
@@ -288,8 +316,9 @@ export function QuickUrunBar({
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
           kdv_orani: kdvOrani,
+          marka: normalizeProductBrand(marka),
           cari_id: selectedCariId,
-          date: formatDateTimeForDB(tarih),
+          date: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
           // Otomatik açıklamada birimin ÇEVİRİSİ kullanılsın (sabit "adet" değil)
           birim: urun.birim,
         });
@@ -306,8 +335,9 @@ export function QuickUrunBar({
           hareket_tipi: urunType,
           miktar: miktarNum,
           birim_fiyat: fiyatNum,
+          marka: normalizeProductBrand(marka),
           aciklama: null,
-          created_at: formatDateTimeForDB(tarih),
+          created_at: formatDateTimeForDB(ensureValidTransactionDate(tarih)),
         });
 
         handleDismiss();
@@ -337,7 +367,6 @@ export function QuickUrunBar({
     : insets.bottom + TAB_BAR_HEIGHT + 10;
 
   // Constrain card height so it never overflows above the screen
-  const screenHeight = Dimensions.get('window').height;
   const cardMaxHeight = screenHeight - cardBottom - insets.top - 20;
 
   return (
@@ -419,21 +448,37 @@ export function QuickUrunBar({
 
           {/* Price Input Row (hidden for adjustment) */}
           {urunType !== 'duzeltme' && (
-            <View style={styles.inputRow}>
-              <View style={styles.amountInputContainer}>
-                <TextInput
-                  style={styles.priceInput}
-                  value={birimFiyat}
-                  onChangeText={setBirimFiyat}
-                  placeholder={`${t('products:stock.unitPrice')} (${t('common:labels.optional')})`}
-                  placeholderTextColor={colors.textMuted}
-                  keyboardType="decimal-pad"
-                  returnKeyType="done"
-                  onSubmitEditing={handleSave}
-                />
+            <>
+              <View style={styles.inputRow}>
+                <View style={styles.amountInputContainer}>
+                  <TextInput
+                    style={styles.priceInput}
+                    value={birimFiyat}
+                    onChangeText={setBirimFiyat}
+                    placeholder={`${t('products:stock.unitPrice')} (${t('common:labels.optional')})`}
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="decimal-pad"
+                    returnKeyType="next"
+                  />
+                </View>
+                <Text style={styles.unitLabel}>{getCurrencySymbol(currency)}</Text>
               </View>
-              <Text style={styles.unitLabel}>{getCurrencySymbol(currency)}</Text>
-            </View>
+              <TextInput
+                style={styles.brandInput}
+                value={marka}
+                onChangeText={setMarka}
+                placeholder={`${t('products:form.brand')} (${t('common:labels.optional')})`}
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="words"
+                maxLength={120}
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
+              />
+              <BrandSuggestionChips
+                suggestions={brandSuggestions}
+                onSelect={setMarka}
+              />
+            </>
           )}
 
           {/* Cari Link Section (hidden for adjustment and edit mode) */}
@@ -590,9 +635,10 @@ export function QuickUrunBar({
                 <View style={styles.datePickerContainer}>
                   <Text style={styles.datePickerTitle}>{t('common:date.date')}</Text>
                   <DateTimePickerRN
-                    value={ensureValidDate(tarih)}
+                    value={ensureValidTransactionDate(tarih)}
                     mode="date"
                     display="spinner"
+                    minimumDate={getMinimumTransactionDate()}
                     onChange={handleDateChange}
                     locale={locale}
                     textColor={colors.text}
@@ -614,9 +660,10 @@ export function QuickUrunBar({
 
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePickerRN
-          value={ensureValidDate(tarih)}
+          value={ensureValidTransactionDate(tarih)}
           mode="date"
           display="default"
+          minimumDate={getMinimumTransactionDate()}
           onChange={handleDateChange}
         />
       )}

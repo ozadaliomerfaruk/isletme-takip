@@ -47,6 +47,7 @@ import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBa
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius, HIT_SLOP } from '@/constants/spacing';
 import { formatCurrency, toNumber } from '@/lib/currency';
+import { formatDateForDB } from '@/lib/date';
 import { searchMatchesTr } from '@/lib/turkishTextUtils';
 import { compareBalanceListItems } from '@/lib/listSorting';
 import { useSettings } from '@/hooks/useSettings';
@@ -561,7 +562,7 @@ export default function PersonelPage() {
       ? `${t('common:export.listExport.search')}: ${debouncedSearch.trim()}`
       : undefined;
 
-    const dateStr = new Date().toISOString().slice(0, 10);
+    const dateStr = formatDateForDB(new Date());
     return {
       title: t('staff:export.staffList.title'),
       isletmeName: isletme.name || '',

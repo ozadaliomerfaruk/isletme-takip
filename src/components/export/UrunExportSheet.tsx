@@ -26,6 +26,7 @@ interface UrunExportSheetProps {
   onDismiss: () => void;
   productName: string;
   productCode?: string;
+  productBrand?: string | null;
   productUnit: string;
   productCurrency?: Currency | string;
   urunId: string;
@@ -43,6 +44,7 @@ export function UrunExportSheet({
   onDismiss,
   productName,
   productCode,
+  productBrand,
   productUnit,
   productCurrency,
   urunId,
@@ -58,6 +60,7 @@ export function UrunExportSheet({
   const { isExporting, exportExcel } = useUrunExcelExport({
     productName,
     productCode,
+    productBrand,
     productUnit,
     productCurrency,
     urunId,
@@ -206,6 +209,9 @@ export function UrunExportSheet({
           <Text style={styles.entityName}>
             {productCode ? `${productName} (${productCode})` : productName}
           </Text>
+          {productBrand ? (
+            <Text style={styles.entityBrand}>{productBrand}</Text>
+          ) : null}
         </View>
 
         {/* Period Grid */}
@@ -384,6 +390,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
+  },
+  entityBrand: {
+    marginTop: spacing.xs,
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   sectionTitle: {
     fontSize: 14,

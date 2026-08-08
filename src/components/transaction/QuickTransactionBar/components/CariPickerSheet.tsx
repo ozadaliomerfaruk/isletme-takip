@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, Dimensions, Keyboard } from 'react-native';
+import { View, TouchableOpacity, TouchableWithoutFeedback, ScrollView, useWindowDimensions, Keyboard } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { X, Search, Users, Building2, Check, Plus } from 'lucide-react-native';
 import { ActivityIndicator } from 'react-native';
@@ -22,6 +22,7 @@ interface Cari {
 export type CariPickerMode = 'customer' | 'supplier';
 
 export interface CariPickerSheetProps {
+  inline?: boolean;
   visible: boolean;
   onDismiss: () => void;
   onSelect: (cariId: string) => void;
@@ -39,6 +40,7 @@ export interface CariPickerSheetProps {
 }
 
 export function CariPickerSheet({
+  inline = false,
   visible,
   onDismiss,
   onSelect,
@@ -52,7 +54,7 @@ export function CariPickerSheet({
 }: CariPickerSheetProps) {
   const { t } = useTranslation(['clients', 'common']);
   const insets = useSafeAreaInsets();
-  const windowHeight = Dimensions.get('window').height;
+  const { height: windowHeight } = useWindowDimensions();
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -116,6 +118,7 @@ export function CariPickerSheet({
 
   return (
     <Modal
+      inline={inline}
       visible
       transparent
       animationType="slide"

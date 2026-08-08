@@ -21,6 +21,7 @@ import {
   CreditCard,
   Wallet,
   RotateCcw,
+  Tags,
 } from 'lucide-react-native';
 import { BackButton } from '@/components/ui/BackButton';
 import { Text, Card, Button, ExpandableCard, EmptyState, Screen } from '@/components/ui';
@@ -65,6 +66,7 @@ import { toErrorMessage } from '@/lib/errors';
 import { usePagePermission } from '@/hooks/usePagePermission';
 import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
 import { getListEdgePosition, getListEdgeStyle } from '@/components/ui/listEdgeStyles';
+import { canMutateEntityHistory } from '@/lib/archivedEntityHistory';
 
 // Hareket satırları yapışık; ayrım 1px gri çizgi (cariler listesi dili)
 const HareketSeparator = () => (
@@ -115,9 +117,11 @@ export default function UrunDetayPage() {
     canAccessModule,
     isOwner,
   } = usePermissions();
+  const canMutateDetailHistory = canMutateEntityHistory(urun?.is_archived);
   const canEditProduct = canUpdate('urunler', urun?.created_by ?? null);
   const canRemove = canDelete('urunler', urun?.created_by ?? null);
-  const canAddStock = canCreate('urunler');
+  const canAddStock =
+    canMutateDetailHistory && canCreate('urunler');
   const canSeeCariler = canAccessModule('cariler');
   const canSeePersonel = canAccessModule('personel');
   const canSeeHesaplar = canAccessModule('hesaplar');
@@ -169,7 +173,15 @@ export default function UrunDetayPage() {
   );
 
   const { pendingDeleteIds, requestDelete: requestDeleteHareket, undoDelete, dismissDelete, snackbar: undoSnackbar } = useUndoDelete<UrunHareketWithSource>({
-    onCommitDelete: async (hareketId) => { await deleteUrunHareket.mutateAsync(hareketId); },
+    onCommitDelete: async (hareketId) => {
+      if (!canMutateDetailHistory) {
+        throw Object.assign(
+          new Error(t('common:errors.permissionDenied')),
+          { code: '42501' as const },
+        );
+      }
+      await deleteUrunHareket.mutateAsync(hareketId);
+    },
     onError: (error) => {
       showToast(
         toErrorMessage(error, t('common:errors.permissionDenied')),
@@ -184,6 +196,7 @@ export default function UrunDetayPage() {
   const [editInitialValues, setEditInitialValues] = useState<{
     miktar: number;
     birimFiyat: number | null;
+    marka?: string | null;
     urunType: 'giris' | 'cikis';
     date?: string;
   } | undefined>(undefined);
@@ -196,7 +209,8 @@ export default function UrunDetayPage() {
     : undefined;
   // Edit modalinin izni ürün sahibinden değil, düzenlenen hareketin güncel
   // created_by değerinden gelir. Kayıt cache'ten düşerse de fail-closed kapanır.
-  const canEdit = !!selectedEditHareket
+  const canEdit = canMutateDetailHistory
+    && !!selectedEditHareket
     && canUpdate('urunler', selectedEditHareket.created_by ?? null);
   const selectedLinkedEditHareket = editTransactionId
     ? hareketler?.find(
@@ -209,7 +223,8 @@ export default function UrunDetayPage() {
     typeof selectedLinkedEditType === 'string'
     && selectedLinkedEditType.startsWith('cari_');
   const canEditSelectedLinkedTransaction =
-    !!selectedLinkedEditHareket
+    canMutateDetailHistory
+    && !!selectedLinkedEditHareket
     && getLinkedProductMutationDecision(
       selectedLinkedEditHareket,
     ).allowed;
@@ -221,6 +236,12 @@ export default function UrunDetayPage() {
     setEditHareketId(undefined);
     setEditInitialValues(undefined);
   }, [quickUrunVisible, editMode, canEdit, canAddStock]);
+
+  useEffect(() => {
+    if (!showEditBar || canEditSelectedLinkedTransaction) return;
+    setShowEditBar(false);
+    setEditTransactionId(null);
+  }, [canEditSelectedLinkedTransaction, showEditBar]);
 
   const getBirimLabel = (birim: BirimType) => {
     return t(`products:units.${birim}`);
@@ -242,13 +263,16 @@ export default function UrunDetayPage() {
 
   // Doğrudan urun hareketi düzenleme
   const handleEditDirectHareket = (hareket: UrunHareketWithSource) => {
-    const canEdit = canUpdate('urunler', hareket.created_by ?? null);
+    const canEdit =
+      canMutateDetailHistory
+      && canUpdate('urunler', hareket.created_by ?? null);
     if (!canEdit) return;
     setEditMode(true);
     setEditHareketId(hareket.id);
     setEditInitialValues({
       miktar: hareket.miktar,
       birimFiyat: hareket.birim_fiyat,
+      marka: hareket.marka ?? urun?.marka ?? null,
       urunType: hareket.hareket_tipi === 'giris' ? 'giris' : 'cikis',
       date: hareket.created_at,
     });
@@ -308,7 +332,8 @@ export default function UrunDetayPage() {
   const handleEditIslemHareket = (hareket: UrunHareketWithSource) => {
     setExpandedHareketId(null);
     if (
-      !hareket.islem_id
+      !canMutateDetailHistory
+      || !hareket.islem_id
       || !getLinkedProductMutationDecision(hareket).allowed
     ) return;
     setEditTransactionId(hareket.islem_id);
@@ -318,7 +343,10 @@ export default function UrunDetayPage() {
   // Urun hareketi silme (doğrudan girişler için)
   const handleDeleteHareket = (hareket: UrunHareketWithSource) => {
     setExpandedHareketId(null);
-    if (!canDelete('urunler', hareket.created_by ?? null)) return;
+    if (
+      !canMutateDetailHistory
+      || !canDelete('urunler', hareket.created_by ?? null)
+    ) return;
     const desc = `${hareket.hareket_tipi === 'giris' ? '↑' : '↓'} ${formatQuantity(hareket.miktar)}`;
     requestDeleteHareket(hareket.id, hareket, desc);
   };
@@ -347,10 +375,12 @@ export default function UrunDetayPage() {
     const minimalHesapName = !canSeeHesaplar
       ? minimalSourceLabel?.hesap_name
       : undefined;
-    const canEditHareket = hareket.islem_id
-      ? getLinkedProductMutationDecision(hareket).allowed
-      : canUpdate('urunler', hareket.created_by ?? null);
-    const canDeleteHareket = canDelete(
+    const canEditHareket = canMutateDetailHistory && (
+      hareket.islem_id
+        ? getLinkedProductMutationDecision(hareket).allowed
+        : canUpdate('urunler', hareket.created_by ?? null)
+    );
+    const canDeleteHareket = canMutateDetailHistory && canDelete(
       'urunler',
       hareket.created_by ?? null,
     );
@@ -454,6 +484,17 @@ export default function UrunDetayPage() {
                     <Wallet size={12} color={colors.primary} />
                     <Text style={styles.cariName} numberOfLines={1}>
                       {minimalHesapName}
+                    </Text>
+                  </View>
+                ) : null}
+                {hareket.marka ? (
+                  <View style={[styles.cariBadge, styles.markaBadge]}>
+                    <Tags size={12} color={colors.warningDark} />
+                    <Text
+                      style={[styles.cariName, styles.markaName]}
+                      numberOfLines={1}
+                    >
+                      {hareket.marka}
                     </Text>
                   </View>
                 ) : null}
@@ -573,6 +614,7 @@ export default function UrunDetayPage() {
     urun,
     canUpdate,
     canDelete,
+    canMutateDetailHistory,
     getLinkedProductMutationDecision,
     canSeeCariler,
     minimalSourceLabelByHareketId,
@@ -665,6 +707,7 @@ export default function UrunDetayPage() {
                 const birim = getBirimLabel(urun.birim);
                 const meta = [
                   urun.kod || null,
+                  urun.marka || null,
                   urun.satis_fiyati > 0 ? `${formatCurrency(urun.satis_fiyati, urun.currency)}/${birim}` : null,
                 ].filter(Boolean);
                 // Değerler tür rengine göre: alış tutarı=kırmızı (maliyet), satış
@@ -944,6 +987,7 @@ export default function UrunDetayPage() {
           onDismiss={() => setExportSheetVisible(false)}
           productName={urun.ad}
           productCode={urun.kod || undefined}
+          productBrand={urun.marka ?? null}
           productUnit={getBirimLabel(urun.birim)}
           productCurrency={urun.currency}
           urunId={urun.id}
@@ -1106,6 +1150,7 @@ const styles = StyleSheet.create({
   hareketTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: spacing.xs,
   },
   hareketActions: {
@@ -1128,6 +1173,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '500',
     maxWidth: 120,
+  },
+  markaBadge: {
+    backgroundColor: colors.warningLight,
+    borderColor: colors.warning + '30',
+  },
+  markaName: {
+    color: colors.warningDark,
+    maxWidth: 110,
   },
   divider: {
     height: 1,

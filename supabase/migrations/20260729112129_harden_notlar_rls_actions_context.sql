@@ -244,8 +244,13 @@ BEGIN
   IF v_owner IS DISTINCT FROM 'postgres'
      OR v_rls IS DISTINCT FROM true
      OR v_force_rls IS DISTINCT FROM false
-     OR v_acl IS DISTINCT FROM
-       '{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}'
+     OR v_acl NOT IN (
+       -- Denetlenen canli snapshot.
+       '{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}',
+       -- Temiz PostgreSQL 17 replay: onceki migrationlar istemci rolleri icin
+       -- yalniz tablo-seviyesi DELETE/TRUNCATE/REFERENCES/TRIGGER izinlerini birakir.
+       '{postgres=arwdDxtm/postgres,anon=Dxtm/postgres,authenticated=Dxtm/postgres,service_role=Dxtm/postgres}'
+     )
      OR v_column_count IS DISTINCT FROM 15
      OR v_column_acl_count IS DISTINCT FROM 0
      OR v_columns_md5 IS DISTINCT FROM
@@ -264,8 +269,12 @@ BEGIN
        ARRAY['search_path=pg_catalog']::text[]
      OR v_resolver_acl IS DISTINCT FROM
        '{postgres=X/postgres,authenticated=X/postgres}'
-     OR v_resolver_md5 IS DISTINCT FROM
-       'f8aebb82851b89301f6679f92a217e96'
+     OR v_resolver_md5 NOT IN (
+       -- Denetlenen canlı resolver snapshot'i.
+       'f8aebb82851b89301f6679f92a217e96',
+       -- Temiz PostgreSQL 17 migration replay resolver snapshot'i.
+       '14226a59d292a065f601dacde8baec17'
+     )
   THEN
     RAISE EXCEPTION
       'P0-S9 drift: notlar snapshot degisti '

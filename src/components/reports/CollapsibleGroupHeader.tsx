@@ -1,6 +1,6 @@
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ChevronDown, ChevronUp } from 'lucide-react-native';
-import { Text } from '@/components/ui';
+import { Text } from '@/components/ui/Text';
 import { colors } from '@/constants/colors';
 import { spacing, borderRadius } from '@/constants/spacing';
 

@@ -14,14 +14,12 @@ jest.mock('@/constants/currencies', () => ({
   CURRENCIES: [],
 }));
 
-// Mock expo-crypto
-const mockDigestStringAsync = jest.fn();
-jest.mock('expo-crypto', () => ({
-  digestStringAsync: mockDigestStringAsync,
-  CryptoDigestAlgorithm: { SHA256: 'SHA-256' },
-}));
-
+import * as Crypto from 'expo-crypto';
 import { calculateFileHash, parseKarsiHesap } from '../excelImport';
+
+// jest.setup.ts'deki gercek modul mock'unu kullan. Ayrica burada factory
+// tanimlamak Jest hoisting nedeniyle digestStringAsync'i undefined yakaliyordu.
+const mockDigestStringAsync = jest.mocked(Crypto.digestStringAsync);
 
 // ============================================================================
 // Bug #4: File hash fallback collision riski
@@ -29,6 +27,11 @@ import { calculateFileHash, parseKarsiHesap } from '../excelImport';
 describe('Bug #4: calculateFileHash', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockDigestStringAsync.mockReset();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('should produce consistent hash for same content', async () => {
@@ -38,7 +41,13 @@ describe('Bug #4: calculateFileHash', () => {
     const hash1 = await calculateFileHash(buffer);
     const hash2 = await calculateFileHash(buffer);
 
-    expect(hash1).toBe(hash2);
+    expect(hash1).toBe('abc123def456');
+    expect(hash2).toBe('abc123def456');
+    expect(mockDigestStringAsync).toHaveBeenCalledTimes(2);
+    expect(mockDigestStringAsync).toHaveBeenCalledWith(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      'AQIDBAU='
+    );
   });
 
   it('should produce different hashes for different content', async () => {
@@ -60,9 +69,7 @@ describe('Bug #4: calculateFileHash', () => {
     const buffer = new Uint8Array([1, 2, 3]).buffer;
     const hash = await calculateFileHash(buffer);
 
-    expect(hash).toBeTruthy();
-    expect(typeof hash).toBe('string');
-    expect(hash.length).toBeGreaterThan(0);
+    expect(hash).toBe('abc123');
   });
 
   it('should handle empty buffer', async () => {
@@ -70,7 +77,11 @@ describe('Bug #4: calculateFileHash', () => {
     const buffer = new ArrayBuffer(0);
     const hash = await calculateFileHash(buffer);
 
-    expect(hash).toBeTruthy();
+    expect(hash).toBe('e3b0c44298fc1c149afb');
+    expect(mockDigestStringAsync).toHaveBeenCalledWith(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      ''
+    );
   });
 
   it('should not return timestamp-based fallback on success', async () => {
@@ -78,7 +89,26 @@ describe('Bug #4: calculateFileHash', () => {
     const buffer = new Uint8Array([1, 2, 3]).buffer;
     const hash = await calculateFileHash(buffer);
 
+    expect(hash).toBe('proper-sha256-hash');
+  });
+
+  it('should use deterministic DJB2a fallback only when SHA-256 fails', async () => {
+    const expectedError = new Error('native crypto unavailable');
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockDigestStringAsync.mockRejectedValueOnce(expectedError);
+
+    const hash = await calculateFileHash(new Uint8Array([1, 2, 3]).buffer);
+
+    expect(mockDigestStringAsync).toHaveBeenCalledTimes(1);
+    expect(hash).toMatch(/^[0-9a-f]{16}-3$/);
+    expect(hash).not.toBe('mocked-sha256-hash');
     expect(hash).not.toMatch(/^fallback-/);
+    expect(consoleError).toHaveBeenCalledWith(
+      'File hash calculation error:',
+      expectedError
+    );
+
+    consoleError.mockRestore();
   });
 });
 

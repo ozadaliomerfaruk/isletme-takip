@@ -9,6 +9,10 @@ import { useSettings } from '@/hooks/useSettings';
 import { useExchangeRates, createRpcTotalConverter } from '@/hooks/useExchangeRates';
 import { fetchAllPages } from '@/lib/supabaseHelpers';
 import { usePermissions } from '@/hooks/usePermissions';
+import type {
+  HistoricalIncomeExpenseLens,
+  IncomeExpenseLens,
+} from '@/lib/reportLens';
 
 type ReportSourceModule = 'hesaplar' | 'cariler' | 'urunler' | 'personel';
 
@@ -71,6 +75,7 @@ export interface AccountReportResult {
 interface UseAccountReportOptions {
   startDate: string;
   endDate: string;
+  lens?: IncomeExpenseLens;
 }
 
 function normalizeDateRange(startDate?: string, endDate?: string): { startDateTime: string; endDateTime: string } {
@@ -397,6 +402,8 @@ export interface IncomeSourceResult {
   totalCount: number;
   /** Kur bulunamadığı için bazı TRY-canonical tutarlar çevrilemedi. */
   conversionIncomplete?: boolean;
+  /** Tarihsel mercekte referansi bulunamadigi icin toplama girmeyen islem sayisi. */
+  missingRateCount?: number;
   /** Dar satır projeksiyonu gelene kadar geniş doğrudan sorgu yalnız owner'dadır. */
   canOpenDetails: boolean;
   isLoading: boolean;
@@ -411,6 +418,42 @@ export interface IncomeSourceResult {
  * göre gruplu döner. get_account_report'un aksine cari/personel'i DIŞLAMAZ →
  * gelir eksik gösterilmez. Bkz. get_income_by_source RPC.
  */
+interface IncomeSourceAggregateRow {
+  source_kind: string;
+  source_type: string;
+  source_id: string;
+  source_name: string | null;
+  source_currency: string | null;
+  islem_count: number;
+  total_amount: number;
+  total_native: number;
+}
+
+interface IncomeSourceAggregatePayload {
+  rows: IncomeSourceAggregateRow[];
+  conversionIncomplete: boolean;
+  missingRateCount: number;
+}
+
+const EMPTY_INCOME_SOURCE_AGGREGATE: IncomeSourceAggregatePayload = {
+  rows: [],
+  conversionIncomplete: false,
+  missingRateCount: 0,
+};
+
+function parseIncomeSourceLensPayload(data: unknown): IncomeSourceAggregatePayload {
+  const payload = data && typeof data === 'object'
+    ? data as Record<string, unknown>
+    : {};
+  return {
+    rows: Array.isArray(payload.rows)
+      ? payload.rows as IncomeSourceAggregateRow[]
+      : [],
+    conversionIncomplete: payload.conversion_incomplete === true,
+    missingRateCount: Number(payload.missing_rate_count) || 0,
+  };
+}
+
 export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeSourceResult {
   const { isletme } = useAuthContext();
   const reportAccess = useIncomeSourceReportAccess();
@@ -418,7 +461,7 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
-  const { startDate, endDate } = options;
+  const { startDate, endDate, lens = 'nominal' } = options;
   const { startDateTime, endDateTime } = normalizeDateRange(startDate, endDate);
 
   const query = useQuery({
@@ -428,20 +471,35 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
       reportAccess.permissionFingerprint,
       startDateTime,
       endDateTime,
+      lens,
     ),
     queryFn: async () => {
-      if (!reportsEnabled || !isletme) return [];
-      const { data, error } = await supabase.rpc('get_income_by_source_v2', {
-        p_isletme_id: isletme.id,
-        p_start_date: startDateTime,
-        p_end_date: endDateTime,
-      });
+      if (!reportsEnabled || !isletme) return EMPTY_INCOME_SOURCE_AGGREGATE;
+      const { data, error } = lens === 'nominal'
+        ? await supabase.rpc('get_income_by_source_v2', {
+            p_isletme_id: isletme.id,
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+          })
+        : await supabase.rpc('get_income_by_source_lens_v1', {
+            p_isletme_id: isletme.id,
+            p_start_date: startDateTime,
+            p_end_date: endDateTime,
+            p_lens: lens as HistoricalIncomeExpenseLens,
+          });
       if (error) {
         if (__DEV__) console.error('[useIncomeSourceReport] RPC error:', error.message, error.code);
         throw error;
       }
-      if (!Array.isArray(data)) return [];
-      return data.filter((row) => {
+      const aggregate = lens === 'nominal'
+        ? {
+            ...EMPTY_INCOME_SOURCE_AGGREGATE,
+            rows: Array.isArray(data) ? data as IncomeSourceAggregateRow[] : [],
+          }
+        : parseIncomeSourceLensPayload(data);
+      return {
+        ...aggregate,
+        rows: aggregate.rows.filter((row) => {
         if (!row || typeof row !== 'object') return false;
         const candidate = row as {
           source_kind?: unknown;
@@ -456,16 +514,8 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
           && candidate.source_type === 'birikim'
           && !reportAccess.canUseBirikim
         );
-      }) as Array<{
-        source_kind: string;
-        source_type: string;
-        source_id: string;
-        source_name: string | null;
-        source_currency: string | null;
-        islem_count: number;
-        total_amount: number;
-        total_native: number;
-      }>;
+        }),
+      };
     },
     enabled: reportsEnabled && !!isletme && !!startDate && !!endDate,
     meta: INCOME_SOURCE_REPORT_QUERY_META,
@@ -480,16 +530,26 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
   const result = useMemo(() => {
     // TEK politika: çevrilemezse ham TRY korunur ama conversionIncomplete kalkar (bkz.
     // createRpcTotalConverter) — eskiden sessizce ham TRY, baz para birimi etiketiyle basılıyordu.
-    const converter = createRpcTotalConverter(baseCurrency, rates);
+    const converter = lens === 'nominal'
+      ? createRpcTotalConverter(baseCurrency, rates)
+      : { conv: (value: number) => value, conversionIncomplete: false };
     const conv = converter.conv;
+    const rows = data?.rows ?? [];
 
-    if (!data || data.length === 0) {
-      return { groups: [] as IncomeSourceGroup[], totalAmount: 0, totalCount: 0 };
+    if (rows.length === 0) {
+      return {
+        groups: [] as IncomeSourceGroup[],
+        totalAmount: 0,
+        totalCount: 0,
+        conversionIncomplete:
+          converter.conversionIncomplete || data?.conversionIncomplete === true,
+        missingRateCount: data?.missingRateCount ?? 0,
+      };
     }
 
     let totalAmount = 0;
     let totalCount = 0;
-    const items: IncomeSourceItem[] = data
+    const items: IncomeSourceItem[] = rows
       .filter((r) => r.source_id)
       .map((r) => {
         const total = conv(Number(r.total_amount) || 0);
@@ -531,8 +591,15 @@ export function useIncomeSourceReport(options: UseAccountReportOptions): IncomeS
       .map((g) => ({ ...g, items: g.items.slice().sort((a, b) => b.total - a.total) }))
       .sort((a, b) => b.total - a.total);
 
-    return { groups, totalAmount, totalCount, conversionIncomplete: converter.conversionIncomplete };
-  }, [data, baseCurrency, rates]);
+    return {
+      groups,
+      totalAmount,
+      totalCount,
+      conversionIncomplete:
+        converter.conversionIncomplete || data?.conversionIncomplete === true,
+      missingRateCount: data?.missingRateCount ?? 0,
+    };
+  }, [data, baseCurrency, lens, rates]);
 
   return {
     ...result,

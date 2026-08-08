@@ -66,6 +66,7 @@ interface FullSection {
   allData: SearchResultItem[];
   data: SearchResultItem[];
   totalCount: number;
+  isTruncated?: boolean;
 }
 
 function HighlightedText({ text, highlight, textStyle }: { text: string; highlight: string; textStyle?: StyleProp<TextStyle> }) {
@@ -238,7 +239,11 @@ export default function AramaPage() {
   const hasAmountFilter = parsedMin !== null || parsedMax !== null;
   const hasDateFilter = dateFrom !== null || dateTo !== null;
 
-  const { data: islemResults = [], isFetching: islemFetching } = useFilteredIslemler({
+  const {
+    data: islemResults = [],
+    isFetching: islemFetching,
+    hasMore: islemHasMore,
+  } = useFilteredIslemler({
     searchQuery: debouncedQuery,
     minAmount: parsedMin,
     maxAmount: parsedMax,
@@ -391,15 +396,20 @@ export default function AramaPage() {
         allData,
         data: isExpanded ? allData : allData.slice(0, MAX_ITEMS_PER_SECTION),
         totalCount: allData.length,
+        isTruncated: islemHasMore,
       });
     }
 
     return result;
-  }, [debouncedQuery, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, notlar, islemResults, t, expandedSections, enabledTypes, hasAmountFilter, amountInRange, hasDateFilter, dateInRange]);
+  }, [debouncedQuery, hesaplar, musteriCariler, tedarikciCariler, personelList, urunler, notlar, islemResults, islemHasMore, t, expandedSections, enabledTypes, hasAmountFilter, amountInRange, hasDateFilter, dateInRange]);
 
   const totalResults = useMemo(
     () => sections.reduce((sum, s) => sum + s.totalCount, 0),
     [sections]
+  );
+  const hasTruncatedResults = useMemo(
+    () => sections.some((section) => section.isTruncated),
+    [sections],
   );
 
   const handleItemPress = useCallback(
@@ -733,7 +743,9 @@ export default function AramaPage() {
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>{section.title}</Text>
           <View style={styles.countBadge}>
-            <Text style={styles.countBadgeText}>{section.totalCount}</Text>
+            <Text style={styles.countBadgeText}>
+              {section.totalCount}{section.isTruncated ? '+' : ''}
+            </Text>
           </View>
         </View>
       </View>
@@ -743,25 +755,35 @@ export default function AramaPage() {
 
   const renderSectionFooter = useCallback(
     ({ section }: { section: FullSection }) => {
-      if (section.totalCount <= MAX_ITEMS_PER_SECTION) return null;
+      const canToggle = section.totalCount > MAX_ITEMS_PER_SECTION;
+      if (!canToggle && !section.isTruncated) return null;
       const isExpanded = expandedSections.has(section.sectionType);
       return (
-        <TouchableOpacity
-          style={styles.showAllButton}
-          activeOpacity={0.6}
-          onPress={() => toggleSection(section.sectionType)}
-        >
-          <Text style={styles.showAllText}>
-            {isExpanded
-              ? t('common:buttons.showLess')
-              : t('common:search.showAll', { count: section.totalCount })}
-          </Text>
-          <ChevronRight
-            size={14}
-            color={colors.primary}
-            style={isExpanded ? { transform: [{ rotate: '90deg' }] } : undefined}
-          />
-        </TouchableOpacity>
+        <View style={styles.sectionFooter}>
+          {canToggle && (
+            <TouchableOpacity
+              style={styles.showAllButton}
+              activeOpacity={0.6}
+              onPress={() => toggleSection(section.sectionType)}
+            >
+              <Text style={styles.showAllText}>
+                {isExpanded
+                  ? t('common:buttons.showLess')
+                  : t('common:search.showAll', { count: section.totalCount })}
+              </Text>
+              <ChevronRight
+                size={14}
+                color={colors.primary}
+                style={isExpanded ? { transform: [{ rotate: '90deg' }] } : undefined}
+              />
+            </TouchableOpacity>
+          )}
+          {section.isTruncated && (
+            <Text style={styles.truncatedHint}>
+              {t('common:search.refineForMoreResults')}
+            </Text>
+          )}
+        </View>
       );
     },
     [expandedSections, toggleSection, t]
@@ -991,7 +1013,12 @@ export default function AramaPage() {
       {hasAnyFilter && totalResults > 0 && (
         <View style={styles.resultCountBar}>
           <Text style={styles.resultCountText}>
-            {t('common:search.resultCount', { count: totalResults })}
+            {t(
+              hasTruncatedResults
+                ? 'common:search.resultCountAtLeast'
+                : 'common:search.resultCount',
+              { count: totalResults },
+            )}
           </Text>
         </View>
       )}
@@ -1395,6 +1422,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginRight: spacing.lg,
   },
+  sectionFooter: {
+    backgroundColor: colors.surface,
+  },
   showAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1409,6 +1439,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary,
+  },
+  truncatedHint: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    textAlign: 'center',
   },
   emptyState: {
     flex: 1,

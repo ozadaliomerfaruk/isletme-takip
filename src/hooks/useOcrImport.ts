@@ -15,7 +15,7 @@ import { invalidateRelatedQueries } from '@/lib/queryKeys';
 import { supabase } from '@/lib/supabase';
 import { recognizeInvoice, recognizeInvoicesBatch } from '@/lib/ocrEngine';
 import { matchItemsToProducts, matchSupplier } from '@/lib/fuzzyMatch';
-import { formatDateTimeForDB } from '@/lib/date';
+import { formatDateForDB, formatDateTimeForDB } from '@/lib/date';
 import {
   OcrParsedInvoice,
   OcrSaveMode,
@@ -442,7 +442,7 @@ export function useOcrImport(sessionId: string) {
 
         await createIrsaliyeRecord.mutateAsync({
           cari_id: invoice.supplierMatchCariId || null,
-          tarih: dateInfo || new Date().toISOString().split('T')[0],
+          tarih: dateInfo || formatDateForDB(new Date()),
           toplam_tutar: totalAmount,
           belge_no: invoice.invoiceNumber || null,
           items: itemSnapshots,

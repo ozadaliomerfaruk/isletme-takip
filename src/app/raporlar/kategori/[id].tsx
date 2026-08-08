@@ -27,6 +27,10 @@ import {
 import { Text, Card, Screen } from '@/components/ui';
 import { SkeletonListItem } from '@/components/ui/Skeleton';
 import { ReportExportButton } from '@/components/reports/ReportExportButton';
+import {
+  IncomeExpenseLensPicker,
+  INCOME_EXPENSE_LENS_STICKY_SPACE,
+} from '@/components/reports/IncomeExpenseLensPicker';
 import { TransactionRow } from '@/components/ui/TransactionRow';
 import { QuickTransactionBar } from '@/components/transaction/QuickTransactionBar';
 import { colors } from '@/constants/colors';
@@ -51,6 +55,14 @@ import {
   getTransactionProductMutationDecision,
 } from '@/lib/transactionProductMutationGate';
 import { getQuickTransactionScopeForApiType } from '@/lib/quickTransactionCreateScope';
+import { useHistoricalReportLens } from '@/hooks/useHistoricalReportLens';
+import {
+  formatReportLensValue,
+  getReportTransactionCurrency,
+  isIncomeExpenseLens,
+  reportLensCurrency,
+  type IncomeExpenseLens,
+} from '@/lib/reportLens';
 
 // Lucide icon haritası
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -85,16 +97,26 @@ const ICON_MAP: Record<string, LucideIcon> = {
   'spray-can': SprayCan, 'construction': Construction,
 };
 
+type ReportTransaction = IslemWithRelations & {
+  _categoryAmount?: number;
+  _reportAmountCurrency?: string | null;
+};
+
+function formatIndicatorNumber(value: number): string {
+  return value.toLocaleString(undefined, { maximumFractionDigits: 4 });
+}
+
 export default function KategoriDetayPage() {
   const contentPaddingBottom = useContentBottomPadding();
   usePagePermission({ module: 'raporlar' });
   useEffect(() => { logEvent('report_viewed', { report_type: 'category_detail' }); }, []);
-  const { id, type, startDate, endDate, source } = useLocalSearchParams<{
+  const { id, type, startDate, endDate, source, lens } = useLocalSearchParams<{
     id: string;
     type: KategoriType;
     startDate: string;
     endDate: string;
     source?: string; // 'cash-flow' ise nakit akışı kaynaklı
+    lens?: string;
   }>();
   const { t } = useTranslation(['reports', 'common', 'errors', 'transactions']);
   const { formatDateMedium } = useDateFormat();
@@ -103,6 +125,24 @@ export default function KategoriDetayPage() {
   const { currency: baseCurrency } = useSettings();
   const { data: ratesData } = useExchangeRates();
   const rates = ratesData?.rates;
+  const [selectedLens, setSelectedLens] = useState<IncomeExpenseLens>(() =>
+    baseCurrency === 'TRY' && isIncomeExpenseLens(lens) ? lens : 'nominal',
+  );
+
+  useEffect(() => {
+    if (baseCurrency !== 'TRY' && selectedLens !== 'nominal') {
+      setSelectedLens('nominal');
+    }
+  }, [baseCurrency, selectedLens]);
+  const {
+    convert: convertHistoricalAmount,
+    isLoading: historicalLensLoading,
+    error: historicalLensError,
+  } = useHistoricalReportLens(
+    selectedLens,
+    startDate ?? '',
+    endDate ?? '',
+  );
 
   const isUncategorized = id === 'uncategorized';
   const kategoriId = isUncategorized ? null : id;
@@ -114,7 +154,13 @@ export default function KategoriDetayPage() {
   } = useCategoryTransactions(
     null, // null = kategorisiz
     type!,
-    { startDate: startDate!, endDate: endDate!, source, includeReturns: true }
+    {
+      startDate: startDate!,
+      endDate: endDate!,
+      source,
+      includeReturns: true,
+      lens: selectedLens,
+    }
   );
 
   // Alt kategori raporunu çek (sadece normal kategoriler için).
@@ -123,7 +169,13 @@ export default function KategoriDetayPage() {
   const subCategoryReport = useSubCategoryReport(
     isUncategorized ? null : kategoriId,
     type!,
-    { startDate: startDate!, endDate: endDate!, source, includeReturns: true }
+    {
+      startDate: startDate!,
+      endDate: endDate!,
+      source,
+      includeReturns: true,
+      lens: selectedLens,
+    }
   );
 
   // Seçili alt kategoriler (checkbox için) - başlangıçta tümü seçili
@@ -174,7 +226,13 @@ export default function KategoriDetayPage() {
   const { data: filteredIslemler, isLoading: islemlerLoading } = useMultiCategoryTransactions(
     isUncategorized ? [] : selectedKategoriIds,
     type!,
-    { startDate: startDate!, endDate: endDate!, source, includeReturns: true }
+    {
+      startDate: startDate!,
+      endDate: endDate!,
+      source,
+      includeReturns: true,
+      lens: selectedLens,
+    }
   );
 
   // Ürün kalemleri (satırda önizleme) — tek batch sorgu (İşlemler listesiyle aynı desen, N+1 yok).
@@ -334,33 +392,65 @@ export default function KategoriDetayPage() {
 
   const [isExporting, setIsExporting] = useState(false);
 
-  // Filtrelenmiş toplam (kategori-spesifik tutarları kullan)
-  // Her kalem KENDİ para biriminde; ana para birimine çevirip topla.
-  //
-  // İki düzeltme: (1) para birimi artık getIslemCurrency ile çözülüyor — hesap bacağı
-  // OLMAYAN tiplerde (cari_alis/cari_satis) `hesap?.currency ?? baseCurrency` kalemi
-  // baz para birimi sanıyordu, yani 1.000 USD'lik alış 1.000 TL olarak toplanıyordu.
-  // (2) kur yoksa `?? amount` ile 1:1 eklenmiyor, kalem HARİÇ tutulup uyarı çıkıyor —
-  // üst karttaki RPC toplamı (doğru çevirili) ile bu toplamın tutmaması bu yüzdendi.
+  // Filtrelenmiş toplam: nominal görünüm mevcut gösterim para birimine, tarihsel
+  // görünüm ise her işlemi kendi işlem gününün resmî referansına çevirir.
   const filteredSum = useMemo(() => {
-    const sum = createConversionSum(baseCurrency, rates);
+    if (selectedLens === 'nominal') {
+      const sum = createConversionSum(baseCurrency, rates);
+      filteredIslemler?.forEach((islem) => {
+        const amount = (islem as ReportTransaction)._categoryAmount !== undefined
+          ? (islem as ReportTransaction)._categoryAmount!
+          : Number(islem.amount);
+        sum.add(
+          amount,
+          getReportTransactionCurrency(islem as ReportTransaction),
+          isReturnType(islem.type) ? -1 : 1,
+        );
+      });
+      return {
+        total: sum.total,
+        conversionIncomplete: sum.conversionIncomplete,
+        missingRateCount: sum.excludedCount,
+        converted: sum.convertedCount > 0,
+      };
+    }
+
+    let total = 0;
+    let missingRateCount = 0;
     filteredIslemler?.forEach((islem) => {
-      const amount = (islem as { _categoryAmount?: number })._categoryAmount !== undefined
-        ? (islem as { _categoryAmount: number })._categoryAmount
+      const amount = (islem as ReportTransaction)._categoryAmount !== undefined
+        ? (islem as ReportTransaction)._categoryAmount!
         : Number(islem.amount);
-      // İade tutarı yönü AZALTIR → net'ten düş.
-      sum.add(amount, getIslemCurrency(islem), isReturnType(islem.type) ? -1 : 1);
+      const converted = convertHistoricalAmount?.(amount, islem as ReportTransaction);
+      if (!converted?.complete || converted.value === null) {
+        missingRateCount += 1;
+        return;
+      }
+      total += (isReturnType(islem.type) ? -1 : 1) * converted.value;
     });
     return {
-      total: sum.total,
-      conversionIncomplete: sum.conversionIncomplete,
-      // Çeviri gerçekten yapıldıysa "bugünkü kur" notu gösterilir (tarihsel kur
-      // saklanmıyor). TRY-only kullanıcıda 0 → not çıkmaz.
-      converted: sum.convertedCount > 0,
+      total,
+      conversionIncomplete: missingRateCount > 0,
+      missingRateCount,
+      converted: false,
     };
-  }, [filteredIslemler, baseCurrency, rates]);
+  }, [baseCurrency, convertHistoricalAmount, filteredIslemler, rates, selectedLens]);
   const filteredTotal = filteredSum.total;
   const filteredCount = filteredIslemler?.length ?? 0;
+
+  const formatLensAmount = useCallback(
+    (amount: number) => selectedLens === 'nominal'
+      ? formatCurrency(amount, baseCurrency)
+      : formatReportLensValue(amount, selectedLens),
+    [baseCurrency, selectedLens],
+  );
+  const selectedLensLabel = t(
+    `reports:incomeExpenseLens.${selectedLens === 'reel'
+      ? 'real'
+      : selectedLens === 'altin'
+        ? 'gold'
+        : selectedLens}`,
+  );
 
   // Sayfa başlığı
   const pageTitle = isUncategorized ? t('reports:titles.uncategorized') : (subCategoryReport.parentKategori?.name || t('reports:titles.categoryDetail'));
@@ -370,6 +460,15 @@ export default function KategoriDetayPage() {
 
   const handleExport = useCallback(async () => {
     if (!isletme || !startDate || !endDate) return;
+    if (selectedLens !== 'nominal' && subCategoryReport.conversionIncomplete) {
+      Alert.alert(
+        t('reports:incomeExpenseLens.exportBlockedTitle'),
+        t('reports:incomeExpenseLens.exportBlockedIncomplete', {
+          count: subCategoryReport.missingRateCount ?? 0,
+        }),
+      );
+      return;
+    }
     setIsExporting(true);
     try {
       const subCats = subCategoryReport.subCategories.map(sc => ({
@@ -388,21 +487,22 @@ export default function KategoriDetayPage() {
         parentAmount: subCategoryReport.parentTotal,
         parentTransactionCount: subCategoryReport.parentCount,
         totalAmount: subCategoryReport.totalAmount,
-        currency: baseCurrency,
+        currency: reportLensCurrency(selectedLens) ?? baseCurrency,
         t: {
-          title: `${pageTitle} - ${type === 'gelir' ? t('reports:titles.incomeAnalysis') : t('reports:titles.expenseAnalysis')}`,
+          title: `${pageTitle} - ${type === 'gelir' ? t('reports:titles.incomeAnalysis') : t('reports:titles.expenseAnalysis')} - ${selectedLensLabel}`,
           business: t('common:export.excel.business'),
           category: t('common:export.excel.category'),
           period: t('common:export.excel.period'),
           createdAt: t('common:export.excel.createdAt'),
           subCategory: t('reports:category.title'),
-          amount: t('reports:category.amount'),
+          amount: `${t('reports:category.amount')} (${selectedLensLabel})`,
           percentage: t('reports:category.percentage'),
           transactionCount: t('reports:category.transactionCount'),
           total: t('common:export.reportExcel.total'),
           sheetName: pageTitle,
           fileName: pageTitle,
           dialogTitle: pageTitle,
+          sharingNotSupported: t('common:export.sharingNotSupported'),
         },
       });
     } catch {
@@ -410,7 +510,18 @@ export default function KategoriDetayPage() {
     } finally {
       setIsExporting(false);
     }
-  }, [isletme, startDate, endDate, subCategoryReport, pageTitle, type, baseCurrency, t]);
+  }, [
+    baseCurrency,
+    endDate,
+    isletme,
+    pageTitle,
+    selectedLens,
+    selectedLensLabel,
+    startDate,
+    subCategoryReport,
+    t,
+    type,
+  ]);
 
   // Tarih aralığını formatla
   const formatDateRange = () => {
@@ -427,7 +538,7 @@ export default function KategoriDetayPage() {
 
   // İşlem kartı render — İşlemler listesiyle AYNI zengin satır (TransactionRow):
   // cari/personel (başlık) · TİP·tarih · kategori · ürün kalemleri · not · hesap.
-  const renderIslemItem = useCallback(({ item }: { item: IslemWithRelations & { _categoryAmount?: number } }) => {
+  const renderIslemItem = useCallback(({ item }: { item: ReportTransaction }) => {
     const isGelir = type === 'gelir';
     // İade yönü AZALTIR → kategori raporunda TERS gösterilir (gelir iadesi kırmızı/eksi,
     // gider iadesi para-geri yeşil/artı). Bu raporsal semantik TransactionRow'un tip-varsayılan
@@ -437,13 +548,35 @@ export default function KategoriDetayPage() {
     // _categoryAmount varsa ana tutar = kategori payı, alt tutar = tam fatura.
     const hasCategoryAmount = item._categoryAmount !== undefined && item._categoryAmount !== Number(item.amount);
     const displayAmount = hasCategoryAmount ? item._categoryAmount! : Number(item.amount);
-    // Para birimi MERKEZÎ zincirle çözülür (source_currency → hesap → cari → personel).
-    // Eskiden yalnız item.hesap?.currency okunuyordu; cari_alis/cari_satis/personel_*
-    // tiplerinin hesap bacağı OLMADIĞI için undefined dönüyor ve formatCurrency ANA
-    // para birimi sembolünü basıyordu → USD cariye kesilen 1.000 USD fatura bu listede
-    // "₺1.000" görünüyordu. Aynı ekranın toplamı (:227) zaten getIslemCurrency kullanıyordu,
-    // yani satır ile toplam birbirini tutmuyordu.
-    const currency = getIslemCurrency(item);
+    const currency = selectedLens === 'nominal'
+      ? getIslemCurrency(item)
+      : getReportTransactionCurrency(item);
+    const historicalConversion = selectedLens === 'nominal'
+      ? null
+      : convertHistoricalAmount?.(displayAmount, item) ?? null;
+    const historicalAmountText = selectedLens === 'nominal'
+      ? undefined
+      : historicalConversion?.complete && historicalConversion.value !== null
+        ? formatReportLensValue(Math.abs(historicalConversion.value), selectedLens)
+        : t('reports:incomeExpenseLens.missingReference');
+
+    // Tarihsel görünümde sağ alt bilgi tek iş yapar: merceğin kullandığı referansı
+    // gösterir. Uzun kayıt/kur/TÜFE zinciri sağ kolonu büyütüp sol metni sıkıştırıyordu.
+    const historicalReferenceText = selectedLens === 'reel'
+      && historicalConversion?.transactionCpi
+      ? t('reports:incomeExpenseLens.cpiRateCompact', {
+          value: formatIndicatorNumber(historicalConversion.transactionCpi),
+        })
+      : selectedLens !== 'nominal'
+        && historicalConversion?.lensRate
+        ? t('reports:incomeExpenseLens.dailyRateCompact', {
+            currency: reportLensCurrency(selectedLens),
+            rate: formatIndicatorNumber(historicalConversion.lensRate),
+          })
+        : null;
+    const nominalCategoryDetail = selectedLens === 'nominal' && hasCategoryAmount
+      ? `${t('reports:labels.invoiceTotal')}: ${formatCurrency(Number(item.amount), currency)}`
+      : null;
     const urunItems = getUrunItems(item.id);
     const entityText = item.cari?.name
       || (item.personel ? `${item.personel.first_name} ${item.personel.last_name ?? ''}`.trim() : null)
@@ -453,7 +586,8 @@ export default function KategoriDetayPage() {
       <TransactionRow
         id={item.id}
         type={item.type}
-        amount={displayAmount}
+        amount={historicalConversion?.value ?? displayAmount}
+        amountText={historicalAmountText}
         date={formatDateMedium(item.date)}
         typeLabel={t(`transactions:types.${item.type}`)}
         entityText={entityText}
@@ -466,12 +600,20 @@ export default function KategoriDetayPage() {
         currency={currency}
         overrideColor={showsPositive ? colors.success : colors.error}
         overridePrefix={showsPositive ? '+' : '-'}
-        subAmount={hasCategoryAmount ? `${t('reports:labels.invoiceTotal')}: ${formatCurrency(Number(item.amount), currency)}` : null}
+        subAmount={historicalReferenceText ?? nominalCategoryDetail}
         hasPhoto={!!item.photo_path}
         onPress={() => handleEditTransaction(item)}
       />
     );
-  }, [type, getUrunItems, formatDateMedium, handleEditTransaction, t]);
+  }, [
+    formatDateMedium,
+    getUrunItems,
+    handleEditTransaction,
+    convertHistoricalAmount,
+    selectedLens,
+    t,
+    type,
+  ]);
 
   // Kategori ikonu için helper
   const getCategoryIcon = () => {
@@ -533,7 +675,7 @@ export default function KategoriDetayPage() {
       <View style={styles.checkboxRight}>
         <Text variant="caption" color="secondary">{t('reports:counts.transaction', { count })}</Text>
         <Text variant="label" color={type === 'gelir' ? 'success' : 'error'}>
-          {formatCurrency(amount)}
+          {formatLensAmount(amount)}
         </Text>
       </View>
     </TouchableOpacity>
@@ -551,6 +693,7 @@ export default function KategoriDetayPage() {
             <Text variant="caption" color="secondary">
               {formatDateRange()}
             </Text>
+            <Text variant="caption" color="primary">{selectedLensLabel}</Text>
           </View>
         </View>
         <View style={styles.summaryDivider} />
@@ -561,7 +704,7 @@ export default function KategoriDetayPage() {
               variant="h2"
               color={type === 'gelir' ? 'success' : 'error'}
             >
-              {formatCurrency(subCategoryReport.totalAmount)}
+              {formatLensAmount(subCategoryReport.totalAmount)}
             </Text>
           </View>
           <View style={styles.statItem}>
@@ -615,18 +758,22 @@ export default function KategoriDetayPage() {
             {t('reports:sections.selectedTransactions')} ({filteredCount})
           </Text>
           <Text variant="label" color={type === 'gelir' ? 'success' : 'error'}>
-            {formatCurrency(filteredTotal, baseCurrency)}
+            {formatLensAmount(filteredTotal)}
           </Text>
         </View>
       )}
       {/* Kuru bulunamayan kalemler toplama katılmadı — sessizce 1:1 eklemek yerine söyle */}
       {filteredSum.conversionIncomplete && (
         <Text variant="caption" color="error" style={styles.conversionWarningText}>
-          {t('reports:summary.conversionIncomplete')}
+          {selectedLens === 'nominal'
+            ? t('reports:summary.conversionIncomplete')
+            : t('reports:incomeExpenseLens.incomplete', {
+                count: filteredSum.missingRateCount,
+              })}
         </Text>
       )}
-      {/* Tarihsel kur saklanmıyor: geçmiş dönemin yabancı-para kalemi BUGÜNKÜ kurla
-          çevriliyor. Düzeltmesi şema işi; en azından sessiz kalmıyor. */}
+      {/* Nominal görünümde ana para birimi TRY değilse mevcut gösterim sözleşmesi gereği
+          güncel kur kullanılır. Tarihsel lenslerde bu not çıkmaz. */}
       {filteredSum.converted && (
         <Text variant="caption" color="secondary" style={styles.conversionWarningText}>
           {t('reports:summary.currentRateNote')}
@@ -647,20 +794,54 @@ export default function KategoriDetayPage() {
   );
 
   // Kategorisiz için özel hesaplamalar (yukarıdaki filteredSum ile AYNI politika)
-  const uncategorizedSum = (() => {
-    const sum = createConversionSum(baseCurrency, rates);
+  const uncategorizedSum = useMemo(() => {
+    if (selectedLens === 'nominal') {
+      const sum = createConversionSum(baseCurrency, rates);
+      uncategorizedIslemler?.forEach((islem) => {
+        sum.add(
+          Number(islem.amount),
+          getReportTransactionCurrency(islem as ReportTransaction),
+          isReturnType(islem.type) ? -1 : 1,
+        );
+      });
+      return {
+        total: sum.total,
+        conversionIncomplete: sum.conversionIncomplete,
+        missingRateCount: sum.excludedCount,
+      };
+    }
+
+    let total = 0;
+    let missingRateCount = 0;
     uncategorizedIslemler?.forEach((islem) => {
-      // İade tutarı yönü AZALTIR → net'ten düş.
-      sum.add(Number(islem.amount), getIslemCurrency(islem), isReturnType(islem.type) ? -1 : 1);
+      const converted = convertHistoricalAmount?.(
+        Number(islem.amount),
+        islem as ReportTransaction,
+      );
+      if (!converted?.complete || converted.value === null) {
+        missingRateCount += 1;
+        return;
+      }
+      total += (isReturnType(islem.type) ? -1 : 1) * converted.value;
     });
-    return { total: sum.total, conversionIncomplete: sum.conversionIncomplete };
-  })();
+    return {
+      total,
+      conversionIncomplete: missingRateCount > 0,
+      missingRateCount,
+    };
+  }, [
+    baseCurrency,
+    convertHistoricalAmount,
+    rates,
+    selectedLens,
+    uncategorizedIslemler,
+  ]);
   const uncategorizedTotal = uncategorizedSum.total;
   const uncategorizedCount = uncategorizedIslemler?.length ?? 0;
 
   // Kategorisiz sayfası
   if (isUncategorized) {
-    if (uncategorizedLoading) {
+    if (uncategorizedLoading || historicalLensLoading) {
       return (
         <Screen>
           <Stack.Screen options={{ title: t('reports:titles.uncategorized'), headerBackVisible: true, gestureEnabled: true }} />
@@ -668,6 +849,19 @@ export default function KategoriDetayPage() {
             <SkeletonListItem />
             <SkeletonListItem />
             <SkeletonListItem />
+          </View>
+        </Screen>
+      );
+    }
+
+    if (historicalLensError) {
+      return (
+        <Screen>
+          <Stack.Screen options={{ title: t('reports:titles.uncategorized'), headerBackVisible: true, gestureEnabled: true }} />
+          <View style={styles.errorContainer}>
+            <Text variant="body" color="error">
+              {t('reports:empty.dataLoadError')}
+            </Text>
           </View>
         </Screen>
       );
@@ -698,6 +892,7 @@ export default function KategoriDetayPage() {
                     <Text variant="caption" color="secondary">
                       {formatDateRange()}
                     </Text>
+                    <Text variant="caption" color="primary">{selectedLensLabel}</Text>
                   </View>
                 </View>
                 <View style={styles.summaryDivider} />
@@ -708,7 +903,7 @@ export default function KategoriDetayPage() {
                       variant="h2"
                       color={type === 'gelir' ? 'success' : 'error'}
                     >
-                      {formatCurrency(uncategorizedTotal, baseCurrency)}
+                      {formatLensAmount(uncategorizedTotal)}
                     </Text>
                   </View>
                   <View style={styles.statItem}>
@@ -718,7 +913,11 @@ export default function KategoriDetayPage() {
                 </View>
                 {uncategorizedSum.conversionIncomplete && (
                   <Text variant="caption" color="error" style={styles.conversionWarningText}>
-                    {t('reports:summary.conversionIncomplete')}
+                    {selectedLens === 'nominal'
+                      ? t('reports:summary.conversionIncomplete')
+                      : t('reports:incomeExpenseLens.incomplete', {
+                          count: uncategorizedSum.missingRateCount,
+                        })}
                   </Text>
                 )}
               </Card>
@@ -735,12 +934,22 @@ export default function KategoriDetayPage() {
               </Text>
             </Card>
           )}
-          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
+          contentContainerStyle={[
+            styles.listContent,
+            baseCurrency === 'TRY' && styles.listContentWithLens,
+            { paddingBottom: contentPaddingBottom },
+          ]}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={10}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
+        />
+
+        <IncomeExpenseLensPicker
+          value={selectedLens}
+          onChange={setSelectedLens}
+          visible={baseCurrency === 'TRY'}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
@@ -769,7 +978,7 @@ export default function KategoriDetayPage() {
   }
 
   // Loading state (normal kategoriler için)
-  if (subCategoryReport.isLoading) {
+  if (subCategoryReport.isLoading || historicalLensLoading) {
     return (
       <Screen>
         <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
@@ -783,7 +992,7 @@ export default function KategoriDetayPage() {
   }
 
   // Error state
-  if (subCategoryReport.error) {
+  if (subCategoryReport.error || historicalLensError) {
     return (
       <Screen>
         <Stack.Screen options={{ title: pageTitleDisplay, headerBackVisible: true, gestureEnabled: true }} />
@@ -823,6 +1032,7 @@ export default function KategoriDetayPage() {
                     <Text variant="caption" color="secondary">
                       {formatDateRange()}
                     </Text>
+                    <Text variant="caption" color="primary">{selectedLensLabel}</Text>
                   </View>
                 </View>
                 <View style={styles.summaryDivider} />
@@ -833,7 +1043,7 @@ export default function KategoriDetayPage() {
                       variant="h2"
                       color={type === 'gelir' ? 'success' : 'error'}
                     >
-                      {formatCurrency(subCategoryReport.totalAmount)}
+                      {formatLensAmount(subCategoryReport.totalAmount)}
                     </Text>
                   </View>
                   <View style={styles.statItem}>
@@ -841,6 +1051,15 @@ export default function KategoriDetayPage() {
                     <Text variant="h2">{subCategoryReport.totalCount}</Text>
                   </View>
                 </View>
+                {filteredSum.conversionIncomplete && (
+                  <Text variant="caption" color="error" style={styles.conversionWarningText}>
+                    {selectedLens === 'nominal'
+                      ? t('reports:summary.conversionIncomplete')
+                      : t('reports:incomeExpenseLens.incomplete', {
+                          count: filteredSum.missingRateCount,
+                        })}
+                  </Text>
+                )}
               </Card>
 
               <Text variant="label" color="secondary" style={styles.sectionTitle}>
@@ -855,12 +1074,22 @@ export default function KategoriDetayPage() {
               </Text>
             </Card>
           )}
-          contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
+          contentContainerStyle={[
+            styles.listContent,
+            baseCurrency === 'TRY' && styles.listContentWithLens,
+            { paddingBottom: contentPaddingBottom },
+          ]}
           showsVerticalScrollIndicator={false}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={10}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={[colors.primary]} tintColor={colors.primary} />}
+        />
+
+        <IncomeExpenseLensPicker
+          value={selectedLens}
+          onChange={setSelectedLens}
+          visible={baseCurrency === 'TRY'}
         />
 
         {/* Quick Transaction Bar - Edit Mode */}
@@ -915,7 +1144,11 @@ export default function KategoriDetayPage() {
         // toggle'ında başlık (özet + tüm alt-kategori checkbox'ları) TÜMDEN remount ediyordu.
         ListHeaderComponent={renderHeader()}
         ListEmptyComponent={EmptyState()}
-        contentContainerStyle={[styles.listContent, { paddingBottom: contentPaddingBottom }]}
+        contentContainerStyle={[
+          styles.listContent,
+          baseCurrency === 'TRY' && styles.listContentWithLens,
+          { paddingBottom: contentPaddingBottom },
+        ]}
         showsVerticalScrollIndicator={false}
         initialNumToRender={10}
         maxToRenderPerBatch={10}
@@ -924,6 +1157,12 @@ export default function KategoriDetayPage() {
         ListFooterComponent={islemlerLoading ? (
           <ActivityIndicator size="small" color={colors.primary} style={{ marginTop: spacing.md }} />
         ) : null}
+      />
+
+      <IncomeExpenseLensPicker
+        value={selectedLens}
+        onChange={setSelectedLens}
+        visible={baseCurrency === 'TRY'}
       />
 
       {/* Quick Transaction Bar - Edit Mode */}
@@ -967,6 +1206,9 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.lg,
     paddingBottom: spacing['3xl'],
+  },
+  listContentWithLens: {
+    paddingTop: spacing.lg + INCOME_EXPENSE_LENS_STICKY_SPACE,
   },
   headerContainer: {
     marginBottom: spacing.md,

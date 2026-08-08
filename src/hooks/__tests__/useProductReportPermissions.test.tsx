@@ -83,14 +83,10 @@ const returnRow = {
 
 describe('useProductReport V2 permission projection', () => {
   const rpcMock = supabase.rpc as jest.Mock;
-  let consoleErrorSpy: jest.SpyInstance;
   let failReturnQuery = false;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    consoleErrorSpy = jest
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
     mockIsOwner = false;
     mockCanSeeAllUsersData = false;
     mockConversionIncomplete = false;
@@ -125,10 +121,6 @@ describe('useProductReport V2 permission projection', () => {
     );
   });
 
-  afterEach(() => {
-    consoleErrorSpy.mockRestore();
-  });
-
   it('uses V2 for main and return totals with the Raporlar-only role', async () => {
     mockModules = { raporlar: true };
     const { queryClient, Wrapper } = createWrapper();
@@ -156,6 +148,24 @@ describe('useProductReport V2 permission projection', () => {
         p_end_date: '2026-07-31T23:59:59',
       },
     );
+
+    hook.unmount();
+    queryClient.clear();
+  });
+
+  it('does not start either RPC while the report tab is deferred', async () => {
+    const { queryClient, Wrapper } = createWrapper();
+    const hook = renderHook(
+      () => useProductReport('alis', { ...options, enabled: false }),
+      { wrapper: Wrapper },
+    );
+
+    await act(async () => Promise.resolve());
+
+    expect(rpcMock).not.toHaveBeenCalled();
+    expect(hook.result.current.isReady).toBe(false);
+    expect(hook.result.current.isLoading).toBe(false);
+    expect(hook.result.current.items).toEqual([]);
 
     hook.unmount();
     queryClient.clear();
@@ -224,6 +234,7 @@ describe('useProductReport V2 permission projection', () => {
   });
 
   it('does not show a gross total with a stale zero return after return refetch fails', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {});
     const { queryClient, Wrapper } = createWrapper();
     const hook = renderHook(
       () => useProductReport('alis', options),
@@ -246,9 +257,14 @@ describe('useProductReport V2 permission projection', () => {
       expect(hook.result.current.error).not.toBeNull();
     });
     expect(rpcMock).toHaveBeenCalledTimes(4);
+    expect(consoleError).toHaveBeenCalledWith(
+      '[useProductReport] returns RPC error:',
+      'return query failed',
+    );
 
     hook.unmount();
     queryClient.clear();
+    consoleError.mockRestore();
   });
 
   it('drops malformed rows before they reach totals or product navigation', async () => {

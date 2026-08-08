@@ -32,10 +32,23 @@ CREATE INDEX IF NOT EXISTS idx_urunler_active ON urunler(isletme_id) WHERE is_ac
 -- RLS
 ALTER TABLE urunler ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own urunler"
-  ON urunler FOR ALL USING (
-    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
-  );
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'urunler'
+      AND policyname = 'Users can manage own urunler'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Users can manage own urunler"
+        ON urunler FOR ALL USING (
+          isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+        )
+    $policy$;
+  END IF;
+END;
+$do$;
 
 COMMENT ON TABLE urunler IS 'Products/inventory items for stock management';
 COMMENT ON COLUMN urunler.ad IS 'Product name';
@@ -65,15 +78,33 @@ CREATE TABLE IF NOT EXISTS urun_hareketler (
 CREATE INDEX IF NOT EXISTS idx_urun_hareketler_isletme ON urun_hareketler(isletme_id);
 CREATE INDEX IF NOT EXISTS idx_urun_hareketler_urun ON urun_hareketler(urun_id);
 CREATE INDEX IF NOT EXISTS idx_urun_hareketler_tarih ON urun_hareketler(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_urun_hareketler_ay ON urun_hareketler(isletme_id, urun_id, date_trunc('month', created_at));
+CREATE INDEX IF NOT EXISTS idx_urun_hareketler_ay
+  ON urun_hareketler(
+    isletme_id,
+    urun_id,
+    date_trunc('month', created_at AT TIME ZONE 'UTC')
+  );
 
 -- RLS
 ALTER TABLE urun_hareketler ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can manage own urun_hareketler"
-  ON urun_hareketler FOR ALL USING (
-    isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
-  );
+DO $do$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'urun_hareketler'
+      AND policyname = 'Users can manage own urun_hareketler'
+  ) THEN
+    EXECUTE $policy$
+      CREATE POLICY "Users can manage own urun_hareketler"
+        ON urun_hareketler FOR ALL USING (
+          isletme_id IN (SELECT id FROM isletmeler WHERE user_id = auth.uid())
+        )
+    $policy$;
+  END IF;
+END;
+$do$;
 
 COMMENT ON TABLE urun_hareketler IS 'Stock movement log (entries, exits, adjustments)';
 COMMENT ON COLUMN urun_hareketler.hareket_tipi IS 'Movement type: giris (entry), cikis (exit), duzeltme (adjustment)';

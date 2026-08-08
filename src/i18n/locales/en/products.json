@@ -10,6 +10,8 @@
   "form": {
     "name": "Product Name",
     "code": "Product Code",
+    "brand": "Brand",
+    "brandPlaceholder": "Optional",
     "unit": "Unit",
     "vatRate": "VAT Rate",
     "purchasePrice": "Purchase Price",
@@ -197,6 +199,7 @@
     "product": "Product",
     "movementType": "Movement Type",
     "client": "Contact",
+    "brand": "Brand",
     "quantity": "Quantity",
     "unit": "Unit",
     "unitPrice": "Unit Price",
@@ -226,6 +229,7 @@
       "columns": {
         "name": "Product Name",
         "code": "Product Code",
+        "brand": "Brand",
         "category": "Category",
         "unit": "Unit",
         "stock": "Stock",

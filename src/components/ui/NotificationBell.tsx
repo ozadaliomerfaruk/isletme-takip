@@ -1,6 +1,6 @@
 import { Modal } from './Modal';
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated, Dimensions, ScrollView, Pressable, AppState } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, useWindowDimensions, ScrollView, Pressable, AppState } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,8 +16,6 @@ import { upperTr } from '@/lib/turkishTextUtils';
 import { getTransactionColor, getTransactionPrefix } from '@/lib/transactionColors';
 import { useDateFormat } from '@/hooks/useDateFormat';
 import { IleriTarihliIslemWithRelations } from '@/types/database';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 // İşlem tipine göre ilgili entity adını çıkar
 function getEntityText(item: IleriTarihliIslemWithRelations): string | null {
@@ -43,6 +41,7 @@ export function NotificationBell() {
   // Dropdown ekranın tepesine yapışık: üst boşluk cihazın GERÇEK çentiğinden
   // gelmeli (SE'de 20, Dynamic Island'da 59 — sabit 44 ikisine de uymuyordu).
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [isOpen, setIsOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const slideAnim = useRef(new Animated.Value(-300)).current;
@@ -245,7 +244,15 @@ export function NotificationBell() {
             { transform: [{ translateY: slideAnim }] },
           ]}
         >
-          <View style={[styles.dropdown, { paddingTop: insets.top + spacing.md }]}>
+          <View
+            style={[
+              styles.dropdown,
+              {
+                paddingTop: insets.top + spacing.md,
+                maxHeight: windowHeight * 0.6,
+              },
+            ]}
+          >
             {/* Header */}
             <View style={styles.dropdownHeader}>
               <View style={styles.dropdownHeaderLeft}>
@@ -259,7 +266,7 @@ export function NotificationBell() {
 
             {/* Liste */}
             <ScrollView
-              style={styles.dropdownList}
+              style={[styles.dropdownList, { maxHeight: windowHeight * 0.42 }]}
               contentContainerStyle={styles.listContent}
               showsVerticalScrollIndicator={false}
             >
@@ -386,7 +393,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    maxHeight: SCREEN_HEIGHT * 0.6,
     // paddingTop inline: insets.top + spacing.md (gerçek çentik payı)
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -419,9 +425,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dropdownList: {
-    maxHeight: SCREEN_HEIGHT * 0.42,
-  },
+  dropdownList: {},
   listContent: {
     paddingBottom: spacing.md,
   },

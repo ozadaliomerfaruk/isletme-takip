@@ -356,11 +356,11 @@ export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'sati
 
   return useQuery({
     queryKey: [...queryKeys.urunHareketler.byUrun(urunId || '', isletme?.id || ''), 'son-fiyat', yon],
-    queryFn: async (): Promise<{ fiyat: number; tarih: string } | null> => {
+    queryFn: async (): Promise<{ fiyat: number; tarih: string; marka: string | null } | null> => {
       if (!canSeeUrunler || !isletme || !urunId) return null;
       const { data, error } = await supabase
         .from('urun_hareketler')
-        .select('birim_fiyat, created_at, islem:islemler(date, type)')
+        .select('birim_fiyat, marka, created_at, islem:islemler(date, type)')
         .eq('isletme_id', isletme.id)
         .eq('urun_id', urunId)
         .eq('hareket_tipi', yon === 'satis' ? 'cikis' : 'giris')
@@ -384,12 +384,21 @@ export function useSonUrunFiyati(urunId: string | undefined, yon: 'alis' | 'sati
           const islemRaw = Array.isArray(h.islem) ? h.islem[0] : h.islem;
           const meta = islemRaw as { date?: string; type?: string } | null;
           const tarih = meta?.date ?? h.created_at;
-          return { fiyat: toNumber(h.birim_fiyat), tarih: String(tarih).slice(0, 10), type: meta?.type };
+          return {
+            fiyat: toNumber(h.birim_fiyat),
+            tarih: String(tarih).slice(0, 10),
+            marka: typeof h.marka === 'string' && h.marka.trim() ? h.marka.trim() : null,
+            type: meta?.type,
+          };
         })
         .filter((c) => !c.type || !excluded.has(c.type)); // type yoksa (düzeltme) güvenli tut
       if (adaylar.length === 0) return null;
       adaylar.sort((a, b) => (a.tarih < b.tarih ? 1 : -1));
-      return { fiyat: adaylar[0].fiyat, tarih: adaylar[0].tarih };
+      return {
+        fiyat: adaylar[0].fiyat,
+        tarih: adaylar[0].tarih,
+        marka: adaylar[0].marka,
+      };
     },
     enabled: canSeeUrunler && !!isletme && !!urunId,
     staleTime: 30_000,
@@ -1135,7 +1144,9 @@ export function useUrunHareketlerByIslemId(islemId: string | undefined) {
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return data as (UrunHareket & { urunler: { ad: string; birim: string } })[];
+      return data as (UrunHareket & {
+        urunler: { ad: string; birim: string; marka?: string | null };
+      })[];
     },
     enabled: canSeeUrunler && !!isletme && !!islemId,
   });
@@ -1162,6 +1173,7 @@ export function useUpdateUrunHareket() {
       id: string;
       miktar: number;
       birim_fiyat: number | null;
+      marka?: string | null;
       hareket_tipi: UrunHareketTipi;
       created_at?: string; // İş tarihi düzenlemesi; verilmezse değişmez
     }) => {
@@ -1207,6 +1219,7 @@ export function useUpdateUrunHareket() {
             hareket_tipi: input.hareket_tipi,
             miktar: input.miktar,
             birim_fiyat: input.birim_fiyat,
+            marka: input.marka,
             created_at: input.created_at,
           },
         });
@@ -1302,6 +1315,7 @@ export function useReapplyUrunHareketlerForIslem() {
         miktar: number;
         birim_fiyat: number | null;
         kdv_orani: number | null;
+        marka?: string | null;
         aciklama?: string | null;
       }>;
     }) => {
@@ -1372,6 +1386,7 @@ export interface CreateUrunHareketWithCariInput {
   miktar: number;
   birim_fiyat: number;
   kdv_orani: KdvOrani;
+  marka?: string | null;
   cari_id: string;
   aciklama?: string;
   date?: string;
@@ -1447,6 +1462,7 @@ export function useCreateUrunHareketWithCari() {
           miktar: normalizedItem.miktar,
           birim_fiyat: normalizedItem.birim_fiyat,
           kdv_orani: input.kdv_orani,
+          marka: input.marka,
           aciklama: input.aciklama ?? null,
         }],
       });
@@ -1471,6 +1487,7 @@ export interface BulkUrunItem {
   miktar: number;
   birim_fiyat: number;
   kdv_orani: KdvOrani;
+  marka?: string | null;
 }
 
 export interface CreateBulkUrunHareketWithCariInput {
@@ -1536,6 +1553,7 @@ export function useCreateBulkUrunHareketWithCari() {
           miktar: item.miktar,
           birim_fiyat: item.birim_fiyat,
           kdv_orani: item.kdv_orani,
+          marka: item.marka,
           aciklama: input.aciklama ?? null,
         })),
       });
